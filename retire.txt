@@ -1,0 +1,127 @@
+
+P1 = Henry
+P2 = Denise
+PO = Older person
+
+=== Section Social Security
+
+If any person's spousal benefit (50% PIA) is higher, don't use their social security statement file. Instead, use following as their social security info
+	Spousal benefit (50% PIA) as their social security amount @ FRA
+	collecting earlier than FRA reduces amount by the following
+		(25/36%)/month for 36 months before FRA
+		(5/12%)/month for months earlier than 36 months before FRA
+	collecting later than FRA has no increase
+	when spouse pass, inherit spouse's social security amount
+
+Do break even analysis for the married couple
+
+build a chart with 5 slider input
+	$P1 passing age, initial setting 85
+	$P2 passing age, initial setting 90
+	both passing age use same scale
+	younger person's social security start age
+	Inflation rate, initial setting 3%
+	Social Security annual COLA rate, initial setting 2%
+	both rates use same scale
+
+Chart spec
+	Y axis = cumulative combine household social security benefit. Lock axis scale
+	X axis = $PO age to 100. Lock axis scale even when sliders change
+	Convert all numbers into today's dollars
+	graph a line for every other year $PO can start taking social security
+	graph width should be 2/3 of page width, center graph horizontally on page
+	graph height should be same as width
+	stop line when both pass
+
+Build a table
+	for every graphed line
+		monthly social security benefit
+		total household social security benefit
+		real annual ROI % on social security
+
+ROI explanation
+	explain briefly method for calculating ROI
+
+=== Section Add Pension + Wage + RMD
+
+Build chart with 4 slider input
+	$P1 age to start social security, initial setting 67
+	$P2 age to start social security, initial setting 67
+	IRA value @ RMD age in future dollars. Slider range $0 to $4M
+	RMD annual growth rate, initial setting 3%
+
+IRA RMD amount
+	RMDfactortbl = scrape uniform lifetime table from https://www.fidelity.com/bin-public/060_www_fidelity_com/documents/UniformLifetimeTable.pdf
+	annual RMD amount = prior year IRA balance / RMDfactortbl(IRA owner age for the year)
+	after IRA owner pass, IRA is inherited by spouse
+
+Chart spec
+	Y axis = annual household income. Lock axis scale
+		Draw thick lines. Different distinctive color for each income source
+		Line height is total income. Order should be
+			pension
+			wage
+			IRA RMD in today's $s
+			social security for $PO
+			social security for other person
+			be sure to follow the spousal benefit rules in section 1
+		Draw income until the last person pass
+		Include IRA value in popup window
+
+	X axis = $PO age to 100. Lock axis scale even when sliders change
+	Convert all numbers into today's dollars
+	graph width should be 2/3 of page width, center graph horizontally on page
+	graph height should be same as width
+	stop when both pass
+
+=== Taxation Sections
+
+Note taxation calculations are simplified and based on all ordinary income and no lower tax qualified or tax exempt income (exempts can just be ignored in analysis)
+
+=== Filing Status
+
+Note when 1 person pass, the other person become single filing status
+
+=== Section Taxable Social Security Calculation
+
+Calculate provision income
+Calculate taxable social security. Double check filing status in case 1 person pass
+
+Taxable social security bracket limits have not changed since 1980s/1990s so no COLA adjustment and will decrease over time causing higher taxable social security
+
+=== Section Taxable Social Security Tax
+
+Chart spec
+	Y axis = taxable security amount. Lock Y scale
+	Draw thick lines.
+	Line height is taxable security amount
+	Draw until the last person pass. Note filing status change when first person pass
+
+Note torpedo effect : every dollar of income that increase taxable social security is taxed itself and pushes more social security to become taxable
+
+=== Second 2 Total Tax
+
+Standard deduction = $32k
+AGI = all non social security income + taxable social security
+Taxable income = AGI - standard deduction
+
+Tax brackets = Current year tax brackets
+
+Calculate total tax on Taxable Income with Tax brackets and filing status.
+
+Chart spec
+	Y axis = total tax amount. Lock Y scale
+	show tax brackets in thin dashed lines if visible on scale
+	Draw thick lines.
+	Line height is total tax amount
+	Draw until the last person pass. Note filing status change when first person pass
+	Draw tax brackets in dashed lines matching year filing status
+	Show in popup : total income, all income components, provision income
+
+=== Output
+
+Generate output in standalong html
+
+=== References
+
+Use previously generated html as reference including visual layout style
