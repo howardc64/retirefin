@@ -1,8 +1,4 @@
 
-P1 = Henry
-P2 = Denise
-PO = Older person
-
 === Section Social Security
 
 If any person's spousal benefit (50% PIA) is higher, don't use their social security statement file. Instead, use following as their social security info
