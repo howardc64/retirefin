@@ -732,6 +732,24 @@ const IRMAA_SINGLE = [
   { magi: 500000, label: 'IRMAA Tier 5+', surcharge: 19548, color: 'rgba(120,20,60,0.70)'   },
 ];
 
+// Compute income-level equivalents of tax bracket boundaries for Chart 2.
+// The income chart Y-axis ≈ AGI (total income ≈ non-SS + SS).
+// Bracket boundary in terms of income level = taxable income limit + standard deduction.
+// This is approximate (actual taxable SS varies) but gives a useful visual reference.
+function computeIncomeBracketLines(brackets, stdDed) {
+  const lines = [];
+  for (let i = 0; i < brackets.length - 1; i++) {
+    const b = brackets[i];
+    const incomeLevel = b.limit + stdDed;  // AGI level where next bracket kicks in
+    lines.push({
+      incomeLevel,
+      upperRate: Math.round(brackets[i+1].rate * 100),
+      lowerRate: Math.round(b.rate * 100),
+    });
+  }
+  return lines;
+}
+
 const irmaaLinesPlugin = {
   id: 'irmaaLines',
   afterDraw(chart, args, opts) {
@@ -745,7 +763,9 @@ const irmaaLinesPlugin = {
       : (switchIdx <= 0 ? left-1 : right);
     const singleLeft = mfjRight;
     ctx.save();
-    function drawSegLines(lines, xFrom, xTo) {
+
+    // Draw IRMAA threshold lines
+    function drawIrmaaLines(lines, xFrom, xTo) {
       if (!lines || xFrom >= xTo) return;
       lines.forEach(line => {
         const yPx = y.getPixelForValue(line.magi);
@@ -761,8 +781,32 @@ const irmaaLinesPlugin = {
         ctx.fillText(`${line.label} >${(line.magi/1000).toFixed(0)}k`, segR-3, yPx-2);
       });
     }
-    drawSegLines(opts.mfjLines.filter(l=>l.magi<(y.max||Infinity)),    left,       mfjRight);
-    drawSegLines(opts.singleLines.filter(l=>l.magi<(y.max||Infinity)), singleLeft, right);
+    drawIrmaaLines(opts.mfjLines.filter(l=>l.magi<(y.max||Infinity)),    left,       mfjRight);
+    drawIrmaaLines(opts.singleLines.filter(l=>l.magi<(y.max||Infinity)), singleLeft, right);
+
+    // Draw tax bracket income-level lines (if provided)
+    function drawIncomeBracketLines(lines, xFrom, xTo, color) {
+      if (!lines || xFrom >= xTo) return;
+      lines.forEach(line => {
+        const yPx = y.getPixelForValue(line.incomeLevel);
+        if (yPx < top || yPx > bottom) return;
+        const segL = Math.max(left, xFrom), segR = Math.min(right, xTo);
+        if (segL >= segR) return;
+        ctx.beginPath(); ctx.setLineDash([5,4]); ctx.lineWidth = 1;
+        ctx.strokeStyle = color;
+        ctx.moveTo(segL, yPx); ctx.lineTo(segR, yPx); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = '9px DM Sans, sans-serif'; ctx.fillStyle = color;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`${line.upperRate}%`, segR-2, yPx-1);
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${line.lowerRate}%`, segR-2, yPx+1);
+      });
+    }
+    if (opts.mfjBrackets)    drawIncomeBracketLines(opts.mfjBrackets.filter(l=>l.incomeLevel<(y.max||Infinity)),    left,       mfjRight,  '#8474b8');
+    if (opts.singleBrackets) drawIncomeBracketLines(opts.singleBrackets.filter(l=>l.incomeLevel<(y.max||Infinity)), singleLeft, right,     '#b88474');
+
     ctx.restore();
   }
 };
@@ -772,7 +816,9 @@ function buildLegend2() {
   document.getElementById('legend2').innerHTML =
     Object.entries(INC_LABELS).map(([k,v])=>
       `<span class="legend-item"><span class="legend-swatch" style="background:${INC_COLORS[k]}"></span>${v}</span>`).join('') +
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed rgba(180,100,20,0.80);background:transparent;height:2px;margin-top:4px"></span>IRMAA thresholds</span>`;
+    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed rgba(180,100,20,0.80);background:transparent;height:2px;margin-top:4px"></span>IRMAA thresholds</span>` +
+    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #8474b8;background:transparent;height:2px;margin-top:4px"></span>MFJ tax brackets</span>` +
+    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #b88474;background:transparent;height:2px;margin-top:4px"></span>Single tax brackets</span>`;
 }
 
 function buildChart2(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue) {
@@ -823,7 +869,9 @@ function buildChart2(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, ir
   const c = document.getElementById('chart2');
   if (chart2Inst) {
     chart2Inst.data.datasets.forEach((ds, i) => { ds.data = datasets[i].data; });
-    chart2Inst.options.plugins.irmaaLines = { mfjLines: irmaaMfj, singleLines: irmaaSingle, switchIdx: irmaaSwitchIdx };
+    const mfjBrack2    = computeIncomeBracketLines(MFJ_BRACKETS, STANDARD_DEDUCTION_MFJ).filter(l=>l.incomeLevel<Y2_MAX_LOCKED);
+    const singleBrack2 = computeIncomeBracketLines(SINGLE_BRACKETS, STANDARD_DEDUCTION_SINGLE).filter(l=>l.incomeLevel<Y2_MAX_LOCKED);
+    chart2Inst.options.plugins.irmaaLines = { mfjLines: irmaaMfj, singleLines: irmaaSingle, switchIdx: irmaaSwitchIdx, mfjBrackets: mfjBrack2, singleBrackets: singleBrack2 };
     chart2Inst.update({ duration: 400, easing: 'easeInOutQuart' });
   } else {
     chart2Inst = new Chart(c, { type: 'line', data: { labels, datasets }, options: {
@@ -831,7 +879,9 @@ function buildChart2(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, ir
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
-        irmaaLines: { mfjLines: irmaaMfj, singleLines: irmaaSingle, switchIdx: irmaaSwitchIdx },
+        irmaaLines: { mfjLines: irmaaMfj, singleLines: irmaaSingle, switchIdx: irmaaSwitchIdx,
+          mfjBrackets: computeIncomeBracketLines(MFJ_BRACKETS, STANDARD_DEDUCTION_MFJ).filter(l=>l.incomeLevel<Y2_MAX_LOCKED),
+          singleBrackets: computeIncomeBracketLines(SINGLE_BRACKETS, STANDARD_DEDUCTION_SINGLE).filter(l=>l.incomeLevel<Y2_MAX_LOCKED) },
         tooltip: {
           bodyFont: { family: 'monospace', size: 12 },
           footerFont: { family: 'monospace', size: 11 },

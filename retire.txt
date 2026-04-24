@@ -57,6 +57,9 @@ IRA RMD amount
 	annual RMD amount = prior year IRA balance / RMDfactortbl(IRA owner age for the year)
 	after IRA owner pass, IRA is inherited by spouse
 
+Tax income brackets = Current year tax income brackets
+
+
 Chart spec
 	Y axis = annual household income. Lock default Y max $150k (change if amount requires more)
 		Draw thick lines. Different distinctive color for each income source
@@ -72,6 +75,11 @@ Chart spec
 		Draw income until the last person pass
 		Draw IRMMA surcharge bracket in dashed line matching year filing status
 			include at least lowest IRRMA bracket in the chart
+			draw on top with distinctive colors
+		Draw tax income brackets in dashed lines matching year filing status
+			label higher bracket % above and lower bracket % below the line
+			label include word income tax
+			draw on top with distinctive colors
 		Include IRA value in popup window
 
 	X axis = $PO age to 100. Lock axis scale even when sliders change
@@ -120,7 +128,7 @@ Chart spec
 	Line height is total tax amount
 	Draw until the last person pass. Note filing status change when first person pass
 	Draw tax brackets in dashed lines matching year filing status
-		label higher bracket % above and lower bracket % below the line
+		label higher bracket tax % above and lower bracket tax % below the line
 	Show in popup window :
 		total income
 		standard deduction
