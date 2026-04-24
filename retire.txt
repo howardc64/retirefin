@@ -62,13 +62,15 @@ Chart spec
 			social security for other person
 			be sure to follow the spousal benefit rules in section 1
 		Draw income until the last person pass
+		Draw IRMMA surcharge bracket in dashed line matching year filing status
+			include at least lowest IRRMA bracket in the chart
 		Include IRA value in popup window
 
 	X axis = $PO age to 100. Lock axis scale even when sliders change
 	Convert all numbers into today's dollars
 	graph width should be 2/3 of page width, center graph horizontally on page
 	graph height should be same as width
-	stop when both pass
+	stop including a person's income when they pass
 
 === Taxation Sections
 
@@ -97,9 +99,8 @@ Note torpedo effect : every dollar of income that increase taxable social securi
 
 === Second 2 Total Tax
 
-Standard deduction = $32k
 AGI = all non social security income + taxable social security
-Taxable income = AGI - standard deduction
+Taxable income = AGI - standard deduction based on filing status
 
 Tax brackets = Current year tax brackets
 
@@ -112,7 +113,8 @@ Chart spec
 	Line height is total tax amount
 	Draw until the last person pass. Note filing status change when first person pass
 	Draw tax brackets in dashed lines matching year filing status
-	Show in popup : total income, all income components, provision income
+		label higher bracket % above and lower bracket % below the line
+	Show in popup : total income, standard deduction, all income components, provision income. Label left justified, data right justified.
 
 === Output
 
