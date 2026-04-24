@@ -1,4 +1,10 @@
 
+=== Chart UI
+
+Popup window : Label left justified, data right justified.
+chart width should be 2/3 of page width, center graph horizontally on page
+smooth  changes in chart when changing sliders instead of redraw whole chart
+
 === Section Social Security
 
 If any person's spousal benefit (50% PIA) is higher, don't use their social security statement file. Instead, use following as their social security info
@@ -38,7 +44,7 @@ Build a table
 ROI explanation
 	explain briefly method for calculating ROI
 
-=== Section Add Pension + Wage + RMD
+=== Section Annual Household Income
 
 Build chart with 4 slider input
 	$P1 age to start social security, initial setting 67
@@ -52,11 +58,12 @@ IRA RMD amount
 	after IRA owner pass, IRA is inherited by spouse
 
 Chart spec
-	Y axis = annual household income. Lock axis scale
+	Y axis = annual household income. Lock default Y max $150k (change if amount requires more)
 		Draw thick lines. Different distinctive color for each income source
 		Line height is total income. Order should be
 			pension
 			wage
+			taxable interest
 			IRA RMD in today's $s
 			social security for $PO
 			social security for other person
@@ -68,8 +75,7 @@ Chart spec
 
 	X axis = $PO age to 100. Lock axis scale even when sliders change
 	Convert all numbers into today's dollars
-	graph width should be 2/3 of page width, center graph horizontally on page
-	graph height should be same as width
+	chart height should be same as width
 	stop including a person's income when they pass
 
 === Taxation Sections
@@ -114,11 +120,15 @@ Chart spec
 	Draw until the last person pass. Note filing status change when first person pass
 	Draw tax brackets in dashed lines matching year filing status
 		label higher bracket % above and lower bracket % below the line
-	Show in popup : total income, standard deduction, all income components, provision income. Label left justified, data right justified.
+	Show in popup window :
+		total income
+		standard deduction
+		all income components
+		provision income
 
 === Output
 
-Generate output in standalong html
+Generate output in standalone html
 
 === References
 
