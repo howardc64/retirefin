@@ -65,6 +65,7 @@ Chart spec
 			wage
 			taxable interest
 			IRA RMD in today's $s
+			rental income
 			social security for $PO
 			social security for other person
 			be sure to follow the spousal benefit rules in section 1
