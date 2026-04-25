@@ -1,0 +1,43 @@
+=== Client
+
+P1 = John Doe
+P2 = Jane Doe
+PO = Older person
+
+P1 DOB 1/1/1965
+P2 DOB 7/1/1968
+
+=== Filing Status (FS)
+
+Married File Joint
+
+=== Social Security (SS)
+
+P1 SS
+
+62	$2,688
+67	$3,817
+70	$4,733
+
+P2 SS
+
+62	$931
+67	$1,376
+70	$1,744
+
+=== Pension Info (PEN)
+
+P1 PEN $1500 starting at 60 (fixed, not COLA adjusted, will decrease overtime from inflation, no survivor)
+
+=== Wage Info (WG)
+
+P2 WG $40k/year (in today's $s) until 65
+
+=== Taxable Interest (TINT)
+
+$5000/year fixed, no COLA
+
+=== Pre-Tax Traditional IRA Info (TIRA)
+
+Determine RMD age for P1
+P1 own TIRA value $750k at RMD start age in future dollars
