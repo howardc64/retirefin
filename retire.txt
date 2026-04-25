@@ -89,7 +89,7 @@ Chart spec
 
 === Taxation Sections
 
-Note taxation calculations are simplified and based on all ordinary income and no lower tax qualified or tax exempt income (exempts can just be ignored in analysis)
+Note taxation calculations are simplified and based on all ordinary income and no lower tax qualified income.
 
 === Filing Status
 
@@ -135,6 +135,8 @@ Chart spec
 		standard deduction
 		all income components
 		provision income
+
+Note since total income is simplified. Tax calculation is also simplified here without most deductions and credits.
 
 === Output
 
