@@ -1,0 +1,14 @@
+=== Social Security Checks
+
+Check social security spousal benefits for all persons
+Check social security spousal benefit calculations including before FRA reductions and no credit after FRA
+
+=== Misc Checks
+
+Check taxable social security tiers and calculations
+
+Check IRRMA tiers
+
+Check tax brackets
+
+Check filing status against all person's living and passing dates
