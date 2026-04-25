@@ -3,92 +3,91 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Retirement Income Analysis — John &amp; Jane</title>
+<title>Retirement Income Analysis — John &amp; Jane Doe</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f7f5f0; --surface: #ffffff; --surface2: #f0ede6;
-    --border: rgba(0,0,0,0.10); --border-strong: rgba(0,0,0,0.18);
-    --text: #1a1814; --text-muted: #6b6760; --text-faint: #a09d98;
-    --teal: #0f6e56; --teal-light: #e1f5ee; --teal-text: #085041;
-    --accent: #0f6e56; --radius: 10px;
+    --bg:#f7f5f0; --surface:#ffffff; --surface2:#f0ede6;
+    --border:rgba(0,0,0,0.10); --border-strong:rgba(0,0,0,0.18);
+    --text:#1a1814; --text-muted:#6b6760; --text-faint:#a09d98;
+    --teal:#0f6e56; --teal-light:#e1f5ee; --teal-text:#085041;
+    --accent:#0f6e56; --radius:10px;
   }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
-  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 28px 40px 24px; }
-  header h1 { font-family: 'DM Serif Display', serif; font-size: 26px; font-weight: 400; margin-bottom: 4px; }
-  header p { font-size: 13px; color: var(--text-muted); font-weight: 300; }
-  header .badges { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  .badge { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--text-muted); background: var(--surface2); }
-  .badge-highlight { border-color: rgba(15,110,86,0.35); color: var(--teal-text); background: var(--teal-light); }
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:28px 40px 24px;}
+  header h1{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;margin-bottom:4px;}
+  header p{font-size:13px;color:var(--text-muted);font-weight:300;}
+  header .badges{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .badge{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text-muted);background:var(--surface2);}
+  .badge-highlight{border-color:rgba(15,110,86,0.35);color:var(--teal-text);background:var(--teal-light);}
 
-  main { max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px; }
-  .section-heading { font-family: 'DM Serif Display', serif; font-size: 20px; font-weight: 400; margin: 40px 0 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+  main{max-width:1100px;margin:0 auto;padding:32px 24px 60px;}
+  .section-heading{font-family:'DM Serif Display',serif;font-size:20px;font-weight:400;margin:40px 0 18px;padding-bottom:10px;border-bottom:1px solid var(--border);color:var(--text);}
 
-  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
-  .metric-label { font-size: 11px; font-weight: 500; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
-  .metric-value { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--text); margin-bottom: 2px; }
-  .metric-sub { font-size: 11px; color: var(--text-muted); }
-  .metric-highlight { border-color: rgba(15,110,86,0.3); background: var(--teal-light); }
-  .metric-highlight .metric-label { color: var(--teal-text); }
-  .metric-highlight .metric-value { color: var(--teal-text); }
+  .metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin-bottom:24px;}
+  .metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
+  .metric-label{font-size:11px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+  .metric-value{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);margin-bottom:2px;}
+  .metric-sub{font-size:11px;color:var(--text-muted);}
+  .metric-highlight{border-color:rgba(15,110,86,0.3);background:var(--teal-light);}
+  .metric-highlight .metric-label{color:var(--teal-text);}
+  .metric-highlight .metric-value{color:var(--teal-text);}
 
-  .controls { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 20px; }
-  .controls-title { font-size: 11px; font-weight: 500; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
-  .slider-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
-  .slider-row:last-child { margin-bottom: 0; }
-  .slider-label { font-size: 13px; color: var(--text-muted); min-width: 220px; }
-  .slider-label strong { color: var(--text); font-weight: 500; }
-  input[type=range] { flex: 1; -webkit-appearance: none; height: 4px; background: var(--border-strong); border-radius: 2px; outline: none; cursor: pointer; }
-  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
-  input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid white; }
-  .slider-val { font-size: 14px; font-weight: 500; min-width: 56px; text-align: right; color: var(--text); }
-  .divider-row { border-top: 1px solid var(--border); margin: 14px 0; }
+  .controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+  .controls-title{font-size:11px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px;}
+  .slider-row{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+  .slider-row:last-child{margin-bottom:0;}
+  .slider-label{font-size:13px;color:var(--text-muted);min-width:220px;}
+  .slider-label strong{color:var(--text);font-weight:500;}
+  input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border-strong);border-radius:2px;outline:none;cursor:pointer;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.2);}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid white;}
+  .slider-val{font-size:14px;font-weight:500;min-width:56px;text-align:right;color:var(--text);}
+  .divider-row{border-top:1px solid var(--border);margin:14px 0;}
 
-  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 20px; }
-  .chart-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 6px; text-align: center; }
-  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; font-size: 12px; color: var(--text-muted); justify-content: center; }
-  .legend-item { display: flex; align-items: center; gap: 6px; }
-  .legend-swatch { width: 28px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-  .chart-outer { display: flex; justify-content: center; width: 100%; }
-  .chart-wrap { position: relative; width: 66.667vw; max-width: 800px; min-width: 280px; }
-  .chart-wrap canvas { display: block; }
-  .chart-note { font-size: 11px; color: var(--text-faint); margin-top: 12px; line-height: 1.5; text-align: center; }
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+  .chart-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;text-align:center;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;font-size:11px;color:var(--text-muted);justify-content:center;}
+  .legend-item{display:flex;align-items:center;gap:5px;}
+  .legend-swatch{width:24px;height:10px;border-radius:3px;flex-shrink:0;}
+  .chart-outer{display:flex;justify-content:center;width:100%;}
+  .chart-wrap{position:relative;width:66.667vw;max-width:800px;min-width:280px;}
+  .chart-wrap canvas{display:block;}
+  .chart-note{font-size:11px;color:var(--text-faint);margin-top:12px;line-height:1.5;text-align:center;}
 
-  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
-  .table-header { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); }
-  .table-title { font-size: 13px; font-weight: 500; color: var(--text); }
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  thead th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 500; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  thead th.r { text-align: right; }
-  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
-  tbody td.r { text-align: right; font-variant-numeric: tabular-nums; }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover td { background: var(--surface2); }
-  .best-household td { background: #e8f7f2 !important; color: var(--text); }
-  .best-household td:first-child { font-weight: 500; color: var(--teal-text); }
-  .table-note { padding: 12px 18px; font-size: 11px; color: var(--text-faint); border-top: 1px solid var(--border); line-height: 1.6; }
+  .table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
+  .table-header{padding:14px 18px 12px;border-bottom:1px solid var(--border);}
+  .table-title{font-size:13px;font-weight:500;color:var(--text);}
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead th{padding:8px 12px;text-align:left;font-size:10px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;}
+  thead th.r{text-align:right;}
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text-muted);}
+  tbody td.r{text-align:right;font-variant-numeric:tabular-nums;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:var(--surface2);}
+  .best-household td{background:#e8f7f2 !important;color:var(--text);}
+  .best-household td:first-child{font-weight:500;color:var(--teal-text);}
+  .table-note{padding:12px 18px;font-size:11px;color:var(--text-faint);border-top:1px solid var(--border);line-height:1.6;}
 
-  .info-card { background: var(--teal-light); border: 1px solid rgba(15,110,86,0.15); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 20px; }
-  .info-card h3 { font-family: 'DM Serif Display', serif; font-size: 16px; font-weight: 400; margin-bottom: 10px; color: var(--teal-text); }
-  .info-card p { font-size: 13px; color: #2a4a3e; line-height: 1.65; margin-bottom: 8px; }
-  .info-card p:last-child { margin-bottom: 0; }
-  .info-card .callout { background: white; border-left: 3px solid var(--teal); border-radius: 0 6px 6px 0; padding: 10px 14px; margin: 12px 0; font-size: 12px; color: #1a3a30; line-height: 1.7; }
+  .info-card{background:var(--teal-light);border:1px solid rgba(15,110,86,0.15);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+  .info-card h3{font-family:'DM Serif Display',serif;font-size:16px;font-weight:400;margin-bottom:10px;color:var(--teal-text);}
+  .info-card p{font-size:13px;color:#2a4a3e;line-height:1.65;margin-bottom:8px;}
+  .info-card p:last-child{margin-bottom:0;}
+  .info-card .callout{background:white;border-left:3px solid var(--teal);border-radius:0 6px 6px 0;padding:10px 14px;margin:12px 0;font-size:12px;color:#1a3a30;line-height:1.7;}
 
-  footer { text-align: center; padding: 20px 24px; font-size: 11px; color: var(--text-faint); border-top: 1px solid var(--border); background: var(--surface); }
-  .roi-pos { color: #0f6e56; font-weight: 500; }
-  .roi-neg { color: #c0392b; }
-
-  .tax-badge { font-size:11px; font-weight:500; padding:2px 8px; border-radius:12px; }
-  .tax-exempt { background:#e1f5ee; color:#085041; }
-  .tax-50    { background:#fff3cd; color:#856404; }
-  .tax-85    { background:#fde8d8; color:#7c3a00; }
-  .torpedo-note { background:#fff8e1; border:1px solid rgba(200,150,0,0.25); border-left:3px solid #e6a817; border-radius:0 8px 8px 0; padding:10px 14px; font-size:12px; color:#4a3800; line-height:1.7; margin:10px 0; }
+  footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint);border-top:1px solid var(--border);background:var(--surface);}
+  .roi-pos{color:#0f6e56;font-weight:500;}
+  .roi-neg{color:#c0392b;}
+  .tax-badge{font-size:11px;font-weight:500;padding:2px 8px;border-radius:12px;}
+  .tax-exempt{background:#e1f5ee;color:#085041;}
+  .tax-50{background:#fff3cd;color:#856404;}
+  .tax-85{background:#fde8d8;color:#7c3a00;}
+  .torpedo-note{background:#fff8e1;border:1px solid rgba(200,150,0,0.25);border-left:3px solid #e6a817;border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:#4a3800;line-height:1.7;margin:10px 0;}
 </style>
 </head>
 <body>
@@ -123,19 +122,19 @@
   <div class="controls-title">Assumptions — drag to adjust (shared with all sections)</div>
   <div class="slider-row">
     <div class="slider-label"><strong>John</strong> passes at age</div>
-    <input type="range" id="johnDeath" min="62" max="105" value="85">
-    <div class="slider-val" id="johnDeathVal">85</div>
+    <input type="range" id="henryDeath" min="62" max="105" value="85">
+    <div class="slider-val" id="henryDeathVal">85</div>
   </div>
   <div class="slider-row">
     <div class="slider-label"><strong>Jane</strong> passes at age</div>
-    <input type="range" id="janeDeath" min="62" max="105" value="90">
-    <div class="slider-val" id="janeDeathVal">90</div>
+    <input type="range" id="deniseDeath" min="62" max="105" value="90">
+    <div class="slider-val" id="deniseDeathVal">90</div>
   </div>
   <div class="divider-row"></div>
   <div class="slider-row">
     <div class="slider-label"><strong>Jane</strong> starts SS at age</div>
-    <input type="range" id="janeSSAge1" min="62" max="70" value="67">
-    <div class="slider-val" id="janeSSAge1Val">67</div>
+    <input type="range" id="deniseSSAge1" min="62" max="70" value="67">
+    <div class="slider-val" id="deniseSSAge1Val">67</div>
   </div>
   <div class="divider-row"></div>
   <div class="slider-row">
@@ -153,18 +152,12 @@
 <div class="chart-card">
   <div class="chart-title">Cumulative household SS benefit · John claiming age 62–70 (every 2 yrs) · today's dollars</div>
   <div class="legend" id="legend1"></div>
-  <div class="chart-outer">
-    <div class="chart-wrap" id="chartWrap1">
-      <canvas id="chart1"></canvas>
-    </div>
-  </div>
+  <div class="chart-outer"><div class="chart-wrap"><canvas id="chart1"></canvas></div></div>
   <p class="chart-note" id="chartNote1"></p>
 </div>
 
 <div class="table-card">
-  <div class="table-header">
-    <div class="table-title">Breakeven &amp; ROI by John's claiming age · today's dollars</div>
-  </div>
+  <div class="table-header"><div class="table-title">Breakeven &amp; ROI by John's claiming age · today's dollars</div></div>
   <div class="table-wrap">
     <table>
       <thead>
@@ -193,7 +186,7 @@
     Jane's own benefit = $1,376/mo<br>
     Social Security pays the higher: <strong>$1,909/mo</strong> (spousal)
   </div>
-  <p>Key rules: (1) Spousal is based on John's <em>PIA</em>, not his claiming age. (2) If Jane claims before her FRA (67), the spousal benefit is permanently reduced — she must wait to 67 for the full 50%. (3) No delayed credits on spousal past FRA. (4) John must file first. (5) After John passes, Jane receives a <strong>survivor benefit = 100% of John's actual benefit</strong> — making John's claiming age consequential for the household for life.</p>
+  <p>Key rules: (1) Spousal is based on John's <em>PIA</em>, not his claiming age. (2) If Jane claims before her FRA (67), the spousal benefit is permanently reduced. (3) No delayed credits on spousal past FRA. (4) John must file first. (5) After John passes, Jane receives a <strong>survivor benefit = 100% of John's actual benefit</strong> — making John's claiming age consequential for the household for life.</p>
 
   <h3 style="margin-top:16px;">Pension &amp; the survivor lever</h3>
   <p>John's pension is $1,500/mo nominal with <em>no COLA</em>, starting at age 60. In real terms it shrinks every year — at 3% inflation it loses ~60% of purchasing power over 30 years. There is no survivor benefit; it stops at John's death. John's SS survivor lever: at age 70 ($4,733/mo) vs age 62 ($2,688/mo), the survivor premium is <strong>$2,045/mo</strong> (~$24,500/yr) for every remaining year of Jane's life.</p>
@@ -203,21 +196,21 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════
-     SECTION 2 — Annual Household Income (Stacked)
+     SECTION 2 — Annual Household Income
      ══════════════════════════════════════════════════════ -->
-<div class="section-heading">Section 2 — Annual Household Income: Pension + Wage + IRA RMD + Social Security</div>
+<div class="section-heading">Section 2 — Annual Household Income: Pension + Wage + Interest + IRA RMD + Social Security</div>
 
 <div class="controls">
-  <div class="controls-title">SS claiming ages &amp; IRA growth — drag to adjust</div>
+  <div class="controls-title">SS claiming ages &amp; IRA — drag to adjust</div>
   <div class="slider-row">
     <div class="slider-label"><strong>John</strong> starts SS at age</div>
-    <input type="range" id="johnSSAge" min="62" max="70" value="67">
-    <div class="slider-val" id="johnSSAgeVal">67</div>
+    <input type="range" id="henrySSAge" min="62" max="70" value="67">
+    <div class="slider-val" id="henrySSAgeVal">67</div>
   </div>
   <div class="slider-row">
     <div class="slider-label"><strong>Jane</strong> starts SS at age</div>
-    <input type="range" id="janeSSAge" min="62" max="70" value="67">
-    <div class="slider-val" id="janeSSAgeVal">67</div>
+    <input type="range" id="deniseSSAge" min="62" max="70" value="67">
+    <div class="slider-val" id="deniseSSAgeVal">67</div>
   </div>
   <div class="divider-row"></div>
   <div class="slider-row">
@@ -233,31 +226,27 @@
 </div>
 
 <div class="chart-card">
-  <div class="chart-title">Annual household income by source · stacked · today's dollars · line height = total income</div>
+  <div class="chart-title">Annual household income by source · stacked · today's dollars · dashed = IRMAA thresholds &amp; income tax bracket ceilings</div>
   <div class="legend" id="legend2"></div>
-  <div class="chart-outer">
-    <div class="chart-wrap" id="chartWrap2">
-      <canvas id="chart2"></canvas>
-    </div>
-  </div>
+  <div class="chart-outer"><div class="chart-wrap"><canvas id="chart2"></canvas></div></div>
   <p class="chart-note" id="chartNote2"></p>
 </div>
 
 <div class="info-card">
   <h3>Reading the stacked income chart</h3>
-  <p>Each colored band is a distinct income source. Bands stack — <strong>the top edge of the highest band = total annual household income</strong> in today's dollars at that age. Hover to see each source's contribution.</p>
+  <p>Each colored band is a distinct income source. Bands stack — <strong>the top edge = total annual household income</strong> in today's dollars. Hover for each source's value. Two sets of dashed overlay lines are drawn on top:</p>
   <div class="callout">
-    <strong style="color:#D06A18">■ Pension (orange, bottom):</strong> John's $18,000/yr fixed — starts at age 60, no COLA, purchasing power declines with inflation. Stops at John's death.<br>
-    <strong style="color:#7B5EA7">■ Wage (purple):</strong> Jane's $40,000/yr in today's dollars until her age 65, then zero. (Flat real value — no inflation adjustment.)<br>
-    <strong style="color:#5B8FA8">■ Taxable Interest (blue):</strong> $5,000/yr fixed nominal (no COLA) — real value declines with inflation over time.<br>
-    <strong style="color:#E85D9A">■ IRA RMD (pink):</strong> John's IRA (value at age 75 set by slider, in future/nominal dollars, converted to today's dollars via inflation discount) drawn down via IRS Uniform Lifetime Table. Growth rate set by slider. After John passes, inherited by Jane and continued at her age's RMD factors until she passes.<br>
-    <strong style="color:#0F6E56">■ John's SS (dark green):</strong> Starts at John's chosen claiming age. Stops at John's death — this band goes to zero when John passes.<br>
-    <strong style="color:#3DB08A">■ Jane's SS / Survivor (teal, top):</strong> Starts at Jane's chosen age. Spousal (up to $1,909/mo) if John has filed; own benefit otherwise. After John passes, this band shows Jane's <strong>survivor benefit = 100% of John's SS</strong> for every remaining year of Jane's life.
+    <strong style="color:#D06A18">■ Pension (orange):</strong> John's $18,000/yr fixed — starts age 60, no COLA, real value declines. Stops at John's death.<br>
+    <strong style="color:#7B5EA7">■ Wage (purple):</strong> Jane's $40,000/yr (today's $) until her age 65.<br>
+    <strong style="color:#5B8FA8">■ Taxable Interest (blue):</strong> $5,000/yr fixed nominal (no COLA) — real value declines with inflation.<br>
+    <strong style="color:#E85D9A">■ IRA RMD (pink):</strong> John's IRA drawn down via IRS Uniform Lifetime Table. After John passes, inherited by Jane.<br>
+    <strong style="color:#0F6E56">■ John's SS (dark green):</strong> Starts at John's chosen age. Stops at John's death.<br>
+    <strong style="color:#3DB08A">■ Jane's SS / Survivor (teal):</strong> Spousal ($1,909/mo max at her FRA) while John alive; survivor = 100% of John's SS after he passes.<br><br>
+    <strong>━ ━ Amber dashed:</strong> IRMAA Medicare surcharge thresholds (MFJ → Single after John's death).<br>
+    <strong>━ ━ Purple/Orange dashed:</strong> Income tax bracket ceilings — labels show higher rate above / lower rate below the line (MFJ left → Single right of filing-status switch).
   </div>
-  <p>Inflation and COLA assumptions from Section 1 apply here. All values in today's purchasing-power dollars. Bands end when both have passed.</p>
-
   <h3 style="margin-top:16px;">IRA RMD methodology</h3>
-  <p>John's IRA value at age 75 is set by the <strong>slider</strong> in future (nominal) dollars at age 75 (RMD start). To show in today's purchasing power, that nominal amount is discounted back using the inflation rate. The IRA annual growth rate slider is a <strong>nominal</strong> rate — the real (inflation-adjusted) growth applied to the real balance each year is <em>(1 + nominal growth) ÷ (1 + inflation) − 1</em>. At default settings (3% growth, 3% inflation) the real balance is essentially flat before RMDs, so the IRA depletes purely from withdrawals. Each year's RMD = prior year-end balance ÷ IRS Uniform Lifetime Table factor for the IRA owner's age that year. After John passes, Jane inherits the IRA; RMDs continue using the table at <em>Jane's</em> age (surviving spouse treating as own). All values shown in today's dollars.</p>
+  <p>John's IRA value at age 75 is set by the slider in future (nominal) dollars. To show in today's purchasing power, the nominal amount is discounted back via the inflation rate. Each year's RMD = prior year-end balance ÷ IRS Uniform Lifetime Table factor. After John passes, Jane inherits; RMDs continue at Jane's age factors.</p>
 </div>
 
 <!-- ══════════════════════════════════════════════════════
@@ -267,31 +256,25 @@
 
 <div class="info-card">
   <h3>How taxable Social Security is calculated (IRS Publication 915)</h3>
-  <p><strong>Provisional income (PI)</strong> = non-SS income (pension + wage + taxable interest + IRA RMD) + 50% of combined household SS benefits. Taxable SS is computed via the IRS two-tier formula:</p>
+  <p><strong>Provisional income (PI)</strong> = non-SS income + 50% of combined household SS. Taxable SS is computed via the IRS two-tier formula:</p>
   <div class="callout">
     <strong>Married Filing Jointly:</strong><br>
     <span class="tax-badge tax-exempt">Exempt</span> PI &lt; $32,000 → $0 taxable SS<br>
-    <span class="tax-badge tax-50">Tier 1</span> $32,000 – $44,000 → lesser of 50%×(PI−$32k) <em>or</em> 50%×SS<br>
-    <span class="tax-badge tax-85">Tier 2</span> PI &gt; $44,000 → lesser of [$6,000 + 85%×(PI−$44k)] <em>or</em> 85%×SS<br><br>
-    <strong>Single (after first spouse passes):</strong><br>
+    <span class="tax-badge tax-50">Tier 1</span> $32,000–$44,000 → lesser of 50%×(PI−$32k) or 50%×SS<br>
+    <span class="tax-badge tax-85">Tier 2</span> PI &gt; $44,000 → lesser of [$6,000 + 85%×(PI−$44k)] or 85%×SS<br><br>
+    <strong>Single (after John passes):</strong><br>
     <span class="tax-badge tax-exempt">Exempt</span> PI &lt; $25,000 → $0 taxable SS<br>
-    <span class="tax-badge tax-50">Tier 1</span> $25,000 – $34,000 → lesser of 50%×(PI−$25k) <em>or</em> 50%×SS<br>
-    <span class="tax-badge tax-85">Tier 2</span> PI &gt; $34,000 → lesser of [$4,500 + 85%×(PI−$34k)] <em>or</em> 85%×SS<br><br>
-    <em>Maximum taxable SS is always capped at 85% of combined household SS benefits.</em>
+    <span class="tax-badge tax-50">Tier 1</span> $25,000–$34,000 → lesser of 50%×(PI−$25k) or 50%×SS<br>
+    <span class="tax-badge tax-85">Tier 2</span> PI &gt; $34,000 → lesser of [$4,500 + 85%×(PI−$34k)] or 85%×SS
   </div>
-  <div class="torpedo-note"><strong>⚠️ Frozen thresholds — getting worse every year:</strong> These bracket limits were set in the 1980s–1990s and have <em>never been COLA-adjusted</em>. As Social Security benefits and other income grow with inflation over time, more and more of each retiree's SS benefit crosses these fixed thresholds and becomes taxable. What once exempted most retirees now catches the vast majority — and the real value of the exempt threshold shrinks further every year.</div>
-  <div class="torpedo-note"><strong>⚡ The Social Security Torpedo:</strong> Every extra dollar of non-SS income can push <em>up to $1.85 of income</em> into taxation — the extra dollar itself plus up to $0.85 more SS becoming taxable. This creates an effective marginal rate well above the stated bracket until SS is fully taxed (85% maximum).</div>
-  <p>Uses Section 2 slider values for SS claiming ages, IRA settings, and Section 1 sliders for COLA, inflation, and longevity.</p>
+  <div class="torpedo-note"><strong>⚠️ Frozen thresholds:</strong> These limits were set in the 1980s–1990s and have <em>never been COLA-adjusted</em>. As income grows with inflation, more SS becomes taxable every year.</div>
+  <div class="torpedo-note"><strong>⚡ The SS Torpedo:</strong> Every extra dollar of non-SS income can push up to $1.85 of total income into taxation — the extra dollar itself plus up to $0.85 more SS becoming taxable.</div>
 </div>
 
 <div class="chart-card">
   <div class="chart-title">Annual taxable Social Security amount · today's dollars</div>
   <div class="legend" id="legend3"></div>
-  <div class="chart-outer">
-    <div class="chart-wrap" id="chartWrap3">
-      <canvas id="chart3"></canvas>
-    </div>
-  </div>
+  <div class="chart-outer"><div class="chart-wrap"><canvas id="chart3"></canvas></div></div>
   <p class="chart-note" id="chartNote3"></p>
 </div>
 
@@ -302,1035 +285,938 @@
 
 <div class="info-card">
   <h3>How total tax is calculated</h3>
-  <p><strong>AGI</strong> = all non-SS income + taxable SS amount. <strong>Taxable income</strong> = AGI − standard deduction ($32,000 MFJ / $16,000 single in 2026 dollars). Tax brackets applied at filing status for that year (MFJ while both alive, Single after first death).</p>
+  <p><strong>AGI</strong> = all non-SS income + taxable SS. <strong>Taxable income</strong> = AGI − standard deduction. Filing switches from MFJ to Single at John's death.</p>
   <div class="callout">
-    <strong>2026 Tax Brackets — Married Filing Jointly:</strong><br>
-    10% on first $23,200 · 12% up to $94,300 · 22% up to $201,050 · 24% up to $383,900 · 32% up to $487,450 · 35% up to $731,200 · 37% above $731,200<br><br>
-    <strong>2026 Tax Brackets — Single:</strong><br>
-    10% on first $11,600 · 12% up to $47,150 · 22% up to $100,525 · 24% up to $191,950 · 32% up to $243,725 · 35% up to $365,600 · 37% above $365,600<br><br>
-    Standard deduction: <strong>$32,000 MFJ / $16,000 Single</strong> · All values shown in today's dollars
+    <strong>2026 — Married Filing Jointly:</strong> 10% on first $23,200 · 12% to $94,300 · 22% to $201,050 · 24% to $383,900 · 32% to $487,450 · 35% to $731,200 · 37% above<br>
+    Standard deduction MFJ: <strong>$32,000</strong><br><br>
+    <strong>2026 — Single:</strong> 10% on first $11,600 · 12% to $47,150 · 22% to $100,525 · 24% to $191,950 · 32% to $243,725 · 35% to $365,600 · 37% above<br>
+    Standard deduction Single: <strong>$16,000</strong>
   </div>
 </div>
 
 <div class="chart-card">
   <div class="chart-title">Annual total income tax · today's dollars</div>
   <div class="legend" id="legend4"></div>
-  <div class="chart-outer">
-    <div class="chart-wrap" id="chartWrap4">
-      <canvas id="chart4"></canvas>
-    </div>
-  </div>
+  <div class="chart-outer"><div class="chart-wrap"><canvas id="chart4"></canvas></div></div>
   <p class="chart-note" id="chartNote4"></p>
 </div>
 
 </main>
 
 <footer>
-  John DOB 1/1/1965 · Jane DOB 7/1/1968 · John pension $1,500/mo fixed starting age 60 (no COLA, no survivor) · Jane wage $40k/yr (today's $) until age 65 · Taxable interest $5,000/yr nominal · John IRA $750k nominal at age 75 · SS benefits from SSA statements. Analysis for informational purposes only — not financial advice.
+  John DOB 1/1/1965 · Jane DOB 7/1/1968 · John pension $1,500/mo fixed starting age 60 (no COLA, no survivor) · Jane wage $40k/yr until age 65 · Taxable interest $5,000/yr nominal · John IRA $750k nominal at age 75 · SS benefits from SSA statements. Analysis for informational purposes only — not financial advice.
 </footer>
 
 <script>
-// ── Constants ─────────────────────────────────────────────────────────────────
-const JOHN_BIRTH  = 1965.0;           // Jan 1 1965 (DOB 1/1/1965 → fraction 0/365 ≈ 0)
-const JANE_BIRTH  = 1968 + 182/365;   // Jul 1 1968
-const AGE_GAP     = JANE_BIRTH - JOHN_BIRTH;
-
-const JANE_FRA_AGE = 67;
+// ── Person constants ──────────────────────────────────────────────────────────
+// John DOB 1/1/1965 → birth fraction 0/365 = 0
+const HENRY_BIRTH  = 1965 + 0/365;
+// Jane DOB 7/1/1968 → (31+28+31+30+31+30+1)/365 = 182/365
+const DENISE_BIRTH = 1968 + 182/365;
+const AGE_GAP      = DENISE_BIRTH - HENRY_BIRTH;  // Jane younger
 const BASE_YEAR    = 2026;
 
-// John: pension $1500/mo fixed, no COLA, no survivor
-const JOHN_PENSION_NOM = 1500;
-const JANE_WAGE_REAL   = 40000 / 12;  // today's dollars (monthly)
-const JANE_WAGE_STOP   = 65;
-const TAXABLE_INTEREST = 5000;        // annual, nominal fixed (no COLA)
+const HENRY_FRA_AGE  = 67;
+const DENISE_FRA_AGE = 67;
 
-// IRA constants
-const IRA_RMD_START_AGE      = 75;     // SECURE 2.0 — born 1965 → RMD start age 75
-const IRA_VALUE_AT_RMD_DEFAULT = 750000;
+// Income
+const HENRY_PENSION_NOM  = 1500;      // monthly nominal, starts age 60, no COLA, no survivor
+const DENISE_WAGE_REAL   = 40000/12;  // monthly today's $
+const DENISE_WAGE_STOP   = 65;
+const TAXABLE_INTEREST   = 5000;      // annual nominal, no COLA
+
+// IRA: SECURE 2.0 — born 1965 → RMD age 75
+const IRA_RMD_START_AGE = 75;
+
+// SS data
+const HENRY_SS = { 62:2688, 67:3817, 70:4733 };
+const DENISE_SS_OWN = { 62:931, 67:1376, 70:1744 };
+
+const HENRY_PIA          = HENRY_SS[67];           // 3817
+const DENISE_SPOUSAL_FRA = Math.round(HENRY_PIA * 0.5); // 1909
+const DENISE_OWN_FRA     = DENISE_SS_OWN[67];      // 1376
 
 // IRS Uniform Lifetime Table
-const RMD_TABLE = {
-  72:27.4, 73:26.5, 74:25.5, 75:24.6, 76:23.7, 77:22.9, 78:22.0, 79:21.1,
-  80:20.2, 81:19.4, 82:18.5, 83:17.7, 84:16.8, 85:16.0, 86:15.2, 87:14.4,
-  88:13.7, 89:12.9, 90:12.2, 91:11.5, 92:10.8, 93:10.1, 94:9.5, 95:8.9,
-  96:8.4, 97:7.8, 98:7.3, 99:6.8, 100:6.4, 101:6.0, 102:5.6, 103:5.2,
-  104:4.9, 105:4.6, 106:4.3, 107:4.1, 108:3.9, 109:3.7, 110:3.5, 111:3.4,
-  112:3.3, 113:3.1, 114:3.0, 115:2.9, 116:2.8, 117:2.7, 118:2.5, 119:2.3
-};
-function rmdFactor(age) {
-  const a = Math.floor(age);
-  if (a < 72) return null;
-  if (a >= 120) return 2.0;
-  return RMD_TABLE[a] || 2.0;
-}
+const RMD_TABLE={72:27.4,73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,
+  80:20.2,81:19.4,82:18.5,83:17.7,84:16.8,85:16.0,86:15.2,87:14.4,88:13.7,89:12.9,
+  90:12.2,91:11.5,92:10.8,93:10.1,94:9.5,95:8.9,96:8.4,97:7.8,98:7.3,99:6.8,
+  100:6.4,101:6.0,102:5.6,103:5.2,104:4.9,105:4.6,106:4.3,107:4.1,108:3.9,109:3.7,
+  110:3.5,111:3.4,112:3.3,113:3.1,114:3.0,115:2.9,116:2.8,117:2.7,118:2.5,119:2.3};
+function rmdFactor(age){const a=Math.floor(age);if(a<72)return null;if(a>=120)return 2.0;return RMD_TABLE[a]||2.0;}
 
-function johnYear(age)  { return JOHN_BIRTH + age; }
-function janeYear(age)  { return JANE_BIRTH + age; }
-function johnAgeAtYear(y) { return y - JOHN_BIRTH; }
-function janeAgeAtYear(y) { return y - JANE_BIRTH; }
+function henryYear(age) { return HENRY_BIRTH + age; }
+function deniseYear(age){ return DENISE_BIRTH + age; }
 
-// John SS benefits (interpolated between known points)
-function johnBenefit(sa) {
-  if (sa <= 62) return 2688;
-  if (sa < 67)  return Math.round(2688 + (sa-62)*(3817-2688)/5);
-  if (sa === 67) return 3817;
-  if (sa < 70)  return Math.round(3817 + (sa-67)*(4733-3817)/3);
+// SS interpolation
+function henryBenefit(sa) {
+  if(sa<=62) return 2688;
+  if(sa<67)  return Math.round(2688+(sa-62)*(3817-2688)/5);
+  if(sa===67) return 3817;
+  if(sa<70)  return Math.round(3817+(sa-67)*(4733-3817)/3);
   return 4733;
 }
-
-const JOHN_PIA          = 3817;
-const JANE_OWN_FRA      = 1376;
-const JANE_SPOUSAL_FRA  = Math.round(JOHN_PIA * 0.5);      // 1909 (rounded)
-const JANE_FRA_BENEFIT  = Math.max(JANE_OWN_FRA, JANE_SPOUSAL_FRA); // 1909
-
-function janeOwnAtAge(age) {
-  if (age >= JANE_FRA_AGE) return JANE_OWN_FRA;
-  const mo  = (JANE_FRA_AGE - age) * 12;
-  const red = Math.min(mo,36)*(25/36/100) + Math.max(mo-36,0)*(5/12/100);
-  return Math.round(JANE_OWN_FRA * (1-red));
+function deniseOwnAtAge(age) {
+  const own=DENISE_OWN_FRA;
+  if(age>=DENISE_FRA_AGE) return own;
+  const mo=(DENISE_FRA_AGE-age)*12;
+  const red=Math.min(mo,36)*(25/36/100)+Math.max(mo-36,0)*(5/12/100);
+  return Math.round(own*(1-red));
+}
+function deniseSpousalAtAge(age) {
+  const sp=DENISE_SPOUSAL_FRA;
+  if(age>=DENISE_FRA_AGE) return sp;
+  const mo=(DENISE_FRA_AGE-age)*12;
+  const red=Math.min(mo,36)*(25/36/100)+Math.max(mo-36,0)*(5/12/100);
+  return Math.round(sp*(1-red));
+}
+function deniseBenefitAtAge(dSSAge) {
+  return Math.max(deniseOwnAtAge(dSSAge), deniseSpousalAtAge(dSSAge));
 }
 
-function janeSpousalAtAge(age) {
-  if (age >= JANE_FRA_AGE) return JANE_SPOUSAL_FRA;
-  const mo  = (JANE_FRA_AGE - age) * 12;
-  const red = Math.min(mo,36)*(25/36/100) + Math.max(mo-36,0)*(5/12/100);
-  return Math.round(JANE_SPOUSAL_FRA * (1-red));
-}
+// Helper factors
+const fmt=n=>'$'+Math.round(n).toLocaleString();
+function realFactor(absY,cola,inf){const y=absY-BASE_YEAR;return y<=0?1:Math.pow((1+cola)/(1+inf),y);}
+function inflFactor(absY,inf){const y=absY-BASE_YEAR;return y<=0?1:Math.pow(1/(1+inf),y);}
 
-function janeBenefitAtAge(jSSAge) {
-  const own     = janeOwnAtAge(jSSAge);
-  const spousal = janeSpousalAtAge(jSSAge);
-  return Math.max(own, spousal);
-}
-
-// ── IRA RMD computation ───────────────────────────────────────────────────────
-function computeIRASeries(jDeath, janDeath, iraGrowth, inf, iraValue) {
-  const jDY  = johnYear(jDeath);
-  const jaDY = janeYear(janDeath);
-
-  const iraRMD = {}, iraBAL = {};
-  const rmdStartYear = Math.floor(johnYear(IRA_RMD_START_AGE));
-  const realBalance0 = iraValue * inflFactor(rmdStartYear, inf);
-  let balance = realBalance0;
-  const realGrowth = (1 + iraGrowth) / (1 + inf) - 1;
-  const endYear = Math.ceil(Math.max(jDY, jaDY));
-
-  for (let y = rmdStartYear; y < endYear; y++) {
-    const jAge  = Math.floor(johnAgeAtYear(y));
-    const jaAge = Math.floor(janeAgeAtYear(y));
-    const jAlive  = y < jDY;
-    const jaAlive = y < jaDY;
-    if (!jaAlive && !jAlive) break;
-    const ownerAge = jAlive ? jAge : jaAge;
-    const factor = rmdFactor(ownerAge);
-    let rmd = 0;
-    if (factor !== null && balance > 0) {
-      rmd = balance / factor;
-      if (rmd > balance) rmd = balance;
-    }
-    iraRMD[y] = rmd;
-    const balAfterRmd = balance - rmd;
-    balance = balAfterRmd * (1 + realGrowth);
-    if (balance < 0) balance = 0;
-    iraBAL[y] = balAfterRmd > 0 ? balAfterRmd : 0;
+// ── IRA Series ────────────────────────────────────────────────────────────────
+function computeIRASeries(hDeath, dDeath, iraGrowth, inf, iraValue) {
+  const hDY=henryYear(hDeath), dDY=deniseYear(dDeath);
+  const startYear=Math.floor(henryYear(IRA_RMD_START_AGE));
+  // iraValue is in future (nominal) dollars at RMD start; convert to today's $
+  const realBalance0=iraValue*inflFactor(startYear,inf);
+  const realGrowth=(1+iraGrowth)/(1+inf)-1;
+  let balance=realBalance0;
+  const iraRMD={}, iraBAL={};
+  const endYear=Math.ceil(Math.max(hDY,dDY));
+  for(let y=startYear; y<endYear; y++){
+    const hAlive=y<hDY, dAlive=y<dDY;
+    if(!hAlive&&!dAlive) break;
+    const ownerAge=hAlive?(y-HENRY_BIRTH):(y-DENISE_BIRTH);
+    const factor=rmdFactor(ownerAge);
+    let rmd=0;
+    if(factor!==null&&balance>0){rmd=balance/factor;if(rmd>balance)rmd=balance;}
+    iraRMD[y]=rmd;
+    const balAfter=balance-rmd;
+    balance=balAfter*(1+realGrowth);
+    if(balance<0)balance=0;
+    iraBAL[y]=balAfter>0?balAfter:0;
   }
-
-  return { rmd: iraRMD, bal: iraBAL };
+  return{rmd:iraRMD,bal:iraBAL};
 }
 
-const startAges = [62,64,66,68,70];
-const SS_COLORS = { 62:'#E24B4A', 64:'#D06A18', 66:'#B59A00', 68:'#2E9E5A', 70:'#0F6E56' };
-const X_MIN=60, X_MAX=100, Y1_MIN=0, Y1_MAX=2500000;
+// ── Section 1 ─────────────────────────────────────────────────────────────────
+const SS_START_AGES=[62,64,66,68,70];
+const SS_COLORS={62:'#E24B4A',64:'#D06A18',66:'#B59A00',68:'#2E9E5A',70:'#0F6E56'};
+const X_MIN=60, X_MAX=100, Y1_MAX=2500000;
 
-let chart1Inst, chart2Inst, Y2_MAX_LOCKED=null;
-let chart2IraBalByYear = {}, chart2JDY = 0, chart2JaDY = 0;
+let chart1Inst;
 
-const fmt    = n => '$' + Math.round(n).toLocaleString();
-const fmtPct = r => (r*100).toFixed(2);
-
-function realFactor(absYear, cola, inflation) {
-  const y = absYear - BASE_YEAR;
-  return y <= 0 ? 1 : Math.pow((1+cola)/(1+inflation), y);
-}
-function inflFactor(absYear, inflation) {
-  const y = absYear - BASE_YEAR;
-  return y <= 0 ? 1 : Math.pow(1/(1+inflation), y);
-}
-
-// ── Section 1 math ───────────────────────────────────────────────────────────
-function realCumulative(jSA, jSSAge, toJohnAge, jDeath, janDeath, cola, inf) {
-  const jDY  = johnYear(jDeath),  jaDY = janeYear(janDeath);
-  const lastJA = Math.max(jDeath, janDeath - AGE_GAP);
-  if (toJohnAge > lastJA) return null;
-
-  const cur  = johnYear(toJohnAge);
-  const jB   = johnBenefit(jSA);
-  const jSY  = johnYear(jSA);
-  const dBenNom = janeBenefitAtAge(jSSAge);
-  const jSSY    = janeYear(jSSAge);
-
-  let total = 0;
-  for (let y = jSY; y < Math.min(cur, jDY); y++)
-    for (let m = 0; m < 12; m++)
-      total += jB * realFactor(y + m/12, cola, inf);
-
-  const dStart = Math.max(jSSY, BASE_YEAR - 0.001);
-  for (let y = dStart; y < Math.min(cur, jaDY); y++)
-    for (let m = 0; m < 12; m++) {
-      const absY = y + m/12;
-      if (absY < jSSY) continue;
-      const jAlive = absY < jDY;
-      const benefit = jAlive ? dBenNom : jB;
-      total += benefit * realFactor(absY, cola, inf);
+function realCumulative(hSA, dSSAge, toHenryAge, hDeath, dDeath, cola, inf) {
+  const hDY=henryYear(hDeath), dDY=deniseYear(dDeath);
+  const lastHA=Math.max(hDeath, dDeath-AGE_GAP);
+  if(toHenryAge>lastHA) return null;
+  const cur=henryYear(toHenryAge);
+  const hB=henryBenefit(hSA), hSY=henryYear(hSA);
+  const dBenNom=deniseBenefitAtAge(dSSAge), dSSY=deniseYear(dSSAge);
+  let total=0;
+  for(let y=hSY;y<Math.min(cur,hDY);y++)
+    for(let m=0;m<12;m++) total+=hB*realFactor(y+m/12,cola,inf);
+  const dStart=Math.max(dSSY,BASE_YEAR-0.001);
+  for(let y=dStart;y<Math.min(cur,dDY);y++)
+    for(let m=0;m<12;m++){
+      const absY=y+m/12; if(absY<dSSY)continue;
+      const hAlive=absY<hDY;
+      total+=(hAlive?dBenNom:hB)*realFactor(absY,cola,inf);
     }
-
   return total;
 }
 
-function householdFinal(jSA, jSSAge, jDeath, janDeath, cola, inf) {
-  const jDY  = johnYear(jDeath),  jaDY = janeYear(janDeath);
-  const jSY  = johnYear(jSA),     jB   = johnBenefit(jSA);
-  const jSSY = janeYear(jSSAge);
-  const dBenNom = janeBenefitAtAge(jSSAge);
-
-  let john = 0, dBen = 0, dSur = 0;
-
-  for (let y = jSY; y < jDY; y++)
-    for (let m = 0; m < 12; m++)
-      john += jB * realFactor(y + m/12, cola, inf);
-
-  const dAliveStart = Math.max(jSSY, BASE_YEAR - 0.001);
-  for (let y = dAliveStart; y < jaDY; y++)
-    for (let m = 0; m < 12; m++) {
-      const absY = y + m/12;
-      if (absY < jSSY) continue;
-      if (absY < jDY) {
-        dBen += dBenNom * realFactor(absY, cola, inf);
-      } else {
-        dSur += (jB - dBenNom) * realFactor(absY, cola, inf);
-        dBen += dBenNom * realFactor(absY, cola, inf);
-      }
-    }
-
-  return { john, janeBenefit: dBen, janeSurvivor: dSur, total: john + dBen + dSur };
+function householdFinal(hSA, dSSAge, hDeath, dDeath, cola, inf) {
+  const hDY=henryYear(hDeath), dDY=deniseYear(dDeath);
+  const hSY=henryYear(hSA), hB=henryBenefit(hSA);
+  const dSSY=deniseYear(dSSAge), dBenNom=deniseBenefitAtAge(dSSAge);
+  let henry=0, dBen=0, dSur=0;
+  for(let y=hSY;y<hDY;y++) for(let m=0;m<12;m++) henry+=hB*realFactor(y+m/12,cola,inf);
+  const dStart=Math.max(dSSY,BASE_YEAR-0.001);
+  for(let y=dStart;y<dDY;y++) for(let m=0;m<12;m++){
+    const absY=y+m/12; if(absY<dSSY)continue;
+    if(absY<hDY) dBen+=dBenNom*realFactor(absY,cola,inf);
+    else{ dBen+=dBenNom*realFactor(absY,cola,inf); dSur+=(hB-dBenNom)*realFactor(absY,cola,inf); }
+  }
+  return{henry,deniseBenefit:dBen,deniseSurvivor:dSur,total:henry+dBen+dSur};
 }
 
-function computeROI(jSA, jSSAge, jDeath, janDeath, cola, inf) {
-  if (jSA === 62) return null;
-  const jDY  = johnYear(jDeath),  jaDY = janeYear(janDeath);
-  const s62  = johnYear(62),      sSA  = johnYear(jSA);
-  const end  = Math.max(jDY, jaDY);
-  const b62  = johnBenefit(62),   bSA  = johnBenefit(jSA);
-  const dBen62 = janeBenefitAtAge(jSSAge);
-  const jSSY   = janeYear(jSSAge);
-
-  const cfs = [];
-  for (let y = s62; y < end; y++) for (let m = 0; m < 12; m++) {
-    const absY = y + m/12;
-    const t = absY - BASE_YEAR; if (t < 0) continue;
-    const rf = realFactor(absY, cola, inf);
-    const jA = absY < jDY, daA = absY < jaDY && absY >= jSSY;
-
-    let c62 = 0, cSA = 0;
-    if (absY >= s62 && jA) c62 += b62 * rf;
-    if (absY >= sSA && jA) cSA += bSA * rf;
-    if (daA && jA) { c62 += dBen62 * rf; cSA += dBen62 * rf; }
-    if (!jA && daA) { c62 += b62 * rf; cSA += bSA * rf; }
-    cfs.push({ t, delta: cSA - c62 });
+function computeROI(hSA, dSSAge, hDeath, dDeath, cola, inf) {
+  if(hSA===62) return null;
+  const hDY=henryYear(hDeath), dDY=deniseYear(dDeath);
+  const s62=henryYear(62), sSA=henryYear(hSA), end=Math.max(hDY,dDY);
+  const b62=henryBenefit(62), bSA=henryBenefit(hSA);
+  const dBen62=deniseBenefitAtAge(dSSAge), dSSY=deniseYear(dSSAge);
+  const cfs=[];
+  for(let y=s62;y<end;y++) for(let m=0;m<12;m++){
+    const absY=y+m/12, t=absY-BASE_YEAR; if(t<0)continue;
+    const rf=realFactor(absY,cola,inf);
+    const hA=absY<hDY, dA=absY<dDY&&absY>=dSSY;
+    let c62=0, cSA=0;
+    if(absY>=s62&&hA) c62+=b62*rf;
+    if(absY>=sSA&&hA) cSA+=bSA*rf;
+    if(dA&&hA){c62+=dBen62*rf;cSA+=dBen62*rf;}
+    if(!hA&&dA){c62+=b62*rf;cSA+=bSA*rf;}
+    cfs.push({t,delta:cSA-c62});
   }
-
-  const npv = r => cfs.reduce((s, c) => s + c.delta / Math.pow(1 + r, c.t), 0);
-  let lo = -0.30, hi = 0.60;
-  if (npv(lo) * npv(hi) > 0) return null;
-  for (let i = 0; i < 80; i++) { const mid = (lo+hi)/2; npv(mid)*npv(lo)<0?(hi=mid):(lo=mid); }
+  const npv=r=>cfs.reduce((s,c)=>s+c.delta/Math.pow(1+r,c.t),0);
+  let lo=-0.30, hi=0.60;
+  if(npv(lo)*npv(hi)>0) return null;
+  for(let i=0;i<80;i++){const mid=(lo+hi)/2;npv(mid)*npv(lo)<0?(hi=mid):(lo=mid);}
   return (lo+hi)/2;
 }
 
-// ── Section 1 render ─────────────────────────────────────────────────────────
-function buildLegend1() {
-  document.getElementById('legend1').innerHTML = startAges.map(sa=>
+function buildLegend1(){
+  document.getElementById('legend1').innerHTML=SS_START_AGES.map(sa=>
     `<span class="legend-item"><span class="legend-swatch" style="background:${SS_COLORS[sa]};height:${sa===70?4:2}px"></span>John age ${sa}${sa===62?' (earliest)':sa===70?' (max)':''}</span>`).join('');
 }
 
-function buildChart1(jSSAge, jDeath, janDeath, cola, inf) {
-  const labels=[]; for(let a=X_MIN; a<=X_MAX; a++) labels.push(a);
-  const datasets = startAges.map(sa => ({
-    label: 'Age ' + sa,
-    data: labels.map(age => realCumulative(sa, jSSAge, age, jDeath, janDeath, cola, inf)),
-    borderColor: SS_COLORS[sa], borderWidth: sa===70 ? 3 : 2,
-    pointRadius: 0, tension: 0.1, fill: false, spanGaps: false
+function buildChart1(dSSAge, hDeath, dDeath, cola, inf){
+  const labels=[]; for(let a=X_MIN;a<=X_MAX;a++) labels.push(a);
+  const datasets=SS_START_AGES.map(sa=>({
+    label:'Age '+sa,
+    data:labels.map(age=>realCumulative(sa,dSSAge,age,hDeath,dDeath,cola,inf)),
+    borderColor:SS_COLORS[sa],borderWidth:sa===70?3:2,
+    pointRadius:0,tension:0.1,fill:false,spanGaps:false
   }));
-
-  const c = document.getElementById('chart1');
-  if (chart1Inst) {
-    chart1Inst.data.datasets.forEach((ds, i) => { ds.data = datasets[i].data; });
-    chart1Inst.update({ duration: 400, easing: 'easeInOutQuart' });
+  const c=document.getElementById('chart1');
+  if(chart1Inst){
+    chart1Inst.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
+    chart1Inst.update({duration:400,easing:'easeInOutQuart'});
   } else {
-    chart1Inst = new Chart(c, { type: 'line', data: { labels, datasets }, options: {
-      responsive: true, maintainAspectRatio: true, aspectRatio: 1,
-      interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { display: false }, tooltip: { callbacks: {
-        label: ctx => ctx.raw === null ? null : ` Age ${startAges[ctx.datasetIndex]}: ${fmt(ctx.raw)}`
+    chart1Inst=new Chart(c,{type:'line',data:{labels,datasets},options:{
+      responsive:true,maintainAspectRatio:true,aspectRatio:1,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:ctx=>ctx.raw===null?null:` Age ${SS_START_AGES[ctx.datasetIndex]}: ${fmt(ctx.raw)}`
       }}},
-      scales: {
-        x: { type: 'category', min: X_MIN, max: X_MAX,
-             title: { display:true, text:"John's age", font:{size:11}, color:'#a09d98' },
-             ticks: { color:'#a09d98', font:{size:10}, maxTicksLimit:20 },
-             grid: { color:'rgba(0,0,0,0.05)' }},
-        y: { min: Y1_MIN, max: Y1_MAX,
-             title: { display:true, text:"Cumulative benefit (today's $)", font:{size:11}, color:'#a09d98' },
-             ticks: { color:'#a09d98', font:{size:10}, callback: v=>'$'+Math.round(v/1000)+'k', stepSize:250000 },
-             grid: { color:'rgba(0,0,0,0.05)' }}
+      scales:{
+        x:{type:'category',min:X_MIN,max:X_MAX,
+           title:{display:true,text:"John's age",font:{size:11},color:'#a09d98'},
+           ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
+        y:{min:0,max:Y1_MAX,
+           title:{display:true,text:"Cumulative benefit (today's $)",font:{size:11},color:'#a09d98'},
+           ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k',stepSize:250000},
+           grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
-
-  const rn = ((1+cola)/(1+inf)-1)*100;
-  const jBenDisplay = janeBenefitAtAge(jSSAge);
-  document.getElementById('chartNote1').textContent =
-    `Household = John SS + Jane benefit ($${jBenDisplay.toLocaleString()}/mo at age ${jSSAge}) + survivor (John's SS) after John passes. `+
-    `COLA ${(cola*100).toFixed(2)}% · Inflation ${(inf*100).toFixed(2)}% · Real net ${rn>=0?'+':''}${rn.toFixed(2)}%/yr. `+
-    `X-axis locked 60–100; Y-axis locked $0–$2.5M. Lines end when both pass.`;
+  const dBen=deniseBenefitAtAge(dSSAge);
+  document.getElementById('chartNote1').textContent=
+    `Household = John SS + Jane benefit ($${dBen.toLocaleString()}/mo at age ${dSSAge}) + survivor (John's SS) after John passes. `+
+    `COLA ${(cola*100).toFixed(2)}% · Inflation ${(inf*100).toFixed(2)}%. X-axis locked 60–100; Y-axis locked $0–$2.5M.`;
 }
 
-function buildMetrics1(jSSAge, jDeath, janDeath, cola, inf) {
-  const totals  = startAges.map(sa => householdFinal(sa, jSSAge, jDeath, janDeath, cola, inf).total);
-  const bestAge = startAges[totals.indexOf(Math.max(...totals))];
-  const diff    = householdFinal(70, jSSAge, jDeath, janDeath, cola, inf).total -
-                  householdFinal(62, jSSAge, jDeath, janDeath, cola, inf).total;
-  const jBen    = janeBenefitAtAge(jSSAge);
-  document.getElementById('metrics1').innerHTML = `
+function buildMetrics1(dSSAge, hDeath, dDeath, cola, inf){
+  const totals=SS_START_AGES.map(sa=>householdFinal(sa,dSSAge,hDeath,dDeath,cola,inf).total);
+  const bestAge=SS_START_AGES[totals.indexOf(Math.max(...totals))];
+  const diff=householdFinal(70,dSSAge,hDeath,dDeath,cola,inf).total-householdFinal(62,dSSAge,hDeath,dDeath,cola,inf).total;
+  const dBen=deniseBenefitAtAge(dSSAge);
+  document.getElementById('metrics1').innerHTML=`
     <div class="metric"><div class="metric-label">John FRA benefit</div><div class="metric-value">$3,817<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">Nominal · Age 67 (Jan 2032)</div></div>
     <div class="metric"><div class="metric-label">John max benefit (age 70)</div><div class="metric-value">$4,733<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">Nominal · +24% vs FRA</div></div>
-    <div class="metric metric-highlight"><div class="metric-label">Jane at age ${jSSAge}</div><div class="metric-value">$${jBen.toLocaleString()}<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">${jBen === JANE_FRA_BENEFIT ? 'Spousal/FRA · $1,909 full amount' : 'Spousal (reduced)'}</div></div>
+    <div class="metric metric-highlight"><div class="metric-label">Jane at age ${dSSAge}</div><div class="metric-value">$${dBen.toLocaleString()}<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">${dBen===DENISE_SPOUSAL_FRA?'Full spousal ($1,909)':'Spousal (reduced)'}</div></div>
     <div class="metric"><div class="metric-label">John pension (nominal)</div><div class="metric-value">$1,500<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">Fixed · starts age 60 · no COLA · no survivor</div></div>
     <div class="metric"><div class="metric-label">Best SS start age (HH)</div><div class="metric-value">Age ${bestAge}</div><div class="metric-sub">Maximizes real household SS total</div></div>
     <div class="metric"><div class="metric-label">Age 70 vs 62 (household)</div><div class="metric-value">${diff>=0?'+':''}${fmt(diff)}</div><div class="metric-sub">Real-dollar SS lifetime difference</div></div>`;
 }
 
-function buildTable1(jSSAge, jDeath, janDeath, cola, inf) {
-  const data   = startAges.map(sa => ({ sa, ...householdFinal(sa, jSSAge, jDeath, janDeath, cola, inf) }));
-  const maxHH  = Math.max(...data.map(d => d.total));
-  const jBen   = janeBenefitAtAge(jSSAge);
-  document.getElementById('breakBody').innerHTML = data.map(d => {
-    const isBest = d.total === maxHH;
-    const roi    = computeROI(d.sa, jSSAge, jDeath, janDeath, cola, inf);
-    const roiHtml = roi === null
-      ? '— (baseline)'
-      : `<span class="${roi>=0?'roi-pos':'roi-neg'}">${fmtPct(roi)}%</span>`;
-    return `<tr class="${isBest?'best-household':''}">
+function buildTable1(dSSAge, hDeath, dDeath, cola, inf){
+  const data=SS_START_AGES.map(sa=>({sa,...householdFinal(sa,dSSAge,hDeath,dDeath,cola,inf)}));
+  const maxHH=Math.max(...data.map(d=>d.total));
+  const dBen=deniseBenefitAtAge(dSSAge);
+  document.getElementById('breakBody').innerHTML=data.map(d=>{
+    const isBest=d.total===maxHH;
+    const roi=computeROI(d.sa,dSSAge,hDeath,dDeath,cola,inf);
+    const roiHtml=roi===null?'— (baseline)':`<span class="${roi>=0?'roi-pos':'roi-neg'}">${(roi*100).toFixed(2)}%</span>`;
+    return`<tr class="${isBest?'best-household':''}">
       <td>Age ${d.sa}${d.sa===62?' — earliest':d.sa===70?' — maximum':''}</td>
-      <td class="r">${fmt(johnBenefit(d.sa))}</td>
-      <td class="r">${fmt(jBen)}</td>
-      <td class="r">${fmt(d.john)}</td>
-      <td class="r">${fmt(d.janeBenefit)}</td>
-      <td class="r">${fmt(d.janeSurvivor)}</td>
+      <td class="r">${fmt(henryBenefit(d.sa))}</td>
+      <td class="r">${fmt(dBen)}</td>
+      <td class="r">${fmt(d.henry)}</td>
+      <td class="r">${fmt(d.deniseBenefit)}</td>
+      <td class="r">${fmt(d.deniseSurvivor)}</td>
       <td class="r">${fmt(d.total)}</td>
       <td class="r">${roiHtml}</td>
     </tr>`;
   }).join('');
-  document.getElementById('tableNote1').innerHTML =
-    `<strong>Green row</strong> = best household SS total given current sliders. All columns in today's dollars `+
-    `(COLA ${(cola*100).toFixed(2)}%, inflation ${(inf*100).toFixed(2)}%). `+
-    `Jane $${jBen.toLocaleString()}/mo = benefit claimed at age ${jSSAge} (spousal if John filed, higher of own vs spousal). `+
-    `Survivor = full John SS benefit while Jane outlives John.`;
+  document.getElementById('tableNote1').innerHTML=
+    `<strong>Green row</strong> = best household SS total. All in today's dollars. `+
+    `Jane $${dBen.toLocaleString()}/mo = benefit at age ${dSSAge} (spousal if John filed, higher of own vs spousal). `+
+    `Survivor = full John SS while Jane outlives John.`;
 }
 
-// ── Section 2 math ───────────────────────────────────────────────────────────
-function computeIncomeSeries(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue) {
-  const jDY   = johnYear(jDeath),  jaDY = janeYear(janDeath);
-  const jSSY  = johnYear(jSSAge),  jaSS  = janeYear(jaSSAge);
-  const jPenY = johnYear(60);
-  const jaWageStopY = janeYear(JANE_WAGE_STOP);
-  const jB   = johnBenefit(jSSAge);
-  const jaOwnNom     = janeOwnAtAge(jaSSAge);
-  const jaSpousalNom = janeSpousalAtAge(jaSSAge);
-  const jaBenAfterFiled = Math.max(jaOwnNom, jaSpousalNom);
-  const jaBenNom = jaBenAfterFiled;
-  const jFiledFirst = jSSY < jaSS;
+// ── Tax bracket constants ────────────────────────────────────────────────────
+const MFJ_BRACKETS=[
+  {limit:23200,rate:0.10},{limit:94300,rate:0.12},{limit:201050,rate:0.22},
+  {limit:383900,rate:0.24},{limit:487450,rate:0.32},{limit:731200,rate:0.35},
+  {limit:Infinity,rate:0.37}];
+const SINGLE_BRACKETS=[
+  {limit:11600,rate:0.10},{limit:47150,rate:0.12},{limit:100525,rate:0.22},
+  {limit:191950,rate:0.24},{limit:243725,rate:0.32},{limit:365600,rate:0.35},
+  {limit:Infinity,rate:0.37}];
+const STD_MFJ=32000, STD_SINGLE=16000;
 
-  const { rmd: iraRMDbyYear, bal: iraBalByYear } = computeIRASeries(jDeath, janDeath, iraGrowth, inf, iraValue);
+// IRMAA brackets 2026
+const IRMAA_MFJ=[
+  {magi:212000,label:'IRMAA T1',surcharge:3564,color:'rgba(180,100,20,0.80)'},
+  {magi:266000,label:'IRMAA T2',surcharge:8892,color:'rgba(180,60,20,0.80)'},
+  {magi:334000,label:'IRMAA T3',surcharge:14220,color:'rgba(160,30,30,0.80)'},
+  {magi:750000,label:'IRMAA T4+',surcharge:19548,color:'rgba(120,20,60,0.80)'}];
+const IRMAA_SINGLE=[
+  {magi:106000,label:'IRMAA T1',surcharge:3564,color:'rgba(180,100,20,0.80)'},
+  {magi:133000,label:'IRMAA T2',surcharge:8892,color:'rgba(180,60,20,0.80)'},
+  {magi:167000,label:'IRMAA T3',surcharge:14220,color:'rgba(160,30,30,0.80)'},
+  {magi:200000,label:'IRMAA T4',surcharge:17172,color:'rgba(130,20,50,0.80)'},
+  {magi:500000,label:'IRMAA T5+',surcharge:19548,color:'rgba(120,20,60,0.80)'}];
 
-  const pension=[], wage=[], taxInt=[], iraRmd=[], johnSS=[], janeSS=[];
-
-  for (let ja = X_MIN; ja <= X_MAX; ja++) {
-    const absY = johnYear(ja);
-    if (absY >= jDY && absY >= jaDY) {
-      pension.push(null); wage.push(null); taxInt.push(null); iraRmd.push(null);
-      johnSS.push(null); janeSS.push(null);
-      continue;
-    }
-
-    const jAlive = absY < jDY, jaAlive = absY < jaDY;
-    const jHasFiled = absY >= jSSY;
-    const calYear = Math.floor(absY);
-
-    // Pension: nominal fixed, convert to real
-    pension.push(jAlive && absY >= jPenY ? JOHN_PENSION_NOM * 12 * inflFactor(absY, inf) : 0);
-
-    // Wage: flat real
-    wage.push(jaAlive && absY < jaWageStopY ? JANE_WAGE_REAL * 12 : 0);
-
-    // Taxable interest: fixed nominal (no COLA) — loses real value with inflation
-    taxInt.push(TAXABLE_INTEREST * inflFactor(absY, inf));
-
-    // IRA RMD
-    const rmdAmt = (jAlive || jaAlive) ? (iraRMDbyYear[calYear] || 0) : 0;
-    iraRmd.push(rmdAmt);
-
-    // John's SS
-    let jSS = 0;
-    if (jAlive && jHasFiled) jSS = jB * 12 * realFactor(absY, cola, inf);
-    johnSS.push(jSS);
-
-    // Jane's SS / Survivor
-    let jaSS2 = 0;
-    if (jaAlive) {
-      if (jAlive && absY >= jaSS) {
-        const ben = jHasFiled ? Math.max(jaOwnNom, jaSpousalNom) : jaOwnNom;
-        jaSS2 = ben * 12 * realFactor(absY, cola, inf);
-      } else if (!jAlive) {
-        jaSS2 = jB * 12 * realFactor(absY, cola, inf);
-      }
-    }
-    janeSS.push(jaSS2);
+function computeTax(ti,brackets){
+  if(ti<=0)return 0;
+  let tax=0,prev=0;
+  for(const b of brackets){
+    if(ti<=prev)break;
+    tax+=(Math.min(ti,b.limit)-prev)*b.rate;
+    prev=b.limit;
   }
-
-  return { pension, wage, taxInt, iraRmd, johnSS, janeSS, jB, jaBenNom, jFiledFirst, iraBalByYear, iraValue };
+  return tax;
 }
 
-// ── Section 2 render ─────────────────────────────────────────────────────────
-const INC_COLORS = {
-  pension:  '#D06A18',
-  wage:     '#7B5EA7',
-  taxInt:   '#5B8FA8',
-  iraRmd:   '#E85D9A',
-  johnSS:   '#0F6E56',
-  janeSS:   '#3DB08A',
-};
-const INC_LABELS = {
-  pension:  "John's Pension",
-  wage:     "Jane's Wage",
-  taxInt:   "Taxable Interest (nominal, no COLA)",
-  iraRmd:   "IRA RMD",
-  johnSS:   "John's SS",
-  janeSS:   "Jane's SS / Survivor",
-};
-
-// IRMAA brackets (2026)
-const IRMAA_MFJ = [
-  { magi: 212000, label: 'IRMAA Tier 1',  surcharge:  3564, color: 'rgba(180,100,20,0.70)'  },
-  { magi: 266000, label: 'IRMAA Tier 2',  surcharge:  8892, color: 'rgba(180,60,20,0.70)'   },
-  { magi: 334000, label: 'IRMAA Tier 3',  surcharge: 14220, color: 'rgba(160,30,30,0.70)'   },
-  { magi: 750000, label: 'IRMAA Tier 4+', surcharge: 19548, color: 'rgba(120,20,60,0.70)'   },
-];
-const IRMAA_SINGLE = [
-  { magi: 106000, label: 'IRMAA Tier 1',  surcharge:  3564, color: 'rgba(180,100,20,0.70)'  },
-  { magi: 133000, label: 'IRMAA Tier 2',  surcharge:  8892, color: 'rgba(180,60,20,0.70)'   },
-  { magi: 167000, label: 'IRMAA Tier 3',  surcharge: 14220, color: 'rgba(160,30,30,0.70)'   },
-  { magi: 200000, label: 'IRMAA Tier 4',  surcharge: 17172, color: 'rgba(130,20,50,0.70)'   },
-  { magi: 500000, label: 'IRMAA Tier 5+', surcharge: 19548, color: 'rgba(120,20,60,0.70)'   },
-];
-
-// Compute income-level equivalents of tax bracket boundaries for Chart 2.
-// The income chart Y-axis ≈ AGI (total income ≈ non-SS + SS).
-// Bracket boundary in terms of income level = taxable income limit + standard deduction.
-// This is approximate (actual taxable SS varies) but gives a useful visual reference.
-function computeIncomeBracketLines(brackets, stdDed) {
-  const lines = [];
-  for (let i = 0; i < brackets.length - 1; i++) {
-    const b = brackets[i];
-    const incomeLevel = b.limit + stdDed;  // AGI level where next bracket kicks in
+// AGI-based bracket ceiling taxable income thresholds to total-income level
+// For income chart, we want the AGI income level at each bracket boundary
+// (total income that puts person at the bracket boundary = taxable_income_at_boundary + std_deduction)
+function incomeBracketLines(brackets, stdDed) {
+  const lines=[];
+  for(let i=0;i<brackets.length-1;i++){
+    const boundary=brackets[i].limit; // taxable income at boundary
+    const totalIncome=boundary+stdDed; // approximate total income (AGI = taxable + deduction)
     lines.push({
-      incomeLevel,
-      upperRate: Math.round(brackets[i+1].rate * 100),
-      lowerRate: Math.round(b.rate * 100),
+      totalIncome,
+      upperRate:Math.round(brackets[i+1].rate*100),
+      lowerRate:Math.round(brackets[i].rate*100)
     });
   }
   return lines;
 }
 
-const irmaaLinesPlugin = {
-  id: 'irmaaLines',
-  afterDraw(chart, args, opts) {
-    if (!opts || !opts.mfjLines) return;
-    const { ctx, chartArea: { left, right, top, bottom }, scales: { x, y } } = chart;
-    const switchIdx = opts.switchIdx ?? chart.data.labels.length;
-    const totalPts  = chart.data.labels.length;
-    function xMid(idx) { return x.getPixelForValue(Math.max(0, Math.min(totalPts - 1, idx))); }
-    const mfjRight   = switchIdx > 0 && switchIdx <= totalPts
-      ? xMid(switchIdx-1) + (xMid(Math.min(switchIdx,totalPts-1)) - xMid(switchIdx-1))/2
-      : (switchIdx <= 0 ? left-1 : right);
-    const singleLeft = mfjRight;
+// ── Section 2 ─────────────────────────────────────────────────────────────────
+const INC_COLORS={pension:'#D06A18',wage:'#7B5EA7',taxInt:'#5B8FA8',iraRmd:'#E85D9A',henrySS:'#0F6E56',deniseSS:'#3DB08A'};
+const INC_LABELS={pension:"John's Pension",wage:"Jane's Wage",taxInt:'Taxable Interest',iraRmd:'IRA RMD',henrySS:"John's SS",deniseSS:"Jane's SS / Survivor"};
+
+function computeIncomeSeries(hSSAge, dSSAge, hDeath, dDeath, cola, inf, iraGrowth, iraValue){
+  const hDY=henryYear(hDeath), dDY=deniseYear(dDeath);
+  const hSSY=henryYear(hSSAge), dSSY=deniseYear(dSSAge);
+  const hPenY=henryYear(60), dWageStopY=deniseYear(DENISE_WAGE_STOP);
+  const hB=henryBenefit(hSSAge);
+  const dOwnNom=deniseOwnAtAge(dSSAge), dSpNom=deniseSpousalAtAge(dSSAge);
+  const dBenNom=Math.max(dOwnNom,dSpNom);
+  const {rmd:iraRMDbyYear,bal:iraBalByYear}=computeIRASeries(hDeath,dDeath,iraGrowth,inf,iraValue);
+
+  const pension=[],wage=[],taxInt=[],iraRmd=[],henrySS=[],deniseSS=[];
+  for(let ha=X_MIN;ha<=X_MAX;ha++){
+    const absY=henryYear(ha);
+    if(absY>=hDY&&absY>=dDY){pension.push(null);wage.push(null);taxInt.push(null);iraRmd.push(null);henrySS.push(null);deniseSS.push(null);continue;}
+    const hAlive=absY<hDY, dAlive=absY<dDY;
+    const calYear=Math.floor(absY);
+    pension.push(hAlive&&absY>=hPenY?HENRY_PENSION_NOM*12*inflFactor(absY,inf):0);
+    wage.push(dAlive&&absY<dWageStopY?DENISE_WAGE_REAL*12:0);
+    taxInt.push(TAXABLE_INTEREST*inflFactor(absY,inf));
+    iraRmd.push((hAlive||dAlive)?(iraRMDbyYear[calYear]||0):0);
+    henrySS.push(hAlive&&absY>=hSSY?hB*12*realFactor(absY,cola,inf):0);
+    let dss=0;
+    if(dAlive){
+      if(hAlive&&absY>=dSSY) dss=dBenNom*12*realFactor(absY,cola,inf);
+      else if(!hAlive&&absY>=dSSY) dss=hB*12*realFactor(absY,cola,inf);
+      else if(!hAlive&&absY<dSSY){/* not yet collecting */}
+    }
+    deniseSS.push(dss);
+  }
+  return{pension,wage,taxInt,iraRmd,henrySS,deniseSS,hB,dBenNom,iraBalByYear};
+}
+
+// Combined overlay plugin: IRMAA dashed lines + income tax bracket dashed lines
+const overlayPlugin={
+  id:'incomeOverlay',
+  afterDraw(chart,args,opts){
+    if(!opts) return;
+    const{ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
+    const labels=chart.data.labels;
+    const n=labels.length;
+    const switchIdx=opts.switchIdx??n;
+    function xFrac(idx){
+      const i=Math.max(0,Math.min(n-1,idx));
+      return x.getPixelForValue(i);
+    }
+    const mfjR=switchIdx>0&&switchIdx<=n
+      ?(xFrac(switchIdx-1)+xFrac(Math.min(switchIdx,n-1)))/2
+      :(switchIdx<=0?left-1:right);
+    const singL=mfjR;
     ctx.save();
 
-    // Draw IRMAA threshold lines
-    function drawIrmaaLines(lines, xFrom, xTo) {
-      if (!lines || xFrom >= xTo) return;
-      lines.forEach(line => {
-        const yPx = y.getPixelForValue(line.magi);
-        if (yPx < top || yPx > bottom) return;
-        const segL = Math.max(left, xFrom), segR = Math.min(right, xTo);
-        if (segL >= segR) return;
-        ctx.beginPath(); ctx.setLineDash([8,5]); ctx.lineWidth = 1.3;
-        ctx.strokeStyle = line.color;
-        ctx.moveTo(segL, yPx); ctx.lineTo(segR, yPx); ctx.stroke();
+    // Draw one set of lines for a given x range
+    function drawLines(lines, xFrom, xTo, isIrmaa){
+      if(!lines||xFrom>=xTo) return;
+      lines.forEach(line=>{
+        const val=isIrmaa?line.magi:line.totalIncome;
+        const yPx=y.getPixelForValue(val);
+        if(yPx<top||yPx>bottom) return;
+        const segL=Math.max(left,xFrom), segR=Math.min(right,xTo);
+        if(segL>=segR) return;
+        ctx.beginPath();
+        ctx.setLineDash(isIrmaa?[8,5]:[6,4]);
+        ctx.lineWidth=isIrmaa?1.4:1.2;
+        ctx.strokeStyle=isIrmaa?line.color:'rgba(100,70,180,0.70)';
+        ctx.moveTo(segL,yPx); ctx.lineTo(segR,yPx); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.font = '10px DM Sans, sans-serif'; ctx.fillStyle = line.color;
-        ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-        ctx.fillText(`${line.label} >${(line.magi/1000).toFixed(0)}k`, segR-3, yPx-2);
-      });
-    }
-    drawIrmaaLines(opts.mfjLines.filter(l=>l.magi<(y.max||Infinity)),    left,       mfjRight);
-    drawIrmaaLines(opts.singleLines.filter(l=>l.magi<(y.max||Infinity)), singleLeft, right);
+        ctx.font=(isIrmaa?'10':'9')+'px DM Sans,sans-serif';
 
-    // Draw tax bracket income-level lines (if provided)
-    function drawIncomeBracketLines(lines, xFrom, xTo, color) {
-      if (!lines || xFrom >= xTo) return;
-      lines.forEach(line => {
-        const yPx = y.getPixelForValue(line.incomeLevel);
-        if (yPx < top || yPx > bottom) return;
-        const segL = Math.max(left, xFrom), segR = Math.min(right, xTo);
-        if (segL >= segR) return;
-        ctx.beginPath(); ctx.setLineDash([5,4]); ctx.lineWidth = 1;
-        ctx.strokeStyle = color;
-        ctx.moveTo(segL, yPx); ctx.lineTo(segR, yPx); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.font = '9px DM Sans, sans-serif'; ctx.fillStyle = color;
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(`${line.upperRate}%`, segR-2, yPx-1);
-        ctx.textBaseline = 'top';
-        ctx.fillText(`${line.lowerRate}%`, segR-2, yPx+1);
+        if(isIrmaa){
+          ctx.fillStyle=line.color;
+          ctx.textAlign='right'; ctx.textBaseline='bottom';
+          ctx.fillText(`${line.label} >${(line.magi/1000).toFixed(0)}k`,segR-3,yPx-2);
+        } else {
+          ctx.fillStyle='rgba(90,55,170,0.85)';
+          ctx.textAlign='right'; ctx.textBaseline='bottom';
+          ctx.fillText(`${line.upperRate}% income tax`,segR-3,yPx-2);
+          ctx.textBaseline='top';
+          ctx.fillText(`${line.lowerRate}% income tax`,segR-3,yPx+2);
+        }
       });
     }
-    if (opts.mfjBrackets)    drawIncomeBracketLines(opts.mfjBrackets.filter(l=>l.incomeLevel<(y.max||Infinity)),    left,       mfjRight,  '#8474b8');
-    if (opts.singleBrackets) drawIncomeBracketLines(opts.singleBrackets.filter(l=>l.incomeLevel<(y.max||Infinity)), singleLeft, right,     '#b88474');
+
+    // MFJ segment (left of switch)
+    drawLines((opts.irmaaMFJ||[]).filter(l=>l.magi<(y.max||Infinity)),        left,  mfjR,  true);
+    drawLines((opts.taxMFJLines||[]).filter(l=>l.totalIncome<(y.max||Infinity)), left,  mfjR,  false);
+    // Single segment (right of switch)
+    drawLines((opts.irmaaSingle||[]).filter(l=>l.magi<(y.max||Infinity)),         singL, right, true);
+    drawLines((opts.taxSingleLines||[]).filter(l=>l.totalIncome<(y.max||Infinity)), singL, right, false);
 
     ctx.restore();
   }
 };
-if (!Chart.registry.plugins.get('irmaaLines')) Chart.register(irmaaLinesPlugin);
+if(!Chart.registry.plugins.get('incomeOverlay')) Chart.register(overlayPlugin);
 
-function buildLegend2() {
-  document.getElementById('legend2').innerHTML =
+let chart2Inst, Y2_MAX_LOCKED=null;
+let chart2IraBalByYear={}, chart2HenryDY=0, chart2DeniseDY=0;
+
+function buildLegend2(){
+  document.getElementById('legend2').innerHTML=
     Object.entries(INC_LABELS).map(([k,v])=>
-      `<span class="legend-item"><span class="legend-swatch" style="background:${INC_COLORS[k]}"></span>${v}</span>`).join('') +
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed rgba(180,100,20,0.80);background:transparent;height:2px;margin-top:4px"></span>IRMAA thresholds</span>` +
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #8474b8;background:transparent;height:2px;margin-top:4px"></span>MFJ tax brackets</span>` +
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #b88474;background:transparent;height:2px;margin-top:4px"></span>Single tax brackets</span>`;
+      `<span class="legend-item"><span class="legend-swatch" style="background:${INC_COLORS[k]}"></span>${v}</span>`).join('')+
+    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed rgba(180,100,20,0.85);background:transparent;height:2px;margin-top:4px"></span>IRMAA</span>`+
+    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed rgba(90,55,170,0.80);background:transparent;height:2px;margin-top:4px"></span>Income tax brackets</span>`;
 }
 
-function buildChart2(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue) {
-  const { pension, wage, taxInt, iraRmd, johnSS, janeSS, jB, jaBenNom, jFiledFirst, iraBalByYear } =
-    computeIncomeSeries(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue);
-
-  chart2IraBalByYear = iraBalByYear;
-  chart2JDY  = johnYear(jDeath);
-  chart2JaDY = janeYear(janDeath);
+function buildChart2(hSSAge, dSSAge, hDeath, dDeath, cola, inf, iraGrowth, iraValue){
+  const{pension,wage,taxInt,iraRmd,henrySS,deniseSS,hB,dBenNom,iraBalByYear}=
+    computeIncomeSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
+  chart2IraBalByYear=iraBalByYear;
+  chart2HenryDY=henryYear(hDeath);
+  chart2DeniseDY=deniseYear(dDeath);
 
   const labels=[]; for(let a=X_MIN;a<=X_MAX;a++) labels.push(a);
 
-  if (Y2_MAX_LOCKED === null) {
-    const maxTotal = Math.max(...labels.map((_,i)=>{
-      const vals=[pension[i],wage[i],taxInt[i],iraRmd[i],johnSS[i],janeSS[i]];
-      if(vals.every(v=>v===null)) return 0;
-      return vals.reduce((s,v)=>s+(v||0),0);
+  if(Y2_MAX_LOCKED===null){
+    const maxT=Math.max(...labels.map((_,i)=>{
+      const vs=[pension[i],wage[i],taxInt[i],iraRmd[i],henrySS[i],deniseSS[i]];
+      if(vs.every(v=>v===null))return 0;
+      return vs.reduce((s,v)=>s+(v||0),0);
     }));
-    Y2_MAX_LOCKED = maxTotal > 150000
-      ? Math.ceil(maxTotal / 10000) * 10000 + 15000
-      : 150000;
+    Y2_MAX_LOCKED=maxT>150000?Math.ceil(maxT/10000)*10000+15000:150000;
   }
 
-  const jDY  = johnYear(jDeath), jaDY = janeYear(janDeath);
-  let irmaaSwitchIdx = labels.length;
-  for (let i = 0; i < labels.length; i++) {
-    const absY = johnYear(labels[i]);
-    if (pension[i] !== null && !(absY < jDY && absY < jaDY)) { irmaaSwitchIdx = i; break; }
+  const hDY=henryYear(hDeath), dDY=deniseYear(dDeath);
+  let switchIdx=labels.length;
+  for(let i=0;i<labels.length;i++){
+    const absY=henryYear(labels[i]);
+    if(!(absY<hDY&&absY<dDY)){switchIdx=i;break;}
   }
 
-  const irmaaMfj    = IRMAA_MFJ.filter(l => l.magi < Y2_MAX_LOCKED);
-  const irmaaSingle = IRMAA_SINGLE.filter(l => l.magi < Y2_MAX_LOCKED);
+  const irmaaMFJ=IRMAA_MFJ.filter(l=>l.magi<Y2_MAX_LOCKED);
+  const irmaaSingle=IRMAA_SINGLE.filter(l=>l.magi<Y2_MAX_LOCKED);
+  const taxMFJLines=incomeBracketLines(MFJ_BRACKETS,STD_MFJ).filter(l=>l.totalIncome<Y2_MAX_LOCKED);
+  const taxSingleLines=incomeBracketLines(SINGLE_BRACKETS,STD_SINGLE).filter(l=>l.totalIncome<Y2_MAX_LOCKED);
 
-  const makeDs = (data, label, color) => ({
-    label, data, borderColor: color, backgroundColor: color + 'bb',
-    borderWidth: 4, pointRadius: 0, tension: 0.3, fill: true, spanGaps: false, stack: 'income',
+  const makeDs=(data,label,color)=>({
+    label,data,borderColor:color,backgroundColor:color+'bb',
+    borderWidth:4,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'income'
   });
-
-  const datasets = [
-    makeDs(pension,  INC_LABELS.pension,  INC_COLORS.pension),
-    makeDs(wage,     INC_LABELS.wage,     INC_COLORS.wage),
-    makeDs(taxInt,   INC_LABELS.taxInt,   INC_COLORS.taxInt),
-    makeDs(iraRmd,   INC_LABELS.iraRmd,   INC_COLORS.iraRmd),
-    makeDs(johnSS,   INC_LABELS.johnSS,   INC_COLORS.johnSS),
-    makeDs(janeSS,   INC_LABELS.janeSS,   INC_COLORS.janeSS),
+  const datasets=[
+    makeDs(pension, INC_LABELS.pension, INC_COLORS.pension),
+    makeDs(wage,    INC_LABELS.wage,    INC_COLORS.wage),
+    makeDs(taxInt,  INC_LABELS.taxInt,  INC_COLORS.taxInt),
+    makeDs(iraRmd,  INC_LABELS.iraRmd,  INC_COLORS.iraRmd),
+    makeDs(henrySS, INC_LABELS.henrySS, INC_COLORS.henrySS),
+    makeDs(deniseSS,INC_LABELS.deniseSS,INC_COLORS.deniseSS),
   ];
 
-  const c = document.getElementById('chart2');
-  if (chart2Inst) {
-    chart2Inst.data.datasets.forEach((ds, i) => { ds.data = datasets[i].data; });
-    const mfjBrack2    = computeIncomeBracketLines(MFJ_BRACKETS, STANDARD_DEDUCTION_MFJ).filter(l=>l.incomeLevel<Y2_MAX_LOCKED);
-    const singleBrack2 = computeIncomeBracketLines(SINGLE_BRACKETS, STANDARD_DEDUCTION_SINGLE).filter(l=>l.incomeLevel<Y2_MAX_LOCKED);
-    chart2Inst.options.plugins.irmaaLines = { mfjLines: irmaaMfj, singleLines: irmaaSingle, switchIdx: irmaaSwitchIdx, mfjBrackets: mfjBrack2, singleBrackets: singleBrack2 };
-    chart2Inst.update({ duration: 400, easing: 'easeInOutQuart' });
+  const c=document.getElementById('chart2');
+  if(chart2Inst){
+    chart2Inst.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
+    chart2Inst.options.plugins.incomeOverlay={irmaaMFJ,irmaaSingle,taxMFJLines,taxSingleLines,switchIdx};
+    chart2Inst.update({duration:400,easing:'easeInOutQuart'});
   } else {
-    chart2Inst = new Chart(c, { type: 'line', data: { labels, datasets }, options: {
-      responsive: true, maintainAspectRatio: true, aspectRatio: 1,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        irmaaLines: { mfjLines: irmaaMfj, singleLines: irmaaSingle, switchIdx: irmaaSwitchIdx,
-          mfjBrackets: computeIncomeBracketLines(MFJ_BRACKETS, STANDARD_DEDUCTION_MFJ).filter(l=>l.incomeLevel<Y2_MAX_LOCKED),
-          singleBrackets: computeIncomeBracketLines(SINGLE_BRACKETS, STANDARD_DEDUCTION_SINGLE).filter(l=>l.incomeLevel<Y2_MAX_LOCKED) },
-        tooltip: {
-          bodyFont: { family: 'monospace', size: 12 },
-          footerFont: { family: 'monospace', size: 11 },
-          callbacks: {
-            label: ctx => {
-              if (ctx.raw === null || ctx.raw === 0) return null;
-              return ` ${ctx.dataset.label}: ${fmt(ctx.raw)}/yr`;
+    chart2Inst=new Chart(c,{type:'line',data:{labels,datasets},options:{
+      responsive:true,maintainAspectRatio:true,aspectRatio:1,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        incomeOverlay:{irmaaMFJ,irmaaSingle,taxMFJLines,taxSingleLines,switchIdx},
+        tooltip:{
+          bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},
+          callbacks:{
+            label:ctx=>{
+              if(ctx.raw===null||ctx.raw===0)return null;
+              return` ${ctx.dataset.label}: ${fmt(ctx.raw)}/yr`;
             },
-            footer: items => {
-              const i = items[0] ? items[0].dataIndex : 0;
-              const johnAge = X_MIN + i;
-              const calYear = Math.floor(johnYear(johnAge));
-              const vals = [pension[i]||0, wage[i]||0, taxInt[i]||0, iraRmd[i]||0, johnSS[i]||0, janeSS[i]||0];
-              const total = vals.reduce((s,v)=>s+v,0);
-              const iraBal = calYear !== null ? (chart2IraBalByYear[calYear] || 0) : 0;
-              const absY = johnYear(johnAge);
-              const filing = (absY < chart2JDY && absY < chart2JaDY) ? 'mfj' : 'single';
-              const irmaaTbl = filing === 'mfj' ? IRMAA_MFJ : IRMAA_SINGLE;
-              const tier = irmaaTbl.slice().reverse().find(t => total >= t.magi);
-              const lines = [`Total income: ${fmt(total)}/yr`];
-              if (iraBal > 0) lines.push(`IRA balance (today's $): ${fmt(iraBal)}`);
-              if (tier) lines.push(`⚠ IRMAA ${tier.label}: +${fmt(tier.surcharge)}/yr surcharge`);
+            footer:items=>{
+              const i=items[0]?items[0].dataIndex:0;
+              const ha=X_MIN+i;
+              const calYear=Math.floor(henryYear(ha));
+              const vs=[pension[i]||0,wage[i]||0,taxInt[i]||0,iraRmd[i]||0,henrySS[i]||0,deniseSS[i]||0];
+              const total=vs.reduce((s,v)=>s+v,0);
+              const iraBal=chart2IraBalByYear[calYear]||0;
+              const absY=henryYear(ha);
+              const filing=(absY<chart2HenryDY&&absY<chart2DeniseDY)?'mfj':'single';
+              const irmaaT=(filing==='mfj'?IRMAA_MFJ:IRMAA_SINGLE).slice().reverse().find(t=>total>=t.magi);
+              const lines=[`Total income: ${fmt(total)}/yr`];
+              if(iraBal>0)lines.push(`IRA balance (today's $): ${fmt(iraBal)}`);
+              if(irmaaT)lines.push(`⚠ IRMAA ${irmaaT.label}: +${fmt(irmaaT.surcharge)}/yr`);
               return lines;
             }
           }
         }
       },
-      scales: {
-        x: { type: 'category', min: X_MIN, max: X_MAX,
-             title: { display:true, text:"John's age", font:{size:11}, color:'#a09d98' },
-             ticks: { color:'#a09d98', font:{size:10}, maxTicksLimit:20 },
-             grid: { color:'rgba(0,0,0,0.05)' } },
-        y: { stacked: true, min: 0, max: Y2_MAX_LOCKED,
-             title: { display:true, text:"Annual income (today's $)", font:{size:11}, color:'#a09d98' },
-             ticks: { color:'#a09d98', font:{size:10}, callback: v=>'$'+Math.round(v).toLocaleString()+'/yr' },
-             grid: { color:'rgba(0,0,0,0.05)' } }
+      scales:{
+        x:{type:'category',min:X_MIN,max:X_MAX,
+           title:{display:true,text:"John's age",font:{size:11},color:'#a09d98'},
+           ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
+        y:{stacked:true,min:0,max:Y2_MAX_LOCKED,
+           title:{display:true,text:"Annual income (today's $)",font:{size:11},color:'#a09d98'},
+           ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v).toLocaleString()+'/yr'},
+           grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
-
-  const spousalNote = jFiledFirst ? 'spousal eligible' : 'own benefit (John not yet filed)';
-  document.getElementById('chartNote2').textContent =
-    `John SS age ${jSSAge} ($${jB.toLocaleString()}/mo nominal, dark green; stops at John's death) · `+
-    `Jane SS age ${jaSSAge} ($${jaBenNom.toLocaleString()}/mo nominal, ${spousalNote}; after John passes, teal band = survivor $${jB.toLocaleString()}/mo). `+
-    `Pension $18,000/yr fixed nominal starting John age 60 — real value declines at inflation rate. `+
-    `Wage $40,000/yr until Jane age 65. Taxable interest $5,000/yr nominal (no COLA). `+
-    `IRA RMD starts John age 75 ($${(iraValue/1000000).toFixed(2)}M nominal at age 75, ${(iraGrowth*100).toFixed(2)}% annual growth). `+
-    `COLA ${(cola*100).toFixed(2)}% · Inflation ${(inf*100).toFixed(2)}%. Y-axis locked. Chart stops when both pass. `+
-    `Dashed amber lines = IRMAA Medicare surcharge thresholds.`;
+  document.getElementById('chartNote2').textContent=
+    `John SS age ${hSSAge} ($${hB.toLocaleString()}/mo) · Jane SS age ${dSSAge} ($${dBenNom.toLocaleString()}/mo spousal; survivor=${hB.toLocaleString()}/mo after John passes). `+
+    `Pension $18k/yr nominal from age 60. Taxable interest $5k/yr nominal. IRA starts RMD age 75. `+
+    `Amber dashed = IRMAA thresholds · Purple dashed = income tax bracket ceilings (MFJ left → Single right). Y-axis locked.`;
 }
 
-// ── Tax Computation ───────────────────────────────────────────────────────────
-const MFJ_BRACKETS = [
-  { limit: 23200,    rate: 0.10 },
-  { limit: 94300,    rate: 0.12 },
-  { limit: 201050,   rate: 0.22 },
-  { limit: 383900,   rate: 0.24 },
-  { limit: 487450,   rate: 0.32 },
-  { limit: 731200,   rate: 0.35 },
-  { limit: Infinity, rate: 0.37 }
-];
-const SINGLE_BRACKETS = [
-  { limit: 11600,    rate: 0.10 },
-  { limit: 47150,    rate: 0.12 },
-  { limit: 100525,   rate: 0.22 },
-  { limit: 191950,   rate: 0.24 },
-  { limit: 243725,   rate: 0.32 },
-  { limit: 365600,   rate: 0.35 },
-  { limit: Infinity, rate: 0.37 }
-];
-const STANDARD_DEDUCTION_MFJ    = 32000;
-const STANDARD_DEDUCTION_SINGLE = 16000;
-
-function computeTax(taxableIncome, brackets) {
-  if (taxableIncome <= 0) return 0;
-  let tax = 0, prev = 0;
-  for (const b of brackets) {
-    if (taxableIncome <= prev) break;
-    const chunk = Math.min(taxableIncome, b.limit) - prev;
-    tax += chunk * b.rate;
-    prev = b.limit;
-  }
-  return tax;
-}
-
-function computeTaxableSSAndTax(nonSSIncome, totalSSIncome, filing) {
-  const provisional = nonSSIncome + 0.5 * totalSSIncome;
-  let taxableSS = 0;
-  if (filing === 'mfj') {
-    if (provisional <= 32000) taxableSS = 0;
-    else if (provisional <= 44000) taxableSS = Math.min(0.5*(provisional-32000), 0.5*totalSSIncome);
-    else taxableSS = Math.min(6000 + 0.85*(provisional-44000), 0.85*totalSSIncome);
+// ── Section 3 & 4 ─────────────────────────────────────────────────────────────
+function computeTaxableSS(nonSS, totalSS, filing){
+  const provisional=nonSS+0.5*totalSS;
+  let tss=0;
+  if(filing==='mfj'){
+    if(provisional<=32000)tss=0;
+    else if(provisional<=44000)tss=Math.min(0.5*(provisional-32000),0.5*totalSS);
+    else tss=Math.min(6000+0.85*(provisional-44000),0.85*totalSS);
   } else {
-    if (provisional <= 25000) taxableSS = 0;
-    else if (provisional <= 34000) taxableSS = Math.min(0.5*(provisional-25000), 0.5*totalSSIncome);
-    else taxableSS = Math.min(4500 + 0.85*(provisional-34000), 0.85*totalSSIncome);
+    if(provisional<=25000)tss=0;
+    else if(provisional<=34000)tss=Math.min(0.5*(provisional-25000),0.5*totalSS);
+    else tss=Math.min(4500+0.85*(provisional-34000),0.85*totalSS);
   }
-  const stdDed = filing === 'mfj' ? STANDARD_DEDUCTION_MFJ : STANDARD_DEDUCTION_SINGLE;
-  const agi = nonSSIncome + taxableSS;
-  const taxableIncome = Math.max(0, agi - stdDed);
-  const totalTax = computeTax(taxableIncome, filing === 'mfj' ? MFJ_BRACKETS : SINGLE_BRACKETS);
-  return { taxableSS, totalTax, provisional, agi, taxableIncome };
+  return{taxableSS:tss,provisional};
 }
 
-function computeTaxSeries(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue) {
-  const { pension, wage, taxInt, iraRmd, johnSS, janeSS } =
-    computeIncomeSeries(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue);
-
-  const taxableSSArr=[], totalTaxArr=[], provisionalArr=[], compArr=[];
-  const jDY = johnYear(jDeath), jaDY = janeYear(janDeath);
-
-  for (let i = 0; i < pension.length; i++) {
-    const ja = X_MIN + i;
-    const absY = johnYear(ja);
-    if (pension[i] === null) {
-      taxableSSArr.push(null); totalTaxArr.push(null); provisionalArr.push(null); compArr.push(null);
-      continue;
-    }
-    const jAlive = absY < jDY, jaAlive = absY < jaDY;
-    const filing = (jAlive && jaAlive) ? 'mfj' : 'single';
+function computeTaxSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue){
+  const{pension,wage,taxInt,iraRmd,henrySS,deniseSS}=
+    computeIncomeSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
+  const hDY=henryYear(hDeath), dDY=deniseYear(dDeath);
+  const taxableSSArr=[],totalTaxArr=[],compArr=[];
+  for(let i=0;i<pension.length;i++){
+    if(pension[i]===null){taxableSSArr.push(null);totalTaxArr.push(null);compArr.push(null);continue;}
+    const ha=X_MIN+i, absY=henryYear(ha);
+    const filing=(absY<hDY&&absY<dDY)?'mfj':'single';
     const pen=pension[i]||0, wg=wage[i]||0, ti=taxInt[i]||0, rmd=iraRmd[i]||0;
-    const jss=johnSS[i]||0, jass=janeSS[i]||0;
-    const nonSS = pen+wg+ti+rmd, totalSS = jss+jass;
-    const { taxableSS, totalTax, provisional, agi, taxableIncome } =
-      computeTaxableSSAndTax(nonSS, totalSS, filing);
+    const hss=henrySS[i]||0, dss=deniseSS[i]||0;
+    const nonSS=pen+wg+ti+rmd, totalSS=hss+dss;
+    const{taxableSS,provisional}=computeTaxableSS(nonSS,totalSS,filing);
+    const stdDed=filing==='mfj'?STD_MFJ:STD_SINGLE;
+    const agi=nonSS+taxableSS;
+    const taxableIncome=Math.max(0,agi-stdDed);
+    const brackets=filing==='mfj'?MFJ_BRACKETS:SINGLE_BRACKETS;
+    const totalTax=computeTax(taxableIncome,brackets);
     taxableSSArr.push(taxableSS);
     totalTaxArr.push(totalTax);
-    provisionalArr.push(provisional);
-    compArr.push({ pen, wg, ti, rmd, hss:jss, dss:jass, totalSS, nonSS,
-                   totalIncome: nonSS+totalSS, provisional, taxableSS, agi, taxableIncome, filing });
+    compArr.push({pen,wg,ti,rmd,hss,dss,nonSS,totalSS,provisional,taxableSS,agi,taxableIncome,totalTax,filing,stdDed});
   }
-  return { taxableSSArr, totalTaxArr, provisionalArr, compArr };
+  return{taxableSSArr,totalTaxArr,compArr};
 }
 
-// ── Section 3 render ─────────────────────────────────────────────────────────
-const TAX_SS_COLOR  = '#3B6FA0';
-const TAX_TOT_COLOR = '#A03B6F';
-let Y3_MAX_LOCKED = null, Y4_MAX_LOCKED = null;
+const TAX_SS_COLOR='#3B6FA0', TAX_TOT_COLOR='#A03B6F';
+let Y3_MAX_LOCKED=null, Y4_MAX_LOCKED=null;
 let chart3Inst, chart4Inst;
-let chart4CompArr = [];
-let chart3ProvisionalArr = [];
+let chart3ProvArr=[], chart4CompArr=[];
 
-function buildLegend3() {
-  document.getElementById('legend3').innerHTML =
-    `<span class="legend-item"><span class="legend-swatch" style="background:${TAX_SS_COLOR}"></span>Taxable SS Amount</span>` +
-    `<span class="legend-item"><span class="legend-swatch" style="background:#adc8e0;height:2px;margin-top:4px"></span>85% threshold</span>`;
+function buildLegend3(){
+  document.getElementById('legend3').innerHTML=
+    `<span class="legend-item"><span class="legend-swatch" style="background:${TAX_SS_COLOR}"></span>Taxable SS Amount</span>`+
+    `<span class="legend-item"><span class="legend-swatch" style="background:#adc8e0;height:2px;margin-top:4px"></span>85% of SS (max taxable)</span>`+
+    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #e6a817;background:transparent;height:2px;margin-top:4px"></span>SS taxability tiers (MFJ)</span>`+
+    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #c0784a;background:transparent;height:2px;margin-top:4px"></span>SS taxability tiers (Single)</span>`;
 }
-function buildLegend4() {
-  document.getElementById('legend4').innerHTML =
-    `<span class="legend-item"><span class="legend-swatch" style="background:${TAX_TOT_COLOR}"></span>Total Income Tax</span>` +
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #8474b8;background:transparent;height:2px;margin-top:4px"></span>MFJ bracket ceilings</span>` +
+function buildLegend4(){
+  document.getElementById('legend4').innerHTML=
+    `<span class="legend-item"><span class="legend-swatch" style="background:${TAX_TOT_COLOR}"></span>Total Income Tax</span>`+
+    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #8474b8;background:transparent;height:2px;margin-top:4px"></span>MFJ bracket ceilings</span>`+
     `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #b88474;background:transparent;height:2px;margin-top:4px"></span>Single bracket ceilings</span>`;
 }
 
-// Plugin: draw tax bracket dashed lines on chart 4
-const bracketLinesPlugin = {
-  id: 'bracketLines',
-  afterDraw(chart, args, opts) {
-    if (!opts || !opts.mfjLines) return;
-    const { ctx, chartArea: { left, right, top, bottom }, scales: { x, y } } = chart;
-    const switchIdx = opts.switchIdx ?? chart.data.labels.length;
-    const totalPts  = chart.data.labels.length;
-    function xMid(idx) { return x.getPixelForValue(Math.max(0, Math.min(totalPts-1, idx))); }
-    const mfjRight   = switchIdx > 0 && switchIdx <= totalPts
-      ? xMid(switchIdx-1) + (xMid(Math.min(switchIdx,totalPts-1)) - xMid(switchIdx-1))/2
-      : (switchIdx <= 0 ? left-1 : right);
-    const singleLeft = mfjRight;
+// ── SS Taxability Tier Lines plugin (chart3) ──────────────────────────────────
+// For each year, the taxable SS thresholds are fixed $ amounts (not COLA'd).
+// We compute the average per-year tier boundaries over the chart range and draw
+// horizontal bands showing 0% / 50% / 85% taxability zones, split MFJ vs Single.
+// Tier boundary in taxable-SS dollars:
+//   MFJ:    0%→50% at taxableSS = 0 (provisional = 32000)
+//           50%→85% at taxableSS = min(0.5*(44000-32000), 0.5*totalSS) = 6000 if SS big enough
+//   Single: 0%→50% at taxableSS = 0 (provisional = 25000)
+//           50%→85% at taxableSS = min(0.5*(34000-25000), 0.5*totalSS) = 4500 if SS big enough
+// These are fixed $ amounts (thresholds never changed since 1980s).
+const ssTierPlugin={
+  id:'ssTierLines',
+  afterDraw(chart,args,opts){
+    if(!opts||opts.switchIdx===undefined) return;
+    const{ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
+    const n=chart.data.labels.length;
+    const switchIdx=opts.switchIdx;
+    function xFrac(idx){return x.getPixelForValue(Math.max(0,Math.min(n-1,idx)));}
+    const mfjR=switchIdx>0&&switchIdx<=n?(xFrac(switchIdx-1)+xFrac(Math.min(switchIdx,n-1)))/2:(switchIdx<=0?left-1:right);
     ctx.save();
-    function drawBracketLines(lines, xFrom, xTo, color) {
-      if (!lines || xFrom >= xTo) return;
-      lines.forEach(line => {
-        const yPx = y.getPixelForValue(line.taxAtBracketBoundary);
-        if (yPx < top || yPx > bottom) return;
-        const segL = Math.max(left, xFrom), segR = Math.min(right, xTo);
-        if (segL >= segR) return;
-        ctx.beginPath(); ctx.setLineDash([6,4]); ctx.lineWidth = 1;
-        ctx.strokeStyle = color;
-        ctx.moveTo(segL, yPx); ctx.lineTo(segR, yPx); ctx.stroke();
+
+    function drawTierSeg(tiers, zones, xFrom, xTo, color){
+      if(xFrom>=xTo) return;
+      const segL=Math.max(left,xFrom), segR=Math.min(right,xTo);
+      if(segL>=segR) return;
+      // Draw tier boundary lines
+      tiers.forEach(tier=>{
+        const yPx=y.getPixelForValue(tier.ssAmount);
+        if(yPx<top||yPx>bottom) return;
+        ctx.beginPath(); ctx.setLineDash([8,5]); ctx.lineWidth=1.4;
+        ctx.strokeStyle=color;
+        ctx.moveTo(segL,yPx); ctx.lineTo(segR,yPx); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.font = '9px DM Sans, sans-serif'; ctx.fillStyle = color;
-        ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-        ctx.fillText(`${line.upperRate}%`, segR-2, yPx-1);
-        ctx.textBaseline = 'top';
-        ctx.fillText(`${line.lowerRate}%`, segR-2, yPx+1);
+        ctx.font='bold 9px DM Sans,sans-serif'; ctx.fillStyle=color;
+        ctx.textAlign='left'; ctx.textBaseline='bottom';
+        ctx.fillText(tier.above, segL+4, yPx-2);
+        ctx.textBaseline='top';
+        ctx.fillText(tier.below, segL+4, yPx+2);
+      });
+      // Draw zone labels centered in each band
+      zones.forEach(zone=>{
+        const y1=y.getPixelForValue(zone.ssTop);
+        const y2=y.getPixelForValue(zone.ssBottom);
+        const yMid=(y1+y2)/2;
+        if(yMid<top||yMid>bottom) return;
+        ctx.font='10px DM Sans,sans-serif'; ctx.fillStyle=color+'99';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(zone.label, segL+(segR-segL)*0.5, yMid);
       });
     }
-    drawBracketLines(opts.mfjLines,    left,       mfjRight,   '#8474b8');
-    drawBracketLines(opts.singleLines, singleLeft, right,      '#b88474');
+
+    drawTierSeg(opts.mfjTiers,    opts.mfjZones,    left, mfjR,  '#c8860a');
+    drawTierSeg(opts.singleTiers, opts.singleZones, mfjR, right, '#c0784a');
     ctx.restore();
   }
 };
-if (!Chart.registry.plugins.get('bracketLines')) Chart.register(bracketLinesPlugin);
+if(!Chart.registry.plugins.get('ssTierLines')) Chart.register(ssTierPlugin);
 
-function computeBracketTaxLines(brackets, stdDed) {
-  const lines = [];
-  let prev = 0;
-  for (let i = 0; i < brackets.length - 1; i++) {
-    const b = brackets[i];
-    const taxableAtBoundary = b.limit;
-    const taxAtBoundary = computeTax(taxableAtBoundary, brackets);
+// Tax bracket lines plugin (on tax chart — Y axis = tax dollars)
+function taxAtBoundary(brackets,limit){
+  let tax=0,prev=0;
+  for(const b of brackets){
+    if(limit<=prev)break;
+    tax+=(Math.min(limit,b.limit)-prev)*b.rate;
+    prev=b.limit;
+  }
+  return tax;
+}
+function buildTaxBracketLines(brackets){
+  const lines=[];
+  for(let i=0;i<brackets.length-1;i++){
     lines.push({
-      taxAtBracketBoundary: taxAtBoundary,
-      upperRate: Math.round(brackets[i+1].rate * 100),
-      lowerRate: Math.round(b.rate * 100),
+      taxAtBoundary:taxAtBoundary(brackets,brackets[i].limit),
+      upperRate:Math.round(brackets[i+1].rate*100),
+      lowerRate:Math.round(brackets[i].rate*100)
     });
-    prev = b.limit;
   }
   return lines;
 }
 
-function buildChart3(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue) {
-  const { taxableSSArr, provisionalArr } =
-    computeTaxSeries(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue);
-  chart3ProvisionalArr = provisionalArr;
+const taxBracketPlugin={
+  id:'taxBracketLines',
+  afterDraw(chart,args,opts){
+    if(!opts||!opts.mfjLines) return;
+    const{ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
+    const n=chart.data.labels.length;
+    const switchIdx=opts.switchIdx??n;
+    function xFrac(idx){return x.getPixelForValue(Math.max(0,Math.min(n-1,idx)));}
+    const mfjR=switchIdx>0&&switchIdx<=n?(xFrac(switchIdx-1)+xFrac(Math.min(switchIdx,n-1)))/2:(switchIdx<=0?left-1:right);
+    ctx.save();
+    function drawSeg(lines,xFrom,xTo,color){
+      if(!lines||xFrom>=xTo)return;
+      lines.forEach(line=>{
+        const yPx=y.getPixelForValue(line.taxAtBoundary);
+        if(yPx<top||yPx>bottom)return;
+        const segL=Math.max(left,xFrom),segR=Math.min(right,xTo);
+        if(segL>=segR)return;
+        ctx.beginPath();ctx.setLineDash([6,4]);ctx.lineWidth=1.1;ctx.strokeStyle=color;
+        ctx.moveTo(segL,yPx);ctx.lineTo(segR,yPx);ctx.stroke();ctx.setLineDash([]);
+        ctx.font='9px DM Sans,sans-serif';ctx.fillStyle=color;
+        ctx.textAlign='right';ctx.textBaseline='bottom';
+        ctx.fillText(`${line.upperRate}%`,segR-2,yPx-1);
+        ctx.textBaseline='top';
+        ctx.fillText(`${line.lowerRate}%`,segR-2,yPx+1);
+      });
+    }
+    drawSeg(opts.mfjLines.filter(l=>l.taxAtBoundary<(y.max||Infinity)),    left,  mfjR, '#8474b8');
+    drawSeg(opts.singleLines.filter(l=>l.taxAtBoundary<(y.max||Infinity)), mfjR,  right,'#b88474');
+    ctx.restore();
+  }
+};
+if(!Chart.registry.plugins.get('taxBracketLines')) Chart.register(taxBracketPlugin);
 
+function buildChart3(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue){
+  const{taxableSSArr,compArr}=computeTaxSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
+  chart3ProvArr=compArr.map(c=>c?c.provisional:null);
+  const{henrySS,deniseSS}=computeIncomeSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
+  const ss85=taxableSSArr.map((v,i)=>v===null?null:0.85*((henrySS[i]||0)+(deniseSS[i]||0)));
   const labels=[]; for(let a=X_MIN;a<=X_MAX;a++) labels.push(a);
-
-  // Compute 85% SS threshold line per age (85% of total SS in today's dollars)
-  const { johnSS: jssArr, janeSS: jassArr } =
-    computeIncomeSeries(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue);
-  const ss85Line = labels.map((_,i) => {
-    if (taxableSSArr[i] === null) return null;
-    return 0.85 * ((jssArr[i]||0) + (jassArr[i]||0));
-  });
-
-  if (Y3_MAX_LOCKED === null) {
-    const maxVal = Math.max(...taxableSSArr.filter(v=>v!==null), ...ss85Line.filter(v=>v!==null));
-    Y3_MAX_LOCKED = Math.ceil(maxVal / 5000) * 5000 + 5000;
+  if(Y3_MAX_LOCKED===null){
+    const maxV=Math.max(...[...taxableSSArr,...ss85].filter(v=>v!==null&&v>0));
+    Y3_MAX_LOCKED=Math.ceil(maxV/5000)*5000+5000;
   }
 
-  const datasets = [
-    { label: 'Taxable SS', data: taxableSSArr, borderColor: TAX_SS_COLOR,
-      backgroundColor: TAX_SS_COLOR + '55', borderWidth: 4, pointRadius: 0,
-      tension: 0.3, fill: true, spanGaps: false },
-    { label: '85% Max SS', data: ss85Line, borderColor: '#adc8e0',
-      backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [6,4],
-      pointRadius: 0, tension: 0.3, fill: false, spanGaps: false },
+  // Compute switch index (first year John OR Jane has passed → Single)
+  const hDY=henryYear(hDeath), dDY=deniseYear(dDeath);
+  let switchIdx=labels.length;
+  for(let i=0;i<labels.length;i++){
+    const absY=henryYear(labels[i]);
+    if(absY>=hDY||absY>=dDY){switchIdx=i;break;}
+  }
+
+  // SS taxability tier thresholds (fixed, never COLA'd since 1983/1993)
+  // MFJ:    0%→50%: provisional=32000 → taxableSS crosses 0 (show at 0, label zone below)
+  //         50%→85%: provisional=44000 → taxableSS = min(6000, 0.5*totalSS)
+  // Single: 0%→50%: provisional=25000 → show at 0
+  //         50%→85%: provisional=34000 → taxableSS = min(4500, 0.5*totalSS)
+  // Representative totalSS = average of non-null years
+  const nonNullSS=labels.map((_,i)=>(henrySS[i]||0)+(deniseSS[i]||0)).filter(v=>v>0);
+  const avgSS=nonNullSS.length?nonNullSS.reduce((a,b)=>a+b,0)/nonNullSS.length:50000;
+
+  const mfj50tier  = Math.min(6000,  0.5*avgSS);  // taxable SS at 50%→85% boundary, MFJ
+  const single50t  = Math.min(4500,  0.5*avgSS);  // taxable SS at 50%→85% boundary, Single
+
+  const mfjTiers=[
+    {ssAmount:mfj50tier, above:'50%→85% zone above', below:'0%→50% zone below'},
+  ];
+  const singleTiers=[
+    {ssAmount:single50t, above:'50%→85% zone above', below:'0%→50% zone below'},
   ];
 
-  const c = document.getElementById('chart3');
-  if (chart3Inst) {
-    chart3Inst.data.datasets.forEach((ds,i) => { ds.data = datasets[i].data; });
-    chart3Inst.update({ duration: 400, easing: 'easeInOutQuart' });
+  // Zone label bands: [bottom, top] in taxable SS dollars, label text
+  const mfjZones=[
+    {ssBottom:0,      ssTop:mfj50tier,       label:'0–50% taxable zone (MFJ PI $32k–$44k)'},
+    {ssBottom:mfj50tier, ssTop:Y3_MAX_LOCKED, label:'85% taxable zone (MFJ PI > $44k)'},
+  ];
+  const singleZones=[
+    {ssBottom:0,       ssTop:single50t,        label:'0–50% taxable zone (Single PI $25k–$34k)'},
+    {ssBottom:single50t, ssTop:Y3_MAX_LOCKED,  label:'85% taxable zone (Single PI > $34k)'},
+  ];
+
+  const datasets=[
+    {label:'Taxable SS',data:taxableSSArr,borderColor:TAX_SS_COLOR,backgroundColor:TAX_SS_COLOR+'55',borderWidth:4,pointRadius:0,tension:0.3,fill:true,spanGaps:false},
+    {label:'85% of SS',data:ss85,borderColor:'#adc8e0',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,4],pointRadius:0,tension:0.3,fill:false,spanGaps:false},
+  ];
+  const c=document.getElementById('chart3');
+  const ssTierOpts={switchIdx,mfjTiers,singleTiers,mfjZones,singleZones};
+  if(chart3Inst){
+    chart3Inst.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
+    chart3Inst.options.plugins.ssTierLines=ssTierOpts;
+    chart3Inst.update({duration:400,easing:'easeInOutQuart'});
   } else {
-    chart3Inst = new Chart(c, { type: 'line', data: { labels, datasets }, options: {
-      responsive: true, maintainAspectRatio: true, aspectRatio: 1,
-      interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { display: false }, tooltip: { callbacks: {
-        label: ctx => ctx.raw === null ? null :
-          ctx.datasetIndex === 0 ? ` Taxable SS: ${fmt(ctx.raw)}/yr` : ` 85% SS max: ${fmt(ctx.raw)}/yr`,
-        footer: items => {
-          const i = items[0] ? items[0].dataIndex : 0;
-          const pi = chart3ProvisionalArr[i];
-          return pi !== null ? [`Provisional income: ${fmt(pi)}/yr`] : [];
-        }
-      }}},
-      scales: {
-        x: { type:'category', min:X_MIN, max:X_MAX,
-             title:{ display:true, text:"John's age", font:{size:11}, color:'#a09d98' },
-             ticks:{ color:'#a09d98', font:{size:10}, maxTicksLimit:20 },
-             grid:{ color:'rgba(0,0,0,0.05)' } },
-        y: { min:0, max:Y3_MAX_LOCKED,
-             title:{ display:true, text:"Taxable SS (today's $)", font:{size:11}, color:'#a09d98' },
-             ticks:{ color:'#a09d98', font:{size:10}, callback: v=>'$'+Math.round(v).toLocaleString()+'/yr' },
-             grid:{ color:'rgba(0,0,0,0.05)' } }
+    chart3Inst=new Chart(c,{type:'line',data:{labels,datasets},options:{
+      responsive:true,maintainAspectRatio:true,aspectRatio:1,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        ssTierLines:ssTierOpts,
+        tooltip:{callbacks:{
+          label:ctx=>{
+            if(ctx.raw===null) return null;
+            if(ctx.datasetIndex===0){
+              const i=ctx.dataIndex;
+              const cv=compArr[i];
+              if(!cv) return ` Taxable SS: ${fmt(ctx.raw)}/yr`;
+              const pct=cv.totalSS>0?Math.round(ctx.raw/cv.totalSS*100):0;
+              return ` Taxable SS: ${fmt(ctx.raw)}/yr (${pct}% of SS)`;
+            }
+            return ` 85% max: ${fmt(ctx.raw)}/yr`;
+          },
+          footer:items=>{
+            const i=items[0]?items[0].dataIndex:0;
+            const cv=compArr[i];
+            if(!cv) return [];
+            const zone=cv.filing==='mfj'
+              ?(cv.provisional<=32000?'0% taxable':cv.provisional<=44000?'50% zone':'85% zone')
+              :(cv.provisional<=25000?'0% taxable':cv.provisional<=34000?'50% zone':'85% zone');
+            return [
+              `Provisional income: ${fmt(cv.provisional)}/yr`,
+              `Filing: ${cv.filing==='mfj'?'Married (MFJ)':'Single'} · Zone: ${zone}`,
+              `Total SS: ${fmt(cv.totalSS)}/yr · Taxable: ${fmt(cv.taxableSS)}/yr`,
+            ];
+          }
+        }}
+      },
+      scales:{
+        x:{type:'category',min:X_MIN,max:X_MAX,title:{display:true,text:"John's age",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
+        y:{min:0,max:Y3_MAX_LOCKED,title:{display:true,text:"Taxable SS (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v).toLocaleString()+'/yr'},grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
-
-  const jDY = johnYear(jDeath), jaDY = janeYear(janDeath);
-  const filingSwitch = labels.findIndex(a => {
-    const absY = johnYear(a);
-    return absY >= jDY || absY >= jaDY;
-  });
-  document.getElementById('chartNote3').textContent =
-    `Taxable SS using IRS two-tier formula. Provisional income = non-SS income + 50% of household SS. `+
-    `MFJ thresholds ($32k/$44k) while both alive; Single ($25k/$34k) after first death. `+
-    `Blue dashed = 85% of household SS (maximum taxable amount). Y-axis locked. ` +
-    `Filing switches to Single at first death.`;
+  document.getElementById('chartNote3').textContent=
+    `Taxable SS via IRS two-tier formula. Amber dashed = MFJ tier boundary (PI $32k→$44k, taxable SS ~${fmt(mfj50tier)}/yr). `+
+    `Orange dashed = Single tier boundary (PI $25k→$34k, taxable SS ~${fmt(single50t)}/yr). `+
+    `MFJ applies left of filing-status switch; Single applies right. `+
+    `Blue dashed = 85% SS max (hard ceiling). Y-axis locked. Tooltip shows % of SS that is taxable.`;
 }
 
-// ── Section 4 render ─────────────────────────────────────────────────────────
-function buildChart4(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue) {
-  const { totalTaxArr, compArr } =
-    computeTaxSeries(jSSAge, jaSSAge, jDeath, janDeath, cola, inf, iraGrowth, iraValue);
-  chart4CompArr = compArr;
-
+function buildChart4(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue){
+  const{totalTaxArr,compArr}=computeTaxSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
+  chart4CompArr=compArr;
+  const hDY=henryYear(hDeath), dDY=deniseYear(dDeath);
   const labels=[]; for(let a=X_MIN;a<=X_MAX;a++) labels.push(a);
-
-  if (Y4_MAX_LOCKED === null) {
-    const maxVal = Math.max(...totalTaxArr.filter(v=>v!==null));
-    Y4_MAX_LOCKED = Math.ceil(maxVal / 5000) * 5000 + 5000;
+  if(Y4_MAX_LOCKED===null){
+    const maxV=Math.max(...totalTaxArr.filter(v=>v!==null));
+    Y4_MAX_LOCKED=Math.ceil(maxV/5000)*5000+5000;
   }
-
-  const jDY = johnYear(jDeath), jaDY = janeYear(janDeath);
-  let switchIdx = labels.length;
-  for (let i=0;i<labels.length;i++) {
-    const absY=johnYear(labels[i]);
-    if (totalTaxArr[i]!==null && (absY>=jDY || absY>=jaDY)) { switchIdx=i; break; }
+  let switchIdx=labels.length;
+  for(let i=0;i<labels.length;i++){
+    const absY=henryYear(labels[i]);
+    if(!(absY<hDY&&absY<dDY)){switchIdx=i;break;}
   }
-
-  const mfjLines    = computeBracketTaxLines(MFJ_BRACKETS, STANDARD_DEDUCTION_MFJ).filter(l=>l.taxAtBracketBoundary<Y4_MAX_LOCKED);
-  const singleLines = computeBracketTaxLines(SINGLE_BRACKETS, STANDARD_DEDUCTION_SINGLE).filter(l=>l.taxAtBracketBoundary<Y4_MAX_LOCKED);
-
-  const datasets = [
-    { label: 'Total Tax', data: totalTaxArr, borderColor: TAX_TOT_COLOR,
-      backgroundColor: TAX_TOT_COLOR + '55', borderWidth: 4, pointRadius: 0,
-      tension: 0.3, fill: true, spanGaps: false },
+  const mfjLines=buildTaxBracketLines(MFJ_BRACKETS).filter(l=>l.taxAtBoundary<Y4_MAX_LOCKED);
+  const singleLines=buildTaxBracketLines(SINGLE_BRACKETS).filter(l=>l.taxAtBoundary<Y4_MAX_LOCKED);
+  const datasets=[
+    {label:'Total Tax',data:totalTaxArr,borderColor:TAX_TOT_COLOR,backgroundColor:TAX_TOT_COLOR+'55',borderWidth:4,pointRadius:0,tension:0.3,fill:true,spanGaps:false}
   ];
-
-  const c = document.getElementById('chart4');
-  if (chart4Inst) {
-    chart4Inst.data.datasets[0].data = totalTaxArr;
-    chart4Inst.options.plugins.bracketLines = { mfjLines, singleLines, switchIdx };
-    chart4Inst.update({ duration: 400, easing: 'easeInOutQuart' });
+  const c=document.getElementById('chart4');
+  if(chart4Inst){
+    chart4Inst.data.datasets[0].data=totalTaxArr;
+    chart4Inst.options.plugins.taxBracketLines={mfjLines,singleLines,switchIdx};
+    chart4Inst.update({duration:400,easing:'easeInOutQuart'});
   } else {
-    chart4Inst = new Chart(c, { type: 'line', data: { labels, datasets }, options: {
-      responsive: true, maintainAspectRatio: true, aspectRatio: 1,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        bracketLines: { mfjLines, singleLines, switchIdx },
-        tooltip: {
-          bodyFont: { family: 'monospace', size: 12 },
-          footerFont: { family: 'monospace', size: 11 },
-          callbacks: {
-            label: ctx => ctx.raw === null ? null : ` Total Tax: ${fmt(ctx.raw)}/yr`,
-            footer: items => {
-              const i = items[0] ? items[0].dataIndex : 0;
-              const c = chart4CompArr[i];
-              if (!c) return '';
-              const stdDed = c.filing === 'mfj' ? STANDARD_DEDUCTION_MFJ : STANDARD_DEDUCTION_SINGLE;
-              const COL = 26;
-              const row = (label, value) => {
-                const pad = Math.max(1, COL - label.length - value.length);
-                return label + ' '.repeat(pad) + value;
-              };
-              return [
+    chart4Inst=new Chart(c,{type:'line',data:{labels,datasets},options:{
+      responsive:true,maintainAspectRatio:true,aspectRatio:1,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        taxBracketLines:{mfjLines,singleLines,switchIdx},
+        tooltip:{
+          bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},
+          callbacks:{
+            label:ctx=>ctx.raw===null?null:` Total Tax: ${fmt(ctx.raw)}/yr`,
+            footer:items=>{
+              const i=items[0]?items[0].dataIndex:0;
+              const cv=chart4CompArr[i]; if(!cv)return'';
+              const COL=26;
+              const row=(lbl,val)=>{const p=Math.max(1,COL-lbl.length-val.length);return lbl+' '.repeat(p)+val;};
+              return[
                 '─── Income ───────────────────',
-                row('Pension',          fmt(c.pen)   + '/yr'),
-                row('Wage',             fmt(c.wg)    + '/yr'),
-                row('Taxable interest', fmt(c.ti)    + '/yr'),
-                row('IRA RMD',          fmt(c.rmd)   + '/yr'),
-                row('John SS',          fmt(c.hss)   + '/yr'),
-                row('Jane SS',          fmt(c.dss)   + '/yr'),
-                row('Total income',     fmt(c.totalIncome) + '/yr'),
+                row('Pension',         fmt(cv.pen)+'/yr'),
+                row('Wage',            fmt(cv.wg)+'/yr'),
+                row('Taxable interest',fmt(cv.ti)+'/yr'),
+                row('IRA RMD',         fmt(cv.rmd)+'/yr'),
+                row('John SS',        fmt(cv.hss)+'/yr'),
+                row('Jane SS',       fmt(cv.dss)+'/yr'),
+                row('Total income',    fmt(cv.nonSS+cv.totalSS)+'/yr'),
                 '─── Tax Calc ─────────────────',
-                row('Filing',           c.filing === 'mfj' ? 'Married (MFJ)' : 'Single'),
-                row('Provisional inc',  fmt(c.provisional) + '/yr'),
-                row('Taxable SS',       fmt(c.taxableSS)   + '/yr'),
-                row('AGI',              fmt(c.agi)          + '/yr'),
-                row('Std deduction',   '(' + fmt(stdDed) + ')'),
-                row('Taxable income',   fmt(c.taxableIncome)+ '/yr'),
+                row('Filing',          cv.filing==='mfj'?'Married (MFJ)':'Single'),
+                row('Provisional inc', fmt(cv.provisional)+'/yr'),
+                row('Taxable SS',      fmt(cv.taxableSS)+'/yr'),
+                row('AGI',             fmt(cv.agi)+'/yr'),
+                row('Std deduction',  '('+fmt(cv.stdDed)+')'),
+                row('Taxable income',  fmt(cv.taxableIncome)+'/yr'),
               ];
             }
           }
         }
       },
-      scales: {
-        x: { type:'category', min:X_MIN, max:X_MAX,
-             title:{ display:true, text:"John's age", font:{size:11}, color:'#a09d98' },
-             ticks:{ color:'#a09d98', font:{size:10}, maxTicksLimit:20 },
-             grid:{ color:'rgba(0,0,0,0.05)' } },
-        y: { min:0, max:Y4_MAX_LOCKED,
-             title:{ display:true, text:"Total tax (today's $)", font:{size:11}, color:'#a09d98' },
-             ticks:{ color:'#a09d98', font:{size:10}, callback: v=>'$'+Math.round(v).toLocaleString()+'/yr' },
-             grid:{ color:'rgba(0,0,0,0.05)' } }
+      scales:{
+        x:{type:'category',min:X_MIN,max:X_MAX,title:{display:true,text:"John's age",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
+        y:{min:0,max:Y4_MAX_LOCKED,title:{display:true,text:"Total tax (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v).toLocaleString()+'/yr'},grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
-
-  document.getElementById('chartNote4').textContent =
-    `AGI = non-SS income + taxable SS. Taxable income = AGI − standard deduction. `+
-    `Filing: Married (MFJ) while both alive → Single after first death. Y-axis locked. `+
-    `Dashed lines show tax owed at each bracket boundary — purple = MFJ, orange = Single. `+
-    `2026 tax brackets, shown in today's dollars.`;
+  document.getElementById('chartNote4').textContent=
+    `AGI = non-SS income + taxable SS. Taxable income = AGI − standard deduction ($${STD_MFJ.toLocaleString()} MFJ / $${STD_SINGLE.toLocaleString()} Single). `+
+    `Filing switches to Single at John's death. Y-axis locked. Purple dashed = MFJ bracket ceilings; Orange = Single. 2026 brackets.`;
 }
 
 // ── Wiring ────────────────────────────────────────────────────────────────────
-function debounce(fn, ms) {
-  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+function debounce(fn,ms){let t;return(...args)=>{clearTimeout(t);t=setTimeout(()=>fn(...args),ms);};}
+
+function getSliders(){return{
+  hd:  +document.getElementById('henryDeath').value,
+  dd:  +document.getElementById('deniseDeath').value,
+  inf: +document.getElementById('inflationRate').value/100,
+  cola:+document.getElementById('colaRate').value/100,
+  dSS1:+document.getElementById('deniseSSAge1').value,
+  hSS: +document.getElementById('henrySSAge').value,
+  dSS: +document.getElementById('deniseSSAge').value,
+  iraG:+document.getElementById('iraGrowthRate').value/100,
+  iraV:+document.getElementById('iraValueAtRmd').value,
+};}
+
+function updateLabels(s){
+  document.getElementById('henryDeathVal').textContent  =s.hd;
+  document.getElementById('deniseDeathVal').textContent =s.dd;
+  document.getElementById('inflationVal').textContent   =(s.inf*100).toFixed(2)+'%';
+  document.getElementById('colaVal').textContent        =(s.cola*100).toFixed(2)+'%';
+  document.getElementById('deniseSSAge1Val').textContent=s.dSS1;
+  document.getElementById('henrySSAgeVal').textContent  =s.hSS;
+  document.getElementById('deniseSSAgeVal').textContent =s.dSS;
+  document.getElementById('iraGrowthVal').textContent   =(s.iraG*100).toFixed(2)+'%';
+  document.getElementById('iraValueVal').textContent    ='$'+Math.round(s.iraV).toLocaleString();
+  const b=document.getElementById('iraBadge');
+  if(b)b.textContent='John IRA $'+Math.round(s.iraV/1000)+'k nominal at RMD start (age 75)';
 }
 
-function getSliders() {
-  return {
-    j:    +document.getElementById('johnDeath').value,
-    ja:   +document.getElementById('janeDeath').value,
-    inf:  +document.getElementById('inflationRate').value / 100,
-    cola: +document.getElementById('colaRate').value / 100,
-    jaSS1:+document.getElementById('janeSSAge1').value,
-    jSS:  +document.getElementById('johnSSAge').value,
-    jaSS: +document.getElementById('janeSSAge').value,
-    iraG: +document.getElementById('iraGrowthRate').value / 100,
-    iraV: +document.getElementById('iraValueAtRmd').value,
-  };
+function updateAll(){
+  const s=getSliders(); updateLabels(s);
+  buildMetrics1(s.dSS1,s.hd,s.dd,s.cola,s.inf);
+  buildChart1(s.dSS1,s.hd,s.dd,s.cola,s.inf);
+  buildTable1(s.dSS1,s.hd,s.dd,s.cola,s.inf);
+  buildChart2(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
+  buildChart3(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
+  buildChart4(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
+}
+function updateSec2(){
+  const s=getSliders(); updateLabels(s);
+  buildChart2(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
+  buildChart3(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
+  buildChart4(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
 }
 
-function updateLabels(s) {
-  document.getElementById('johnDeathVal').textContent   = s.j;
-  document.getElementById('janeDeathVal').textContent   = s.ja;
-  document.getElementById('inflationVal').textContent   = (s.inf*100).toFixed(2)+'%';
-  document.getElementById('colaVal').textContent        = (s.cola*100).toFixed(2)+'%';
-  document.getElementById('janeSSAge1Val').textContent  = s.jaSS1;
-  document.getElementById('johnSSAgeVal').textContent   = s.jSS;
-  document.getElementById('janeSSAgeVal').textContent   = s.jaSS;
-  document.getElementById('iraGrowthVal').textContent   = (s.iraG*100).toFixed(2)+'%';
-  document.getElementById('iraValueVal').textContent    = '$'+Math.round(s.iraV).toLocaleString();
-  const iraBadge = document.getElementById('iraBadge');
-  if(iraBadge) iraBadge.textContent = 'John IRA $'+Math.round(s.iraV/1000)+'k nominal at RMD start (age 75)';
-}
+const dAll=debounce(updateAll,60), dSec2=debounce(updateSec2,60);
 
-function updateAll() {
-  const s = getSliders();
-  updateLabels(s);
-  buildMetrics1(s.jaSS1, s.j, s.ja, s.cola, s.inf);
-  buildChart1(s.jaSS1, s.j, s.ja, s.cola, s.inf);
-  buildTable1(s.jaSS1, s.j, s.ja, s.cola, s.inf);
-  buildChart2(s.jSS, s.jaSS, s.j, s.ja, s.cola, s.inf, s.iraG, s.iraV);
-  buildChart3(s.jSS, s.jaSS, s.j, s.ja, s.cola, s.inf, s.iraG, s.iraV);
-  buildChart4(s.jSS, s.jaSS, s.j, s.ja, s.cola, s.inf, s.iraG, s.iraV);
-}
-
-function updateSection2() {
-  const s = getSliders();
-  updateLabels(s);
-  buildChart2(s.jSS, s.jaSS, s.j, s.ja, s.cola, s.inf, s.iraG, s.iraV);
-  buildChart3(s.jSS, s.jaSS, s.j, s.ja, s.cola, s.inf, s.iraG, s.iraV);
-  buildChart4(s.jSS, s.jaSS, s.j, s.ja, s.cola, s.inf, s.iraG, s.iraV);
-}
-
-const debouncedUpdateAll      = debounce(updateAll,      60);
-const debouncedUpdateSection2 = debounce(updateSection2, 60);
-
-['johnDeath','janeDeath','inflationRate','colaRate','janeSSAge1'].forEach(id => {
-  const el = document.getElementById(id);
-  el.addEventListener('input', () => updateLabels(getSliders()));
-  el.addEventListener('input', debouncedUpdateAll);
+['henryDeath','deniseDeath','inflationRate','colaRate','deniseSSAge1'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('input',()=>updateLabels(getSliders()));
+  el.addEventListener('input',dAll);
+});
+['henrySSAge','deniseSSAge','iraGrowthRate','iraValueAtRmd'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('input',()=>updateLabels(getSliders()));
+  el.addEventListener('input',dSec2);
 });
 
-['johnSSAge','janeSSAge','iraGrowthRate','iraValueAtRmd'].forEach(id => {
-  const el = document.getElementById(id);
-  el.addEventListener('input', () => updateLabels(getSliders()));
-  el.addEventListener('input', debouncedUpdateSection2);
-});
-
-buildLegend1();
-buildLegend2();
-buildLegend3();
-buildLegend4();
+buildLegend1(); buildLegend2(); buildLegend3(); buildLegend4();
 updateAll();
 </script>
 </body>

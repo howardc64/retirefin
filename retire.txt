@@ -109,6 +109,7 @@ Chart spec
 	Draw thick lines.
 	Line height is taxable security amount
 	Draw until the last person pass. Note filing status change when first person pass
+	Show tax %
 
 Note torpedo effect : every dollar of income that increase taxable social security is taxed itself and pushes more social security to become taxable
 
