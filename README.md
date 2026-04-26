@@ -5,7 +5,7 @@ How to Run
 Upload following 3 files to Claude, type run and enter
 
 - retire.txt (AI agent prompts)
-- one of the user input file in sampleusers directory
+- one of the user input file ( MFJ.txt or widowsingle.txt )
 - john_jane_retirement.html (sample html output from user MFJ)
 
 *** INCLUDING Sample html file is critical
