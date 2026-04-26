@@ -2,11 +2,18 @@ Build html file showing retirement financial outlook
 
 How to Run
 
-Upload following 3 files to Claude, type run and enter
+Upload following 5 files to Claude, type run and enter
 
 - retire.txt (AI agent prompts)
-- one of the user input file ( MFJ.txt or widowsingle.txt )
-- john_jane_retirement.html (sample html output from user MFJ)
+- html_check.txt (run checks on generated html)
+- one of the user profile input file ( MFJ.txt or widowsingle.txt )
+- john_jane_retirement.html ( sample html output from  MFJ )
+- john_jane_tax_worksheet_age67.pdf ( detailed tax calculation for MFJ at age 67 )
+
+Output
+
+- Financial analysis in html file
+- Detailed tax calculation if requested in the user input file
 
 *** INCLUDING Sample html file is critical
 
