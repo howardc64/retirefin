@@ -1,0 +1,43 @@
+
+P1 = Mary Jones
+P2 = Tom Jones
+PO = Older person
+
+P1 DOB 2/25/1945
+P2 DOB 12/22/1950 Passed 4/15/2024
+
+=== Filing Status (FS)
+
+Married File Joint when both are living
+Single when one pass
+
+=== Social Security (SS)
+
+P1 SS
+
+81	$3633.9
+
+Already started withdraw, skip breakeven analysis
+
+P2 SS
+
+=== Pension Info (PEN)
+
+=== Wage Info (WG)
+
+=== Taxable Interest (TINT)
+
+$1000year fixed, no COLA
+
+=== Pre-Tax Traditional IRA Info (TIRA)
+
+RMD already required
+P1 own TIRA value $350k at age 81 in today's dollars
+
+=== Rental Income (RENT)
+
+RENT = $35k/year in today's $s
+
+=== Detailed Tax Calculation Age
+
+P1 85

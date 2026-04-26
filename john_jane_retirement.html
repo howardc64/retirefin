@@ -8,729 +8,865 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:#f7f5f0; --surface:#ffffff; --surface2:#f0ede6;
-    --border:rgba(0,0,0,0.10); --border-strong:rgba(0,0,0,0.18);
-    --text:#1a1814; --text-muted:#6b6760; --text-faint:#a09d98;
-    --teal:#0f6e56; --teal-light:#e1f5ee; --teal-text:#085041;
-    --accent:#0f6e56; --radius:10px;
-  }
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-  header{background:var(--surface);border-bottom:1px solid var(--border);padding:28px 40px 24px;}
-  header h1{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;margin-bottom:4px;}
-  header p{font-size:13px;color:var(--text-muted);font-weight:300;}
-  header .badges{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
-  .badge{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text-muted);background:var(--surface2);}
-  .badge-highlight{border-color:rgba(15,110,86,0.35);color:var(--teal-text);background:var(--teal-light);}
-  main{max-width:1100px;margin:0 auto;padding:32px 24px 60px;}
-  .section-heading{font-family:'DM Serif Display',serif;font-size:20px;font-weight:400;margin:40px 0 18px;padding-bottom:10px;border-bottom:1px solid var(--border);color:var(--text);}
-  .metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin-bottom:24px;}
-  .metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
-  .metric-label{font-size:11px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
-  .metric-value{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);margin-bottom:2px;}
-  .metric-sub{font-size:11px;color:var(--text-muted);}
-  .metric-highlight{border-color:rgba(15,110,86,0.3);background:var(--teal-light);}
-  .metric-highlight .metric-label{color:var(--teal-text);}
-  .metric-highlight .metric-value{color:var(--teal-text);}
-  .controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
-  .controls-title{font-size:11px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px;}
-  .slider-group{background:var(--surface2);border-radius:8px;padding:10px 14px;margin-bottom:12px;}
-  .slider-group-label{font-size:10px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;}
-  .slider-row{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
-  .slider-row:last-child{margin-bottom:0;}
-  .slider-label{font-size:13px;color:var(--text-muted);min-width:220px;}
-  .slider-label strong{color:var(--text);font-weight:500;}
-  input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border-strong);border-radius:2px;outline:none;cursor:pointer;}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.2);}
-  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid white;}
-  .slider-val{font-size:14px;font-weight:500;min-width:56px;text-align:right;color:var(--text);}
-  .divider-row{border-top:1px solid var(--border);margin:14px 0;}
-  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
-  .chart-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;text-align:center;}
-  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;font-size:11px;color:var(--text-muted);justify-content:center;}
-  .legend-item{display:flex;align-items:center;gap:5px;}
-  .legend-swatch{width:24px;height:10px;border-radius:3px;flex-shrink:0;}
-  .chart-outer{display:flex;justify-content:center;width:100%;}
-  .chart-wrap{position:relative;width:66.667vw;max-width:800px;min-width:280px;}
-  .chart-wrap canvas{display:block;}
-  .chart-note{font-size:11px;color:var(--text-faint);margin-top:12px;line-height:1.5;text-align:center;}
-  .table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
-  .table-header{padding:14px 18px 12px;border-bottom:1px solid var(--border);}
-  .table-title{font-size:13px;font-weight:500;color:var(--text);}
-  .table-wrap{overflow-x:auto;}
-  table{width:100%;border-collapse:collapse;font-size:12px;}
-  thead th{padding:8px 12px;text-align:left;font-size:10px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;}
-  thead th.r{text-align:right;}
-  tbody td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text-muted);}
-  tbody td.r{text-align:right;font-variant-numeric:tabular-nums;}
-  tbody tr:last-child td{border-bottom:none;}
-  tbody tr:hover td{background:var(--surface2);}
-  .best-household td{background:#e8f7f2 !important;color:var(--text);}
-  .best-household td:first-child{font-weight:500;color:var(--teal-text);}
-  .table-note{padding:12px 18px;font-size:11px;color:var(--text-faint);border-top:1px solid var(--border);line-height:1.6;}
-  .info-card{background:var(--teal-light);border:1px solid rgba(15,110,86,0.15);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
-  .info-card h3{font-family:'DM Serif Display',serif;font-size:16px;font-weight:400;margin-bottom:10px;color:var(--teal-text);}
-  .info-card p{font-size:13px;color:#2a4a3e;line-height:1.65;margin-bottom:8px;}
-  .info-card p:last-child{margin-bottom:0;}
-  .info-card .callout{background:white;border-left:3px solid var(--teal);border-radius:0 6px 6px 0;padding:10px 14px;margin:12px 0;font-size:12px;color:#1a3a30;line-height:1.7;}
-  footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint);border-top:1px solid var(--border);background:var(--surface);}
-  .roi-pos{color:#0f6e56;font-weight:500;}
-  .roi-neg{color:#c0392b;}
-  .tax-badge{font-size:11px;font-weight:500;padding:2px 8px;border-radius:12px;}
-  .tax-exempt{background:#e1f5ee;color:#085041;}
-  .tax-50{background:#fff3cd;color:#856404;}
-  .tax-85{background:#fde8d8;color:#7c3a00;}
-  .torpedo-note{background:#fff8e1;border:1px solid rgba(200,150,0,0.25);border-left:3px solid #e6a817;border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:#4a3800;line-height:1.7;margin:10px 0;}
+:root{
+  --bg:#f7f5f0;--surface:#fff;--surface2:#f0ede6;
+  --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.18);
+  --text:#1a1814;--text-muted:#6b6760;--text-faint:#a09d98;
+  --teal:#0f6e56;--teal-light:#e1f5ee;--teal-text:#085041;
+  --accent:#0f6e56;--radius:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:28px 40px 24px;}
+header h1{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;margin-bottom:4px;}
+header p{font-size:13px;color:var(--text-muted);font-weight:300;}
+header .badges{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.badge{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text-muted);background:var(--surface2);}
+.badge-hl{border-color:rgba(15,110,86,.35);color:var(--teal-text);background:var(--teal-light);}
+main{max-width:1100px;margin:0 auto;padding:32px 24px 60px;}
+.sec-head{font-family:'DM Serif Display',serif;font-size:20px;font-weight:400;margin:40px 0 18px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin-bottom:24px;}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
+.metric-label{font-size:11px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.metric-value{font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:2px;}
+.metric-sub{font-size:11px;color:var(--text-muted);}
+.metric-hl{border-color:rgba(15,110,86,.3);background:var(--teal-light);}
+.metric-hl .metric-label,.metric-hl .metric-value{color:var(--teal-text);}
+.controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+.ctrl-title{font-size:11px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;}
+.grp-label{font-size:10px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;padding:7px 10px 5px;background:var(--surface2);border-radius:6px 6px 0 0;margin-bottom:0;}
+.sr{display:grid;grid-template-columns:260px 1fr 72px;align-items:center;gap:12px;margin-bottom:0;padding:7px 10px;}
+.sr-grp{background:var(--surface2);}
+.sr-grp:last-of-type,.sr-grp+:not(.sr-grp){border-radius:0 0 6px 6px;}
+.sr-plain{padding:7px 0;background:transparent;}
+.sr+.sr,.grp-label+.sr,.sr+.grp-label{margin-top:0;}
+.divrow{border-top:1px solid var(--border);margin:10px 0;}
+.sl{font-size:13px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sl strong{color:var(--text);font-weight:500;}
+input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border-strong);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.2);}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid white;}
+.sv{font-size:14px;font-weight:500;text-align:right;color:var(--text);}
+.divrow{border-top:1px solid var(--border);margin:14px 0;}
+.cc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+.ct{font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;text-align:center;}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;font-size:11px;color:var(--text-muted);justify-content:center;}
+.li{display:flex;align-items:center;gap:5px;}
+.ls{width:24px;height:10px;border-radius:3px;flex-shrink:0;}
+.co{display:flex;justify-content:center;width:100%;}
+.cw{position:relative;width:66.667vw;max-width:800px;min-width:280px;}
+.cw canvas{display:block;}
+.cn{font-size:11px;color:var(--text-faint);margin-top:12px;line-height:1.5;text-align:center;}
+.tc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
+.th{padding:14px 18px 12px;border-bottom:1px solid var(--border);}
+.tt{font-size:13px;font-weight:500;}
+.tw{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{padding:8px 12px;text-align:left;font-size:10px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;}
+thead th.r{text-align:right;}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text-muted);}
+tbody td.r{text-align:right;font-variant-numeric:tabular-nums;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--surface2);}
+.best td{background:#e8f7f2!important;color:var(--text);}
+.best td:first-child{font-weight:500;color:var(--teal-text);}
+.tn{padding:12px 18px;font-size:11px;color:var(--text-faint);border-top:1px solid var(--border);line-height:1.6;}
+.ic{background:var(--teal-light);border:1px solid rgba(15,110,86,.15);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+.ic h3{font-family:'DM Serif Display',serif;font-size:16px;font-weight:400;margin-bottom:10px;color:var(--teal-text);}
+.ic p{font-size:13px;color:#2a4a3e;line-height:1.65;margin-bottom:8px;}
+.ic p:last-child{margin-bottom:0;}
+.callout{background:white;border-left:3px solid var(--teal);border-radius:0 6px 6px 0;padding:10px 14px;margin:12px 0;font-size:12px;color:#1a3a30;line-height:1.7;}
+footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint);border-top:1px solid var(--border);background:var(--surface);}
+.roi-pos{color:#0f6e56;font-weight:500;}.roi-neg{color:#c0392b;}
+.tb{font-size:11px;font-weight:500;padding:2px 8px;border-radius:12px;}
+.tb-ex{background:#e1f5ee;color:#085041;}.tb-50{background:#fff3cd;color:#856404;}.tb-85{background:#fde8d8;color:#7c3a00;}
+.tnote{background:#fff8e1;border:1px solid rgba(200,150,0,.25);border-left:3px solid #e6a817;border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:#4a3800;line-height:1.7;margin:10px 0;}
 </style>
 </head>
 <body>
 <header>
   <h1>Retirement Income Analysis</h1>
-  <p>John &amp; Jane Doe · Social Security · Pension · Wage · IRA RMD · All values in today's dollars (real, inflation-adjusted)</p>
+  <p>John &amp; Jane Doe · SS · Pension · Wage · IRA RMD · Dividends · Capital Gains · All values in today's dollars (real, inflation-adjusted) · <strong style="color:#085041">TCJA permanent (OBBBA) — 2026 brackets</strong></p>
   <div class="badges">
-    <span class="badge">John DOB 1/1/1965 (older)</span>
-    <span class="badge">Jane DOB 7/1/1968</span>
-    <span class="badge">John FRA age 67 → Jan 2032</span>
-    <span class="badge">Jane FRA age 67 → Jul 2035</span>
-    <span class="badge badge-highlight">Jane: spousal benefit $1,909/mo at her FRA</span>
-    <span class="badge">John pension $1,500/mo fixed starting age 60 (no COLA, no survivor)</span>
-    <span class="badge">Jane wage $40k/yr (today's $) until age 65</span>
-    <span class="badge">Taxable interest $5,000/yr nominal (no COLA)</span>
-    <span class="badge" id="iraBadge">John IRA $750k nominal at RMD start (age 75)</span>
+    <span class="badge">John DOB 1/1/1965 (older · P1)</span>
+    <span class="badge">Jane DOB 7/1/1968 (P2)</span>
+    <span class="badge">John FRA 67 → Jan 2032</span>
+    <span class="badge">Jane FRA 67 → Jul 2035</span>
+    <span class="badge badge-hl">Jane spousal $1,909/mo at FRA</span>
+    <span class="badge">John pension $1,500/mo fixed age 60 · no COLA · no survivor</span>
+    <span class="badge">Jane wage $40k/yr until age 65</span>
+    <span class="badge">TINT $5,000/yr nominal</span>
+    <span class="badge" id="iraBadge">John IRA $750k nominal at age 75</span>
+    <span class="badge">ODIV $50k · QDIV $35k · STCG $5k · LTCG $30k</span>
     <span class="badge">Real dollars (inflation-adjusted)</span>
+    <button id="overlayToggle" onclick="toggleOverlayMode()" style="cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:11px;font-weight:500;padding:3px 12px;color:var(--text-muted);font-family:inherit;" title="Switch dashed overlay lines between light and dark color modes">🌓 Overlay: <span id="overlayModeLabel">Light</span></button>
   </div>
 </header>
 <main>
 
-<div class="section-heading">Section 1 — Social Security Breakeven Analysis</div>
+<!-- ═══ SECTION 1 — SS Breakeven ═══ -->
+<div class="sec-head">Section 1 — Social Security Breakeven Analysis</div>
 <div id="metrics1" class="metric-grid"></div>
 
 <div class="controls">
-  <div class="controls-title">Assumptions — drag to adjust (shared with all sections)</div>
-  <div class="slider-group">
-    <div class="slider-group-label">Passing ages — same scale</div>
-    <div class="slider-row">
-      <div class="slider-label"><strong>John</strong> passes at age</div>
-      <input type="range" id="johnDeath" min="62" max="105" value="85">
-      <div class="slider-val" id="johnDeathVal">85</div>
-    </div>
-    <div class="slider-row">
-      <div class="slider-label"><strong>Jane</strong> passes at age</div>
-      <input type="range" id="janeDeath" min="62" max="105" value="90">
-      <div class="slider-val" id="janeDeathVal">90</div>
-    </div>
+  <div class="ctrl-title">Assumptions — drag to adjust (shared with all sections)</div>
+  <div class="grp-label">Passing ages — same scale &amp; width</div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>John</strong> passes at age</div>
+    <input type="range" id="henryDeath" min="62" max="105" value="85">
+    <div class="sv" id="henryDeathVal">85</div>
   </div>
-  <div class="slider-row">
-    <div class="slider-label"><strong>Jane</strong> starts SS at age <span style="font-size:11px;color:var(--text-faint)">(Sec 1 breakeven)</span></div>
-    <input type="range" id="janeSSAge1" min="62" max="70" value="67">
-    <div class="slider-val" id="janeSSAge1Val">67</div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>Jane</strong> passes at age</div>
+    <input type="range" id="deniseDeath" min="62" max="105" value="90">
+    <div class="sv" id="deniseDeathVal">90</div>
   </div>
-  <div class="divider-row"></div>
-  <div class="slider-group">
-    <div class="slider-group-label">Rates — same scale</div>
-    <div class="slider-row">
-      <div class="slider-label"><strong>Inflation rate</strong> (discount to today's $)</div>
-      <input type="range" id="inflationRate" min="0" max="6" step="0.25" value="3">
-      <div class="slider-val" id="inflationVal">3.00%</div>
-    </div>
-    <div class="slider-row">
-      <div class="slider-label"><strong>SS annual COLA</strong> (benefit growth)</div>
-      <input type="range" id="colaRate" min="0" max="6" step="0.25" value="2">
-      <div class="slider-val" id="colaVal">2.00%</div>
-    </div>
+  <div class="sr sr-plain">
+    <div class="sl"><strong>Jane</strong> starts SS at age <span style="font-size:11px;color:var(--text-faint)">(Sec 1)</span></div>
+    <input type="range" id="deniseSSAge1" min="62" max="70" value="67">
+    <div class="sv" id="deniseSSAge1Val">67</div>
+  </div>
+  <div class="divrow"></div>
+  <div class="grp-label">Rates — same scale &amp; width</div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>Inflation rate</strong> (discount to today's $)</div>
+    <input type="range" id="inflationRate" min="0" max="6" step="0.25" value="3">
+    <div class="sv" id="inflationVal">3.00%</div>
+  </div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>SS COLA rate</strong> (benefit growth)</div>
+    <input type="range" id="colaRate" min="0" max="6" step="0.25" value="2">
+    <div class="sv" id="colaVal">2.00%</div>
   </div>
 </div>
 
-<div class="chart-card">
-  <div class="chart-title">Cumulative household SS benefit · John claiming age 62–70 (every 2 yrs) · today's dollars</div>
+<div class="cc">
+  <div class="ct">Cumulative household SS · John claiming every 2 yrs · today's dollars</div>
   <div class="legend" id="legend1"></div>
-  <div class="chart-outer"><div class="chart-wrap"><canvas id="chart1"></canvas></div></div>
-  <p class="chart-note" id="chartNote1"></p>
+  <div class="co"><div class="cw"><canvas id="chart1"></canvas></div></div>
+  <p class="cn" id="chartNote1"></p>
 </div>
 
-<div class="table-card">
-  <div class="table-header"><div class="table-title">Breakeven &amp; ROI by John's claiming age · today's dollars</div></div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>John starts SS at</th>
-          <th class="r">John monthly (nominal)</th>
-          <th class="r">Jane monthly (nominal)</th>
-          <th class="r">John lifetime (real)</th>
-          <th class="r">Jane benefit (real)</th>
-          <th class="r">Jane survivor premium (real)</th>
-          <th class="r">Household total (real)</th>
-          <th class="r">Real annual ROI</th>
-        </tr>
-      </thead>
-      <tbody id="breakBody"></tbody>
-    </table>
-  </div>
-  <div class="table-note" id="tableNote1"></div>
+<div class="tc">
+  <div class="th"><div class="tt">Breakeven &amp; ROI by John's claiming age · today's dollars</div></div>
+  <div class="tw"><table>
+    <thead><tr>
+      <th>John starts SS at</th><th class="r">John monthly</th><th class="r">Jane monthly</th>
+      <th class="r">John lifetime</th><th class="r">Jane benefit</th>
+      <th class="r">Jane survivor premium</th><th class="r">Household total</th><th class="r">Real annual ROI</th>
+    </tr></thead>
+    <tbody id="breakBody"></tbody>
+  </table></div>
+  <div class="tn" id="tableNote1"></div>
 </div>
 
-<div class="info-card">
+<div class="ic">
   <h3>Spousal benefit: why Jane gets more</h3>
-  <p>Jane's own SS benefit at her FRA (age 67, July 2035) would be <strong>$1,376/mo</strong>. She is also entitled to a <strong>spousal benefit</strong> = 50% of John's PIA (his FRA benefit).</p>
-  <div class="callout">
-    John's PIA = <strong>$3,817/mo</strong> → 50% spousal = <strong>$1,909/mo</strong><br>
-    Jane's own benefit = $1,376/mo<br>
-    Social Security pays the higher: <strong>$1,909/mo</strong> (spousal)
-  </div>
-  <p>Key rules: (1) Spousal is based on John's <em>PIA</em>, not his claiming age. (2) If Jane claims before her FRA (67), the spousal benefit is permanently reduced. (3) No delayed credits on spousal past FRA. (4) John must file first. (5) After John passes, Jane receives a <strong>survivor benefit = 100% of John's actual benefit</strong> — making John's claiming age consequential for the household for life.</p>
-  <h3 style="margin-top:16px;">Pension &amp; the survivor lever</h3>
-  <p>John's pension is $1,500/mo nominal with <em>no COLA</em>, starting at age 60. In real terms it shrinks every year — at 3% inflation it loses ~60% of purchasing power over 30 years. There is no survivor benefit; it stops at John's death. John's SS survivor lever: at age 70 ($4,733/mo) vs age 62 ($2,688/mo), the survivor premium is <strong>$2,045/mo</strong> (~$24,500/yr) for every remaining year of Jane's life.</p>
-  <h3 style="margin-top:16px;">How Real Annual ROI is calculated</h3>
-  <p><strong>Method: Incremental IRR vs. Age-62 baseline.</strong> For each claiming age (64–70), delaying is an investment: cost = foregone benefits during the wait; return = lifetime surplus of higher household SS (John's + Jane's spousal/survivor). We find the annualized real rate <em>r</em> making NPV of incremental cash flows = 0. Positive = waiting beats claiming at 62 in real terms.</p>
+  <p>Jane's own SS at her FRA (67) = $1,376/mo. Her spousal benefit = 50% of John's PIA.</p>
+  <div class="callout">John PIA = <strong>$3,817/mo</strong> → 50% spousal = <strong>$1,909/mo</strong><br>Jane own = $1,376 · SS pays higher: <strong>$1,909/mo</strong> (spousal)<br>If Jane claims before FRA, spousal is permanently reduced. After John passes, Jane gets <strong>100% of John's actual benefit</strong> as survivor.</div>
+  <h3 style="margin-top:16px">How Real Annual ROI is calculated</h3>
+  <p><strong>Incremental IRR vs. Age-62 baseline.</strong> Delaying = investment: cost = foregone benefits during wait; return = lifetime surplus of higher household SS. We find annualized real rate <em>r</em> where NPV of incremental cash flows = 0. Positive = waiting beats age-62 in real terms.</p>
 </div>
 
-<div class="section-heading">Section 2 — Annual Household Income: Pension + Wage + Interest + IRA RMD + Social Security</div>
+<!-- ═══ SECTION 2 — Annual Household Income ═══ -->
+<div class="sec-head">Section 2 — Annual Household Income</div>
 
 <div class="controls">
-  <div class="controls-title">SS claiming ages &amp; IRA — drag to adjust</div>
-  <div class="slider-row">
-    <div class="slider-label"><strong>John</strong> starts SS at age</div>
-    <input type="range" id="johnSSAge" min="62" max="70" value="67">
-    <div class="slider-val" id="johnSSAgeVal">67</div>
+  <div class="ctrl-title">SS claiming ages, IRA &amp; investment income — drag to adjust</div>
+  <div class="sr">
+    <div class="sl"><strong>John</strong> starts SS at age</div>
+    <input type="range" id="henrySSAge" min="62" max="70" value="67">
+    <div class="sv" id="henrySSAgeVal">67</div>
   </div>
-  <div class="slider-row">
-    <div class="slider-label"><strong>Jane</strong> starts SS at age</div>
-    <input type="range" id="janeSSAge" min="62" max="70" value="67">
-    <div class="slider-val" id="janeSSAgeVal">67</div>
+  <div class="sr">
+    <div class="sl"><strong>Jane</strong> starts SS at age</div>
+    <input type="range" id="deniseSSAge" min="62" max="70" value="67">
+    <div class="sv" id="deniseSSAgeVal">67</div>
   </div>
-  <div class="divider-row"></div>
-  <div class="slider-row">
-    <div class="slider-label"><strong>IRA value at RMD age (75)</strong> — future dollars</div>
+  <div class="divrow"></div>
+  <div class="sr">
+    <div class="sl"><strong>IRA value @ RMD age (75)</strong> — future $s</div>
     <input type="range" id="iraValueAtRmd" min="0" max="4000000" step="50000" value="750000">
-    <div class="slider-val" id="iraValueVal">$750,000</div>
+    <div class="sv" id="iraValueVal">$750,000</div>
   </div>
-  <div class="slider-row">
-    <div class="slider-label"><strong>IRA annual growth rate</strong></div>
+  <div class="sr">
+    <div class="sl"><strong>IRA annual growth rate</strong></div>
     <input type="range" id="iraGrowthRate" min="0" max="10" step="0.25" value="3">
-    <div class="slider-val" id="iraGrowthVal">3.00%</div>
+    <div class="sv" id="iraGrowthVal">3.00%</div>
+  </div>
+  <div class="divrow"></div>
+  <div class="grp-label">Investment &amp; Other Income — today's $s · fixed nominal · all $0–$200k same scale &amp; width</div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>Taxable Interest (TINT)</strong></div>
+    <input type="range" id="tintSlider" min="0" max="200000" step="1000" value="5000">
+    <div class="sv" id="tintVal">$5,000</div>
+  </div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>Ordinary Dividends (ODIV)</strong></div>
+    <input type="range" id="odivSlider" min="0" max="200000" step="1000" value="50000">
+    <div class="sv" id="odivVal">$50,000</div>
+  </div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>Qualified Dividends (QDIV)</strong> <span style="font-size:10px;color:var(--text-faint)">auto 70% ODIV</span></div>
+    <input type="range" id="qdivSlider" min="0" max="200000" step="1000" value="35000">
+    <div class="sv" id="qdivVal">$35,000</div>
+  </div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>Short-term CG (STCG)</strong></div>
+    <input type="range" id="stcgSlider" min="0" max="200000" step="1000" value="5000">
+    <div class="sv" id="stcgVal">$5,000</div>
+  </div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>Long-term CG (LTCG)</strong></div>
+    <input type="range" id="ltcgSlider" min="0" max="200000" step="1000" value="30000">
+    <div class="sv" id="ltcgVal">$30,000</div>
+  </div>
+  <div class="sr sr-grp">
+    <div class="sl"><strong>Rental Income (RENT)</strong></div>
+    <input type="range" id="rentSlider" min="0" max="200000" step="1000" value="0">
+    <div class="sv" id="rentVal">$0</div>
   </div>
 </div>
 
-<div class="chart-card">
-  <div class="chart-title">Annual household income by source · stacked · today's dollars · dashed = IRMAA thresholds &amp; income tax bracket ceilings</div>
+<div class="cc">
+  <div class="ct">Annual household income by source · stacked · today's dollars · dashed = IRMAA &amp; income tax brackets</div>
   <div class="legend" id="legend2"></div>
-  <div class="chart-outer"><div class="chart-wrap"><canvas id="chart2"></canvas></div></div>
-  <p class="chart-note" id="chartNote2"></p>
+  <div class="co"><div class="cw"><canvas id="chart2"></canvas></div></div>
+  <p class="cn" id="chartNote2"></p>
 </div>
 
-<div class="info-card">
-  <h3>Reading the stacked income chart</h3>
-  <p>Each colored band is a distinct income source. Bands stack — <strong>the top edge = total annual household income</strong> in today's dollars. Hover for each source's value. Two sets of dashed overlay lines are drawn on top:</p>
-  <div class="callout">
-    <strong style="color:#D06A18">■ Pension (orange):</strong> John's $18,000/yr fixed — starts age 60, no COLA, real value declines. Stops at John's death.<br>
-    <strong style="color:#7B5EA7">■ Wage (purple):</strong> Jane's $40,000/yr (today's $) until her age 65.<br>
-    <strong style="color:#5B8FA8">■ Taxable Interest (blue):</strong> $5,000/yr fixed nominal (no COLA) — real value declines with inflation.<br>
-    <strong style="color:#E85D9A">■ IRA RMD (pink):</strong> John's IRA drawn down via IRS Uniform Lifetime Table. After John passes, inherited by Jane.<br>
-    <strong style="color:#0F6E56">■ John's SS (dark green):</strong> Starts at John's chosen age. Stops at John's death.<br>
-    <strong style="color:#3DB08A">■ Jane's SS / Survivor (teal):</strong> Spousal ($1,909/mo max at her FRA) while John alive; survivor = 100% of John's SS after he passes.<br><br>
-    <strong>━ ━ Amber dashed:</strong> IRMAA Medicare surcharge thresholds (MFJ → Single after John's death).<br>
-    <strong>━ ━ Purple/Orange dashed:</strong> Income tax bracket ceilings — labels show higher rate above / lower rate below the line.
-  </div>
-  <h3 style="margin-top:16px;">IRA RMD methodology</h3>
-  <p>John's IRA value at age 75 is set by the slider in future (nominal) dollars. To show in today's purchasing power, the nominal amount is discounted back via the inflation rate. Each year's RMD = prior year-end balance ÷ IRS Uniform Lifetime Table factor. After John passes, Jane inherits; RMDs continue at Jane's age factors.</p>
-</div>
-
-<div class="section-heading">Section 3 — Taxable Social Security Amount</div>
-
-<div class="info-card">
-  <h3>How taxable Social Security is calculated (IRS Publication 915)</h3>
-  <p><strong>Provisional income (PI)</strong> = non-SS income + 50% of combined household SS. Taxable SS is computed via the IRS two-tier formula:</p>
+<!-- ═══ SECTION 3 — Taxable SS ═══ -->
+<div class="sec-head">Section 3 — Taxable Social Security Amount</div>
+<div class="ic">
+  <h3>IRS Publication 915 — two-tier formula</h3>
+  <p><strong>Provisional income (PI)</strong> = all non-SS income + 50% of household SS</p>
   <div class="callout">
     <strong>Married Filing Jointly:</strong><br>
-    <span class="tax-badge tax-exempt">Exempt</span> PI &lt; $32,000 → $0 taxable SS<br>
-    <span class="tax-badge tax-50">Tier 1</span> $32,000–$44,000 → lesser of 50%×(PI−$32k) or 50%×SS<br>
-    <span class="tax-badge tax-85">Tier 2</span> PI &gt; $44,000 → lesser of [$6,000 + 85%×(PI−$44k)] or 85%×SS<br><br>
+    <span class="tb tb-ex">Exempt</span> PI &lt; $32,000 → $0 taxable SS<br>
+    <span class="tb tb-50">Tier 1</span> $32k–$44k → min(50%×(PI−$32k), 50%×SS)<br>
+    <span class="tb tb-85">Tier 2</span> PI &gt; $44k → min($6,000+85%×(PI−$44k), 85%×SS)<br><br>
     <strong>Single (after John passes):</strong><br>
-    <span class="tax-badge tax-exempt">Exempt</span> PI &lt; $25,000 → $0 taxable SS<br>
-    <span class="tax-badge tax-50">Tier 1</span> $25,000–$34,000 → lesser of 50%×(PI−$25k) or 50%×SS<br>
-    <span class="tax-badge tax-85">Tier 2</span> PI &gt; $34,000 → lesser of [$4,500 + 85%×(PI−$34k)] or 85%×SS
+    <span class="tb tb-ex">Exempt</span> PI &lt; $25,000 → $0<br>
+    <span class="tb tb-50">Tier 1</span> $25k–$34k → min(50%×(PI−$25k), 50%×SS)<br>
+    <span class="tb tb-85">Tier 2</span> PI &gt; $34k → min($4,500+85%×(PI−$34k), 85%×SS)
   </div>
-  <div class="torpedo-note"><strong>⚠️ Frozen thresholds:</strong> These limits were set in the 1980s–1990s and have <em>never been COLA-adjusted</em>. As income grows with inflation, more SS becomes taxable every year.</div>
-  <div class="torpedo-note"><strong>⚡ The SS Torpedo:</strong> Every extra dollar of non-SS income can push up to $1.85 of total income into taxation — the extra dollar itself plus up to $0.85 more SS becoming taxable.</div>
+  <div class="tnote"><strong>⚠️ Frozen thresholds:</strong> Set in the 1980s–90s, never COLA-adjusted. As income rises with inflation, more SS becomes taxable each year.</div>
+  <div class="tnote"><strong>⚡ SS Torpedo:</strong> Every extra dollar of non-SS income can push up to $1.85 into taxation — the dollar itself plus up to $0.85 more SS.</div>
 </div>
-
-<div class="chart-card">
-  <div class="chart-title">Annual taxable Social Security amount · today's dollars</div>
+<div class="cc">
+  <div class="ct">Annual taxable SS amount · today's dollars</div>
   <div class="legend" id="legend3"></div>
-  <div class="chart-outer"><div class="chart-wrap"><canvas id="chart3"></canvas></div></div>
-  <p class="chart-note" id="chartNote3"></p>
+  <div class="co"><div class="cw"><canvas id="chart3"></canvas></div></div>
+  <p class="cn" id="chartNote3"></p>
 </div>
 
-<div class="section-heading">Section 4 — Total Income Tax</div>
-
-<div class="info-card">
-  <h3>How total tax is calculated</h3>
-  <p><strong>AGI</strong> = all non-SS income + taxable SS. <strong>Taxable income</strong> = AGI − standard deduction. Filing switches from MFJ to Single at John's death.</p>
+<!-- ═══ SECTION 4 — Total Tax ═══ -->
+<div class="sec-head">Section 4 — Total Income Tax</div>
+<div class="ic">
+  <h3>Tax computation — ordinary income + qualified dividends &amp; LTCG</h3>
+  <p>Ordinary income tax applies to: pension, wage, TINT, IRA RMD, STCG, ODIV−QDIV (non-qualified portion), taxable SS. Lower preferential rates apply to QDIV and LTCG.</p>
   <div class="callout">
-    <strong>2026 — Married Filing Jointly:</strong> 10% on first $23,200 · 12% to $94,300 · 22% to $201,050 · 24% to $383,900 · 32% to $487,450 · 35% to $731,200 · 37% above<br>
-    Standard deduction MFJ: <strong>$32,000</strong><br><br>
-    <strong>2026 — Single:</strong> 10% on first $11,600 · 12% to $47,150 · 22% to $100,525 · 24% to $191,950 · 32% to $243,725 · 35% to $365,600 · 37% above<br>
-    Standard deduction Single: <strong>$16,000</strong>
+    <strong>2026 Ordinary brackets (MFJ) — TCJA permanent (OBBBA):</strong> 10% / 12% / 22% / 24% / 32% / 35% / 37% · Std deduction $30,000<br>
+    <strong>2026 Ordinary brackets (Single) — TCJA permanent (OBBBA):</strong> 10% / 12% / 22% / 24% / 32% / 35% / 37% · Std deduction $15,000<br><br>
+    <strong>2026 QDIV/LTCG rates (MFJ):</strong> 0% ≤ $98,900 taxable income · 15% ≤ $613,700 · 20% above<br>
+    <strong>2026 QDIV/LTCG rates (Single):</strong> 0% ≤ $49,450 · 15% ≤ $545,500 · 20% above<br>
+    <em>Qualified income (QI) stacks on top of ordinary taxable income. TCJA made permanent by One Big Beautiful Budget Act (OBBBA).</em>
   </div>
+  <p>Note: simplified calculation — no AMT, NII surtax, itemized deductions, or credits.</p>
 </div>
-
-<div class="chart-card">
-  <div class="chart-title">Annual total income tax · today's dollars</div>
+<div class="cc">
+  <div class="ct">Annual total income tax · segmented by income type · today's dollars</div>
   <div class="legend" id="legend4"></div>
-  <div class="chart-outer"><div class="chart-wrap"><canvas id="chart4"></canvas></div></div>
-  <p class="chart-note" id="chartNote4"></p>
+  <div class="co"><div class="cw"><canvas id="chart4"></canvas></div></div>
+  <p class="cn" id="chartNote4"></p>
 </div>
 
 </main>
 <footer>
-  John DOB 1/1/1965 · Jane DOB 7/1/1968 · John pension $1,500/mo fixed starting age 60 (no COLA, no survivor) · Jane wage $40k/yr until age 65 · Taxable interest $5,000/yr nominal · John IRA $750k nominal at age 75 · SS benefits from SSA statements. Analysis for informational purposes only — not financial advice.
+  John DOB 1/1/1965 · Jane DOB 7/1/1968 · John pension $1,500/mo from age 60 · Jane wage $40k/yr to 65 · TINT $5k/yr · IRA $750k at 75 · ODIV $50k · QDIV $35k · STCG $5k · LTCG $30k · For informational purposes only — not financial advice.
 </footer>
 
 <script>
-// ── Constants ─────────────────────────────────────────────────────────────────
-const JOHN_BIRTH  = 1965 + 0/365;
-const JANE_BIRTH = 1968 + 182/365;
-const AGE_GAP      = JANE_BIRTH - JOHN_BIRTH;
+// ═══════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════
+const HENRY_BIRTH  = 1965 + 0/365;
+const DENISE_BIRTH = 1968 + 182/365;
+const AGE_GAP      = DENISE_BIRTH - HENRY_BIRTH;
 const BASE_YEAR    = 2026;
-const JOHN_FRA_AGE = 67, JANE_FRA_AGE = 67;
-const JOHN_PENSION_NOM = 1500;
-const JANE_WAGE_REAL  = 40000/12;
-const JANE_WAGE_STOP  = 65;
-const TAXABLE_INTEREST  = 5000;
-const IRA_RMD_START_AGE = 75;
-const JOHN_PIA         = 3817;
-const JANE_SPOUSAL_FRA= Math.round(JOHN_PIA*0.5); // 1909
-const JANE_OWN_FRA    = 1376;
+const HENRY_FRA    = 67, DENISE_FRA = 67;
+const HENRY_PEN    = 1500;          // monthly nominal, age 60, no COLA, no survivor
+const DENISE_WAGE  = 40000/12;      // monthly real
+const DENISE_WAGE_STOP = 65;
+const HENRY_PIA    = 3817;
+const DENISE_SPOUSAL_FRA = Math.round(HENRY_PIA * 0.5); // 1909
+const DENISE_OWN_FRA     = 1376;
+const IRA_RMD_AGE  = 75;
 
-const RMD_TABLE={72:27.4,73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,
+const RMD_TABLE = {72:27.4,73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,
   80:20.2,81:19.4,82:18.5,83:17.7,84:16.8,85:16.0,86:15.2,87:14.4,88:13.7,89:12.9,
   90:12.2,91:11.5,92:10.8,93:10.1,94:9.5,95:8.9,96:8.4,97:7.8,98:7.3,99:6.8,
-  100:6.4,101:6.0,102:5.6,103:5.2,104:4.9,105:4.6,106:4.3,107:4.1,108:3.9,109:3.7,
-  110:3.5,111:3.4,112:3.3,113:3.1,114:3.0,115:2.9,116:2.8,117:2.7,118:2.5,119:2.3};
+  100:6.4,101:6.0,102:5.6,103:5.2,104:4.9,105:4.6};
 
-function rmdFactor(age){const a=Math.floor(age);if(a<72)return null;if(a>=120)return 2.0;return RMD_TABLE[a]||2.0;}
-function johnYear(age){return JOHN_BIRTH+age;}
-function janeYear(age){return JANE_BIRTH+age;}
+// 2026 Tax brackets — TCJA made permanent by One Big Beautiful Budget Act (OBBBA)
+// Ordinary: 10/12/22/24/32/35/37% · Std deduction inflation-adjusted from 2025 values
+const MFJ_ORD  = [{lim:23850,r:.10},{lim:96950,r:.12},{lim:206700,r:.22},{lim:394600,r:.24},{lim:501050,r:.32},{lim:751600,r:.35},{lim:Infinity,r:.37}];
+const SGL_ORD  = [{lim:11925,r:.10},{lim:48475,r:.12},{lim:103350,r:.22},{lim:197300,r:.24},{lim:250525,r:.32},{lim:626350,r:.35},{lim:Infinity,r:.37}];
+const STD_MFJ  = 30000, STD_SGL = 15000;  // OBBBA permanently extended TCJA; 2026 inflation-adj est.
 
-function johnBenefit(sa){
+// 2026 QDIV/LTCG brackets — 0/15/20% (TCJA-permanent rates, IRS Rev. Proc. 2025-xx / OBBBA inflation-adj)
+const MFJ_QDIV  = [{lim:98900,r:0},{lim:613700,r:.15},{lim:Infinity,r:.20}];
+const SGL_QDIV  = [{lim:49450,r:0},{lim:545500,r:.15},{lim:Infinity,r:.20}];
+
+// 2026 IRMAA (Medicare Part B+D surcharge — CMS 2026 announcement, based on 2024 MAGI)
+// Part B base: $185/mo. IRMAA adds per person per year amounts shown below
+const IRMAA_MFJ = [
+  {magi:212000,label:'IRMAA T1',surch:3564,color:'rgba(180,100,20,.80)'},
+  {magi:266000,label:'IRMAA T2',surch:8892,color:'rgba(180,60,20,.80)'},
+  {magi:334000,label:'IRMAA T3',surch:14220,color:'rgba(160,30,30,.80)'},
+  {magi:750000,label:'IRMAA T4+',surch:19548,color:'rgba(120,20,60,.80)'}];
+const IRMAA_SGL = [
+  {magi:106000,label:'IRMAA T1',surch:3564,color:'rgba(180,100,20,.80)'},
+  {magi:133000,label:'IRMAA T2',surch:8892,color:'rgba(180,60,20,.80)'},
+  {magi:167000,label:'IRMAA T3',surch:14220,color:'rgba(160,30,30,.80)'},
+  {magi:200000,label:'IRMAA T4',surch:17172,color:'rgba(130,20,50,.80)'},
+  {magi:500000,label:'IRMAA T5+',surch:19548,color:'rgba(120,20,60,.80)'}];
+
+const X_MIN=60, X_MAX=100, Y1_MAX=2500000;
+const SS_AGES=[62,64,66,68,70];
+const SS_COLORS={62:'#E24B4A',64:'#D06A18',66:'#B59A00',68:'#2E9E5A',70:'#0F6E56'};
+
+// ═══════════════════════════════════════════════════════
+// OVERLAY COLOR MODE  (dark = default, light = high-contrast light lines)
+// ═══════════════════════════════════════════════════════
+let overlayMode='light';  // 'light' or 'dark'  — spec default: lighter
+
+function OV(){
+  // Returns a palette of colors for all overlay dashed lines based on current mode
+  if(overlayMode==='light') return {
+    // Light mode: bright, saturated colors for visibility on dark or print backgrounds
+    irmaa:  ['rgba(255,200,80,.95)','rgba(255,140,40,.95)','rgba(255,80,60,.95)','rgba(240,40,100,.95)','rgba(200,20,80,.95)'],
+    taxBrk: 'rgba(200,160,255,.95)',
+    taxLbl: 'rgba(190,140,255,.95)',
+    qualBrk:'rgba(80,240,200,.95)',
+    qualLbl:'rgba(60,220,180,.95)',
+    taxBrkSgl:'rgba(255,200,130,.95)',
+    qualBrkSgl:'rgba(100,255,220,.95)',
+  };
+  // Dark mode: rich, moderately transparent lines that read well on the cream background
+  return {
+    irmaa:  ['rgba(180,100,20,.80)','rgba(180,60,20,.80)','rgba(160,30,30,.80)','rgba(130,20,50,.80)','rgba(120,20,60,.80)'],
+    taxBrk: 'rgba(100,70,180,.70)',
+    taxLbl: 'rgba(90,55,170,.85)',
+    qualBrk:'rgba(123,63,190,.80)',
+    qualLbl:'rgba(123,63,190,.90)',
+    taxBrkSgl:'rgba(184,132,116,.80)',
+    qualBrkSgl:'rgba(26,158,143,.80)',
+  };
+}
+
+function toggleOverlayMode(){
+  overlayMode = overlayMode==='light'?'dark':'light';
+  document.getElementById('overlayModeLabel').textContent = overlayMode==='light'?'Light':'Dark';
+  // Update IRMAA constant colors so overlayPlugin picks them up on next draw
+  const ov=OV();
+  IRMAA_MFJ.forEach((t,i)=>t.color=ov.irmaa[Math.min(i,ov.irmaa.length-1)]);
+  IRMAA_SGL.forEach((t,i)=>t.color=ov.irmaa[Math.min(i,ov.irmaa.length-1)]);
+  // Rebuild legends to match new palette
+  buildLegend2(); buildLegend4();
+  // Redraw all charts with overlays
+  if(c2) c2.update();
+  if(c3) c3.update();
+  if(c4) c4.update();
+}
+
+// Income layer colors
+const C={
+  pen:'#D06A18', wg:'#7B5EA7', tint:'#5B8FA8', rmd:'#E85D9A',
+  rent:'#A0522D', qdiv:'#2E86AB', odivNQ:'#1A5276',
+  stcg:'#8E44AD', ltcg:'#6C3483',
+  hss:'#0F6E56', dss:'#3DB08A'
+};
+const LABELS={
+  pen:"John's Pension", wg:"Jane's Wage", tint:'Taxable Interest', rmd:'IRA RMD',
+  rent:'Rental Income', qdiv:'Qual. Dividends (QDIV)', odivNQ:'Non-Qual. Div (ODIV−QDIV)',
+  stcg:'STCG', ltcg:'LTCG',
+  hss:"John's SS", dss:"Jane's SS / Survivor"
+};
+
+// Tax segment colors — ordinary warm amber, QDIV cool blue tiers, LTCG teal/green tiers
+const TC={
+  ord:   '#C8600A',                                        // rich amber (ordinary)
+  qdiv0: '#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',  // pale→deep violet (QDIV 0/15/20%)
+  ltcg0: '#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42'   // pale→deep teal   (LTCG 0/15/20%)
+};
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+const fmt = n => '$'+Math.round(n).toLocaleString();
+function mrow(label,value,W=34){
+  const v=String(value), p=Math.max(1,W-label.length-v.length);
+  return label+' '.repeat(p)+v;
+}
+function hY(age){return HENRY_BIRTH+age;}
+function dY(age){return DENISE_BIRTH+age;}
+function realF(absY,cola,inf){const y=absY-BASE_YEAR;return y<=0?1:Math.pow((1+cola)/(1+inf),y);}
+function inflF(absY,inf){const y=absY-BASE_YEAR;return y<=0?1:Math.pow(1/(1+inf),y);}
+function rmdF(age){const a=Math.floor(age);if(a<72)return null;return RMD_TABLE[Math.min(a,105)]||4.0;}
+
+function hBenefit(sa){
   if(sa<=62)return 2688; if(sa<67)return Math.round(2688+(sa-62)*(3817-2688)/5);
   if(sa===67)return 3817; if(sa<70)return Math.round(3817+(sa-67)*(4733-3817)/3);
   return 4733;
 }
-function janeOwnAtAge(age){
-  const own=JANE_OWN_FRA; if(age>=JANE_FRA_AGE)return own;
-  const mo=(JANE_FRA_AGE-age)*12;
-  return Math.round(own*(1-(Math.min(mo,36)*(25/36/100)+Math.max(mo-36,0)*(5/12/100))));
+function dOwnAtAge(age){
+  if(age>=DENISE_FRA)return DENISE_OWN_FRA;
+  const mo=(DENISE_FRA-age)*12;
+  return Math.round(DENISE_OWN_FRA*(1-(Math.min(mo,36)*(25/36/100)+Math.max(mo-36,0)*(5/12/100))));
 }
-function janeSpousalAtAge(age){
-  const sp=JANE_SPOUSAL_FRA; if(age>=JANE_FRA_AGE)return sp;
-  const mo=(JANE_FRA_AGE-age)*12;
-  return Math.round(sp*(1-(Math.min(mo,36)*(25/36/100)+Math.max(mo-36,0)*(5/12/100))));
+function dSpousalAtAge(age){
+  if(age>=DENISE_FRA)return DENISE_SPOUSAL_FRA;
+  const mo=(DENISE_FRA-age)*12;
+  return Math.round(DENISE_SPOUSAL_FRA*(1-(Math.min(mo,36)*(25/36/100)+Math.max(mo-36,0)*(5/12/100))));
 }
-function janeBenefitAtAge(age){return Math.max(janeOwnAtAge(age),janeSpousalAtAge(age));}
+function dBenAtAge(age){return Math.max(dOwnAtAge(age),dSpousalAtAge(age));}
 
-const fmt=n=>'$'+Math.round(n).toLocaleString();
-// left-label, right-value monospace row
-function mrow(label,value,W=32){const p=Math.max(1,W-label.length-String(value).length);return label+' '.repeat(p)+value;}
+// Ordinary income tax
+function calcOrdTax(ti,brackets){
+  if(ti<=0)return 0;let tax=0,prev=0;
+  for(const b of brackets){if(ti<=prev)break;tax+=(Math.min(ti,b.lim)-prev)*b.r;prev=b.lim;}
+  return tax;
+}
 
-function realFactor(absY,cola,inf){const y=absY-BASE_YEAR;return y<=0?1:Math.pow((1+cola)/(1+inf),y);}
-function inflFactor(absY,inf){const y=absY-BASE_YEAR;return y<=0?1:Math.pow(1/(1+inf),y);}
-
-// ── IRA ──────────────────────────────────────────────────────────────────────
-function computeIRASeries(hDeath,dDeath,iraGrowth,inf,iraValue){
-  const hDY=johnYear(hDeath),dDY=janeYear(dDeath);
-  const startYear=Math.floor(johnYear(IRA_RMD_START_AGE));
-  const realBalance0=iraValue*inflFactor(startYear,inf);
-  const realGrowth=(1+iraGrowth)/(1+inf)-1;
-  let balance=realBalance0;
-  const iraRMD={},iraBAL={};
-  for(let y=startYear;y<Math.ceil(Math.max(hDY,dDY));y++){
-    const hA=y<hDY,dA=y<dDY;
-    if(!hA&&!dA)break;
-    const ownerAge=hA?(y-JOHN_BIRTH):(y-JANE_BIRTH);
-    const factor=rmdFactor(ownerAge);
-    let rmd=0;
-    if(factor!==null&&balance>0){rmd=Math.min(balance/factor,balance);}
-    iraRMD[y]=rmd;
-    const balAfter=balance-rmd;
-    balance=Math.max(0,balAfter*(1+realGrowth));
-    iraBAL[y]=balAfter>0?balAfter:0;
+// Tax on qualified income (QDIV + LTCG) stacked on top of ordinary taxable income
+function calcQualTax(ordTI, qualIncome, qdivBrackets){
+  if(qualIncome<=0)return 0;
+  let tax=0, prev=0;
+  // QI stacks on top of ordTI — find where ordTI sits in QDIV brackets, then apply marginal rates to qualIncome
+  const stackBase = ordTI; // ordinary TI already claimed the lower brackets
+  for(const b of qdivBrackets){
+    if(stackBase>=b.lim){prev=b.lim;continue;}
+    const available=b.lim-Math.max(prev,stackBase);
+    const portion=Math.min(qualIncome,available);
+    if(portion>0){tax+=portion*b.r;qualIncome-=portion;}
+    if(qualIncome<=0)break;
+    prev=b.lim;
   }
-  return{rmd:iraRMD,bal:iraBAL};
+  return tax;
 }
 
-// ── Section 1 ─────────────────────────────────────────────────────────────────
-const SS_START_AGES=[62,64,66,68,70];
-const SS_COLORS={62:'#E24B4A',64:'#D06A18',66:'#B59A00',68:'#2E9E5A',70:'#0F6E56'};
-const X_MIN=60,X_MAX=100,Y1_MAX=2500000;
-let chart1Inst;
+// ═══════════════════════════════════════════════════════
+// IRA RMD SERIES
+// ═══════════════════════════════════════════════════════
+function computeIRA(hDeath,dDeath,iraGrowth,inf,iraValue){
+  const hDY=hY(hDeath), dDY=dY(dDeath);
+  const startYear=Math.floor(hY(IRA_RMD_AGE));
+  const realBal0=iraValue*inflF(startYear,inf);
+  const realG=(1+iraGrowth)/(1+inf)-1;
+  let bal=realBal0;
+  const rmds={}, bals={};
+  for(let y=startYear;y<Math.ceil(Math.max(hDY,dDY));y++){
+    const hA=y<hDY, dA=y<dDY;
+    if(!hA&&!dA)break;
+    const ownerAge=hA?(y-HENRY_BIRTH):(y-DENISE_BIRTH);
+    const f=rmdF(ownerAge);
+    let rmd=f!==null&&bal>0?Math.min(bal/f,bal):0;
+    rmds[y]=rmd;
+    const balAfter=bal-rmd;
+    bal=Math.max(0,balAfter*(1+realG));
+    bals[y]=balAfter>0?balAfter:0;
+  }
+  return{rmds,bals};
+}
 
-function realCumulative(hSA,dSSAge,toJohnAge,hDeath,dDeath,cola,inf){
-  const hDY=johnYear(hDeath),dDY=janeYear(dDeath);
+// ═══════════════════════════════════════════════════════
+// SECTION 1 — SS BREAKEVEN
+// ═══════════════════════════════════════════════════════
+let c1;
+
+function realCumSS(hSA,dSSAge,toAge,hDeath,dDeath,cola,inf){
+  const hDY=hY(hDeath), dDY=dY(dDeath);
   const lastHA=Math.max(hDeath,dDeath-AGE_GAP);
-  if(toJohnAge>lastHA)return null;
-  const cur=johnYear(toJohnAge);
-  const hB=johnBenefit(hSA),hSY=johnYear(hSA);
-  const dBenNom=janeBenefitAtAge(dSSAge),dSSY=janeYear(dSSAge);
+  if(toAge>lastHA)return null;
+  const cur=hY(toAge);
+  const hB=hBenefit(hSA), hSY=hY(hSA);
+  const dBen=dBenAtAge(dSSAge), dSSY=dY(dSSAge);
   let total=0;
-  for(let y=hSY;y<Math.min(cur,hDY);y++) for(let m=0;m<12;m++) total+=hB*realFactor(y+m/12,cola,inf);
-  for(let y=Math.max(dSSY,BASE_YEAR-0.001);y<Math.min(cur,dDY);y++) for(let m=0;m<12;m++){
+  for(let y=hSY;y<Math.min(cur,hDY);y++) for(let m=0;m<12;m++) total+=hB*realF(y+m/12,cola,inf);
+  for(let y=Math.max(dSSY,BASE_YEAR-.001);y<Math.min(cur,dDY);y++) for(let m=0;m<12;m++){
     const absY=y+m/12; if(absY<dSSY)continue;
-    total+=(absY<hDY?dBenNom:hB)*realFactor(absY,cola,inf);
+    total+=(absY<hDY?dBen:hB)*realF(absY,cola,inf);
   }
   return total;
 }
 
-function householdFinal(hSA,dSSAge,hDeath,dDeath,cola,inf){
-  const hDY=johnYear(hDeath),dDY=janeYear(dDeath);
-  const hSY=johnYear(hSA),hB=johnBenefit(hSA);
-  const dSSY=janeYear(dSSAge),dBenNom=janeBenefitAtAge(dSSAge);
-  let john=0,dBen=0,dSur=0;
-  for(let y=hSY;y<hDY;y++) for(let m=0;m<12;m++) john+=hB*realFactor(y+m/12,cola,inf);
-  for(let y=Math.max(dSSY,BASE_YEAR-0.001);y<dDY;y++) for(let m=0;m<12;m++){
+function hhFinal(hSA,dSSAge,hDeath,dDeath,cola,inf){
+  const hDY=hY(hDeath), dDY=dY(dDeath);
+  const hSY=hY(hSA), hB=hBenefit(hSA);
+  const dSSY=dY(dSSAge), dBen=dBenAtAge(dSSAge);
+  let henry=0,dBenTotal=0,dSur=0;
+  for(let y=hSY;y<hDY;y++) for(let m=0;m<12;m++) henry+=hB*realF(y+m/12,cola,inf);
+  for(let y=Math.max(dSSY,BASE_YEAR-.001);y<dDY;y++) for(let m=0;m<12;m++){
     const absY=y+m/12; if(absY<dSSY)continue;
-    dBen+=dBenNom*realFactor(absY,cola,inf);
-    if(absY>=hDY) dSur+=(hB-dBenNom)*realFactor(absY,cola,inf);
+    dBenTotal+=dBen*realF(absY,cola,inf);
+    if(absY>=hDY) dSur+=(hB-dBen)*realF(absY,cola,inf);
   }
-  return{john,janeBenefit:dBen,janeSurvivor:dSur,total:john+dBen+dSur};
+  return{henry,dBenTotal,dSur,total:henry+dBenTotal+dSur};
 }
 
-function computeROI(hSA,dSSAge,hDeath,dDeath,cola,inf){
+function compROI(hSA,dSSAge,hDeath,dDeath,cola,inf){
   if(hSA===62)return null;
-  const hDY=johnYear(hDeath),dDY=janeYear(dDeath);
-  const s62=johnYear(62),sSA=johnYear(hSA),end=Math.max(hDY,dDY);
-  const b62=johnBenefit(62),bSA=johnBenefit(hSA);
-  const dBen62=janeBenefitAtAge(dSSAge),dSSY=janeYear(dSSAge);
+  const hDY=hY(hDeath), dDY=dY(dDeath);
+  const s62=hY(62), sSA=hY(hSA), end=Math.max(hDY,dDY);
+  const b62=hBenefit(62), bSA=hBenefit(hSA);
+  const dBen=dBenAtAge(dSSAge), dSSY=dY(dSSAge);
   const cfs=[];
   for(let y=s62;y<end;y++) for(let m=0;m<12;m++){
-    const absY=y+m/12,t=absY-BASE_YEAR; if(t<0)continue;
-    const rf=realFactor(absY,cola,inf);
-    const hA=absY<hDY,dA=absY<dDY&&absY>=dSSY;
+    const absY=y+m/12, t=absY-BASE_YEAR; if(t<0)continue;
+    const rf=realF(absY,cola,inf);
+    const hA=absY<hDY, dA=absY<dDY&&absY>=dSSY;
     let c62=0,cSA=0;
     if(absY>=s62&&hA)c62+=b62*rf; if(absY>=sSA&&hA)cSA+=bSA*rf;
-    if(dA&&hA){c62+=dBen62*rf;cSA+=dBen62*rf;}
+    if(dA&&hA){c62+=dBen*rf;cSA+=dBen*rf;}
     if(!hA&&dA){c62+=b62*rf;cSA+=bSA*rf;}
     cfs.push({t,delta:cSA-c62});
   }
   const npv=r=>cfs.reduce((s,c)=>s+c.delta/Math.pow(1+r,c.t),0);
-  let lo=-0.30,hi=0.60;
+  let lo=-.30,hi=.60;
   if(npv(lo)*npv(hi)>0)return null;
   for(let i=0;i<80;i++){const mid=(lo+hi)/2;npv(mid)*npv(lo)<0?(hi=mid):(lo=mid);}
   return(lo+hi)/2;
 }
 
 function buildLegend1(){
-  document.getElementById('legend1').innerHTML=SS_START_AGES.map(sa=>
-    `<span class="legend-item"><span class="legend-swatch" style="background:${SS_COLORS[sa]};height:${sa===70?4:2}px"></span>John age ${sa}${sa===62?' (earliest)':sa===70?' (max)':''}</span>`).join('');
+  document.getElementById('legend1').innerHTML=SS_AGES.map(sa=>
+    `<span class="li"><span class="ls" style="background:${SS_COLORS[sa]};height:${sa===70?4:2}px"></span>John age ${sa}${sa===62?' (earliest)':sa===70?' (max)':''}</span>`).join('');
 }
 
 function buildChart1(dSSAge,hDeath,dDeath,cola,inf){
   const labels=[];for(let a=X_MIN;a<=X_MAX;a++)labels.push(a);
-  const datasets=SS_START_AGES.map(sa=>({
+  const datasets=SS_AGES.map(sa=>({
     label:'Age '+sa,
-    data:labels.map(age=>realCumulative(sa,dSSAge,age,hDeath,dDeath,cola,inf)),
-    borderColor:SS_COLORS[sa],borderWidth:sa===70?3:2,
-    pointRadius:0,tension:0.3,fill:false,spanGaps:false
+    data:labels.map(age=>realCumSS(sa,dSSAge,age,hDeath,dDeath,cola,inf)),
+    borderColor:SS_COLORS[sa],borderWidth:sa===70?3:2,pointRadius:0,tension:0.3,fill:false,spanGaps:false
   }));
-  const c=document.getElementById('chart1');
-  if(chart1Inst){
-    chart1Inst.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
-    chart1Inst.update({duration:400,easing:'easeInOutQuart'});
+  if(c1){
+    c1.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
+    c1.update({duration:400,easing:'easeInOutQuart'});
   } else {
-    chart1Inst=new Chart(c,{type:'line',data:{labels,datasets},options:{
+    c1=new Chart(document.getElementById('chart1'),{type:'line',data:{labels,datasets},options:{
       responsive:true,maintainAspectRatio:true,aspectRatio:1,
       interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},tooltip:{
-        bodyFont:{family:'monospace',size:12},
-        callbacks:{
-          title:items=>`John's age ${items[0].label}`,
-          label:ctx=>{
-            if(ctx.raw===null)return null;
-            const sa=SS_START_AGES[ctx.datasetIndex];
-            return mrow(`  John starts age ${sa}`,fmt(ctx.raw));
-          }
-        }
-      }},
+      plugins:{legend:{display:false},tooltip:{bodyFont:{family:'monospace',size:12},callbacks:{
+        title:i=>`John's age ${i[0].label}`,
+        label:ctx=>{if(ctx.raw===null)return null;return mrow('  John age '+SS_AGES[ctx.datasetIndex],fmt(ctx.raw));}
+      }}},
       scales:{
         x:{type:'category',min:X_MIN,max:X_MAX,title:{display:true,text:"John's age",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
-        y:{min:0,max:Y1_MAX,title:{display:true,text:"Cumulative benefit (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k',stepSize:250000},grid:{color:'rgba(0,0,0,0.05)'}}
+        y:{min:0,max:Y1_MAX,title:{display:true,text:"Cumulative SS (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
-  const dBen=janeBenefitAtAge(dSSAge);
+  const dBen=dBenAtAge(dSSAge);
   document.getElementById('chartNote1').textContent=
-    `Household = John SS + Jane benefit ($${dBen.toLocaleString()}/mo at age ${dSSAge}) + survivor (John's SS) after John passes. `+
-    `COLA ${(cola*100).toFixed(2)}% · Inflation ${(inf*100).toFixed(2)}%. X-axis locked 60–100; Y-axis locked $0–$2.5M.`;
+    `Jane benefit $${dBen.toLocaleString()}/mo at age ${dSSAge}. After John passes, Jane gets John's SS as survivor. COLA ${(cola*100).toFixed(2)}% · Inflation ${(inf*100).toFixed(2)}%. Axes locked.`;
 }
 
 function buildMetrics1(dSSAge,hDeath,dDeath,cola,inf){
-  const totals=SS_START_AGES.map(sa=>householdFinal(sa,dSSAge,hDeath,dDeath,cola,inf).total);
-  const bestAge=SS_START_AGES[totals.indexOf(Math.max(...totals))];
-  const diff=householdFinal(70,dSSAge,hDeath,dDeath,cola,inf).total-householdFinal(62,dSSAge,hDeath,dDeath,cola,inf).total;
-  const dBen=janeBenefitAtAge(dSSAge);
+  const tots=SS_AGES.map(sa=>hhFinal(sa,dSSAge,hDeath,dDeath,cola,inf).total);
+  const best=SS_AGES[tots.indexOf(Math.max(...tots))];
+  const diff=hhFinal(70,dSSAge,hDeath,dDeath,cola,inf).total-hhFinal(62,dSSAge,hDeath,dDeath,cola,inf).total;
+  const dBen=dBenAtAge(dSSAge);
   document.getElementById('metrics1').innerHTML=`
     <div class="metric"><div class="metric-label">John FRA benefit</div><div class="metric-value">$3,817<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">Nominal · Age 67 (Jan 2032)</div></div>
-    <div class="metric"><div class="metric-label">John max benefit (age 70)</div><div class="metric-value">$4,733<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">Nominal · +24% vs FRA</div></div>
-    <div class="metric metric-highlight"><div class="metric-label">Jane at age ${dSSAge}</div><div class="metric-value">$${dBen.toLocaleString()}<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">${dBen===JANE_SPOUSAL_FRA?'Full spousal ($1,909)':'Spousal (reduced)'}</div></div>
-    <div class="metric"><div class="metric-label">John pension (nominal)</div><div class="metric-value">$1,500<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">Fixed · starts age 60 · no COLA · no survivor</div></div>
-    <div class="metric"><div class="metric-label">Best SS start age (HH)</div><div class="metric-value">Age ${bestAge}</div><div class="metric-sub">Maximizes real household SS total</div></div>
-    <div class="metric"><div class="metric-label">Age 70 vs 62 (household)</div><div class="metric-value">${diff>=0?'+':''}${fmt(diff)}</div><div class="metric-sub">Real-dollar SS lifetime difference</div></div>`;
+    <div class="metric"><div class="metric-label">John age-70 benefit</div><div class="metric-value">$4,733<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">Nominal · +24% vs FRA</div></div>
+    <div class="metric metric-hl"><div class="metric-label">Jane at age ${dSSAge}</div><div class="metric-value">$${dBen.toLocaleString()}<span style="font-size:14px;font-family:'DM Sans'">/mo</span></div><div class="metric-sub">${dBen===DENISE_SPOUSAL_FRA?'Full spousal ($1,909)':'Spousal (reduced)'}</div></div>
+    <div class="metric"><div class="metric-label">Best SS start (household)</div><div class="metric-value">Age ${best}</div><div class="metric-sub">Maximizes real household SS</div></div>
+    <div class="metric"><div class="metric-label">Age 70 vs 62 delta</div><div class="metric-value">${diff>=0?'+':''}${fmt(diff)}</div><div class="metric-sub">Lifetime household difference</div></div>`;
 }
 
 function buildTable1(dSSAge,hDeath,dDeath,cola,inf){
-  const data=SS_START_AGES.map(sa=>({sa,...householdFinal(sa,dSSAge,hDeath,dDeath,cola,inf)}));
+  const data=SS_AGES.map(sa=>({sa,...hhFinal(sa,dSSAge,hDeath,dDeath,cola,inf)}));
   const maxHH=Math.max(...data.map(d=>d.total));
-  const dBen=janeBenefitAtAge(dSSAge);
+  const dBen=dBenAtAge(dSSAge);
   document.getElementById('breakBody').innerHTML=data.map(d=>{
     const isBest=d.total===maxHH;
-    const roi=computeROI(d.sa,dSSAge,hDeath,dDeath,cola,inf);
-    const roiHtml=roi===null?'— (baseline)':`<span class="${roi>=0?'roi-pos':'roi-neg'}">${(roi*100).toFixed(2)}%</span>`;
-    return`<tr class="${isBest?'best-household':''}">
+    const roi=compROI(d.sa,dSSAge,hDeath,dDeath,cola,inf);
+    const roiH=roi===null?'— (baseline)':`<span class="${roi>=0?'roi-pos':'roi-neg'}">${(roi*100).toFixed(2)}%</span>`;
+    return`<tr class="${isBest?'best':''}">
       <td>Age ${d.sa}${d.sa===62?' — earliest':d.sa===70?' — maximum':''}</td>
-      <td class="r">${fmt(johnBenefit(d.sa))}</td><td class="r">${fmt(dBen)}</td>
-      <td class="r">${fmt(d.john)}</td><td class="r">${fmt(d.janeBenefit)}</td>
-      <td class="r">${fmt(d.janeSurvivor)}</td><td class="r">${fmt(d.total)}</td>
-      <td class="r">${roiHtml}</td></tr>`;
+      <td class="r">${fmt(hBenefit(d.sa))}</td><td class="r">${fmt(dBen)}</td>
+      <td class="r">${fmt(d.henry)}</td><td class="r">${fmt(d.dBenTotal)}</td>
+      <td class="r">${fmt(d.dSur)}</td><td class="r">${fmt(d.total)}</td>
+      <td class="r">${roiH}</td></tr>`;
   }).join('');
   document.getElementById('tableNote1').innerHTML=
-    `<strong>Green row</strong> = best household SS total. All in today's dollars. `+
-    `Jane $${dBen.toLocaleString()}/mo = benefit at age ${dSSAge} (spousal if John filed, higher of own vs spousal). `+
-    `Survivor = full John SS while Jane outlives John.`;
+    `Green = best household total. All in today's dollars. Jane $${dBen.toLocaleString()}/mo = higher of own vs spousal at age ${dSSAge}. Survivor = full John SS for Jane's remaining life.`;
 }
 
-// ── Tax brackets / IRMAA ─────────────────────────────────────────────────────
-const MFJ_BRACKETS=[{limit:23200,rate:0.10},{limit:94300,rate:0.12},{limit:201050,rate:0.22},{limit:383900,rate:0.24},{limit:487450,rate:0.32},{limit:731200,rate:0.35},{limit:Infinity,rate:0.37}];
-const SINGLE_BRACKETS=[{limit:11600,rate:0.10},{limit:47150,rate:0.12},{limit:100525,rate:0.22},{limit:191950,rate:0.24},{limit:243725,rate:0.32},{limit:365600,rate:0.35},{limit:Infinity,rate:0.37}];
-const STD_MFJ=32000,STD_SINGLE=16000;
-const IRMAA_MFJ=[{magi:212000,label:'IRMAA T1',surcharge:3564,color:'rgba(180,100,20,0.80)'},{magi:266000,label:'IRMAA T2',surcharge:8892,color:'rgba(180,60,20,0.80)'},{magi:334000,label:'IRMAA T3',surcharge:14220,color:'rgba(160,30,30,0.80)'},{magi:750000,label:'IRMAA T4+',surcharge:19548,color:'rgba(120,20,60,0.80)'}];
-const IRMAA_SINGLE=[{magi:106000,label:'IRMAA T1',surcharge:3564,color:'rgba(180,100,20,0.80)'},{magi:133000,label:'IRMAA T2',surcharge:8892,color:'rgba(180,60,20,0.80)'},{magi:167000,label:'IRMAA T3',surcharge:14220,color:'rgba(160,30,30,0.80)'},{magi:200000,label:'IRMAA T4',surcharge:17172,color:'rgba(130,20,50,0.80)'},{magi:500000,label:'IRMAA T5+',surcharge:19548,color:'rgba(120,20,60,0.80)'}];
+// ═══════════════════════════════════════════════════════
+// SECTION 2 — INCOME SERIES
+// ═══════════════════════════════════════════════════════
+function computeIncome(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent){
+  const hDY=hY(hDeath), dDY=dY(dDeath);
+  const hSSY=hY(hSSAge), dSSY=dY(dSSAge);
+  const hPenY=hY(60), dWageStop=dY(DENISE_WAGE_STOP);
+  const hB=hBenefit(hSSAge);
+  const dBenNom=dBenAtAge(dSSAge);
+  const {rmds,bals}=computeIRA(hDeath,dDeath,iraGrowth,inf,iraValue);
 
-function computeTax(ti,brackets){
-  if(ti<=0)return 0;let tax=0,prev=0;
-  for(const b of brackets){if(ti<=prev)break;tax+=(Math.min(ti,b.limit)-prev)*b.rate;prev=b.limit;}
-  return tax;
-}
-function incomeBracketLines(brackets,stdDed){
-  return brackets.slice(0,-1).map((b,i)=>({totalIncome:b.limit+stdDed,upperRate:Math.round(brackets[i+1].rate*100),lowerRate:Math.round(b.rate*100)}));
-}
+  const series={pen:[],wg:[],tintArr:[],rmd:[],rentArr:[],qdivArr:[],odivNQArr:[],stcgArr:[],ltcgArr:[],hss:[],dss:[]};
+  const iraBalByYear=bals;
 
-// ── Section 2 ─────────────────────────────────────────────────────────────────
-const INC_COLORS={pension:'#D06A18',wage:'#7B5EA7',taxInt:'#5B8FA8',iraRmd:'#E85D9A',johnSS:'#0F6E56',janeSS:'#3DB08A'};
-const INC_LABELS={pension:"John's Pension",wage:"Jane's Wage",taxInt:'Taxable Interest',iraRmd:'IRA RMD',johnSS:"John's SS",janeSS:"Jane's SS / Survivor"};
-
-function computeIncomeSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue){
-  const hDY=johnYear(hDeath),dDY=janeYear(dDeath);
-  const hSSY=johnYear(hSSAge),dSSY=janeYear(dSSAge);
-  const hPenY=johnYear(60),dWageStopY=janeYear(JANE_WAGE_STOP);
-  const hB=johnBenefit(hSSAge);
-  const dBenNom=Math.max(janeOwnAtAge(dSSAge),janeSpousalAtAge(dSSAge));
-  const{rmd:iraRMDbyYear,bal:iraBalByYear}=computeIRASeries(hDeath,dDeath,iraGrowth,inf,iraValue);
-  const pension=[],wage=[],taxInt=[],iraRmd=[],johnSS=[],janeSS=[];
   for(let ha=X_MIN;ha<=X_MAX;ha++){
-    const absY=johnYear(ha);
-    if(absY>=hDY&&absY>=dDY){pension.push(null);wage.push(null);taxInt.push(null);iraRmd.push(null);johnSS.push(null);janeSS.push(null);continue;}
-    const hAlive=absY<hDY,dAlive=absY<dDY;
-    const calYear=Math.floor(absY);
-    pension.push(hAlive&&absY>=hPenY?JOHN_PENSION_NOM*12*inflFactor(absY,inf):0);
-    wage.push(dAlive&&absY<dWageStopY?JANE_WAGE_REAL*12:0);
-    taxInt.push(TAXABLE_INTEREST*inflFactor(absY,inf));
-    iraRmd.push((hAlive||dAlive)?(iraRMDbyYear[calYear]||0):0);
-    johnSS.push(hAlive&&absY>=hSSY?hB*12*realFactor(absY,cola,inf):0);
-    let dss=0;
-    if(dAlive){
-      if(hAlive&&absY>=dSSY)dss=dBenNom*12*realFactor(absY,cola,inf);
-      else if(!hAlive&&absY>=dSSY)dss=hB*12*realFactor(absY,cola,inf);
+    const absY=hY(ha);
+    const dead=absY>=hDY&&absY>=dDY;
+    if(dead){
+      for(const k of Object.keys(series))series[k].push(null);
+      continue;
     }
-    janeSS.push(dss);
+    const hA=absY<hDY, dA=absY<dDY;
+    const cY=Math.floor(absY);
+    // Inflation factor for nominal items (pension, tint, odiv, stcg, ltcg, rent)
+    const iF=inflF(absY,inf);
+    series.pen.push(hA&&absY>=hPenY?HENRY_PEN*12*iF:0);
+    series.wg.push(dA&&absY<dWageStop?DENISE_WAGE*12:0);
+    series.tintArr.push(tint*iF);
+    series.rmd.push((hA||dA)?(rmds[cY]||0):0);
+    series.rentArr.push(rent*iF);
+    // Investment income: all discounted by inflation (nominal → today's $)
+    series.qdivArr.push(qdiv*iF);
+    series.odivNQArr.push((odiv-qdiv)*iF);
+    series.stcgArr.push(stcg*iF);
+    series.ltcgArr.push(ltcg*iF);
+    // SS
+    series.hss.push(hA&&absY>=hSSY?hB*12*realF(absY,cola,inf):0);
+    let dss=0;
+    if(dA){
+      if(hA&&absY>=dSSY) dss=dBenNom*12*realF(absY,cola,inf);
+      else if(!hA&&absY>=dSSY) dss=hB*12*realF(absY,cola,inf);
+    }
+    series.dss.push(dss);
   }
-  return{pension,wage,taxInt,iraRmd,johnSS,janeSS,hB,dBenNom,iraBalByYear};
+  return{series,iraBalByYear,hB,dBenNom};
 }
 
-// overlay plugin (IRMAA + income tax bracket lines)
+// Overlay plugin (IRMAA + income tax bracket lines)
 const overlayPlugin={
   id:'incomeOverlay',
   afterDraw(chart,args,opts){
     if(!opts)return;
     const{ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
-    const n=chart.data.labels.length,switchIdx=opts.switchIdx??n;
-    function xFrac(idx){return x.getPixelForValue(Math.max(0,Math.min(n-1,idx)));}
-    const mfjR=switchIdx>0&&switchIdx<=n?(xFrac(switchIdx-1)+xFrac(Math.min(switchIdx,n-1)))/2:(switchIdx<=0?left-1:right);
+    const n=chart.data.labels.length, swIdx=opts.switchIdx??n;
+    function xP(idx){return x.getPixelForValue(Math.max(0,Math.min(n-1,idx)));}
+    const mfjR=swIdx>0&&swIdx<=n?(xP(swIdx-1)+xP(Math.min(swIdx,n-1)))/2:(swIdx<=0?left-1:right);
     ctx.save();
-    function drawLines(lines,xFrom,xTo,isIrmaa){
+    const ov=OV();
+    function drawLines(lines,xFrom,xTo,isI,isMFJ){
       if(!lines||xFrom>=xTo)return;
-      lines.forEach(line=>{
-        const val=isIrmaa?line.magi:line.totalIncome;
+      lines.forEach(ln=>{
+        const val=isI?ln.magi:ln.totalIncome;
         const yPx=y.getPixelForValue(val);
         if(yPx<top||yPx>bottom)return;
-        const segL=Math.max(left,xFrom),segR=Math.min(right,xTo);
-        if(segL>=segR)return;
-        ctx.beginPath();ctx.setLineDash(isIrmaa?[8,5]:[6,4]);ctx.lineWidth=isIrmaa?1.4:1.2;
-        ctx.strokeStyle=isIrmaa?line.color:'rgba(100,70,180,0.70)';
-        ctx.moveTo(segL,yPx);ctx.lineTo(segR,yPx);ctx.stroke();ctx.setLineDash([]);
-        ctx.font=(isIrmaa?'10':'9')+'px DM Sans,sans-serif';
-        if(isIrmaa){
-          ctx.fillStyle=line.color;ctx.textAlign='right';ctx.textBaseline='bottom';
-          ctx.fillText(`${line.label} >${(line.magi/1000).toFixed(0)}k`,segR-3,yPx-2);
+        const sL=Math.max(left,xFrom),sR=Math.min(right,xTo);
+        if(sL>=sR)return;
+        const lineCol = isI ? ln.color : (isMFJ ? ov.taxBrk : ov.taxBrkSgl);
+        const lblCol  = isI ? ln.color : (isMFJ ? ov.taxLbl : ov.taxBrkSgl);
+        ctx.beginPath();ctx.setLineDash(isI?[8,5]:[6,4]);ctx.lineWidth=isI?1.4:1.2;
+        ctx.strokeStyle=lineCol;
+        ctx.moveTo(sL,yPx);ctx.lineTo(sR,yPx);ctx.stroke();ctx.setLineDash([]);
+        ctx.font=(isI?'10':'9')+'px DM Sans,sans-serif';
+        if(isI){
+          ctx.fillStyle=lblCol;ctx.textAlign='right';ctx.textBaseline='bottom';
+          ctx.fillText(`${ln.label} >${(ln.magi/1000).toFixed(0)}k`,sR-3,yPx-2);
         } else {
-          ctx.fillStyle='rgba(90,55,170,0.85)';ctx.textAlign='right';
-          ctx.textBaseline='bottom';ctx.fillText(`${line.upperRate}% income tax`,segR-3,yPx-2);
-          ctx.textBaseline='top';ctx.fillText(`${line.lowerRate}% income tax`,segR-3,yPx+2);
+          ctx.fillStyle=lblCol;ctx.textAlign='right';
+          ctx.textBaseline='bottom';ctx.fillText(`${ln.upperRate}% income tax`,sR-3,yPx-2);
+          ctx.textBaseline='top';ctx.fillText(`${ln.lowerRate}% income tax`,sR-3,yPx+2);
         }
       });
     }
-    drawLines((opts.irmaaMFJ||[]).filter(l=>l.magi<(y.max||Infinity)),left,mfjR,true);
-    drawLines((opts.taxMFJLines||[]).filter(l=>l.totalIncome<(y.max||Infinity)),left,mfjR,false);
-    drawLines((opts.irmaaSingle||[]).filter(l=>l.magi<(y.max||Infinity)),mfjR,right,true);
-    drawLines((opts.taxSingleLines||[]).filter(l=>l.totalIncome<(y.max||Infinity)),mfjR,right,false);
+    drawLines((opts.irmaaMFJ||[]).filter(l=>l.magi<(y.max||Infinity)),left,mfjR,true,true);
+    drawLines((opts.taxMFJ||[]).filter(l=>l.totalIncome<(y.max||Infinity)),left,mfjR,false,true);
+    drawLines((opts.irmaaSgl||[]).filter(l=>l.magi<(y.max||Infinity)),mfjR,right,true,false);
+    drawLines((opts.taxSgl||[]).filter(l=>l.totalIncome<(y.max||Infinity)),mfjR,right,false,false);
     ctx.restore();
   }
 };
 if(!Chart.registry.plugins.get('incomeOverlay'))Chart.register(overlayPlugin);
 
-let chart2Inst,Y2_MAX_LOCKED=null,chart2State={};
-
-function buildLegend2(){
-  document.getElementById('legend2').innerHTML=
-    Object.entries(INC_LABELS).map(([k,v])=>`<span class="legend-item"><span class="legend-swatch" style="background:${INC_COLORS[k]}"></span>${v}</span>`).join('')+
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed rgba(180,100,20,0.85);background:transparent;height:2px;margin-top:4px"></span>IRMAA</span>`+
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed rgba(90,55,170,0.80);background:transparent;height:2px;margin-top:4px"></span>Income tax brackets</span>`;
+function incBracketLines(brks,std){
+  return brks.slice(0,-1).map((b,i)=>({totalIncome:b.lim+std,upperRate:Math.round(brks[i+1].r*100),lowerRate:Math.round(b.r*100)}));
 }
 
-function buildChart2(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue){
-  const series=computeIncomeSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
-  const{pension,wage,taxInt,iraRmd,johnSS,janeSS,hB,dBenNom,iraBalByYear}=series;
-  chart2State={series,hDY:johnYear(hDeath),dDY:janeYear(dDeath),iraBalByYear};
+let c2, Y2_MAX=null, c2State={};
+
+function buildLegend2(){
+  const keys=['pen','wg','tintArr','rmd','rentArr','qdivArr','odivNQArr','stcgArr','ltcgArr','hss','dss'];
+  const colorMap={pen:C.pen,wg:C.wg,tintArr:C.tint,rmd:C.rmd,rentArr:C.rent,qdivArr:C.qdiv,odivNQArr:C.odivNQ,stcgArr:C.stcg,ltcgArr:C.ltcg,hss:C.hss,dss:C.dss};
+  const labelMap={pen:LABELS.pen,wg:LABELS.wg,tintArr:LABELS.tint,rmd:LABELS.rmd,rentArr:LABELS.rent,qdivArr:LABELS.qdiv,odivNQArr:LABELS.odivNQ,stcgArr:LABELS.stcg,ltcgArr:LABELS.ltcg,hss:LABELS.hss,dss:LABELS.dss};
+  const ov=OV();
+  const irmaaC=ov.irmaa[0];
+  document.getElementById('legend2').innerHTML=
+    keys.map(k=>`<span class="li"><span class="ls" style="background:${colorMap[k]}"></span>${labelMap[k]}</span>`).join('')+
+    `<span class="li"><span class="ls" style="border-top:2px dashed ${irmaaC};background:transparent;height:2px;margin-top:4px"></span>IRMAA</span>`+
+    `<span class="li"><span class="ls" style="border-top:2px dashed ${ov.taxBrk};background:transparent;height:2px;margin-top:4px"></span>Income tax brackets</span>`;
+}
+
+function buildChart2(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent){
+  const{series,iraBalByYear,hB,dBenNom}=computeIncome(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent);
+  c2State={series,iraBalByYear,hDY:hY(hDeath),dDY:dY(dDeath)};
   const labels=[];for(let a=X_MIN;a<=X_MAX;a++)labels.push(a);
-  if(Y2_MAX_LOCKED===null){
+  const keys=['pen','wg','tintArr','rmd','rentArr','qdivArr','odivNQArr','stcgArr','ltcgArr','hss','dss'];
+  const colorMap={pen:C.pen,wg:C.wg,tintArr:C.tint,rmd:C.rmd,rentArr:C.rent,qdivArr:C.qdiv,odivNQArr:C.odivNQ,stcgArr:C.stcg,ltcgArr:C.ltcg,hss:C.hss,dss:C.dss};
+  const labelMap={pen:LABELS.pen,wg:LABELS.wg,tintArr:LABELS.tint,rmd:LABELS.rmd,rentArr:LABELS.rent,qdivArr:LABELS.qdiv,odivNQArr:LABELS.odivNQ,stcgArr:LABELS.stcg,ltcgArr:LABELS.ltcg,hss:LABELS.hss,dss:LABELS.dss};
+
+  if(Y2_MAX===null){
     const maxT=Math.max(...labels.map((_,i)=>{
-      const vs=[pension[i],wage[i],taxInt[i],iraRmd[i],johnSS[i],janeSS[i]];
+      const vs=keys.map(k=>series[k][i]);
       return vs.every(v=>v===null)?0:vs.reduce((s,v)=>s+(v||0),0);
     }));
-    Y2_MAX_LOCKED=maxT>150000?Math.ceil(maxT/10000)*10000+15000:150000;
+    Y2_MAX=maxT>150000?Math.ceil(maxT/10000)*10000+15000:150000;
   }
-  const hDY=johnYear(hDeath),dDY=janeYear(dDeath);
-  let switchIdx=labels.length;
-  for(let i=0;i<labels.length;i++){if(!(johnYear(labels[i])<hDY&&johnYear(labels[i])<dDY)){switchIdx=i;break;}}
-  const irmaaMFJ=IRMAA_MFJ.filter(l=>l.magi<Y2_MAX_LOCKED);
-  const irmaaSingle=IRMAA_SINGLE.filter(l=>l.magi<Y2_MAX_LOCKED);
-  const taxMFJLines=incomeBracketLines(MFJ_BRACKETS,STD_MFJ).filter(l=>l.totalIncome<Y2_MAX_LOCKED);
-  const taxSingleLines=incomeBracketLines(SINGLE_BRACKETS,STD_SINGLE).filter(l=>l.totalIncome<Y2_MAX_LOCKED);
-  const makeDs=(data,label,color)=>({label,data,borderColor:color,backgroundColor:color+'bb',borderWidth:4,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'income'});
-  const datasets=[
-    makeDs(pension,INC_LABELS.pension,INC_COLORS.pension),
-    makeDs(wage,INC_LABELS.wage,INC_COLORS.wage),
-    makeDs(taxInt,INC_LABELS.taxInt,INC_COLORS.taxInt),
-    makeDs(iraRmd,INC_LABELS.iraRmd,INC_COLORS.iraRmd),
-    makeDs(johnSS,INC_LABELS.johnSS,INC_COLORS.johnSS),
-    makeDs(janeSS,INC_LABELS.janeSS,INC_COLORS.janeSS),
-  ];
-  const c=document.getElementById('chart2');
-  if(chart2Inst){
-    chart2Inst.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
-    chart2Inst.options.plugins.incomeOverlay={irmaaMFJ,irmaaSingle,taxMFJLines,taxSingleLines,switchIdx};
-    chart2Inst.update({duration:400,easing:'easeInOutQuart'});
+
+  const hDY=hY(hDeath),dDY=dY(dDeath);
+  let swIdx=labels.length;
+  for(let i=0;i<labels.length;i++){if(!(hY(labels[i])<hDY&&hY(labels[i])<dDY)){swIdx=i;break;}}
+
+  const irmaaMFJ=IRMAA_MFJ.filter(l=>l.magi<Y2_MAX);
+  const irmaaSgl=IRMAA_SGL.filter(l=>l.magi<Y2_MAX);
+  const taxMFJ=incBracketLines(MFJ_ORD,STD_MFJ).filter(l=>l.totalIncome<Y2_MAX);
+  const taxSgl=incBracketLines(SGL_ORD,STD_SGL).filter(l=>l.totalIncome<Y2_MAX);
+
+  const datasets=keys.map(k=>({
+    label:labelMap[k],data:series[k],
+    borderColor:colorMap[k],backgroundColor:colorMap[k]+'bb',
+    borderWidth:4,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'inc'
+  }));
+
+  if(c2){
+    c2.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
+    c2.options.plugins.incomeOverlay={irmaaMFJ,irmaaSgl,taxMFJ,taxSgl,switchIdx:swIdx};
+    c2.update({duration:400,easing:'easeInOutQuart'});
   } else {
-    chart2Inst=new Chart(c,{type:'line',data:{labels,datasets},options:{
+    c2=new Chart(document.getElementById('chart2'),{type:'line',data:{labels,datasets},options:{
       responsive:true,maintainAspectRatio:true,aspectRatio:1,
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
-        incomeOverlay:{irmaaMFJ,irmaaSingle,taxMFJLines,taxSingleLines,switchIdx},
-        tooltip:{
-          bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},
-          callbacks:{
-            title:items=>`John's age ${items[0].label}`,
-            label:ctx=>{
-              if(ctx.raw===null||ctx.raw===0)return null;
-              return mrow('  '+ctx.dataset.label,fmt(ctx.raw)+'/yr');
-            },
-            footer:items=>{
-              const i=items[0]?items[0].dataIndex:0;
-              const ha=X_MIN+i,absY=johnYear(ha);
-              const s=chart2State.series;
-              const pen=s.pension[i]||0,wg=s.wage[i]||0,ti=s.taxInt[i]||0;
-              const rmd=s.iraRmd[i]||0,hss=s.johnSS[i]||0,dss=s.janeSS[i]||0;
-              const total=pen+wg+ti+rmd+hss+dss;
-              const calYear=Math.floor(absY);
-              const iraBal=chart2State.iraBalByYear[calYear]||0;
-              const filing=(absY<chart2State.hDY&&absY<chart2State.dDY)?'mfj':'single';
-              const irmaaT=(filing==='mfj'?IRMAA_MFJ:IRMAA_SINGLE).slice().reverse().find(t=>total>=t.magi);
-              const lines=[
-                mrow('Total income',fmt(total)+'/yr'),
-                mrow('Filing',filing==='mfj'?'Married (MFJ)':'Single'),
-              ];
-              if(iraBal>0)lines.push(mrow("IRA balance (today's $)",fmt(iraBal)));
-              if(irmaaT)lines.push(`⚠ IRMAA ${irmaaT.label}: +${fmt(irmaaT.surcharge)}/yr`);
-              return lines;
-            }
+        incomeOverlay:{irmaaMFJ,irmaaSgl,taxMFJ,taxSgl,switchIdx:swIdx},
+        tooltip:{bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},callbacks:{
+          title:i=>`John's age ${i[0].label}`,
+          label:ctx=>{
+            if(ctx.raw===null||ctx.raw===0)return null;
+            return mrow('  '+ctx.dataset.label,fmt(ctx.raw)+'/yr');
+          },
+          footer:items=>{
+            const i=items[0]?items[0].dataIndex:0;
+            const ha=X_MIN+i, absY=hY(ha);
+            const s=c2State.series;
+            const total=keys.reduce((sum,k)=>sum+(s[k][i]||0),0);
+            const cY=Math.floor(absY);
+            const iraBal=c2State.iraBalByYear[cY]||0;
+            const filing=(absY<c2State.hDY&&absY<c2State.dDY)?'mfj':'single';
+            const irmaaT=(filing==='mfj'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>total>=t.magi);
+            const lines=[mrow('Total income',fmt(total)+'/yr'),mrow('Filing',filing==='mfj'?'Married (MFJ)':'Single')];
+            if(iraBal>0)lines.push(mrow("IRA balance (today's $)",fmt(iraBal)));
+            if(irmaaT)lines.push(`⚠ IRMAA ${irmaaT.label}: +${fmt(irmaaT.surch)}/yr`);
+            return lines;
           }
-        }
+        }}
       },
       scales:{
         x:{type:'category',min:X_MIN,max:X_MAX,title:{display:true,text:"John's age",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
-        y:{stacked:true,min:0,max:Y2_MAX_LOCKED,title:{display:true,text:"Annual income (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v).toLocaleString()+'/yr'},grid:{color:'rgba(0,0,0,0.05)'}}
+        y:{stacked:true,min:0,max:Y2_MAX,title:{display:true,text:"Annual income (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v).toLocaleString()+'/yr'},grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
   document.getElementById('chartNote2').textContent=
-    `John SS age ${hSSAge} ($${hB.toLocaleString()}/mo) · Jane SS age ${dSSAge} ($${dBenNom.toLocaleString()}/mo spousal; survivor=${hB.toLocaleString()}/mo after John passes). `+
-    `Pension $18k/yr nominal from age 60. Taxable interest $5k/yr nominal. IRA starts RMD age 75. `+
-    `Amber dashed = IRMAA thresholds · Purple dashed = income tax bracket ceilings (MFJ left → Single right). Y-axis locked.`;
+    `John SS age ${hSSAge} ($${hB.toLocaleString()}/mo) · Jane SS age ${dSSAge} ($${dBenNom.toLocaleString()}/mo spousal; survivor after John passes). IRA RMD starts age 75. ODIV/QDIV/STCG/LTCG/RENT all in today's dollars. Y-axis locked. Amber=IRMAA · Purple=income tax brackets.`;
 }
 
-// ── Sections 3 & 4 ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// SECTIONS 3 & 4 — TAX COMPUTATION
+// ═══════════════════════════════════════════════════════
 function computeTaxableSS(nonSS,totalSS,filing){
-  const provisional=nonSS+0.5*totalSS;
+  const pi=nonSS+0.5*totalSS;
   let tss=0;
   if(filing==='mfj'){
-    if(provisional>44000)tss=Math.min(6000+0.85*(provisional-44000),0.85*totalSS);
-    else if(provisional>32000)tss=Math.min(0.5*(provisional-32000),0.5*totalSS);
+    if(pi>44000)tss=Math.min(6000+0.85*(pi-44000),0.85*totalSS);
+    else if(pi>32000)tss=Math.min(0.5*(pi-32000),0.5*totalSS);
   } else {
-    if(provisional>34000)tss=Math.min(4500+0.85*(provisional-34000),0.85*totalSS);
-    else if(provisional>25000)tss=Math.min(0.5*(provisional-25000),0.5*totalSS);
+    if(pi>34000)tss=Math.min(4500+0.85*(pi-34000),0.85*totalSS);
+    else if(pi>25000)tss=Math.min(0.5*(pi-25000),0.5*totalSS);
   }
-  return{taxableSS:tss,provisional};
+  return{taxableSS:tss,provisional:pi};
 }
 
-function computeTaxSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue){
-  const{pension,wage,taxInt,iraRmd,johnSS,janeSS}=computeIncomeSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
-  const hDY=johnYear(hDeath),dDY=janeYear(dDeath);
-  const taxableSSArr=[],totalTaxArr=[],compArr=[];
-  for(let i=0;i<pension.length;i++){
-    if(pension[i]===null){taxableSSArr.push(null);totalTaxArr.push(null);compArr.push(null);continue;}
-    const ha=X_MIN+i,absY=johnYear(ha);
+// Calculate qual tax broken out per bracket tier for QDIV and LTCG separately
+function calcQualTaxBrackets(ordTI, qdiv, ltcg, qdivBrackets){
+  // Returns {qdiv:[t0,t15,t20], ltcg:[t0,t15,t20]} tax amounts per tier
+  // QI stacks on top of ordTI; QDIV stacks first, then LTCG on top
+  const tiers=qdivBrackets; // 3 tiers: 0%, 15%, 20%
+  function taxInTiers(stackBase, income){
+    const res=[];
+    let rem=income, base=stackBase;
+    for(const b of tiers){
+      if(rem<=0){res.push(0);continue;}
+      const avail=Math.max(0,b.lim-base);
+      const portion=Math.min(rem,avail);
+      res.push(portion*b.r);
+      rem-=portion; base=Math.max(base,b.lim);
+    }
+    return res;
+  }
+  const qdivT=taxInTiers(ordTI, qdiv);
+  const ltcgT=taxInTiers(ordTI+qdiv, ltcg);
+  return{qdivT, ltcgT};
+}
+
+function computeTaxSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent){
+  const{series}=computeIncome(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent);
+  const hDY=hY(hDeath), dDY=dY(dDeath);
+  const tssArr=[], ordTaxArr=[], qualTaxArr=[], compArr=[];
+  // Per-bracket arrays: qdiv[0/15/20%], ltcg[0/15/20%]
+  const qdivBrkArr=[[],[],[]]; // 3 tiers
+  const ltcgBrkArr=[[],[],[]];
+
+  for(let i=0;i<series.pen.length;i++){
+    if(series.pen[i]===null){
+      tssArr.push(null);ordTaxArr.push(null);qualTaxArr.push(null);compArr.push(null);
+      qdivBrkArr.forEach(a=>a.push(null)); ltcgBrkArr.forEach(a=>a.push(null));
+      continue;
+    }
+    const ha=X_MIN+i, absY=hY(ha);
     const filing=(absY<hDY&&absY<dDY)?'mfj':'single';
-    const pen=pension[i]||0,wg=wage[i]||0,ti=taxInt[i]||0,rmd=iraRmd[i]||0;
-    const hss=johnSS[i]||0,dss=janeSS[i]||0;
-    const nonSS=pen+wg+ti+rmd,totalSS=hss+dss;
-    const{taxableSS,provisional}=computeTaxableSS(nonSS,totalSS,filing);
-    const stdDed=filing==='mfj'?STD_MFJ:STD_SINGLE;
-    const agi=nonSS+taxableSS,taxableIncome=Math.max(0,agi-stdDed);
-    const totalTax=computeTax(taxableIncome,filing==='mfj'?MFJ_BRACKETS:SINGLE_BRACKETS);
-    taxableSSArr.push(taxableSS);totalTaxArr.push(totalTax);
-    compArr.push({pen,wg,ti,rmd,hss,dss,nonSS,totalSS,provisional,taxableSS,agi,taxableIncome,totalTax,filing,stdDed});
+    const pen=series.pen[i]||0, wg=series.wg[i]||0;
+    const ti=series.tintArr[i]||0, rmd=series.rmd[i]||0;
+    const ren=series.rentArr[i]||0;
+    const qd=series.qdivArr[i]||0, nqd=series.odivNQArr[i]||0;
+    const sc=series.stcgArr[i]||0, lc=series.ltcgArr[i]||0;
+    const hss=series.hss[i]||0, dss=series.dss[i]||0;
+    const totalSS=hss+dss;
+    const ordIncome=pen+wg+ti+rmd+ren+nqd+sc;
+    const{taxableSS,provisional}=computeTaxableSS(ordIncome,totalSS,filing);
+    const std=filing==='mfj'?STD_MFJ:STD_SGL;
+    const brks=filing==='mfj'?MFJ_ORD:SGL_ORD;
+    const qBrks=filing==='mfj'?MFJ_QDIV:SGL_QDIV;
+    const agi=ordIncome+taxableSS+qd+lc;
+    const ordTI=Math.max(0,ordIncome+taxableSS-std);
+    const ordTax=calcOrdTax(ordTI,brks);
+    const{qdivT,ltcgT}=calcQualTaxBrackets(ordTI,qd,lc,qBrks);
+    const qualTax=qdivT.reduce((s,v)=>s+v,0)+ltcgT.reduce((s,v)=>s+v,0);
+    tssArr.push(taxableSS);
+    ordTaxArr.push(ordTax);
+    qualTaxArr.push(qualTax);
+    qdivBrkArr.forEach((a,j)=>a.push(qdivT[j]||0));
+    ltcgBrkArr.forEach((a,j)=>a.push(ltcgT[j]||0));
+    compArr.push({pen,wg,ti,rmd,ren,nqd,sc,qd,lc,hss,dss,ordIncome,totalSS,provisional,taxableSS,agi,ordTI,ordTax,qualTax,totalTax:ordTax+qualTax,filing,std,qdivT,ltcgT});
   }
-  return{taxableSSArr,totalTaxArr,compArr};
-}
-
-const TAX_SS_COLOR='#3B6FA0',TAX_TOT_COLOR='#A03B6F';
-let Y3_MAX_LOCKED=null,Y4_MAX_LOCKED=null,chart3Inst,chart4Inst;
-let chart3CompArr=[],chart4CompArr=[];
-
-function buildLegend3(){
-  document.getElementById('legend3').innerHTML=
-    `<span class="legend-item"><span class="legend-swatch" style="background:${TAX_SS_COLOR}"></span>Taxable SS Amount</span>`+
-    `<span class="legend-item"><span class="legend-swatch" style="background:#adc8e0;height:2px;margin-top:4px"></span>85% of SS (max taxable)</span>`+
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #e6a817;background:transparent;height:2px;margin-top:4px"></span>SS taxability tiers (MFJ)</span>`+
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #c0784a;background:transparent;height:2px;margin-top:4px"></span>SS taxability tiers (Single)</span>`;
-}
-function buildLegend4(){
-  document.getElementById('legend4').innerHTML=
-    `<span class="legend-item"><span class="legend-swatch" style="background:${TAX_TOT_COLOR}"></span>Total Income Tax</span>`+
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #8474b8;background:transparent;height:2px;margin-top:4px"></span>MFJ bracket ceilings</span>`+
-    `<span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #b88474;background:transparent;height:2px;margin-top:4px"></span>Single bracket ceilings</span>`;
+  return{tssArr,ordTaxArr,qualTaxArr,qdivBrkArr,ltcgBrkArr,compArr};
 }
 
 // SS tier plugin
@@ -739,265 +875,352 @@ const ssTierPlugin={
   afterDraw(chart,args,opts){
     if(!opts||opts.switchIdx===undefined)return;
     const{ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
-    const n=chart.data.labels.length,switchIdx=opts.switchIdx;
-    function xFrac(idx){return x.getPixelForValue(Math.max(0,Math.min(n-1,idx)));}
-    const mfjR=switchIdx>0&&switchIdx<=n?(xFrac(switchIdx-1)+xFrac(Math.min(switchIdx,n-1)))/2:(switchIdx<=0?left-1:right);
+    const n=chart.data.labels.length, swIdx=opts.switchIdx;
+    function xP(idx){return x.getPixelForValue(Math.max(0,Math.min(n-1,idx)));}
+    const mfjR=swIdx>0&&swIdx<=n?(xP(swIdx-1)+xP(Math.min(swIdx,n-1)))/2:(swIdx<=0?left-1:right);
     ctx.save();
-    function drawTierSeg(tiers,zones,xFrom,xTo,color){
+    function drawSeg(tiers,zones,xFrom,xTo,color){
       if(xFrom>=xTo)return;
-      const segL=Math.max(left,xFrom),segR=Math.min(right,xTo);
-      if(segL>=segR)return;
-      tiers.forEach(tier=>{
-        const yPx=y.getPixelForValue(tier.ssAmount);
+      const sL=Math.max(left,xFrom),sR=Math.min(right,xTo);
+      if(sL>=sR)return;
+      tiers.forEach(t=>{
+        const yPx=y.getPixelForValue(t.ssAmount);
         if(yPx<top||yPx>bottom)return;
         ctx.beginPath();ctx.setLineDash([8,5]);ctx.lineWidth=1.4;ctx.strokeStyle=color;
-        ctx.moveTo(segL,yPx);ctx.lineTo(segR,yPx);ctx.stroke();ctx.setLineDash([]);
+        ctx.moveTo(sL,yPx);ctx.lineTo(sR,yPx);ctx.stroke();ctx.setLineDash([]);
         ctx.font='bold 9px DM Sans,sans-serif';ctx.fillStyle=color;
-        ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillText(tier.above,segL+4,yPx-2);
-        ctx.textBaseline='top';ctx.fillText(tier.below,segL+4,yPx+2);
+        ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillText(t.above,sL+4,yPx-2);
+        ctx.textBaseline='top';ctx.fillText(t.below,sL+4,yPx+2);
       });
-      zones.forEach(zone=>{
-        const y1=y.getPixelForValue(zone.ssTop),y2=y.getPixelForValue(zone.ssBottom),yMid=(y1+y2)/2;
-        if(yMid<top||yMid>bottom)return;
+      zones.forEach(z=>{
+        const y1=y.getPixelForValue(z.ssTop),y2=y.getPixelForValue(z.ssBottom),yM=(y1+y2)/2;
+        if(yM<top||yM>bottom)return;
         ctx.font='10px DM Sans,sans-serif';ctx.fillStyle=color+'99';
         ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillText(zone.label,segL+(segR-segL)*0.5,yMid);
+        ctx.fillText(z.label,sL+(sR-sL)*0.5,yM);
       });
     }
-    drawTierSeg(opts.mfjTiers,opts.mfjZones,left,mfjR,'#c8860a');
-    drawTierSeg(opts.singleTiers,opts.singleZones,mfjR,right,'#c0784a');
+    drawSeg(opts.mfjTiers,opts.mfjZones,left,mfjR,'#c8860a');
+    drawSeg(opts.sglTiers,opts.sglZones,mfjR,right,'#c0784a');
     ctx.restore();
   }
 };
 if(!Chart.registry.plugins.get('ssTierLines'))Chart.register(ssTierPlugin);
 
-function taxAtBoundary(brackets,limit){let tax=0,prev=0;for(const b of brackets){if(limit<=prev)break;tax+=(Math.min(limit,b.limit)-prev)*b.rate;prev=b.limit;}return tax;}
-function buildTaxBracketLines(brackets){return brackets.slice(0,-1).map((b,i)=>({taxAtBoundary:taxAtBoundary(brackets,b.limit),upperRate:Math.round(brackets[i+1].rate*100),lowerRate:Math.round(b.rate*100)}));}
-
-const taxBracketPlugin={
-  id:'taxBracketLines',
+// Tax bracket overlay plugin (for chart4)
+const taxBrkPlugin={
+  id:'taxBrkLines',
   afterDraw(chart,args,opts){
     if(!opts||!opts.mfjLines)return;
     const{ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
-    const n=chart.data.labels.length,switchIdx=opts.switchIdx??n;
-    function xFrac(idx){return x.getPixelForValue(Math.max(0,Math.min(n-1,idx)));}
-    const mfjR=switchIdx>0&&switchIdx<=n?(xFrac(switchIdx-1)+xFrac(Math.min(switchIdx,n-1)))/2:(switchIdx<=0?left-1:right);
+    const n=chart.data.labels.length, swIdx=opts.switchIdx??n;
+    function xP(idx){return x.getPixelForValue(Math.max(0,Math.min(n-1,idx)));}
+    const mfjR=swIdx>0&&swIdx<=n?(xP(swIdx-1)+xP(Math.min(swIdx,n-1)))/2:(swIdx<=0?left-1:right);
     ctx.save();
-    function drawSeg(lines,xFrom,xTo,color){
+    const ov=OV();
+    function drawSeg(lines,xFrom,xTo,lineColor,lblColor,dash){
       if(!lines||xFrom>=xTo)return;
-      lines.forEach(line=>{
-        const yPx=y.getPixelForValue(line.taxAtBoundary);
+      lines.forEach(ln=>{
+        const yPx=y.getPixelForValue(ln.taxAmt);
         if(yPx<top||yPx>bottom)return;
-        const segL=Math.max(left,xFrom),segR=Math.min(right,xTo);
-        if(segL>=segR)return;
-        ctx.beginPath();ctx.setLineDash([6,4]);ctx.lineWidth=1.1;ctx.strokeStyle=color;
-        ctx.moveTo(segL,yPx);ctx.lineTo(segR,yPx);ctx.stroke();ctx.setLineDash([]);
-        ctx.font='9px DM Sans,sans-serif';ctx.fillStyle=color;
-        ctx.textAlign='right';ctx.textBaseline='bottom';ctx.fillText(`${line.upperRate}%`,segR-2,yPx-1);
-        ctx.textBaseline='top';ctx.fillText(`${line.lowerRate}%`,segR-2,yPx+1);
+        const sL=Math.max(left,xFrom),sR=Math.min(right,xTo);
+        if(sL>=sR)return;
+        ctx.beginPath();ctx.setLineDash(dash||[6,4]);ctx.lineWidth=1.1;ctx.strokeStyle=lineColor;
+        ctx.moveTo(sL,yPx);ctx.lineTo(sR,yPx);ctx.stroke();ctx.setLineDash([]);
+        ctx.font='9px DM Sans,sans-serif';ctx.fillStyle=lblColor;
+        ctx.textAlign='right';ctx.textBaseline='bottom';ctx.fillText(`${ln.upper}%`,sR-2,yPx-1);
+        ctx.textBaseline='top';ctx.fillText(`${ln.lower}%`,sR-2,yPx+1);
       });
     }
-    drawSeg(opts.mfjLines.filter(l=>l.taxAtBoundary<(y.max||Infinity)),left,mfjR,'#8474b8');
-    drawSeg(opts.singleLines.filter(l=>l.taxAtBoundary<(y.max||Infinity)),mfjR,right,'#b88474');
+    // Ordinary bracket lines: MFJ=purple, Single=tan
+    drawSeg(opts.mfjLines.filter(l=>l.taxAmt<(y.max||Infinity)),left,mfjR,ov.taxBrk,ov.taxLbl);
+    drawSeg(opts.sglLines.filter(l=>l.taxAmt<(y.max||Infinity)),mfjR,right,ov.taxBrkSgl,ov.taxBrkSgl);
+    // QDIV/LTCG bracket transition lines: MFJ=violet, Single=teal
+    if(opts.mfjQualLines) drawSeg(opts.mfjQualLines.filter(l=>l.taxAmt<(y.max||Infinity)),left,mfjR,ov.qualBrk,ov.qualLbl,[4,4]);
+    if(opts.sglQualLines) drawSeg(opts.sglQualLines.filter(l=>l.taxAmt<(y.max||Infinity)),mfjR,right,ov.qualBrkSgl,ov.qualBrkSgl,[4,4]);
     ctx.restore();
   }
 };
-if(!Chart.registry.plugins.get('taxBracketLines'))Chart.register(taxBracketPlugin);
+if(!Chart.registry.plugins.get('taxBrkLines'))Chart.register(taxBrkPlugin);
 
-function buildChart3(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue){
-  const{taxableSSArr,compArr}=computeTaxSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
-  chart3CompArr=compArr;
-  const{johnSS,janeSS}=computeIncomeSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
-  const ss85=taxableSSArr.map((v,i)=>v===null?null:0.85*((johnSS[i]||0)+(janeSS[i]||0)));
+function taxAtBrk(brks,limit){let t=0,p=0;for(const b of brks){if(limit<=p)break;t+=(Math.min(limit,b.lim)-p)*b.r;p=b.lim;}return t;}
+function buildTaxLines(brks){return brks.slice(0,-1).map((b,i)=>({taxAmt:taxAtBrk(brks,b.lim),upper:Math.round(brks[i+1].r*100),lower:Math.round(b.r*100)}));}
+
+const TAX_SS_COLOR='#3B6FA0';
+let c3,c4,Y3_MAX=null,Y4_MAX=null,c3Comp=[],c4Comp=[];
+
+function buildLegend3(){
+  document.getElementById('legend3').innerHTML=
+    `<span class="li"><span class="ls" style="background:${TAX_SS_COLOR}"></span>Taxable SS</span>`+
+    `<span class="li"><span class="ls" style="background:#adc8e0;height:2px;margin-top:4px"></span>85% cap</span>`+
+    `<span class="li"><span class="ls" style="border-top:2px dashed #e6a817;background:transparent;height:2px;margin-top:4px"></span>Tiers (MFJ)</span>`+
+    `<span class="li"><span class="ls" style="border-top:2px dashed #c0784a;background:transparent;height:2px;margin-top:4px"></span>Tiers (Single)</span>`;
+}
+function buildLegend4(){
+  const ov=OV();
+  document.getElementById('legend4').innerHTML=
+    `<span class="li"><span class="ls" style="background:${TC.ord}"></span>Ordinary income tax</span>`+
+    `<span class="li"><span class="ls" style="background:${TC.qdiv0}"></span>QDIV 0%</span>`+
+    `<span class="li"><span class="ls" style="background:${TC.qdiv15}"></span>QDIV 15%</span>`+
+    `<span class="li"><span class="ls" style="background:${TC.qdiv20}"></span>QDIV 20%</span>`+
+    `<span class="li"><span class="ls" style="background:${TC.ltcg0}"></span>LTCG 0%</span>`+
+    `<span class="li"><span class="ls" style="background:${TC.ltcg15}"></span>LTCG 15%</span>`+
+    `<span class="li"><span class="ls" style="background:${TC.ltcg20}"></span>LTCG 20%</span>`+
+    `<span class="li"><span class="ls" style="border-top:2px dashed ${ov.taxBrk};background:transparent;height:2px;margin-top:4px"></span>MFJ ord. brackets</span>`+
+    `<span class="li"><span class="ls" style="border-top:2px dashed ${ov.taxBrkSgl};background:transparent;height:2px;margin-top:4px"></span>Single ord. brackets</span>`+
+    `<span class="li"><span class="ls" style="border-top:2px dashed ${ov.qualBrk};background:transparent;height:2px;margin-top:4px"></span>MFJ QDIV/LTCG brackets</span>`+
+    `<span class="li"><span class="ls" style="border-top:2px dashed ${ov.qualBrkSgl};background:transparent;height:2px;margin-top:4px"></span>Single QDIV/LTCG brackets</span>`;
+}
+
+function buildChart3(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent){
+  const{tssArr,compArr}=computeTaxSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent);
+  c3Comp=compArr;
+  const{series:{hss,dss}}=computeIncome(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent);
+  const ss85=tssArr.map((v,i)=>v===null?null:0.85*((hss[i]||0)+(dss[i]||0)));
   const labels=[];for(let a=X_MIN;a<=X_MAX;a++)labels.push(a);
-  if(Y3_MAX_LOCKED===null){
-    const maxV=Math.max(...[...taxableSSArr,...ss85].filter(v=>v!==null&&v>0));
-    Y3_MAX_LOCKED=Math.ceil(maxV/5000)*5000+5000;
+  if(Y3_MAX===null){
+    const maxV=Math.max(...[...tssArr,...ss85].filter(v=>v!==null&&v>0));
+    Y3_MAX=Math.ceil(maxV/5000)*5000+5000;
   }
-  const hDY=johnYear(hDeath),dDY=janeYear(dDeath);
-  let switchIdx=labels.length;
-  for(let i=0;i<labels.length;i++){const absY=johnYear(labels[i]);if(absY>=hDY||absY>=dDY){switchIdx=i;break;}}
-  const nonNullSS=labels.map((_,i)=>(johnSS[i]||0)+(janeSS[i]||0)).filter(v=>v>0);
-  const avgSS=nonNullSS.length?nonNullSS.reduce((a,b)=>a+b,0)/nonNullSS.length:50000;
-  const mfj50=Math.min(6000,0.5*avgSS),single50=Math.min(4500,0.5*avgSS);
+  const hDY=hY(hDeath),dDY=dY(dDeath);
+  let swIdx=labels.length;
+  for(let i=0;i<labels.length;i++){const aY=hY(labels[i]);if(aY>=hDY||aY>=dDY){swIdx=i;break;}}
+  const nonNullSS=labels.map((_,i)=>(hss[i]||0)+(dss[i]||0)).filter(v=>v>0);
+  const avgSS=nonNullSS.length?nonNullSS.reduce((a,b)=>a+b)/nonNullSS.length:50000;
+  const mfj50=Math.min(6000,0.5*avgSS), sgl50=Math.min(4500,0.5*avgSS);
   const ssTierOpts={
-    switchIdx,
+    switchIdx:swIdx,
     mfjTiers:[{ssAmount:mfj50,above:'50%→85% zone above',below:'0%→50% zone below'}],
-    singleTiers:[{ssAmount:single50,above:'50%→85% zone above',below:'0%→50% zone below'}],
-    mfjZones:[{ssBottom:0,ssTop:mfj50,label:'0–50% taxable zone (MFJ PI $32k–$44k)'},{ssBottom:mfj50,ssTop:Y3_MAX_LOCKED,label:'85% taxable zone (MFJ PI > $44k)'}],
-    singleZones:[{ssBottom:0,ssTop:single50,label:'0–50% taxable zone (Single PI $25k–$34k)'},{ssBottom:single50,ssTop:Y3_MAX_LOCKED,label:'85% taxable zone (Single PI > $34k)'}],
+    sglTiers:[{ssAmount:sgl50,above:'50%→85% zone above',below:'0%→50% zone below'}],
+    mfjZones:[{ssBottom:0,ssTop:mfj50,label:'0–50% taxable (MFJ PI $32k–$44k)'},{ssBottom:mfj50,ssTop:Y3_MAX,label:'85% taxable (MFJ PI > $44k)'}],
+    sglZones:[{ssBottom:0,ssTop:sgl50,label:'0–50% taxable (Single PI $25k–$34k)'},{ssBottom:sgl50,ssTop:Y3_MAX,label:'85% taxable (Single PI > $34k)'}],
   };
   const datasets=[
-    {label:'Taxable SS',data:taxableSSArr,borderColor:TAX_SS_COLOR,backgroundColor:TAX_SS_COLOR+'55',borderWidth:4,pointRadius:0,tension:0.3,fill:true,spanGaps:false},
-    {label:'85% of SS',data:ss85,borderColor:'#adc8e0',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,4],pointRadius:0,tension:0.3,fill:false,spanGaps:false},
+    {label:'Taxable SS',data:tssArr,borderColor:TAX_SS_COLOR,backgroundColor:TAX_SS_COLOR+'55',borderWidth:4,pointRadius:0,tension:0.3,fill:true,spanGaps:false},
+    {label:'85% cap',data:ss85,borderColor:'#adc8e0',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false,spanGaps:false},
   ];
-  const c=document.getElementById('chart3');
-  if(chart3Inst){
-    chart3Inst.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
-    chart3Inst.options.plugins.ssTierLines=ssTierOpts;
-    chart3Inst.update({duration:400,easing:'easeInOutQuart'});
+  if(c3){
+    c3.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
+    c3.options.plugins.ssTierLines=ssTierOpts;
+    c3.update({duration:400,easing:'easeInOutQuart'});
   } else {
-    chart3Inst=new Chart(c,{type:'line',data:{labels,datasets},options:{
+    c3=new Chart(document.getElementById('chart3'),{type:'line',data:{labels,datasets},options:{
       responsive:true,maintainAspectRatio:true,aspectRatio:1,
       interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{display:false},ssTierLines:ssTierOpts,
-        tooltip:{
-          bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},
-          callbacks:{
-            title:items=>`John's age ${items[0].label}`,
-            label:ctx=>{
-              if(ctx.raw===null)return null;
-              const i=ctx.dataIndex,cv=compArr[i];
-              if(ctx.datasetIndex===0){
-                const pct=cv&&cv.totalSS>0?Math.round(ctx.raw/cv.totalSS*100):0;
-                return mrow('  Taxable SS',`${fmt(ctx.raw)}/yr (${pct}% of SS)`);
-              }
-              return mrow('  85% max',`${fmt(ctx.raw)}/yr`);
-            },
-            footer:items=>{
-              const i=items[0]?items[0].dataIndex:0,cv=compArr[i];
-              if(!cv)return[];
-              const zone=cv.filing==='mfj'
-                ?(cv.provisional<=32000?'0% taxable':cv.provisional<=44000?'50% zone':'85% zone')
-                :(cv.provisional<=25000?'0% taxable':cv.provisional<=34000?'50% zone':'85% zone');
-              return[
-                mrow('Provisional income',fmt(cv.provisional)+'/yr'),
-                mrow('Filing',`${cv.filing==='mfj'?'Married (MFJ)':'Single'} · ${zone}`),
-                mrow('Total SS',fmt(cv.totalSS)+'/yr'),
-                mrow('Taxable SS',fmt(cv.taxableSS)+'/yr'),
-              ];
-            }
-          }
+      plugins:{legend:{display:false},ssTierLines:ssTierOpts,tooltip:{bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},callbacks:{
+        title:i=>`John's age ${i[0].label}`,
+        label:ctx=>{
+          if(ctx.raw===null)return null;
+          const cv=c3Comp[ctx.dataIndex];
+          if(ctx.datasetIndex===0){const pct=cv&&cv.totalSS>0?Math.round(ctx.raw/cv.totalSS*100):0;return mrow('  Taxable SS',`${fmt(ctx.raw)}/yr (${pct}% of SS)`);}
+          return mrow('  85% cap',fmt(ctx.raw)+'/yr');
+        },
+        footer:items=>{
+          const cv=c3Comp[items[0]?items[0].dataIndex:0];if(!cv)return[];
+          const zone=cv.filing==='mfj'?(cv.provisional<=32000?'0% taxable':cv.provisional<=44000?'50% zone':'85% zone'):(cv.provisional<=25000?'0% taxable':cv.provisional<=34000?'50% zone':'85% zone');
+          return[mrow('Provisional income',fmt(cv.provisional)+'/yr'),mrow('Filing',`${cv.filing==='mfj'?'Married (MFJ)':'Single'} · ${zone}`),mrow('Total SS',fmt(cv.totalSS)+'/yr'),mrow('Taxable SS',fmt(cv.taxableSS)+'/yr')];
         }
-      },
+      }}},
       scales:{
         x:{type:'category',min:X_MIN,max:X_MAX,title:{display:true,text:"John's age",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
-        y:{min:0,max:Y3_MAX_LOCKED,title:{display:true,text:"Taxable SS (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v).toLocaleString()+'/yr'},grid:{color:'rgba(0,0,0,0.05)'}}
+        y:{min:0,max:Y3_MAX,title:{display:true,text:"Taxable SS (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v).toLocaleString()+'/yr'},grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
   document.getElementById('chartNote3').textContent=
-    `Taxable SS via IRS two-tier formula. Amber dashed = MFJ tier boundary (PI $32k→$44k). Orange dashed = Single tier boundary (PI $25k→$34k). `+
-    `MFJ applies left of filing-status switch; Single applies right. Blue dashed = 85% SS max ceiling. Y-axis locked. Tooltip shows % of SS taxable.`;
+    `Taxable SS via IRS two-tier formula. Amber dashed = MFJ tier boundary. Orange = Single. Blue dashed = 85% SS cap. Y-axis locked.`;
 }
 
-function buildChart4(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue){
-  const{totalTaxArr,compArr}=computeTaxSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue);
-  chart4CompArr=compArr;
+function buildChart4(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent){
+  const{ordTaxArr,qualTaxArr,qdivBrkArr,ltcgBrkArr,compArr}=computeTaxSeries(hSSAge,dSSAge,hDeath,dDeath,cola,inf,iraGrowth,iraValue,tint,odiv,qdiv,stcg,ltcg,rent);
+  c4Comp=compArr;
+
   const labels=[];for(let a=X_MIN;a<=X_MAX;a++)labels.push(a);
-  if(Y4_MAX_LOCKED===null){
-    const maxV=Math.max(...totalTaxArr.filter(v=>v!==null));
-    Y4_MAX_LOCKED=Math.ceil(maxV/5000)*5000+5000;
+  if(Y4_MAX===null){
+    const maxV=Math.max(...ordTaxArr.filter(v=>v!==null).map((v,i)=>v+(qualTaxArr[i]||0)));
+    Y4_MAX=Math.ceil(maxV/2000)*2000+4000;
   }
-  const hDY=johnYear(hDeath),dDY=janeYear(dDeath);
-  let switchIdx=labels.length;
-  for(let i=0;i<labels.length;i++){if(!(johnYear(labels[i])<hDY&&johnYear(labels[i])<dDY)){switchIdx=i;break;}}
-  const mfjLines=buildTaxBracketLines(MFJ_BRACKETS).filter(l=>l.taxAtBoundary<Y4_MAX_LOCKED);
-  const singleLines=buildTaxBracketLines(SINGLE_BRACKETS).filter(l=>l.taxAtBoundary<Y4_MAX_LOCKED);
-  const datasets=[{label:'Total Tax',data:totalTaxArr,borderColor:TAX_TOT_COLOR,backgroundColor:TAX_TOT_COLOR+'55',borderWidth:4,pointRadius:0,tension:0.3,fill:true,spanGaps:false}];
-  const c=document.getElementById('chart4');
-  if(chart4Inst){
-    chart4Inst.data.datasets[0].data=totalTaxArr;
-    chart4Inst.options.plugins.taxBracketLines={mfjLines,singleLines,switchIdx};
-    chart4Inst.update({duration:400,easing:'easeInOutQuart'});
+  const hDY=hY(hDeath),dDY=dY(dDeath);
+  let swIdx=labels.length;
+  for(let i=0;i<labels.length;i++){if(!(hY(labels[i])<hDY&&hY(labels[i])<dDY)){swIdx=i;break;}}
+
+  // Ordinary bracket overlay lines (at cumulative-tax level)
+  const mfjOrdLines=buildTaxLines(MFJ_ORD).filter(l=>l.taxAmt<Y4_MAX);
+  const sglOrdLines=buildTaxLines(SGL_ORD).filter(l=>l.taxAmt<Y4_MAX);
+
+  // QDIV/LTCG bracket overlay lines — where 0→15% and 15→20% rate kicks in
+  // Anchor using the median ordinary tax so lines sit at correct stacked height
+  function buildQualLines(ordBrks, qBrks){
+    const nonNull=ordTaxArr.filter(v=>v!==null&&v>0);
+    const medOrdTax=nonNull.length?nonNull.slice().sort((a,b)=>a-b)[Math.floor(nonNull.length/2)]:0;
+    // Invert ordTax to find ordTI via binary search
+    let lo=0,hi=2000000;
+    for(let k=0;k<64;k++){const m=(lo+hi)/2;(calcOrdTax(m,ordBrks)>medOrdTax)?(hi=m):(lo=m);}
+    const medOrdTI=(lo+hi)/2;
+    const lines=[];
+    qBrks.slice(0,-1).forEach((b,idx)=>{
+      // Qual income = tier boundary - medOrdTI (the space above ordTI in the qual bracket)
+      const qualAtBoundary=Math.max(0,b.lim-medOrdTI);
+      // Compute qual tax from 0 up to that amount stacking on medOrdTI
+      let qt=0,rem=qualAtBoundary,base=medOrdTI;
+      for(const qb of qBrks){if(rem<=0)break;const av=Math.max(0,qb.lim-base);const p=Math.min(rem,av);qt+=p*qb.r;rem-=p;base=Math.max(base,qb.lim);}
+      const taxHeight=medOrdTax+qt;
+      if(taxHeight>0&&taxHeight<Y4_MAX)
+        lines.push({taxAmt:taxHeight,upper:Math.round(qBrks[idx+1].r*100),lower:Math.round(b.r*100)});
+    });
+    return lines;
+  }
+  const mfjQualLines=buildQualLines(MFJ_ORD,MFJ_QDIV);
+  const sglQualLines=buildQualLines(SGL_ORD,SGL_QDIV);
+
+  const datasets=[
+    {label:'Ordinary income tax', data:ordTaxArr,     borderColor:TC.ord,    backgroundColor:TC.ord+'cc',   borderWidth:3,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'tax'},
+    {label:'QDIV 0% tax',         data:qdivBrkArr[0], borderColor:TC.qdiv0,  backgroundColor:TC.qdiv0+'cc', borderWidth:2,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'tax'},
+    {label:'QDIV 15% tax',        data:qdivBrkArr[1], borderColor:TC.qdiv15, backgroundColor:TC.qdiv15+'cc',borderWidth:2,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'tax'},
+    {label:'QDIV 20% tax',        data:qdivBrkArr[2], borderColor:TC.qdiv20, backgroundColor:TC.qdiv20+'cc',borderWidth:2,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'tax'},
+    {label:'LTCG 0% tax',         data:ltcgBrkArr[0], borderColor:TC.ltcg0,  backgroundColor:TC.ltcg0+'cc', borderWidth:2,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'tax'},
+    {label:'LTCG 15% tax',        data:ltcgBrkArr[1], borderColor:TC.ltcg15, backgroundColor:TC.ltcg15+'cc',borderWidth:2,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'tax'},
+    {label:'LTCG 20% tax',        data:ltcgBrkArr[2], borderColor:TC.ltcg20, backgroundColor:TC.ltcg20+'cc',borderWidth:2,pointRadius:0,tension:0.3,fill:true,spanGaps:false,stack:'tax'},
+  ];
+
+  if(c4){
+    c4.data.datasets.forEach((ds,i)=>{ds.data=datasets[i].data;});
+    c4.options.plugins.taxBrkLines={mfjLines:mfjOrdLines,sglLines:sglOrdLines,mfjQualLines,sglQualLines,switchIdx:swIdx};
+    c4.update({duration:400,easing:'easeInOutQuart'});
   } else {
-    chart4Inst=new Chart(c,{type:'line',data:{labels,datasets},options:{
+    c4=new Chart(document.getElementById('chart4'),{type:'line',data:{labels,datasets},options:{
       responsive:true,maintainAspectRatio:true,aspectRatio:1,
       interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{display:false},taxBracketLines:{mfjLines,singleLines,switchIdx},
-        tooltip:{
-          bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},
-          callbacks:{
-            title:items=>`John's age ${items[0].label}`,
-            label:ctx=>ctx.raw===null?null:mrow('  Total Tax',fmt(ctx.raw)+'/yr'),
-            footer:items=>{
-              const i=items[0]?items[0].dataIndex:0,cv=chart4CompArr[i];if(!cv)return'';
-              return[
-                '─── Income ────────────────────────',
-                mrow('Pension',         fmt(cv.pen)+'/yr'),
-                mrow('Wage',            fmt(cv.wg)+'/yr'),
-                mrow('Taxable interest',fmt(cv.ti)+'/yr'),
-                mrow('IRA RMD',         fmt(cv.rmd)+'/yr'),
-                mrow('John SS',         fmt(cv.hss)+'/yr'),
-                mrow('Jane SS',         fmt(cv.dss)+'/yr'),
-                mrow('Total income',    fmt(cv.nonSS+cv.totalSS)+'/yr'),
-                '─── Tax Calc ──────────────────────',
-                mrow('Filing',          cv.filing==='mfj'?'Married (MFJ)':'Single'),
-                mrow('Provisional inc', fmt(cv.provisional)+'/yr'),
-                mrow('Taxable SS',      fmt(cv.taxableSS)+'/yr'),
-                mrow('AGI',             fmt(cv.agi)+'/yr'),
-                mrow('Std deduction',  '('+fmt(cv.stdDed)+')'),
-                mrow('Taxable income',  fmt(cv.taxableIncome)+'/yr'),
-              ];
-            }
+        legend:{display:false},
+        taxBrkLines:{mfjLines:mfjOrdLines,sglLines:sglOrdLines,mfjQualLines,sglQualLines,switchIdx:swIdx},
+        tooltip:{bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},callbacks:{
+          title:i=>`John's age ${i[0].label}`,
+          label:ctx=>{
+            if(ctx.raw===null||ctx.raw===0)return null;
+            return mrow('  '+ctx.dataset.label,fmt(ctx.raw)+'/yr');
+          },
+          footer:items=>{
+            const cv=c4Comp[items[0]?items[0].dataIndex:0];if(!cv)return'';
+            return[
+              '─── Income ──────────────────────────',
+              mrow('Pension',fmt(cv.pen)+'/yr'),
+              mrow('Wage',fmt(cv.wg)+'/yr'),
+              mrow('Taxable interest',fmt(cv.ti)+'/yr'),
+              mrow('IRA RMD',fmt(cv.rmd)+'/yr'),
+              mrow('Rental',fmt(cv.ren)+'/yr'),
+              mrow('ODIV (non-qual)',fmt(cv.nqd)+'/yr'),
+              mrow('STCG',fmt(cv.sc)+'/yr'),
+              mrow('QDIV',fmt(cv.qd)+'/yr'),
+              mrow('LTCG',fmt(cv.lc)+'/yr'),
+              mrow('John SS',fmt(cv.hss)+'/yr'),
+              mrow('Jane SS',fmt(cv.dss)+'/yr'),
+              '─── Tax Calc ────────────────────────',
+              mrow('Filing',cv.filing==='mfj'?'Married (MFJ)':'Single'),
+              mrow('Provisional inc',fmt(cv.provisional)+'/yr'),
+              mrow('Taxable SS',fmt(cv.taxableSS)+'/yr'),
+              mrow('AGI',fmt(cv.agi)+'/yr'),
+              mrow('Std deduction','('+fmt(cv.std)+')'),
+              mrow('Ordinary TI',fmt(cv.ordTI)+'/yr'),
+              mrow('Ordinary tax',fmt(cv.ordTax)+'/yr'),
+              cv.qdivT?mrow('  QDIV 0/15/20%',cv.qdivT.map(v=>fmt(v)).join(' / ')):null,
+              cv.ltcgT?mrow('  LTCG 0/15/20%',cv.ltcgT.map(v=>fmt(v)).join(' / ')):null,
+              mrow('Total tax',fmt(cv.totalTax)+'/yr'),
+            ].filter(Boolean);
           }
-        }
+        }}
       },
       scales:{
         x:{type:'category',min:X_MIN,max:X_MAX,title:{display:true,text:"John's age",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
-        y:{min:0,max:Y4_MAX_LOCKED,title:{display:true,text:"Total tax (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v).toLocaleString()+'/yr'},grid:{color:'rgba(0,0,0,0.05)'}}
+        y:{stacked:true,min:0,max:Y4_MAX,title:{display:true,text:"Total tax (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v).toLocaleString()+'/yr'},grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
   document.getElementById('chartNote4').textContent=
-    `AGI = non-SS income + taxable SS. Taxable income = AGI − standard deduction ($${STD_MFJ.toLocaleString()} MFJ / $${STD_SINGLE.toLocaleString()} Single). `+
-    `Filing switches to Single at John's death. Y-axis locked. Purple dashed = MFJ bracket ceilings; Orange = Single. 2026 brackets.`;
+    `Ordinary income tax (amber) + QDIV/LTCG by bracket tier (blue=QDIV, green=LTCG; lighter=0%, mid=15%, dark=20%). Dashed purple=MFJ ord. brackets · dashed tan=Single ord. brackets · dashed green=QDIV/LTCG bracket transitions. TCJA permanent (OBBBA). Std ded $${STD_MFJ.toLocaleString()} MFJ / $${STD_SGL.toLocaleString()} Single.`;
 }
 
-// ── Wiring ────────────────────────────────────────────────────────────────────
-function debounce(fn,ms){let t;return(...args)=>{clearTimeout(t);t=setTimeout(()=>fn(...args),ms);};}
+// ═══════════════════════════════════════════════════════
+// WIRING
+// ═══════════════════════════════════════════════════════
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
 
-function getSliders(){return{
-  hd: +document.getElementById('johnDeath').value,
-  dd: +document.getElementById('janeDeath').value,
-  inf:+document.getElementById('inflationRate').value/100,
-  cola:+document.getElementById('colaRate').value/100,
-  dSS1:+document.getElementById('janeSSAge1').value,
-  hSS:+document.getElementById('johnSSAge').value,
-  dSS:+document.getElementById('janeSSAge').value,
-  iraG:+document.getElementById('iraGrowthRate').value/100,
-  iraV:+document.getElementById('iraValueAtRmd').value,
-};}
+function getSliders(){
+  const odiv=+document.getElementById('odivSlider').value;
+  return{
+    hd:+document.getElementById('henryDeath').value,
+    dd:+document.getElementById('deniseDeath').value,
+    inf:+document.getElementById('inflationRate').value/100,
+    cola:+document.getElementById('colaRate').value/100,
+    dSS1:+document.getElementById('deniseSSAge1').value,
+    hSS:+document.getElementById('henrySSAge').value,
+    dSS:+document.getElementById('deniseSSAge').value,
+    iraG:+document.getElementById('iraGrowthRate').value/100,
+    iraV:+document.getElementById('iraValueAtRmd').value,
+    tint:+document.getElementById('tintSlider').value,
+    odiv,
+    qdiv:+document.getElementById('qdivSlider').value,
+    stcg:+document.getElementById('stcgSlider').value,
+    ltcg:+document.getElementById('ltcgSlider').value,
+    rent:+document.getElementById('rentSlider').value,
+  };
+}
 
 function updateLabels(s){
-  document.getElementById('johnDeathVal').textContent  =s.hd;
-  document.getElementById('janeDeathVal').textContent =s.dd;
-  document.getElementById('inflationVal').textContent   =(s.inf*100).toFixed(2)+'%';
-  document.getElementById('colaVal').textContent        =(s.cola*100).toFixed(2)+'%';
-  document.getElementById('janeSSAge1Val').textContent=s.dSS1;
-  document.getElementById('johnSSAgeVal').textContent  =s.hSS;
-  document.getElementById('janeSSAgeVal').textContent =s.dSS;
-  document.getElementById('iraGrowthVal').textContent   =(s.iraG*100).toFixed(2)+'%';
-  document.getElementById('iraValueVal').textContent    ='$'+Math.round(s.iraV).toLocaleString();
+  document.getElementById('henryDeathVal').textContent=s.hd;
+  document.getElementById('deniseDeathVal').textContent=s.dd;
+  document.getElementById('inflationVal').textContent=(s.inf*100).toFixed(2)+'%';
+  document.getElementById('colaVal').textContent=(s.cola*100).toFixed(2)+'%';
+  document.getElementById('deniseSSAge1Val').textContent=s.dSS1;
+  document.getElementById('henrySSAgeVal').textContent=s.hSS;
+  document.getElementById('deniseSSAgeVal').textContent=s.dSS;
+  document.getElementById('iraGrowthVal').textContent=(s.iraG*100).toFixed(2)+'%';
+  document.getElementById('iraValueVal').textContent='$'+Math.round(s.iraV).toLocaleString();
+  document.getElementById('tintVal').textContent=fmt(s.tint);
+  document.getElementById('odivVal').textContent=fmt(s.odiv);
+  document.getElementById('qdivVal').textContent=fmt(s.qdiv);
+  document.getElementById('stcgVal').textContent=fmt(s.stcg);
+  document.getElementById('ltcgVal').textContent=fmt(s.ltcg);
+  document.getElementById('rentVal').textContent=fmt(s.rent);
   const b=document.getElementById('iraBadge');
   if(b)b.textContent='John IRA $'+Math.round(s.iraV/1000)+'k nominal at RMD start (age 75)';
 }
+
+// ODIV slider → auto update QDIV to 70%
+document.getElementById('odivSlider').addEventListener('input',function(){
+  const odiv=+this.value;
+  const qdivEl=document.getElementById('qdivSlider');
+  const auto=Math.round(odiv*0.70/1000)*1000;
+  qdivEl.value=Math.min(auto,+qdivEl.max);
+  updateLabels(getSliders());
+  dSec2();
+});
 
 function updateAll(){
   const s=getSliders();updateLabels(s);
   buildMetrics1(s.dSS1,s.hd,s.dd,s.cola,s.inf);
   buildChart1(s.dSS1,s.hd,s.dd,s.cola,s.inf);
   buildTable1(s.dSS1,s.hd,s.dd,s.cola,s.inf);
-  buildChart2(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
-  buildChart3(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
-  buildChart4(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
+  buildChart2(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV,s.tint,s.odiv,s.qdiv,s.stcg,s.ltcg,s.rent);
+  buildChart3(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV,s.tint,s.odiv,s.qdiv,s.stcg,s.ltcg,s.rent);
+  buildChart4(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV,s.tint,s.odiv,s.qdiv,s.stcg,s.ltcg,s.rent);
 }
 function updateSec2(){
   const s=getSliders();updateLabels(s);
-  buildChart2(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
-  buildChart3(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
-  buildChart4(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV);
+  buildChart2(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV,s.tint,s.odiv,s.qdiv,s.stcg,s.ltcg,s.rent);
+  buildChart3(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV,s.tint,s.odiv,s.qdiv,s.stcg,s.ltcg,s.rent);
+  buildChart4(s.hSS,s.dSS,s.hd,s.dd,s.cola,s.inf,s.iraG,s.iraV,s.tint,s.odiv,s.qdiv,s.stcg,s.ltcg,s.rent);
 }
 
-const dAll=debounce(updateAll,60),dSec2=debounce(updateSec2,60);
-['johnDeath','janeDeath','inflationRate','colaRate','janeSSAge1'].forEach(id=>{
+const dAll=debounce(updateAll,60), dSec2=debounce(updateSec2,60);
+
+['henryDeath','deniseDeath','inflationRate','colaRate','deniseSSAge1'].forEach(id=>{
   const el=document.getElementById(id);
   el.addEventListener('input',()=>updateLabels(getSliders()));
   el.addEventListener('input',dAll);
 });
-['johnSSAge','janeSSAge','iraGrowthRate','iraValueAtRmd'].forEach(id=>{
+['henrySSAge','deniseSSAge','iraGrowthRate','iraValueAtRmd',
+ 'tintSlider','qdivSlider','stcgSlider','ltcgSlider','rentSlider'].forEach(id=>{
   const el=document.getElementById(id);
   el.addEventListener('input',()=>updateLabels(getSliders()));
   el.addEventListener('input',dSec2);

@@ -11,4 +11,8 @@ Check IRRMA tiers
 
 Check tax brackets
 
+Check CG calculations against IRS rules
+
+Check DIV calculations against IRS rules
+
 Check filing status against all person's living and passing dates

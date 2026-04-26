@@ -4,83 +4,91 @@
 Popup window : Label left justified, data right justified.
 chart width should be 2/3 of page width, center graph horizontally on page
 smooth  changes in chart when changing sliders instead of redraw whole chart
+Add lighter or darker color switch for dashed lines and labels (default lighter)
 
-=== Section Social Security
+=== Section Social Security (SS)
 
-If any person's spousal benefit (50% PIA) is higher, don't use their social security statement file. Instead, use following as their social security info
-	Spousal benefit (50% PIA) as their social security amount @ FRA
-	collecting earlier than FRA reduces amount by the following
-		(25/36%)/month for 36 months before FRA
-		(5/12%)/month for months earlier than 36 months before FRA
-	collecting later than FRA has no increase
-	when spouse pass, inherit spouse's social security amount
+Spousal Benefit Rule (SSSBR)
+	If either person qualifies SSSBR
+		change their SS
+		follow SSSBR rules for starting SS with age (before and after FRA)
+		follow SSSBR rules for SS when spouse pass
 
 Do break even analysis for the married couple
 
 build a chart with 5 slider input
 	$P1 passing age, initial setting 85
 	$P2 passing age, initial setting 90
-	both passing age use same scale
-	younger person's social security start age
+	both passing age use same scale and width
+	younger person's SS start age
 	Inflation rate, initial setting 3%
-	Social Security annual COLA rate, initial setting 2%
-	both rates use same scale
+	SS annual COLA rate, initial setting 2%
+	both rates use same scale and width
 
 Chart spec
-	Y axis = cumulative combine household social security benefit. Lock axis scale
+	Y axis = cumulative combine household SS. Lock axis scale
 	X axis = $PO age to 100. Lock axis scale even when sliders change
 	Convert all numbers into today's dollars
-	graph a line for every other year $PO can start taking social security
+	graph a line for every other year $PO can start taking SS
 	graph width should be 2/3 of page width, center graph horizontally on page
 	graph height should be same as width
 	stop line when both pass
 
 Build a table
 	for every graphed line
-		monthly social security benefit
-		total household social security benefit
-		real annual ROI % on social security
+		monthly SS
+		total household SS
+		real annual ROI % on sSS
 
 ROI explanation
 	explain briefly method for calculating ROI
 
 === Section Annual Household Income
 
-Build chart with 4 slider input
-	$P1 age to start social security, initial setting 67
-	$P2 age to start social security, initial setting 67
+Build chart with following slider input
+	$P1 age to start SS, initial setting 67
+	$P2 age to start SS, initial setting 67
 	IRA value @ RMD age in future dollars. Slider range $0 to $4M
 	RMD annual growth rate, initial setting 3%
+	taxable interest
+	STCG
+	LTCG
+	QDIV
+	ODIV when ODIV changes, automatically adjust QDIV @ 70% ODIV
+	All sliders use same scale and width
 
-IRA RMD amount
+TIRA RMD amount
 	RMDfactortbl = scrape uniform lifetime table from https://www.fidelity.com/bin-public/060_www_fidelity_com/documents/UniformLifetimeTable.pdf
-	annual RMD amount = prior year IRA balance / RMDfactortbl(IRA owner age for the year)
-	after IRA owner pass, IRA is inherited by spouse
+	annual RMD amount = prior year TIRA balance / RMDfactortbl(IRA owner age for the year)
+	after TIRA owner pass, TIRA is inherited by spouse
 
 Tax income brackets = Current year tax income brackets
 
+Get latest IRRMA brackets
 
 Chart spec
 	Y axis = annual household income. Lock default Y max $150k (change if amount requires more)
 		Draw thick lines. Different distinctive color for each income source
 		Line height is total income. Order should be
-			pension
-			wage
-			taxable interest
-			IRA RMD in today's $s
-			rental income
-			social security for $PO
-			social security for other person
-			be sure to follow the spousal benefit rules in section 1
+			PEN
+			WG
+			TINT
+			TIRA RMD in today's $s
+			RENT
+			QDIV
+			ODIV-QDIV
+			SS for $PO
+			SS for other person
+			be sure to follow the SSSBR
 		Draw income until the last person pass
 		Draw IRMMA surcharge bracket in dashed line matching year filing status
 			include at least lowest IRRMA bracket in the chart
 			draw on top with distinctive colors
-		Draw tax income brackets in dashed lines matching year filing status
+		Draw income tax brackets in dashed lines matching year filing status
 			label higher bracket % above and lower bracket % below the line
 			label include word income tax
 			draw on top with distinctive colors
-		Include IRA value in popup window
+		Include TIRA value in popup window
 
 	X axis = $PO age to 100. Lock axis scale even when sliders change
 	Convert all numbers into today's dollars
@@ -91,56 +99,70 @@ Chart spec
 
 Note taxation calculations are simplified and based on all ordinary income and no lower tax qualified income.
 
-=== Filing Status
+=== Filing Status (FS)
 
-Note when 1 person pass, the other person become single filing status
+When 1 person pass then FS = Single
 
-=== Section Taxable Social Security Calculation
+=== Section Taxable SS Calculation (TSS)
 
-Calculate provision income
-Calculate taxable social security. Double check filing status in case 1 person pass
+Calculate provision income (PI)
+Calculate TSS. Double check FS in case 1 person pass
 
-Taxable social security bracket limits have not changed since 1980s/1990s so no COLA adjustment and will decrease over time causing higher taxable social security
+TSS bracket limits have not changed since 1980s/1990s so no COLA adjustment and will decrease over time causing higher TSS
 
-=== Section Taxable Social Security Tax
+=== Section Taxable Social Security Tax (TSST)
 
 Chart spec
-	Y axis = taxable security amount. Lock Y scale
+	Y axis = TSS. Lock Y scale
 	Draw thick lines.
-	Line height is taxable security amount
+	Line height is TSST
 	Draw until the last person pass. Note filing status change when first person pass
 	Show tax %
 
-Note torpedo effect : every dollar of income that increase taxable social security is taxed itself and pushes more social security to become taxable
+Note torpedo effect : every dollar of income that increase TSS is taxed itself and pushes more SS to become taxable
 
-=== Second 2 Total Tax
+=== Second 2 Total Tax (TT)
 
-AGI = all non social security income + taxable social security
-Taxable income = AGI - standard deduction based on filing status
+AGI = all non SS income + TSS
+TI = AGI - standard deduction based on FS
 
-Tax brackets = Current year tax brackets
+Tax brackets (TB) = Current year TB
 
-Calculate total tax on Taxable Income with Tax brackets and filing status.
+Calculate TT on TI using dividend and capital gains tax computation
 
 Chart spec
-	Y axis = total tax amount. Lock Y scale
-	show tax brackets in thin dashed lines if visible on scale
-	Draw thick lines.
-	Line height is total tax amount
-	Draw until the last person pass. Note filing status change when first person pass
-	Draw tax brackets in dashed lines matching year filing status
+	Y axis = TT. Lock Y scale
+	Draw thick lines
+	Use distinct colors for segments
+	Line height is TT amount with segments in the following order starting at lowest
+		ordinary income segment
+		every qualified dividend bracket segment
+		every LTCG bracket bracket
+		
+	show TB in thin dashed lines overlayed on top if visible on scale
+
+	Draw until the last person pass. FS changes when first person pass
+
+	Draw TB in dashed lines matching year FS
 		label higher bracket tax % above and lower bracket tax % below the line
+		show TB in thin dashed lines overlayed on top if visible on scale
+
 	Show in popup window :
-		total income
+		TI
 		standard deduction
 		all income components
-		provision income
+		PI
 
-Note since total income is simplified. Tax calculation is also simplified here without most deductions and credits.
+Note since TT is simplified. Tax calculation is also simplified here without most deductions and credits.
 
 === Output
 
 Generate output in standalone html
+
+=== Diagnostics
+
+Run html_check
+If Detailed Tax Calculation Age is defined, produce PDF output
 
 === References
 
