@@ -169,27 +169,7 @@
         },
         "bene": false
       },
-      "brokerage": [
-        {
-          "id": "9uy3ayw",
-          "enabled": true,
-          "name": "Brokerage Portfolio 1",
-          "balance": 0,
-          "growth": {
-            "mode": "offset",
-            "value": 3
-          },
-          "yield": 1.1,
-          "qdivPct": 70,
-          "ar": {
-            "startMode": "now",
-            "startVal": 0,
-            "endMode": "passing",
-            "endVal": 0
-          },
-          "bene": false
-        }
-      ],
+      "brokerage": [],
       "stcg": {
         "enabled": false,
         "amount": 0,
@@ -226,7 +206,7 @@
     }
   ],
   "passing": {
-    "p1": 90,
+    "p1": 89,
     "p2": 92
   }
 }
