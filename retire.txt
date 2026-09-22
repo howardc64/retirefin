@@ -1,12 +1,97 @@
+=== Overview
+
+Generate html app running completely locally in browser to do the following
+
+- User input financial data for single/widowed or married couple
+- A set of adjustment sliders for varying future financial foundation variables (inflation, COLA adjustment)
+- Show graph of future social security
+- Produce charts to show income stacking trends in the future
+- Produce IRRMA tier bars on income trend
+- Show total income tax
+- Show Taxable social security
+- All numbers calculated in today's numbers to provide easy understanding with today's costs
+- Save and restore user input and slider variable so user can make progress in multiple sessions
+
+=== Today vs Future values
+
+If a value is in a future year, use inflation rate to extrapolate for all other years.
+
+When showing graphs, show all calculated values in today's $s. This is easier for user to understand
+
+=== General Layout
+
+An input column on the left (a pane for each person)
+A output column showing the visualization graph sections
+Both columns have independent vertical slider bar
+This allows user to adjust input while seeing a particular graph of interest in a long multiple page display
+
+=== User Input
+
+Single/widowed or married status and age
+Person1 name
+Person2 name
+$P1 = person1
+$P2 = person2
+$P0 = older person
+Ignore > 1 person features below if single/widowed
+
+agerange = input to select start age or now (default now), end age or passing (default passing)
+annualchange = 0% or inflation rate or +-% to inflation rate or entered % (default inflation rate)
+bene = If married, include checkbox to designate this income goes to spouse on passing
+
+Table of income sources
+
+	column for each person
+	each income below require additional inputs
+	if 2 people
+		each income type top section edge should always be aligned for visual clarity
+
+	wage
+		agerange (default end age 65)
+		annualchange
+
+	social security
+		input already started or 67 FRA
+
+	Following list include agerange, annualchange, bene
+		pension
+		rental income
+
+	Following list include annualchange, bene
+		LTCG
+		STCG
+
+	PreTax IRA
+		agerange (default start age is RMD age)
+		annualchange (default +3% over inflation)
+		bene
+
+	Brokerage Portfolio
+		Enter Qualified Dividend (QDIV) % (of Oridinary Dividend (ODIV)) for all portfolios
+		allow user to add multiple
+		for each one
+			agerange
+			annualchange (default +3% over inflation), bene	
+			annual ODIV yield % (default 1.1%)
+
+Add slider for Inflation rate, initial setting 3%. Assume COLA rate = inflation rate
+
+$P1 = person1
+$P2 = person2
+$P0 = older person
 
 === Chart UI
 
 Popup window : Label left justified, data right justified.
 chart width should be 2/3 of page width, center graph horizontally on page
-smooth  changes in chart when changing sliders instead of redraw whole chart
+smooth  changes in chart when changing input instead of redraw whole chart
 Add lighter or darker color switch for dashed lines and labels (default lighter)
 
+Person's name in UI change automatically once user has entered it
+
 === Section Social Security (SS)
+
+Add slider for start age for all persons (default FRA or unknown (slider greyed out and unchangeable) if already started)
 
 Spousal Benefit Rule (SSSBR)
 	If either person qualifies SSSBR
@@ -14,16 +99,15 @@ Spousal Benefit Rule (SSSBR)
 		follow SSSBR rules for starting SS with age (before and after FRA)
 		follow SSSBR rules for SS when spouse pass
 
-Do break even analysis for the married couple
+Do break even analysis
 
-build a chart with 5 slider input
-	$P1 passing age, initial setting 85
-	$P2 passing age, initial setting 90
-	both passing age use same scale and width
-	younger person's SS start age
-	Inflation rate, initial setting 3%
-	SS annual COLA rate, initial setting 2%
-	both rates use same scale and width
+build a chart with following slider input
+	Passing age
+		$P1 passing age, initial setting 85
+		$P2 passing age, initial setting 90
+		both passing age use same scale and width
+	Social security
+		each person's SS start age, default FRA if have not yet started
 
 Chart spec
 	Y axis = cumulative combine household SS. Lock axis scale
@@ -43,24 +127,16 @@ Build a table
 ROI explanation
 	explain briefly method for calculating ROI
 
+=== IRA info
+
+Dividend yield 
+
 === Section Annual Household Income
 
-Build chart with following slider input
-	$P1 age to start SS, initial setting 67
-	$P2 age to start SS, initial setting 67
-	IRA value @ RMD age in future dollars. Slider range $0 to $4M
-	RMD annual growth rate, initial setting 3%
-	taxable interest
-	STCG
-	LTCG
-	QDIV
-	ODIV when ODIV changes, automatically adjust QDIV @ 70% ODIV
-	All sliders use same scale and width
-
-TIRA RMD amount (Calculate for all TIRA owners)
+IRA RMD amount (Calculate for all IRA owners)
 	RMDfactortbl = scrape uniform lifetime table from https://www.fidelity.com/bin-public/060_www_fidelity_com/documents/UniformLifetimeTable.pdf
-	annual RMD amount = prior year TIRA balance / RMDfactortbl(IRA owner age for the year)
-	after TIRA owner pass, TIRA is inherited by spouse
+	annual RMD amount = prior year IRA balance / RMDfactortbl(IRA owner age for the year)
+	after IRA owner pass, IRA is inherited by spouse
 
 Tax income brackets = Current year tax income brackets
 
@@ -70,11 +146,11 @@ Chart spec
 	Y axis = annual household income. Lock default Y max $150k (change if amount requires more)
 		Draw thick lines. Different distinctive color for each income source
 		Line height is total income. Order should be
-			PEN
-			WG
-			TINT
-			TIRA RMD in today's $s
-			RENT
+			pension
+			wage
+			taxable interest
+			IRA RMD in today's $s
+			rent
 			QDIV
 			ODIV-QDIV
 			SS for $PO
@@ -84,11 +160,12 @@ Chart spec
 		Draw IRMMA surcharge bracket in dashed line matching year filing status
 			include at least lowest IRRMA bracket in the chart
 			draw on top with distinctive colors
+			label IRRMA Tier #
 		Draw income tax brackets in dashed lines matching year filing status
 			label higher bracket % above and lower bracket % below the line
 			label include word income tax
 			draw on top with distinctive colors
-		Include TIRA value in popup window
+		Include IRA value in popup window
 
 	X axis = $PO age to 100. Lock axis scale even when sliders change
 	Convert all numbers into today's dollars
@@ -140,6 +217,7 @@ Chart spec
 		every LTCG bracket bracket
 		
 	show TB in thin dashed lines overlayed on top if visible on scale
+		only show TB matching filing status every year
 
 	Draw until the last person pass. FS changes when first person pass
 
@@ -155,9 +233,23 @@ Chart spec
 
 Note since TT is simplified. Tax calculation is also simplified here without most deductions and credits.
 
+=== Asset Value
+
+Draw chart with
+	all brokerage portfolio values
+	all pre-tax IRA value
+	in today's $s
+	in similar style as prior charts
+
+=== Save / Restore
+
+Provide option to save/restore all input parameters and slider value to/from a file so user can resume progress
+
+On restore, reset before restoring
+
 === Output
 
-Generate output in standalone html
+Generate output in standalone html ( index.html for integration with GitHub web page server )
 
 === Diagnostics
 
@@ -166,4 +258,4 @@ If Detailed Tax Calculation Age is defined, produce PDF output
 
 === References
 
-Use previously generated html as reference including visual layout style
+Use previously generated html as reference for visual layout style

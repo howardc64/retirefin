@@ -1,0 +1,232 @@
+{
+  "filingStatus": "married",
+  "inflation": 0.03,
+  "people": [
+    {
+      "id": "p1",
+      "name": "John",
+      "birthYear": 1965,
+      "birthMonth": 7,
+      "wage": {
+        "enabled": false,
+        "amount": 40000,
+        "ar": {
+          "startMode": "now",
+          "startVal": 0,
+          "endMode": "custom",
+          "endVal": 65
+        },
+        "change": {
+          "mode": "inflation",
+          "value": 0
+        }
+      },
+      "ss": {
+        "enabled": true,
+        "pia": 3200,
+        "fra": 67,
+        "started": false,
+        "claimAge": 67
+      },
+      "pension": {
+        "enabled": false,
+        "amount": 24000,
+        "ar": {
+          "startMode": "now",
+          "startVal": 0,
+          "endMode": "passing",
+          "endVal": 0
+        },
+        "change": {
+          "mode": "fixed",
+          "value": 0
+        },
+        "bene": false
+      },
+      "rental": {
+        "enabled": false,
+        "amount": 0,
+        "ar": {
+          "startMode": "now",
+          "startVal": 0,
+          "endMode": "passing",
+          "endVal": 0
+        },
+        "change": {
+          "mode": "inflation",
+          "value": 0
+        },
+        "bene": false
+      },
+      "brokerage": [
+        {
+          "id": "hp21oac",
+          "enabled": true,
+          "name": "Brokerage Portfolio 1",
+          "balance": 400000,
+          "growth": {
+            "mode": "offset",
+            "value": 3
+          },
+          "yield": 1.1,
+          "qdivPct": 70,
+          "ar": {
+            "startMode": "now",
+            "startVal": 0,
+            "endMode": "passing",
+            "endVal": 0
+          },
+          "bene": true
+        }
+      ],
+      "stcg": {
+        "enabled": false,
+        "amount": 0,
+        "change": {
+          "mode": "inflation",
+          "value": 0
+        },
+        "bene": false
+      },
+      "ltcg": {
+        "enabled": false,
+        "amount": 0,
+        "change": {
+          "mode": "inflation",
+          "value": 0
+        },
+        "bene": false
+      },
+      "ira": {
+        "enabled": true,
+        "balance": 400000,
+        "growth": {
+          "mode": "offset",
+          "value": 3
+        },
+        "ar": {
+          "startMode": "rmd",
+          "startVal": 0,
+          "endMode": "passing",
+          "endVal": 0
+        },
+        "bene": true
+      }
+    },
+    {
+      "id": "p2",
+      "name": "Jane",
+      "birthYear": 1969,
+      "birthMonth": 1,
+      "wage": {
+        "enabled": true,
+        "amount": 50000,
+        "ar": {
+          "startMode": "now",
+          "startVal": 0,
+          "endMode": "custom",
+          "endVal": 65
+        },
+        "change": {
+          "mode": "inflation",
+          "value": 0
+        }
+      },
+      "ss": {
+        "enabled": true,
+        "pia": 2500,
+        "fra": 67,
+        "started": false,
+        "claimAge": 67
+      },
+      "pension": {
+        "enabled": false,
+        "amount": 0,
+        "ar": {
+          "startMode": "now",
+          "startVal": 0,
+          "endMode": "passing",
+          "endVal": 0
+        },
+        "change": {
+          "mode": "inflation",
+          "value": 0
+        },
+        "bene": false
+      },
+      "rental": {
+        "enabled": false,
+        "amount": 0,
+        "ar": {
+          "startMode": "now",
+          "startVal": 0,
+          "endMode": "passing",
+          "endVal": 0
+        },
+        "change": {
+          "mode": "inflation",
+          "value": 0
+        },
+        "bene": false
+      },
+      "brokerage": [
+        {
+          "id": "9uy3ayw",
+          "enabled": true,
+          "name": "Brokerage Portfolio 1",
+          "balance": 0,
+          "growth": {
+            "mode": "offset",
+            "value": 3
+          },
+          "yield": 1.1,
+          "qdivPct": 70,
+          "ar": {
+            "startMode": "now",
+            "startVal": 0,
+            "endMode": "passing",
+            "endVal": 0
+          },
+          "bene": false
+        }
+      ],
+      "stcg": {
+        "enabled": false,
+        "amount": 0,
+        "change": {
+          "mode": "inflation",
+          "value": 0
+        },
+        "bene": false
+      },
+      "ltcg": {
+        "enabled": false,
+        "amount": 0,
+        "change": {
+          "mode": "inflation",
+          "value": 0
+        },
+        "bene": false
+      },
+      "ira": {
+        "enabled": false,
+        "balance": 400000,
+        "growth": {
+          "mode": "offset",
+          "value": 1
+        },
+        "ar": {
+          "startMode": "rmd",
+          "startVal": 0,
+          "endMode": "passing",
+          "endVal": 0
+        },
+        "bene": false
+      }
+    }
+  ],
+  "passing": {
+    "p1": 90,
+    "p2": 92
+  }
+}
