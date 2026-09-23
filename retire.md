@@ -62,12 +62,12 @@ One column per person (if married); each income type's card should top-align acr
 | **Short-term capital gains (STCG)** | Annual change, survivor benefit                                                                                                                                                                                                                                        |
 | **Long-term capital gains (LTCG)**  | Annual change, survivor benefit                                                                                                                                                                                                                                        |
 | **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit                                                                                                                                                                     |
-| **Brokerage portfolio(s)**          | Household-wide Qualified Dividend % (of Ordinary Dividends), applied to all portfolios. User can add multiple portfolios; each needs: age range, annual change (default: inflation + 3%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.1%) |
+| **Brokerage portfolio(s)**          | Household-wide Qualified Dividend % (of Ordinary Dividends), applied to all portfolios. User can add multiple portfolios; each needs: age range, annual change (default: inflation + 3%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) |
 
 ### ⁠4.4 ⁠Global assumption
 
 - **Inflation rate slider**, initial value 3%. Assume the Social Security COLA rate equals the inflation rate.
-- ****Passing age**: P1's passing age (default 85) and P2's passing age (default 90) — both sliders use the same scale/width.
+- ****Passing age**: P1's passing age (default 85) and P2's passing age (default 90) — both sliders use the same scale (30-100 years) and width.
 
 ---
 
@@ -91,7 +91,7 @@ One column per person (if married); each income type's card should top-align acr
   - Follow SSSBR rules for starting SS before/after FRA.
   - Follow SSSBR rules for how SS changes when the spouse passes.
 
-### ⁠6.2 ⁠Claim Graph
+### ⁠6.2 ⁠Start Year Analysis
 
 **Chart spec:**
 
@@ -136,8 +136,7 @@ One column per person (if married); each income type's card should top-align acr
 - **Y axis**: annual household income. Default locked max = $150k (auto-raise if the data requires more).
   - Draw each income source as a thick line, in a distinct color, stacked in this order (bottom to top): pension, wage, taxable interest, IRA RMD (today's $), rent, QDIV, ODIV minus QDIV, SS for P0, SS for the other person. Respect the SSSBR when stacking SS.
   - Draw income until the last person passes.
-  - Overlay dashed IRMAA-tier bracket lines matching that year's filing status, in distinctive colors, drawn on top and labeled "IRMAA Tier #". Include at least the lowest IRMAA tier on the chart.
-  - Overlay dashed income-tax bracket lines matching that year's filing status, in distinctive colors, drawn on top. Label the rate above the line for the higher bracket and below the line for the lower bracket; include the words "income tax" in the label.
+  - Overlay dashed IRMAA-tier bracket lines matching that year's filing status, in single colors, drawn on top and labeled "IRMAA Tier #". Include at least the lowest IRMAA tier on the chart.
   - Popup window should include the current IRA value.
 - **X axis**: P0's age, from current age to 100. Locked scale, even as sliders move.
 - All values converted to today's dollars.
@@ -154,19 +153,23 @@ One column per person (if married); each income type's card should top-align acr
 
 - When one person passes, filing status switches to Single for that year forward.
 
-### ⁠9.2 ⁠Taxable Social Security (TSS)
+### ⁠9.2 Social Security Tax (SST)
 
 - Calculate provisional income (PI).
-- Calculate TSS from PI. Re-check filing status in case one person has passed.
-- **Note:** TSS bracket limits have not changed since the 1980s/90s and are not COLA-adjusted in this model — so TSS as a share of income will rise over time.
+- Calculate actual social security tax (SST) from PI. Re-check filing status in case one person has passed.
+- TSS = Total Social Security Income
 
-### ⁠9.3 ⁠Taxable Social Security Tax (TSST) — chart spec
+### ⁠9.3 Social Security Tax — chart spec
 
+- Social Security Tax % (SST%) = SST / total social security %
 - Y axis = TSS. Locked scale.
-- Draw a thick line; line height = TSST.
+- Draw a thick line; line height = TSS.
+- Overlay thick link; line height = SST
 - Draw until the last person passes; note that filing status changes when the first person passes.
-- Show the effective tax %.
 - **Note:** the model should call out the "torpedo effect" — every additional dollar of income that increases the taxable portion of SS is itself taxed, and pushes more SS into taxability, compounding the effect.
+
+#### 9.3.1 chart Tooltip
+- Show TSS, PI, SST, SST%, top marginal rate
 
 ### ⁠9.4 ⁠Total Tax (TT)
 
@@ -179,12 +182,10 @@ One column per person (if married); each income type's card should top-align acr
 
 - Y axis = TT. Locked scale.
 - Draw a thick line, with distinct colors per segment. Line height = TT amount, with segments stacked bottom-to-top as: ordinary income segment, then each qualified-dividend bracket segment, then each LTCG bracket segment.
-- Overlay thin dashed tax-bracket (TB) lines on top, where visible on scale, matching that year's filing status only.
-  - Label the rate above the line for the higher bracket and below the line for the lower bracket.
 - Draw until the last person passes; filing status changes when the first person passes.
-- Popup window should include: TI, standard deduction, all income components, and PI.
+- Popup window should include: TT, TI, standard deduction, all income components
 
-> **Note:** because TT is simplified, this tax calculation also excludes most deductions and credits.
+> **Note:** because Total Tax is simplified, this tax calculation also excludes most deductions and credits.
 
 ---
 
