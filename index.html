@@ -301,13 +301,22 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 
 <!-- ═══ ASSET VALUE ═══ -->
 <div class="sec-head">Asset Value</div>
-<div class="sec-sub">Brokerage portfolios and pre-tax IRA/401(k) balances, stacked by holder, in today's dollars. Each asset keeps compounding at its configured growth rate and drops out once its owner has passed (unless marked to continue to, or inherited by, the spouse).</div>
+<div class="sec-sub">Brokerage portfolios (excluding IDGTs) and pre-tax IRA/401(k) balances, stacked by holder, in today's dollars. Each asset compounds at its configured growth rate, net of tax drag and fee drag, and drops out once its owner has passed (unless marked to continue to, or inherited by, the spouse). Portfolios flagged as an IDGT appear in their own chart below.</div>
 <div class="cc">
-  <div class="cc-head"><div class="ct">Asset value by holder · brokerage + pre-tax IRA · today's dollars</div>
+  <div class="cc-head"><div class="ct">Asset value by holder · brokerage (excl. IDGT) + pre-tax IRA · today's dollars</div>
     <button class="rescale-btn" onclick="rescaleChart('asset')">↕ Rescale</button></div>
   <div class="legend" id="assetLegend"></div>
   <div class="co"><div class="cw"><canvas id="assetChart"></canvas></div></div>
   <p class="cn" id="assetChartNote"></p>
+</div>
+
+<!-- IDGT portfolios: only shown when at least one brokerage portfolio is flagged IDGT -->
+<div class="cc" id="idgtCard" style="display:none">
+  <div class="cc-head"><div class="ct">IDGT portfolio value by holder · today's dollars</div>
+    <button class="rescale-btn" onclick="rescaleChart('idgt')">↕ Rescale</button></div>
+  <div class="legend" id="idgtLegend"></div>
+  <div class="co"><div class="cw"><canvas id="idgtChart"></canvas></div></div>
+  <p class="cn" id="idgtChartNote"></p>
 </div>
 
 </div><!-- /.chart-col -->
@@ -470,8 +479,13 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
     bene:false
   };
 }
-function defaultBrokeragePortfolio(balance){
-  return {id:uid(),enabled:true,name:'Brokerage Portfolio 1',balance:balance||0,growth:defaultChange('offset',3),yield:1.1,qdivPct:70,ar:defaultAgeRange('now',0,'passing',0),bene:false};
+// Brokerage portfolio (spec 4.3): value, age range, annual growth (default inflation + 4%),
+// survivor benefit, ODIV yield (default 1.9%), QDIV share of ODIV (default 70%),
+// tax drag (% of the household's annual total tax, TT, paid out of this portfolio),
+// fee drag (% of balance, or a fixed today's-$ amount per year), and an IDGT flag.
+// Annual asset value change = growth - tax drag - fee drag.
+function defaultBrokeragePortfolio(balance, n){
+  return {id:uid(),enabled:true,name:'Brokerage Portfolio '+(n||1),balance:balance||0,growth:defaultChange('offset',4),yield:1.9,qdivPct:70,taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false};
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
@@ -484,7 +498,7 @@ function defaultPerson(idx){
     ss:{enabled:true, pia:0, fra:fraForBirthYear(by), started:false, claimAge:fraForBirthYear(by)},
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     rental:  defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
-    brokerage:[defaultBrokeragePortfolio(0)],
+    brokerage:[],
     stcg:    defaultIncomeItem(0,'inflation',0),
     ltcg:    defaultIncomeItem(0,'inflation',0),
     ira:{enabled:false, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false}
@@ -532,9 +546,14 @@ function hydrateState(loaded){
   const out=merge(loaded, base);
   if(Array.isArray(out.people)) out.people.forEach(p=>{
     if(!Array.isArray(p.brokerage)) p.brokerage=[];
+    // Fill any missing fields (older saves) from a default portfolio, then drop untouched blank
+    // ones (zero balance and still the auto-generated name) that older versions created on start.
+    p.brokerage=p.brokerage
+      .map(b=>merge(b, defaultBrokeragePortfolio(0)))
+      .filter(b=>!((Number(b.balance)||0)===0 && (!b.name||!b.name.trim()||/^Brokerage Portfolio \d+$/.test(b.name.trim()))));
     if(p.odiv && Number(p.odiv.amount)>0 && !p.brokerage.some(b=>Number(b.balance)>0)){
       const od=Number(p.odiv.amount)||0, q=Number(p.qdiv?.amount)||0;
-      p.brokerage.push({id:uid(),enabled:true,name:'Brokerage Portfolio 1',balance:od/0.02,growth:defaultChange('offset',3),yield:2,qdivPct:od>0?Math.min(100,Math.max(0,q/od*100)):70,ar:defaultAgeRange('now',0,'passing',0),bene:!!p.odiv.bene});
+      p.brokerage.push(merge({id:uid(),enabled:true,name:'Brokerage Portfolio 1',balance:od/0.02,growth:defaultChange('offset',3),yield:2,qdivPct:od>0?Math.min(100,Math.max(0,q/od*100)):70,ar:defaultAgeRange('now',0,'passing',0),bene:!!p.odiv.bene}, defaultBrokeragePortfolio(0)));
     }
     delete p.odiv; delete p.qdiv;
   });
@@ -571,7 +590,7 @@ function flashMsg(text){
 function resetState(){
   if(!confirm('Reset all inputs to defaults? This cannot be undone.')) return;
   state=defaultState();
-  if(typeof chartYMax!=='undefined'){ chartYMax.ss=null; chartYMax.income=null; chartYMax.tss=null; chartYMax.tax=null; chartYMax.asset=null; }
+  if(typeof chartYMax!=='undefined'){ chartYMax.ss=null; chartYMax.income=null; chartYMax.tss=null; chartYMax.tax=null; chartYMax.asset=null; chartYMax.idgt=null; }
   renderAll();
   autosave();
   flashMsg('Reset to defaults.');
@@ -613,7 +632,7 @@ document.getElementById('importFile').addEventListener('change', function(e){
       destroyCharts();             // discard every visual/data closure from the old plan
       state=defaultState();        // reset before restoring, per spec
       state=hydrateState(parsed);  // then apply the restored file on top of that clean default
-      if(typeof chartYMax!=='undefined'){ chartYMax.ss=null; chartYMax.income=null; chartYMax.tss=null; chartYMax.tax=null; chartYMax.asset=null; }
+      if(typeof chartYMax!=='undefined'){ chartYMax.ss=null; chartYMax.income=null; chartYMax.tss=null; chartYMax.tax=null; chartYMax.asset=null; chartYMax.idgt=null; }
       renderAll();
       autosave();
       flashMsg('Loaded from file.');
@@ -933,16 +952,28 @@ function renderIncomeForms(){
       <div class="item-body open portfolio-list">
         ${portfolios.length?portfolios.map((b,bi)=>`
           <div class="item portfolio-card" style="margin:0;padding:10px 11px">
-            <div class="item-head" style="margin-bottom:6px"><label style="font-size:12px">${escHtml(b.name||('Portfolio '+(bi+1)))}</label>
+            <div class="item-head" style="margin-bottom:6px"><label class="pf-title" style="font-size:12px">${escHtml((b.name&&b.name.trim())||('Portfolio '+(bi+1)))}</label>
               <button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="event.stopPropagation(); removeBrokerage(${i},${bi})">Remove</button></div>
             <div class="item-body open portfolio-fields">
+              <div class="field full"><label>Portfolio name</label><input type="text" maxlength="40" placeholder="Portfolio ${bi+1}" value="${escAttr(b.name||'')}" oninput="onPortfolioName('${pid}',${bi},this.value,this)"></div>
               <div class="field full"><label>Current balance (today's $)</label><input type="number" min="0" step="5000" value="${b.balance||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.balance', this.value)"></div>
               ${renderChangeRow(pid+'.brokerage.'+bi+'.growth', b.growth, 8)}
-              <div class="field"><label>Annual ODIV yield %</label><input type="number" min="0" max="100" step="0.1" value="${b.yield!=null?b.yield:1.1}" oninput="onNumberInput('${pid}.brokerage.${bi}.yield', this.value)"></div>
+              <div class="field"><label>Annual ODIV yield %</label><input type="number" min="0" max="100" step="0.1" value="${b.yield!=null?b.yield:1.9}" oninput="onNumberInput('${pid}.brokerage.${bi}.yield', this.value)"></div>
               <div class="field"><label>QDIV as % of ODIV</label><input type="number" min="0" max="100" step="1" value="${b.qdivPct!=null?b.qdivPct:70}" oninput="onNumberInput('${pid}.brokerage.${bi}.qdivPct', this.value)"></div>
+              <div class="field"><label>Tax drag · % of annual total tax</label><input type="number" min="0" max="100" step="1" value="${b.taxDrag!=null?b.taxDrag:0}" oninput="onNumberInput('${pid}.brokerage.${bi}.taxDrag', this.value)"></div>
+              <div class="field full"><label>Fee drag</label>
+                <div class="arow">
+                  <select onchange="onFeeMode('${pid}',${bi},this.value)">
+                    <option value="pct" ${(!b.fee||b.fee.mode!=='fixed')?'selected':''}>% of balance</option>
+                    <option value="fixed" ${(b.fee&&b.fee.mode==='fixed')?'selected':''}>Fixed $k / yr</option>
+                  </select>
+                  <input type="number" min="0" step="${(b.fee&&b.fee.mode==='fixed')?0.5:0.05}" value="${b.fee&&b.fee.value!=null?((b.fee.mode==='fixed')?parseFloat((b.fee.value/1000).toFixed(3)):b.fee.value):0}" oninput="onFeeValue('${pid}',${bi},this.value)">
+                </div>
+              </div>
               ${renderAgeRangeRow(pid+'.brokerage.'+bi+'.ar', b.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
               ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${b.bene?'checked':''} onchange="onBeneToggle('${pid}.brokerage.${bi}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
-              <div class="item-note">ODIV = portfolio balance × yield. QDIV is the entered percentage of ODIV. Portfolio growth is applied in today's-dollar terms.</div>
+              <div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${b.idgt?'checked':''} onchange="onBeneToggle('${pid}.brokerage.${bi}.idgt', this.checked)"> IDGT (charted separately from the taxable estate)</label></div>
+              <div class="item-note">ODIV = portfolio balance × yield. QDIV is the entered percentage of ODIV. Each year the balance changes by growth − tax drag − fee drag: tax drag is this % of the household's total tax (TT) paid from the portfolio; fee drag is a % of balance, or a fixed $k amount per year that stays flat in future dollars (so it shrinks in today's $ as inflation rises). All in today's-dollar terms.</div>
             </div>
           </div>`).join(''):`<div class="item-note">Add one or more brokerage portfolios to include portfolio dividend income.</div>`}
       </div>
@@ -980,9 +1011,33 @@ function onSSClaimAge(i,val){
   recomputeDebounced(); saveDebounced();
 }
 function onBeneToggle(path,checked){ setPath(path,checked); recompute(); saveDebounced(); }
+// Fixed fees are entered in $k but stored in dollars (fee.value), so saved files and the
+// projection engine keep working in plain today's $. Percent fees are stored as entered.
+function onPortfolioName(pid,bi,val,inputEl){
+  setPath(pid+'.brokerage.'+bi+'.name', val);
+  // Update the card title in place (a full re-render would drop input focus), then refresh the charts.
+  const title=inputEl.closest('.portfolio-card').querySelector('.pf-title');
+  if(title) title.textContent=val.trim()||('Portfolio '+(bi+1));
+  recomputeDebounced(); saveDebounced();
+}
+function onFeeValue(pid,bi,val){
+  const v=val===''?0:+val;
+  const fee=getPortfolioFee(pid,bi);
+  setPath(pid+'.brokerage.'+bi+'.fee.value', fee.mode==='fixed'?v*1000:v);
+  recomputeDebounced(); saveDebounced();
+}
+function getPortfolioFee(pid,bi){
+  const idx=+pid.split('.')[1];
+  return state.people[idx].brokerage[bi].fee;
+}
+function onFeeMode(pid,bi,mode){
+  setPath(pid+'.brokerage.'+bi+'.fee.mode', mode);
+  setPath(pid+'.brokerage.'+bi+'.fee.value', 0); // units change (% vs $), so start fresh
+  renderIncomeForms(); recompute(); saveDebounced();
+}
 function addBrokerage(i){
   if(!Array.isArray(state.people[i].brokerage)) state.people[i].brokerage=[];
-  state.people[i].brokerage.push(defaultBrokeragePortfolio());
+  state.people[i].brokerage.push(defaultBrokeragePortfolio(0, state.people[i].brokerage.length+1));
   renderIncomeForms(); recompute(); saveDebounced();
 }
 function removeBrokerage(i,bi){
@@ -1109,6 +1164,11 @@ function computeProjection(){
     return item.amount*Math.pow(1+g,k);
   }
 
+  // ── Brokerage portfolio balances (today's $) ──
+  // Balances are simulated year by year: each year's tax drag depends on that year's total tax (TT),
+  // so a closed-form (1+g)^k no longer applies. Change per year = growth − tax drag − fee drag.
+  const pfState=people.map(p=>(p.brokerage||[]).map(b=>({bal:Number(b&&b.balance)||0, dead:false})));
+
   const rows=[];
   for(let k=0;k<=yearsToProject;k++){
     const ages=people.map((p,i)=>curAges[i]+k);
@@ -1148,8 +1208,8 @@ function computeProjection(){
     const rental = rentalByPerson.reduce((a,b)=>a+b,0);
 
     // Brokerage portfolio income — each portfolio produces ODIV and QDIV.
-    function brokerageValues(portfolio, ownerIdx, k){
-      if(!portfolio||!portfolio.enabled) return {odiv:0,qdiv:0};
+    function brokerageValues(portfolio, ownerIdx, k, bal){
+      if(!portfolio||!portfolio.enabled||!(bal>0)) return {odiv:0,qdiv:0};
 
       const ownerAge=curAges[ownerIdx]+k;
       const ownerAlive=ownerAge<passAges[ownerIdx];
@@ -1168,35 +1228,30 @@ function computeProjection(){
         if(!(portfolio.bene&&spouseAlive)) return {odiv:0,qdiv:0};
       }
 
-      // The portfolio balance grows continuously from its initial balance;
+      // `bal` is this year's starting balance from the running simulation above;
       // spouse continuation therefore keeps the same projected portfolio.
-      const bal=(Number(portfolio.balance)||0)*
-        Math.pow(1+realGrowth(portfolio.growth,inflation),k);
       const odiv=Math.max(0,bal*(Number(portfolio.yield)||0)/100);
       const qdiv=odiv*clamp(Number(portfolio.qdivPct)||0,0,100)/100;
       return {odiv,qdiv};
     }
+    // Start-of-year balance for every portfolio. A portfolio stops existing once its owner has
+    // passed unless it is marked to continue to a surviving spouse.
+    const pfBalNow=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
+      const st=pfState[i][bi];
+      if(!b||!b.enabled) return 0;
+      const spouseAlive=married&&people.length===2&&alive[1-i];
+      if(!alive[i] && !(b.bene&&spouseAlive)) st.dead=true;
+      return st.dead?0:st.bal;
+    }));
     const brokerageByPerson=people.map((p,i)=>{
       let odiv=0,qdiv=0;
-      (p.brokerage||[]).forEach(b=>{const v=brokerageValues(b,i,k);odiv+=v.odiv;qdiv+=v.qdiv;});
+      (p.brokerage||[]).forEach((b,bi)=>{const v=brokerageValues(b,i,k,pfBalNow[i][bi]);odiv+=v.odiv;qdiv+=v.qdiv;});
       return {odiv,qdiv};
     });
 
-    // Brokerage portfolio asset value (today's $) — grows continuously at the portfolio's
-    // configured rate, independent of its ODIV/QDIV payout age window; it only zeroes out
-    // once the owner has passed and the portfolio is not marked to continue to the spouse.
-    function portfolioBalanceAt(portfolio, ownerIdx, k){
-      if(!portfolio||!portfolio.enabled) return 0;
-      const ownerAge=curAges[ownerIdx]+k;
-      const ownerAlive=ownerAge<passAges[ownerIdx];
-      const otherIdx=1-ownerIdx;
-      const spouseAlive=married&&people.length===2&&
-        (curAges[otherIdx]+k<passAges[otherIdx]);
-      if(!ownerAlive && !(portfolio.bene&&spouseAlive)) return 0;
-      return (Number(portfolio.balance)||0)*Math.pow(1+realGrowth(portfolio.growth,inflation),k);
-    }
+    // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>({
-      id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:portfolioBalanceAt(b,i,k)
+      id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:pfBalNow[i][bi], idgt:!!b.idgt, taxDrag:0, feeDrag:0
     })));
 
     // STCG/LTCG remain standalone investment-income inputs. They use the
@@ -1243,6 +1298,26 @@ function computeProjection(){
     const agi = nonSSOrdinary+taxableSS+qdiv+ltcg;
     const totalTax = ordTax+qualTax;
     const {sst,marginalRate} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, totalTax);
+
+    // Roll each brokerage balance forward one year: growth − tax drag (share of TT) − fee drag.
+    people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
+      const st=pfState[i][bi], bal=pfBalNow[i][bi];
+      if(st.dead||!(bal>0)){ st.bal=0; return; }
+      const g=realGrowth(b.growth,inflation);
+      const feeMode=b.fee&&b.fee.mode==='fixed'?'fixed':'pct';
+      const feeVal=Math.max(0,Number(b.fee&&b.fee.value)||0);
+      const feePct=feeMode==='pct'?feeVal/100:0;
+      // A fixed fee is a flat nominal amount (entered in today's $ for year 0), so in today's-dollar
+      // terms it shrinks each year with inflation.
+      const feeFixed=feeMode==='fixed'?feeVal/Math.pow(1+inflation,k):0;
+      // Drag $ applied this year (capped at what the portfolio can actually pay), kept for tooltips.
+      const avail=Math.max(0,bal*(1+g));
+      const feeD=Math.min(bal*feePct+feeFixed, avail);
+      const taxD=Math.min(clamp(Number(b.taxDrag)||0,0,100)/100*totalTax, avail-feeD);
+      st.bal=Math.max(0, avail-feeD-taxD);
+      const entry=portfoliosByPerson[i][bi];
+      entry.taxDrag=taxD; entry.feeDrag=feeD;
+    }));
 
     const iraBalByPerson = people.map((p,i)=> iraBal[i][k]!=null?iraBal[i][k]:0);
     rows.push({
@@ -1347,7 +1422,7 @@ function qualTaxTiers(ordTI, qualIncome, qBrackets){
   return res;
 }
 // Manual rescale: clears the "locked" chart max so the next recompute re-fits it.
-const chartYMax={ss:null, income:null, tss:null, tax:null, asset:null};
+const chartYMax={ss:null, income:null, tss:null, tax:null, asset:null, idgt:null};
 function rescaleChart(which){ chartYMax[which]=null; recompute(); }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1930,33 +2005,41 @@ function buildTaxChart(){
 // ═══════════════════════════════════════════════════════════════
 // SECTION — BROKERAGE PORTFOLIO VALUES
 // ═══════════════════════════════════════════════════════════════
-let assetChart=null;
+const assetCharts={asset:null, idgt:null};
 const ASSET_COLORS=['#0f6e56','#2E86AB','#8E44AD','#D06A18','#C0392B','#3DB08A','#7B5EA7','#E85D9A','#1A5276','#B5891D'];
-function buildAssetChart(){
+
+// One builder for both asset charts. `cfg` picks which series belong on the chart
+// (main chart: non-IDGT brokerage + pre-tax IRAs; IDGT chart: IDGT brokerage only).
+function buildAssetChartFor(cfg){
   if(typeof Chart==='undefined'||!lastProjection) return;
   const proj=lastProjection, rows=proj.rows;
-  const noteEl=document.getElementById('assetChartNote');
-  if(!rows.length){ noteEl.textContent=''; return; }
+  const noteEl=document.getElementById(cfg.noteId);
+  const legendEl=document.getElementById(cfg.legendId);
+  const card=cfg.cardId?document.getElementById(cfg.cardId):null;
 
-  // Stable, ordered list of asset series driven by the current input shape (brokerage
-  // portfolios first, then each enabled pre-tax IRA/401(k)), so each series keeps its
+  // Stable, ordered list of series driven by the current input shape, so each series keeps its
   // color/position across renders as long as the underlying assets aren't added/removed.
   const series=[];
   proj.people.forEach((p,i)=>{
     (p.brokerage||[]).forEach((b,bi)=>{
+      if(!b||b.enabled===false) return;
+      if(!!b.idgt!==cfg.idgt) return;
       series.push({type:'portfolio', personIdx:i, bi, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1))});
     });
   });
-  proj.people.forEach((p,i)=>{
-    if(p.ira && p.ira.enabled){
-      series.push({type:'ira', personIdx:i, name:'Pre-tax IRA/401(k)'});
-    }
-  });
-  if(!series.length){
-    document.getElementById('assetLegend').innerHTML='';
-    noteEl.textContent='Add a brokerage portfolio or enable a pre-tax IRA/401(k) to see this chart.';
-    return;
+  if(!cfg.idgt){
+    proj.people.forEach((p,i)=>{
+      if(p.ira && p.ira.enabled) series.push({type:'ira', personIdx:i, name:'Pre-tax IRA/401(k)'});
+    });
   }
+
+  const clear=(msg)=>{
+    if(assetCharts[cfg.key]){ try{ assetCharts[cfg.key].destroy(); }catch(e){} assetCharts[cfg.key]=null; }
+    legendEl.innerHTML=''; noteEl.textContent=msg||'';
+  };
+  if(card) card.style.display = series.length ? '' : 'none';
+  if(!series.length){ clear(cfg.emptyMsg); return; }
+  if(!rows.length){ clear(''); return; }
 
   const labels=ageLabelRange(rows[0].age0,100);
   const ages=rows.map(r=>r.age0);
@@ -1969,16 +2052,16 @@ function buildAssetChart(){
   }));
   const aligned=seriesValues.map(vals=>alignToAges(ages, vals, labels));
 
-  if(chartYMax.asset==null){
+  if(chartYMax[cfg.key]==null){
     let maxT=0;
     for(let i=0;i<labels.length;i++){
       let t=0, any=false;
       aligned.forEach(a=>{ const v=a[i]; if(v!=null){ t+=v; any=true; } });
       if(any) maxT=Math.max(maxT,t);
     }
-    chartYMax.asset = Math.max(50000, Math.ceil(maxT/10000)*10000+10000);
+    chartYMax[cfg.key] = Math.max(50000, Math.ceil(maxT/10000)*10000+10000);
   }
-  const Y_MAX=chartYMax.asset;
+  const Y_MAX=chartYMax[cfg.key];
 
   const seriesLabel=(s,si)=>{
     const personName=displayPersonName(proj.people[s.personIdx], s.personIdx);
@@ -1996,21 +2079,30 @@ function buildAssetChart(){
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.
   const tooltipCallbacks={
     title:i=>{ const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]]; return r?popupPersonAgeLines(proj,r):[]; },
-    label:ctx=>{ if(ctx.raw==null||ctx.raw<1) return null; return mrow('  '+ctx.dataset.label, fmt(ctx.raw)); },
-    footer:items=>{
-      const idx=items[0]?items[0].dataIndex:0;
-      let total=0; aligned.forEach(a=>{ total+=a[idx]||0; });
-      return ['',mrow('Total asset value',fmt(total))];
+    // Per portfolio: value, then the tax drag and fee drag applied that year (all today's $).
+    label:ctx=>{
+      if(ctx.raw==null||ctx.raw<1) return null;
+      const W=46, lines=[mrow('  '+ctx.dataset.label, fmt(ctx.raw), W)];
+      const s=series[ctx.datasetIndex], r=rowByAge[labels[ctx.dataIndex]];
+      if(s && s.type==='portfolio' && r){
+        const e=(r.portfoliosByPerson[s.personIdx]||[])[s.bi];
+        if(e){
+          lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
+          lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
+        }
+      }
+      return lines;
     }
   };
 
-  if(assetChart){
-    updateChartInPlace(assetChart, labels, datasets);
-    assetChart.options.scales.y.max=Y_MAX;
-    assetChart.options.plugins.tooltip.callbacks=tooltipCallbacks;
-    assetChart.update();
+  let chart=assetCharts[cfg.key];
+  if(chart){
+    updateChartInPlace(chart, labels, datasets);
+    chart.options.scales.y.max=Y_MAX;
+    chart.options.plugins.tooltip.callbacks=tooltipCallbacks;
+    chart.update();
   } else {
-    assetChart=new Chart(document.getElementById('assetChart'),{type:'line',data:{labels,datasets},options:{
+    assetCharts[cfg.key]=new Chart(document.getElementById(cfg.canvasId),{type:'line',data:{labels,datasets},options:{
       responsive:true,maintainAspectRatio:true,aspectRatio:1,animation:{duration:450,easing:'easeOutQuart'},transitions:{resize:{animation:{duration:0}},active:{animation:{duration:150}}},
       interaction:{mode:'index',intersect:false},
       plugins:{
@@ -2019,15 +2111,31 @@ function buildAssetChart(){
       },
       scales:{
         x:{type:'category',title:{display:true,text:'Age',font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
-        y:{stacked:true,min:0,max:Y_MAX,title:{display:true,text:"Asset value (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},grid:{color:'rgba(0,0,0,0.05)'}}
+        y:{stacked:true,min:0,max:Y_MAX,title:{display:true,text:cfg.yTitle,font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
-  document.getElementById('assetLegend').innerHTML = series.map((s,si)=>
+  legendEl.innerHTML = series.map((s,si)=>
     `<span class="li"><span class="ls" style="background:${ASSET_COLORS[si%ASSET_COLORS.length]}"></span>${escHtml(seriesLabel(s,si))}</span>`
   ).join('');
-  noteEl.textContent =
-    `Each band is one brokerage portfolio or pre-tax IRA/401(k) balance, compounding at its own configured growth rate in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited IRA continues under the surviving spouse until they pass, then drops to zero. Y-axis locked — use Rescale if the stack runs off the top.`;
+  noteEl.textContent = cfg.note;
+}
+
+function buildAssetChart(){
+  buildAssetChartFor({
+    key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', noteId:'assetChartNote',
+    yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
+    emptyMsg:'Add a non-IDGT brokerage portfolio or enable a pre-tax IRA/401(k) to see this chart.',
+    note:`Each band is one brokerage portfolio (IDGTs excluded) or pre-tax IRA/401(k) balance, compounding at its own configured growth rate less tax drag and fee drag, in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited IRA continues under the surviving spouse until they pass, then drops to zero. Y-axis locked — use Rescale if the stack runs off the top.`
+  });
+}
+function buildIdgtChart(){
+  buildAssetChartFor({
+    key:'idgt', idgt:true, cardId:'idgtCard', canvasId:'idgtChart', legendId:'idgtLegend', noteId:'idgtChartNote',
+    yTitle:"IDGT value (today's $)", totalLabel:'Total IDGT value',
+    emptyMsg:'',
+    note:`Each band is one brokerage portfolio flagged as an IDGT, compounding at its own configured growth rate less tax drag and fee drag, in today's dollars. Dividend income from IDGT portfolios is still included in household income and tax. A band drops to zero once its owner passes, unless "Continues to spouse" is checked. Y-axis locked — use Rescale if the stack runs off the top.`
+  });
 }
 
 function renderCharts(){
@@ -2037,6 +2145,7 @@ function renderCharts(){
   buildTSSChart();
   buildTaxChart();
   buildAssetChart();
+  buildIdgtChart();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2044,7 +2153,7 @@ function renderCharts(){
 // ═══════════════════════════════════════════════════════════════
 function renderFooter(){
   document.getElementById('assumptionsFooter').innerHTML =
-    `All figures shown in today's dollars · SS COLA assumed equal to inflation · 2026 simplified federal tax model (TCJA permanent under OBBBA), no AMT/NIIT/itemized deductions/credits · IRMAA uses current-year MAGI as a proxy (actual IRMAA uses a 2-year lookback) · IRA required withdrawals follow the IRS Uniform Lifetime Table · For informational purposes only — not financial, tax or legal advice.`;
+    `All figures shown in today's dollars · SS COLA assumed equal to inflation · 2026 simplified federal tax model (TCJA permanent under OBBBA), no AMT/NIIT/itemized deductions/credits · IRMAA uses current-year MAGI as a proxy (actual IRMAA uses a 2-year lookback) · Brokerage balances change each year by growth − tax drag (a share of that year's total tax) − fee drag · IRA required withdrawals follow the IRS Uniform Lifetime Table · For informational purposes only — not financial, tax or legal advice.`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2063,10 +2172,10 @@ function destroyCharts(){
   // A file restore is a hard data boundary. Destroy the existing Chart.js
   // instances so no tooltip/plugin closure, active hover state, dataset, or
   // canvas pixels from the previous plan can survive into the newly loaded plan.
-  [ssChart,incomeChart,tssChart,taxChart,assetChart].forEach(ch=>{
+  [ssChart,incomeChart,tssChart,taxChart,assetCharts.asset,assetCharts.idgt].forEach(ch=>{
     try{ if(ch) ch.destroy(); }catch(e){}
   });
-  ssChart=null; incomeChart=null; tssChart=null; taxChart=null; assetChart=null;
+  ssChart=null; incomeChart=null; tssChart=null; taxChart=null; assetCharts.asset=null; assetCharts.idgt=null;
   lastProjection=null;
 }
 

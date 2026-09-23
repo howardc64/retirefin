@@ -62,7 +62,7 @@ One column per person (if married); each income type's card should top-align acr
 | **Short-term capital gains (STCG)** | Annual change, survivor benefit                                                                                                                                                                                                                                        |
 | **Long-term capital gains (LTCG)**  | Annual change, survivor benefit                                                                                                                                                                                                                                        |
 | **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit                                                                                                                                                                     |
-| **Brokerage portfolio(s)**          | Household-wide Qualified Dividend % (of Ordinary Dividends), applied to all portfolios. User can add multiple portfolios; each needs: age range, annual change (default: inflation + 3%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) |
+| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) Qualified Div (QDIV) % (default 70% ODIV), % ODIV reinvested, tax drag (% annual total tax (TT)), fee drag (% or fixed amt in $k)), IDGT checkbox. Annual asset value change += annual growth + ODIV reinvested - tax drag - fee drag |
 
 ### ⁠4.4 ⁠Global assumption
 
@@ -193,8 +193,14 @@ One column per person (if married); each income type's card should top-align acr
 
 Draw a chart showing, in today's dollars, in a style consistent with the other charts:
 
-- All brokerage portfolio values.
+- All brokerage portfolio (excluding IDGTs) values.
 - All pre-tax IRA values.
+- Tooltip : all person’s age, portfolio value, annual growth %, ODIV reinvested, tax drag, fee drag. All in today’s $s 
+
+If have IDGT portfolios, draw another chart showing, in today's dollars, in a style consistent with the other charts:
+
+- All IDGT brokerage portfolio values.
+- Tooltip : all person’s age, portfolio value, annual growth %, ODIV reinvested, tax drag, fee drag. All in today’s $s 
 
 ---
 
