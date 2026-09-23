@@ -155,7 +155,6 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .ic p{font-size:13px;color:#2a4a3e;line-height:1.65;margin-bottom:8px;}
 .ic p:last-child{margin-bottom:0;}
 .callout{background:white;border-left:3px solid var(--teal);border-radius:0 6px 6px 0;padding:10px 14px;margin:12px 0;font-size:12px;color:#1a3a30;line-height:1.7;}
-.roi-pos{color:#0f6e56;font-weight:500;}.roi-neg{color:#c0392b;}
 .tb{font-size:11px;font-weight:500;padding:2px 8px;border-radius:12px;}
 .tb-ex{background:#e1f5ee;color:#085041;}.tb-50{background:#fff3cd;color:#856404;}.tb-85{background:#fde8d8;color:#7c3a00;}
 .best td{background:#e8f7f2!important;color:var(--text);}
@@ -232,7 +231,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 <div class="chart-col">
 
 <!-- ═══ SOCIAL SECURITY ═══ -->
-<div class="sec-head">Social Security — Breakeven &amp; Claiming Strategy</div>
+<div class="sec-head">Social Security — Claiming Strategy</div>
 <div class="sec-sub" id="ssSecSub"></div>
 <div id="ssMetrics" class="metric-grid"></div>
 
@@ -241,22 +240,9 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
     <button class="rescale-btn" onclick="rescaleChart('ss')">↕ Rescale</button></div>
   <div class="legend" id="ssLegend"></div>
   <div class="co"><div class="cw"><canvas id="ssChart"></canvas></div></div>
-  <p class="cn" id="ssChartNote"></p>
 </div>
 
-<div class="tc">
-  <div class="th"><div class="tt">Breakeven &amp; ROI by claiming age · today's dollars</div></div>
-  <div class="tw"><table>
-    <thead><tr id="ssTableHead"></tr></thead>
-    <tbody id="ssBreakevenBody"></tbody>
-  </table></div>
-  <div class="tn" id="ssTableNote"></div>
-</div>
 
-<div class="ic">
-  <h3>How Real Annual ROI is calculated</h3>
-  <p><strong>Incremental IRR vs. the earliest claiming age shown.</strong> Claiming later is treated like an investment: the "cost" is the benefit foregone while waiting, and the "return" is the extra lifetime household Social Security that results. We solve for the annualized real rate <em>r</em> at which the net present value of that incremental cash flow is zero. A positive ROI means delaying beats claiming early, in today's dollars.</p>
-</div>
 
 <!-- ═══ ANNUAL HOUSEHOLD INCOME ═══ -->
 <div class="sec-head">Annual Household Income</div>
@@ -1487,10 +1473,16 @@ function computeSSScenario(p0ClaimAge){
   }, ()=>{
     const proj=computeProjection();
     let cum=0; const ages=[],cumulative=[],perYear=[];
-    proj.rows.forEach(r=>{ cum+=r.totalSS; ages.push(r.age0); cumulative.push(cum); perYear.push(r.totalSS); });
+    const ssByAge={}; // rounded age0 -> per-person monthly SS at that age
+    proj.rows.forEach(r=>{
+      cum+=r.totalSS; ages.push(r.age0); cumulative.push(cum); perYear.push(r.totalSS);
+      ssByAge[Math.round(r.age0)]=r.ssByPerson.map(v=>v/12);
+    });
     const p0=proj.people[proj.idxP0];
     const monthly = p0.ss.started ? p0.ss.pia : p0.ss.pia*ssOwnFactor(p0ClaimAge, p0.ss.fra);
-    return{ages,cumulative,perYear,totalHousehold:cum,monthly,started:p0.ss.started};
+    return{ages,cumulative,perYear,totalHousehold:cum,monthly,started:p0.ss.started,
+      ssByAge, idxP0:proj.idxP0, married:proj.married,
+      peopleNames:proj.people.map((pp,i)=>displayPersonName(pp,i))};
   });
 }
 function ssROI(perYearCand, perYearBase){
@@ -1517,8 +1509,6 @@ function buildSSSection(){
   const p0=state.people[idxP0];
   if(!p0.ss.enabled){
     document.getElementById('ssMetrics').innerHTML=`<div class="metric"><div class="metric-label">Social Security</div><div class="metric-value" style="font-size:14px">Not enabled</div><div class="metric-sub">Enable it for ${escHtml(p0.name)} above to see this analysis.</div></div>`;
-    ['ssChartNote','ssTableNote'].forEach(id=>document.getElementById(id).textContent='');
-    document.getElementById('ssBreakevenBody').innerHTML=''; document.getElementById('ssTableHead').innerHTML='';
     document.getElementById('ssLegend').innerHTML='';
     return;
   }
@@ -1539,47 +1529,88 @@ function buildSSSection(){
   // just overlaps it) so the chart responds to the slider on every drag. A
   // changing dataset count is what makes updateChartInPlace fall back to a
   // full rebuild, which re-triggers the built-in animation from Y=0 — a fixed
-  // count keeps every update smooth and in-place. Styled identically to every
-  // other line (no highlight), so it doesn't read as a separate concept.
+  // count keeps every update smooth and in-place. Per spec §6.2, the line for
+  // the slider's current (P0's actual start) age is drawn dashed so it reads
+  // as distinct from the solid alternative-claiming-age comparison lines.
   const chartScenarios = singleMode ? scenarios : [
     ...fixedCandidates.map(a=>({age:a, ...computeSSScenario(a)})),
     {age:selectedAge, ...computeSSScenario(selectedAge)}
   ];
+  // Real annual ROI vs. the earliest claiming age shown, per §6.2 — attached
+  // to each scenario so the tooltip can display it per hovered line.
+  chartScenarios.forEach(sc=>{ sc.roi = sc===baseline ? null : ssROI(sc.perYear, baseline.perYear); });
 
   const xMax=100, labels=ageLabelRange(p0Age,xMax);
-  const datasets=chartScenarios.map(sc=>({
-    label:'Age '+sc.age,
-    data:alignToAges(sc.ages, sc.cumulative, labels),
-    borderColor:VZ_SS_COLORS[sc.age]||'#0F6E56', borderWidth:sc.age===70?3:2,
-    pointRadius:0, tension:0.25, fill:false, spanGaps:false
-  }));
+  const datasets=chartScenarios.map(sc=>{
+    const isStartAge=sc.age===selectedAge;
+    return {
+      label:'Age '+sc.age+(isStartAge?' (selected start age)':''),
+      data:alignToAges(sc.ages, sc.cumulative, labels),
+      borderColor:VZ_SS_COLORS[sc.age]||'#0F6E56',
+      borderWidth:isStartAge?3:(sc.age===70?3:2),
+      borderDash:isStartAge?[7,5]:[],
+      pointRadius:0, pointHoverRadius:0, pointHitRadius:8, tension:0.25, fill:false, spanGaps:false,
+      vzScenario:sc
+    };
+  });
   if(chartYMax.ss==null){
     const maxV=Math.max(1,...scenarios.map(s=>s.totalHousehold));
     chartYMax.ss=Math.ceil(maxV/50000)*50000+50000;
   }
+  // Tooltip per §6.2: for each hovered claiming-age line, show that person's
+  // (and spouse's, if married) monthly SS at that age, the cumulative
+  // household total to date, and the real annual ROI vs. the earliest
+  // claiming age shown. Built fresh every call (rather than only on first
+  // creation) so it never closes over a stale scenario/labels set from an
+  // earlier render after a slider change.
+  const ssTooltipCallbacks={
+    title:items=>{
+      const age=Number(items[0]?.label);
+      const r=lastProjection?.rows?.find(x=>Math.round(x.age0)===age);
+      return [`Age ${age}`, ...(r?popupPersonAgeLines(lastProjection,r):[])];
+    },
+    label:ctx=>{
+      if(ctx.raw==null) return null;
+      const sc=ctx.dataset.vzScenario;
+      const row=sc.ssByAge[ctx.label];
+      if(!row) return [];
+
+      const lines=[mrow('  '+ctx.dataset.label,fmt(ctx.raw))];
+      const monthlyTotal=row.reduce((sum,v)=>sum+(Number(v)||0),0);
+      if(sc.married){
+        lines.push(mrow('    '+sc.peopleNames[sc.idxP0],fmtM(row[sc.idxP0])));
+        lines.push(mrow('    '+sc.peopleNames[1-sc.idxP0],fmtM(row[1-sc.idxP0])));
+      } else {
+        lines.push(mrow('    '+sc.peopleNames[sc.idxP0],fmtM(row[sc.idxP0])));
+      }
+      lines.push(mrow('    Total household SS',fmtM(monthlyTotal)));
+          return lines;
+    }
+  };
   if(ssChart){
     updateChartInPlace(ssChart, labels, datasets);
     ssChart.options.scales.y.max=chartYMax.ss;
-    ssChart.options.plugins.tooltip.callbacks.footer=items=>{const age=Number(items[0]?.label),r=lastProjection?.rows?.find(x=>Math.round(x.age0)===age);return r?[...popupPersonAgeLines(lastProjection,r)]:[];};
+    ssChart.options.plugins.tooltip.callbacks=ssTooltipCallbacks;
     ssChart.update();
   } else {
     ssChart=new Chart(document.getElementById('ssChart'),{type:'line',data:{labels,datasets},options:{
       responsive:true,maintainAspectRatio:true,aspectRatio:1,animation:{duration:450,easing:'easeOutQuart'},transitions:{resize:{animation:{duration:0}},active:{animation:{duration:150}}},
-      interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},tooltip:{bodyFont:{family:'monospace',size:12},callbacks:{
-        title:i=>{ const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]]; return r?popupPersonAgeLines(proj,r):[]; },
-        label:ctx=>ctx.raw==null?null:mrow('  '+ctx.dataset.label, fmt(ctx.raw))
-      }}},
+      interaction:{mode:'nearest',intersect:true},
+      plugins:{legend:{display:false},tooltip:{enabled:true,bodyFont:{family:'monospace',size:12},filter:(item,index)=>index===0,callbacks:ssTooltipCallbacks}},
       scales:{
         x:{type:'category',title:{display:true,text:`${p0.name}'s age`,font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
         y:{min:0,max:chartYMax.ss,title:{display:true,text:"Cumulative household SS (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},grid:{color:'rgba(0,0,0,0.05)'}}
       }
     }});
   }
-  document.getElementById('ssLegend').innerHTML=scenarios.map(sc=>
-    `<span class="li"><span class="ls" style="background:${VZ_SS_COLORS[sc.age]||'#0F6E56'};height:${sc.age===70?4:2}px"></span>Age ${sc.age}${sc.age===62?' (earliest)':sc.age===70?' (max)':''}</span>`).join('');
-  document.getElementById('ssChartNote').textContent =
-    `${p0.name}'s own PIA $${Math.round(p0.ss.pia).toLocaleString()}/mo at FRA ${p0.ss.fra.toFixed(1)}. All figures in today's dollars; SS COLA assumed equal to inflation. Axes locked — use Rescale if a line runs off the top.`;
+  document.getElementById('ssLegend').innerHTML=scenarios.map(sc=>{
+    const isStartAge=sc.age===selectedAge;
+    const color=VZ_SS_COLORS[sc.age]||'#0F6E56';
+    const swatchStyle=isStartAge
+      ? `background:repeating-linear-gradient(to right,${color} 0 4px,transparent 4px 7px);height:3px`
+      : `background:${color};height:${sc.age===70?4:2}px`;
+    return `<span class="li"><span class="ls" style="${swatchStyle}"></span>Age ${sc.age}${isStartAge?' — selected start age':sc.age===62?' (earliest)':sc.age===70?' (max)':''}</span>`;
+  }).join('');
 
   // metrics
   const best=scenarios.reduce((b,s)=>s.totalHousehold>b.totalHousehold?s:b, scenarios[0]);
@@ -1588,19 +1619,6 @@ function buildSSSection(){
     <div class="metric"><div class="metric-label">${escHtml(p0.name)}'s PIA at FRA</div><div class="metric-value">${fmtM(p0.ss.pia)}</div><div class="metric-sub">FRA ${p0.ss.fra.toFixed(1)}</div></div>
     <div class="metric metric-hl"><div class="metric-label">Best lifetime total</div><div class="metric-value">Age ${best.age}</div><div class="metric-sub">${fmt(best.totalHousehold)} household SS</div></div>
     <div class="metric"><div class="metric-label">Best vs. earliest shown</div><div class="metric-value">${best.totalHousehold-worst.totalHousehold>=0?'+':''}${fmt(best.totalHousehold-worst.totalHousehold)}</div><div class="metric-sub">Age ${best.age} vs. age ${worst.age}</div></div>`;
-
-  // table
-  const cols = married ? ['Claim age','Monthly (own)','Household lifetime total','Real annual ROI'] : ['Claim age','Monthly benefit','Lifetime total','Real annual ROI'];
-  document.getElementById('ssTableHead').innerHTML = cols.map((c,i)=>`<th${i>0?' class="r"':''}>${c}</th>`).join('');
-  const maxHH=Math.max(...scenarios.map(s=>s.totalHousehold));
-  document.getElementById('ssBreakevenBody').innerHTML = scenarios.map(sc=>{
-    const isBest=sc.totalHousehold===maxHH;
-    const roi = sc===baseline ? null : ssROI(sc.perYear, baseline.perYear);
-    const roiH = roi===null ? '— (baseline)' : `<span class="${roi>=0?'roi-pos':'roi-neg'}">${(roi*100).toFixed(2)}%</span>`;
-    return `<tr class="${isBest?'best':''}"><td>Age ${sc.age}${sc.age===62?' — earliest':sc.age===70?' — maximum':''}${sc.started?' (already started)':''}</td>
-      <td class="r">${fmtM(sc.monthly)}</td><td class="r">${fmt(sc.totalHousehold)}</td><td class="r">${roiH}</td></tr>`;
-  }).join('');
-  document.getElementById('ssTableNote').textContent = `Green row = highest lifetime household total among the ages shown. All figures in today's dollars.`;
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -56,7 +56,7 @@ One column per person (if married); each income type's card should top-align acr
 | Income source                       | Fields required                                                                                                                                                                                                                                                        |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Wage**                            | Age range (default end age 65), annual change                                                                                                                                                                                                                          |
-| **Social Security**                 | Already-started flag, or FRA (age 67 default) if not yet started<br>Slider for each person's SS start age (default: FRA, or greyed-out/unchangeable if that person has already started benefits)                                                                       |
+| **Social Security**                 | Already-started flag, or FRA (age 67 default) if not yet started<br>SS start age**: slider for each person's claim age (default: FRA, or their already-started age).                                                                       |
 | **Pension**                         | Age range, annual change, survivor benefit                                                                                                                                                                                                                             |
 | **Rental income**                   | Age range, annual change, survivor benefit                                                                                                                                                                                                                             |
 | **Short-term capital gains (STCG)** | Annual change, survivor benefit                                                                                                                                                                                                                                        |
@@ -67,6 +67,7 @@ One column per person (if married); each income type's card should top-align acr
 ### ⁠4.4 ⁠Global assumption
 
 - **Inflation rate slider**, initial value 3%. Assume the Social Security COLA rate equals the inflation rate.
+- ****Passing age**: P1's passing age (default 85) and P2's passing age (default 90) — both sliders use the same scale/width.
 
 ---
 
@@ -90,12 +91,7 @@ One column per person (if married); each income type's card should top-align acr
   - Follow SSSBR rules for starting SS before/after FRA.
   - Follow SSSBR rules for how SS changes when the spouse passes.
 
-### ⁠6.2 ⁠Break-even analysis
-
-Build a chart driven by these slider inputs:
-
-- **Passing age**: P1's passing age (default 85) and P2's passing age (default 90) — both sliders use the same scale/width.
-- **SS start age**: each person's claim age (default: FRA, or their already-started age).
+### ⁠6.2 ⁠Claim Graph
 
 **Chart spec:**
 
@@ -103,16 +99,15 @@ Build a chart driven by these slider inputs:
 - X axis = P0's age, from current age to 100. Locked scale, even as sliders move.
 - All values converted to today's dollars.
 - Graph one line for every other candidate age P0 could start SS.
+- Graph dashed line for P0’s start age
 - Chart width = 2/3 of page width, centered horizontally; height = width.
 - Stop each line once both people have passed.
 
-**Accompanying table** — for every graphed line, show:
+**Popup Tooltip** — show:
 
-- Monthly SS
-- Total household SS
-- Real annual ROI % on SS
-
-Include a brief explanation of the ROI calculation method.
+- Display and calculate data only at cursor intersection. Hit radius 8
+- Monthly SS for all persons
+- If 2 lines are intersected, include only 1 in tooltip
 
 ---
 
