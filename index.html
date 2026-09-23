@@ -396,17 +396,6 @@ function realGrowth(change, inflation){
     default: return 0;
   }
 }
-function changeLabel(change){
-  if(!change) return '';
-  switch(change.mode){
-    case 'fixed': return 'Fixed $ amount (no nominal growth)';
-    case 'inflation': return 'Tracks inflation (flat in today\u2019s $)';
-    case 'offset': return `Inflation ${change.value>=0?'+':''}${change.value}%/yr (real)`;
-    case 'custom': return `${change.value}%/yr nominal growth`;
-    default: return '';
-  }
-}
-
 // Social Security early/delayed retirement factor applied to a PIA (own benefit).
 function ssOwnFactor(claimAge, fra){
   if(claimAge>=fra){
@@ -623,9 +612,6 @@ document.getElementById('importFile').addEventListener('change', function(e){
 // ═══════════════════════════════════════════════════════════════
 // PATH GET/SET (dot-notation into `state`)
 // ═══════════════════════════════════════════════════════════════
-function getPath(path){
-  return path.split('.').reduce((o,k)=>o==null?o:o[/^\d+$/.test(k)?+k:k], state);
-}
 function setPath(path, value){
   const keys=path.split('.');
   let o=state;
@@ -1743,7 +1729,6 @@ function buildIncomeChart(){
 // SECTION — TAXABLE SOCIAL SECURITY
 // ═══════════════════════════════════════════════════════════════
 let tssChart=null;
-function buildTaxLegendCommon(){ /* placeholder to keep naming consistent */ }
 function buildTSSChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
   const proj=lastProjection, rows=proj.rows;
