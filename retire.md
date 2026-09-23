@@ -227,3 +227,11 @@ If have IDGT portfolios, draw another chart showing, in today's dollars, in a st
 ## References
 
 - Use the previously generated HTML file as the reference for visual layout and style.
+
+## TODO Later
+
+- AUM fee not yet implemented
+- LT/ST CGs are just place holders. Maybe not so useful for most retirees setting up brokerage accounts for growth, income, expenses, and fees
+- No annuities
+- No real estate
+- No tax exempt income
