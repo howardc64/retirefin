@@ -62,7 +62,7 @@ One column per person (if married); each income type's card should top-align acr
 | **Short-term capital gains (STCG)** | Annual change, survivor benefit                                                                                                                                                                                                                                        |
 | **Long-term capital gains (LTCG)**  | Annual change, survivor benefit                                                                                                                                                                                                                                        |
 | **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit                                                                                                                                                                     |
-| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) Qualified Div (QDIV) % (default 70% ODIV), % ODIV reinvested, tax drag (% annual total tax (TT)), fee drag (% or fixed amt in $k)), IDGT checkbox. Annual asset value change += annual growth + ODIV reinvested - tax drag - fee drag |
+| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) Qualified Div (QDIV) % (default 70% ODIV), tax drag (% annual total tax (TT)), fee drag (% or fixed amt in $k)), IDGT checkbox. Annual asset value change += annual growth - tax drag - fee drag |
 
 ### ⁠4.4 ⁠Global assumption
 
@@ -96,7 +96,7 @@ One column per person (if married); each income type's card should top-align acr
 **Chart spec:**
 
 - Y axis = cumulative combined household SS. Locked scale.
-- X axis = P0's age, from current age to 100. Locked scale, even as sliders move.
+- X axis = P0's age, from current age to younger person reaching 100. Locked scale, even as sliders move.
 - All values converted to today's dollars.
 - Graph one line for every other candidate age P0 could start SS.
 - Graph dashed line for P0’s start age

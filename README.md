@@ -2,11 +2,13 @@
 
 **File:** `index.html` — single-file, self-contained, runs entirely in the browser (no server, no build step, no external data calls except two CDN assets: Chart.js and Google Fonts). **Tax year modeled:** 2026 (IRS Rev. Proc. 2025-32; CMS IRMAA release Nov. 14, 2025).
 
+**Contents:** [1 Purpose](#1-purpose) · [2 Principles](#2-core-design-principles) · [3 Inputs](#3-data-model-input) · [4 Calculations](#4-calculation-engine) · [5 Charts](#5-charts) · [6 Save/Restore](#6-save--restore) · [7 Constants](#7-tax--benefit-constants-2026-hard-coded-sourced-and-dated-in-code-comments) · [8 Simplifications](#8-known-simplifications-documented-in-app) · [9 Code map](#9-code-map) · [10 Change log](#10-change-log) · [11 Roadmap](#11-roadmap)
+
 ---
 
 ## 1. Purpose
 
-A local, private "what-if" tool for a single/widowed person or a married couple to project household retirement income year-by-year to age 100, see how each income source stacks, and see the resulting Social Security taxation, income tax, and IRMAA surcharge — all expressed in **today's dollars** so the numbers stay intuitive regardless of the inflation assumption.
+A local, private "what-if" tool for a single/widowed person or a married couple to project household retirement income year-by-year until the younger person reaches 100, see how each income source stacks, and see the resulting Social Security taxation, income tax, and IRMAA surcharge — all expressed in **today's dollars** so the numbers stay intuitive regardless of the inflation assumption.
 
 It is explicitly a *planning* tool, not a tax-prep tool: tax logic is simplified (no credits, no itemizing, no state tax) and is documented as such in the UI.
 
@@ -35,6 +37,7 @@ It is explicitly a *planning* tool, not a tax-prep tool: tax logic is simplified
 ### 3.2 Global assumptions
 
 - **Inflation / COLA slider** — one slider, default 3%. Social Security COLA is assumed equal to the inflation rate (per spec).
+- **Passing-age sliders** — P1 default 85, P2 default 90; same 30–100 scale and width.
 
 ### 3.3 Income sources (per person, married mode shows both side-by-side, columns row-aligned)
 
@@ -47,7 +50,7 @@ It is explicitly a *planning* tool, not a tax-prep tool: tax logic is simplified
 | **Short-term capital gains (STCG)** | amount, annual change, bene |
 | **Long-term capital gains (LTCG)** | amount, annual change, bene |
 | **Pre-tax IRA** | balance, withdrawal age range (default start = RMD age), annual growth (default inflation +3%), bene |
-| **Brokerage portfolio(s)** | user can add multiple; each has balance, age range, annual growth (default inflation +3%), bene, and an ODIV yield % (default 1.1%). A single household-wide **Qualified Dividend %** (of ordinary dividends) applies across all portfolios. |
+| **Brokerage portfolio(s)** | user can add multiple; each has balance, age range, annual growth (default inflation +4%), bene, an ODIV yield % (default 1.5%), a Qualified Dividend % of ODIV (default 70%), tax drag (% of annual total tax), fee drag (% of balance or fixed $k/yr), and an **IDGT** checkbox. Annual balance change = growth − tax drag − fee drag. |
 
 Every "annual change" field supports four modes: fixed $ (no growth), tracks inflation, inflation ± offset, or a custom nominal %.
 
@@ -68,7 +71,7 @@ Any amount entered as a "future year" value is converted to today's-$ terms usin
 - **FRA** computed from birth year (`fraForBirthYear`).
 - **Claim-age factors** for both the worker's own benefit (`ssOwnFactor`) and the spousal benefit (`ssSpousalFactor`), applied for claiming before/after FRA.
 - **Spousal Benefit Rule** logic adjusts a spouse's benefit when it qualifies, and re-evaluates the survivor's benefit when the higher earner passes.
-- **Break-even analysis**: a dedicated chart with independent passing-age sliders (default P1=85, P2=90) and a claim-age slider per person, showing cumulative household SS income for every other candidate claim age (ages 62–70), locked X/Y scale, stopping when both have passed. An accompanying table lists monthly SS, total household SS, and real annual ROI % for each claim-age line, with a short plain-language explanation of the ROI method.
+- **Break-even analysis**: a dedicated chart with the passing-age sliders (default P1=85, P2=90) and a claim-age slider per person, showing cumulative household SS income for every other candidate claim age (ages 62–70); the popup appears only when the cursor is within 8px of a line (one line reported if two overlap), locked X/Y scale, stopping when both have passed. An accompanying table lists monthly SS, total household SS, and real annual ROI % for each claim-age line, with a short plain-language explanation of the ROI method.
 
 ### 4.3 RMDs
 
@@ -79,7 +82,7 @@ Any amount entered as a "future year" value is converted to today's-$ terms usin
 
 ### 4.4 Household income stacking
 
-For every projection year (P0's current age → 100), income is aggregated by source: pension, wage, taxable interest, IRA RMD (today's $), rental, QDIV, ODIV minus QDIV, SS for P0, SS for the other person — each stopping when that person passes, and each respecting the Spousal Benefit Rule where relevant.
+For every projection year (P0's current age → P0's age when the younger person reaches 100), income is aggregated by source: pension, wage, IRA RMD (today's $), rental, QDIV, ODIV minus QDIV, STCG, LTCG, SS for P0, SS for the other person (taxable interest is not modeled — the spec has no input for it) — each stopping when that person passes, and each respecting the Spousal Benefit Rule where relevant.
 
 ### 4.5 Taxable Social Security (TSS)
 
@@ -105,13 +108,24 @@ For every projection year (P0's current age → 100), income is aggregated by so
 
 ---
 
-## 5. Charts (all Chart.js, in-place updates, locked/lockable axis scales, 2/3-page width, centered, height = width, popups with left-justified labels / right-justified values)
+## 5. Charts
+
+All charts use Chart.js with in-place updates, locked axis scales, 2/3-page width (centered, height = width), and popups with left-justified labels / right-justified values (see §5.1).
 
 1. **Social Security break-even** — cumulative household SS vs. age, one line per candidate claim age.
 2. **Annual household income stacking** — thick stacked-by-source lines, IRMAA tier dashed overlays, income-tax bracket dashed overlays (rate labeled above/below each line), rescale button, light/dark dashed-line color toggle.
 3. **Taxable Social Security (TSST)** — TSS line with effective tax % shown, filing-status-aware.
 4. **Total tax (TT)** — stacked segments (ordinary/QDIV/LTCG tiers) with dashed current-year bracket overlays.
-5. **Asset value** — all portfolio and IRA balances over time.
+5. **Asset value** — all non-IDGT brokerage portfolio and pre-tax IRA balances over time; popup shows each holder's age, value, real annual growth %, tax drag and fee drag. A second **IDGT** chart appears only when at least one portfolio is flagged IDGT.
+
+### 5.1 Popup (tooltip) layout
+
+All five chart popups share one layout helper so labels are left-justified and values right-justified per spec §5:
+
+- `mrow(label, value)` tags a line as label + value; it no longer pads anything itself.
+- `justifyTip(callbacks)` wraps each chart's tooltip callbacks, measures every line of the popup (title, body, footer), and pads them all to one common width, so every value ends on the same right edge.
+- `TIP_STYLE` gives the title, body and footer the same monospace font at the same size (12px), with title and footer right-aligned to line up with body lines that Chart.js indents past the color swatch.
+- Any new chart popup should build its lines with `mrow()` and wrap its callbacks in `justifyTip()`.
 
 Every chart stops drawing a series once the relevant person(s) have passed, and every chart's popup includes the underlying components (e.g., taxable income, standard deduction, provisional income, IRA balance) so the user can see the "why," not just the line.
 
@@ -147,17 +161,45 @@ These constants are isolated at the top of the script specifically so they can b
 
 ---
 
-## 9. Change Log (this engagement)
+## 9. Code Map
 
-1. **Initial build** — full app per original spec (all sections above).
-2. **Cleanup pass** — removed 3 dead functions (`changeLabel`, `getPath`, `buildTaxLegendCommon`), verified zero dangling `getElementById`/inline-handler references, zero duplicate DOM IDs, confirmed script parses cleanly.
-3. **2026 tax-data update** — refreshed ordinary brackets, standard deduction, and IRMAA tiers to officially published 2026 figures (QDIV/LTCG brackets were already correct); added sourced comments above each constant block.
+`index.html` is one file: `<style>` (CSS variables, layout, container queries), the two-column markup, then one `<script>` organized in this order:
+
+| Script section | Contents |
+| --- | --- |
+| Constants | 2026 brackets, standard deductions, QDIV/LTCG tiers, IRMAA tiers, RMD table |
+| Helpers / State model / Path get-set | formatting, defaults, `state`, dot-path access, save/restore |
+| Form rendering / Sub-components | per-person panes, age-range and annual-change selectors |
+| Projection engine | `computeProjection()` — one row per year, all values in today's $ |
+| What-if engine | runs the projection on a temporary clone (SS claim-age scenarios) |
+| Visualization | colors, formatters, shared chart config (`CHART_BASE`, `ageXAxis`, `AXIS_*`), tooltip layout (`mrow`, `justifyTip`, `TIP_STYLE`), IRMAA / tax-bracket overlay plugins |
+| Chart sections | SS break-even, Annual Income, Taxable SS, Total Tax, Asset Value (+ IDGT) — each builds its data, then creates or updates its chart in place |
+| Footer / Wiring | assumptions note, event wiring, initial render |
+
+A `#detailPanel` placeholder exists for the optional "Detailed Tax Calculation Age" PDF; it has no logic yet.
 
 ---
 
-## 10. Suggested Next Steps (not yet built)
+## 10. Change Log
 
-- State-tax overlay (optional, since state rules vary widely).
-- NIIT (3.8%) layer on investment income above MAGI thresholds.
-- Senior additional standard deduction (OBBBA) as an optional toggle.
-- PDF export of a given scenario's charts/tables (spec mentions this as a stretch diagnostic item).
+1. Initial build per spec.
+2. Cleanup: removed dead functions; verified no dangling IDs/handlers or duplicate IDs.
+3. 2026 tax data refresh (ordinary brackets, standard deduction, IRMAA), with sourced comments.
+4. Tooltips: values right-justified on a common edge in all five popups (`mrow` / `justifyTip` / `TIP_STYLE`).
+5. Spec alignment: passing-age defaults 85/90; ODIV yield default 1.5%; asset popup shows real growth %, tax drag and fee drag; SS break-even popup requires a cursor hit (radius 8).
+6. ODIV reinvest removed per updated spec: balance change = growth − tax drag − fee drag.
+7. Refactor: shared Chart.js config replaces five copies of the same options; removed unused CSS; no behavior change.
+8. X-axis per updated spec §6.2: every age-axis chart now runs from P0's current age to P0's age when the younger person reaches 100 (`chartMaxAge()`); single-person households still end at 100. The scale depends only on current ages, so it stays locked as sliders move.
+
+---
+
+## 11. Roadmap
+
+Not yet built:
+
+- Detailed Tax Calculation Age PDF output (spec: optional stretch).
+- Taxable interest income (in the spec's stack order, but no input exists).
+- AUM fee.
+- STCG/LTCG are placeholders and may be dropped or reworked.
+- Annuities, real estate, tax-exempt income.
+- State-tax overlay, NIIT (3.8%), senior additional standard deduction (OBBBA toggle).
