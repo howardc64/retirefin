@@ -1389,9 +1389,47 @@ function toggleOverlayMode(){
   if(incomeChart) incomeChart.update();
   if(taxChart) taxChart.update();
 }
-function mrow(label,value,W=32){
-  const v=String(value), p=Math.max(1,W-label.length-v.length);
-  return label+' '.repeat(p)+v;
+// ── Tooltip layout (spec §5: label left-justified, data right-justified) ──
+// mrow() only tags a line as "label | value" with a separator; justifyTip() then pads EVERY
+// line of the popup (title, body, afterBody, footer) to one common width, so all values line
+// up on the same right edge no matter which section or callback produced the line.
+// This needs one monospace font at one size across title/body/footer (TIP_STYLE), and
+// right-aligned title/footer so they line up with body text that Chart.js indents past the color box.
+const TIP_SEP='\u0001', TIP_GAP=2;
+const TIP_STYLE={
+  titleFont:{family:'monospace',size:12},
+  bodyFont:{family:'monospace',size:12},
+  footerFont:{family:'monospace',size:12},
+  titleAlign:'right',
+  footerAlign:'right'
+};
+function mrow(label,value){ return label+TIP_SEP+value; }
+function tipLines(x){ return x==null?[]:(Array.isArray(x)?x:[x]); }
+function tipLen(l){ const i=l.indexOf(TIP_SEP); return i<0?l.length:i+TIP_GAP+(l.length-i-1); }
+function tipPad(l,W){
+  if(!l) return l;
+  const i=l.indexOf(TIP_SEP);
+  if(i<0) return l+' '.repeat(Math.max(0,W-l.length));
+  const a=l.slice(0,i), b=l.slice(i+1);
+  return a+' '.repeat(Math.max(TIP_GAP,W-a.length-b.length))+b;
+}
+function justifyTip(cb){
+  let W=0;
+  const call=(fn,self,arg)=>fn?fn.call(self,arg):null;
+  const pad=r=>r==null?r:tipLines(r).map(l=>tipPad(l,W));
+  return {
+    // Chart.js builds the title first, so measure the whole popup here.
+    title(items){
+      const all=[...tipLines(call(cb.title,this,items))];
+      (items||[]).forEach(it=>all.push(...tipLines(call(cb.label,this,it))));
+      all.push(...tipLines(call(cb.afterBody,this,items)),...tipLines(call(cb.footer,this,items)));
+      W=all.reduce((m,l)=>Math.max(m,tipLen(l||'')),0);
+      return pad(call(cb.title,this,items));
+    },
+    label(ctx){ return pad(call(cb.label,this,ctx)); },
+    afterBody(items){ return pad(call(cb.afterBody,this,items)); },
+    footer(items){ return pad(call(cb.footer,this,items)); }
+  };
 }
 function popupPersonAgeLines(proj,r){
   const n=proj.married?2:1;
@@ -1648,13 +1686,13 @@ function buildSSSection(){
   if(ssChart){
     updateChartInPlace(ssChart, labels, datasets);
     ssChart.options.scales.y.max=chartYMax.ss;
-    ssChart.options.plugins.tooltip.callbacks=ssTooltipCallbacks;
+    ssChart.options.plugins.tooltip.callbacks=justifyTip(ssTooltipCallbacks);
     ssChart.update();
   } else {
     ssChart=new Chart(document.getElementById('ssChart'),{type:'line',data:{labels,datasets},options:{
       responsive:true,maintainAspectRatio:true,aspectRatio:1,animation:{duration:450,easing:'easeOutQuart'},transitions:{resize:{animation:{duration:0}},active:{animation:{duration:150}}},
       interaction:{mode:'nearest',intersect:false},
-      plugins:{legend:{display:false},tooltip:{enabled:true,bodyFont:{family:'monospace',size:12},filter:(item,index)=>index===0,callbacks:ssTooltipCallbacks}},
+      plugins:{legend:{display:false},tooltip:{enabled:true,...TIP_STYLE,filter:(item,index)=>index===0,callbacks:justifyTip(ssTooltipCallbacks)}},
       scales:{
         x:{type:'category',title:{display:true,text:`${p0.name}'s age`,font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
         y:{min:0,max:chartYMax.ss,title:{display:true,text:"Cumulative household SS (today's $)",font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},grid:{color:'rgba(0,0,0,0.05)'}}
@@ -1791,7 +1829,7 @@ function buildIncomeChart(){
     updateChartInPlace(incomeChart, labels, datasets);
     incomeChart.options.scales.y.max=Y_MAX;
     incomeChart.options.plugins.incomeOverlay={irmaaMFJ,irmaaSgl,switchIdx:swIdx};
-    incomeChart.options.plugins.tooltip.callbacks=tooltipCallbacks;
+    incomeChart.options.plugins.tooltip.callbacks=justifyTip(tooltipCallbacks);
     incomeChart.update();
   } else {
     incomeChart=new Chart(document.getElementById('incomeChart'),{type:'line',data:{labels,datasets},options:{
@@ -1800,7 +1838,7 @@ function buildIncomeChart(){
       plugins:{
         legend:{display:false},
         incomeOverlay:{irmaaMFJ,irmaaSgl,switchIdx:swIdx},
-        tooltip:{bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},callbacks:tooltipCallbacks}
+        tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
         x:{type:'category',title:{display:true,text:'Age',font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
@@ -1868,7 +1906,7 @@ function buildTSSChart(){
   if(tssChart){
     updateChartInPlace(tssChart, labels, datasets);
     tssChart.options.scales.y.max=Y_MAX;
-    tssChart.options.plugins.tooltip.callbacks=tooltipCallbacks;
+    tssChart.options.plugins.tooltip.callbacks=justifyTip(tooltipCallbacks);
     tssChart.update();
   } else {
     tssChart=new Chart(document.getElementById('tssChart'),{type:'line',data:{labels,datasets},options:{
@@ -1882,8 +1920,8 @@ function buildTSSChart(){
           enabled:true,
           mode:'index',
           intersect:false,
-          bodyFont:{family:'monospace',size:12},
-          callbacks:tooltipCallbacks
+          ...TIP_STYLE,
+          callbacks:justifyTip(tooltipCallbacks)
         }
       },
       scales:{
@@ -1981,7 +2019,7 @@ function buildTaxChart(){
   if(taxChart){
     updateChartInPlace(taxChart, labels, datasets);
     taxChart.options.scales.y.max=Y_MAX;
-    taxChart.options.plugins.tooltip.callbacks=tooltipCallbacks;
+    taxChart.options.plugins.tooltip.callbacks=justifyTip(tooltipCallbacks);
     taxChart.update();
   } else {
     taxChart=new Chart(document.getElementById('taxChart'),{type:'line',data:{labels,datasets},options:{
@@ -1989,7 +2027,7 @@ function buildTaxChart(){
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
-        tooltip:{bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},callbacks:tooltipCallbacks}
+        tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
         x:{type:'category',title:{display:true,text:'Age',font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
@@ -2099,7 +2137,7 @@ function buildAssetChartFor(cfg){
   if(chart){
     updateChartInPlace(chart, labels, datasets);
     chart.options.scales.y.max=Y_MAX;
-    chart.options.plugins.tooltip.callbacks=tooltipCallbacks;
+    chart.options.plugins.tooltip.callbacks=justifyTip(tooltipCallbacks);
     chart.update();
   } else {
     assetCharts[cfg.key]=new Chart(document.getElementById(cfg.canvasId),{type:'line',data:{labels,datasets},options:{
@@ -2107,7 +2145,7 @@ function buildAssetChartFor(cfg){
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
-        tooltip:{bodyFont:{family:'monospace',size:12},footerFont:{family:'monospace',size:11},callbacks:tooltipCallbacks}
+        tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
         x:{type:'category',title:{display:true,text:'Age',font:{size:11},color:'#a09d98'},ticks:{color:'#a09d98',font:{size:10},maxTicksLimit:20},grid:{color:'rgba(0,0,0,0.05)'}},
