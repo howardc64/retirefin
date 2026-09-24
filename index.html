@@ -377,7 +377,7 @@ function realGrowth(change, inflation){
   switch(change.mode){
     case 'fixed': return 1/(1+inflation)-1; // nominal 0% growth, so it erodes with inflation
     case 'inflation': return 0;
-    case 'offset': return (change.value||0)/100;
+    case 'offset': return (change.value||0)/100/(1+inflation); // nominal = inflation + offset
     case 'custom': return (1+(change.value||0)/100)/(1+inflation)-1;
     default: return 0;
   }
@@ -418,15 +418,18 @@ function calcQualTax(ordTI, qualIncome, qdivBrackets){
   }
   return tax;
 }
-function computeTaxableSS(nonSS,totalSS,filing){
+// The statutory provisional-income thresholds ($25k/$34k single, $32k/$44k married) are NOT indexed
+// to inflation. Because every figure here is in today's $, they shrink by 1/(1+inflation)^k in year k;
+// `f` is that factor (1 in year 0). The bracket/deduction/IRMAA tables ARE indexed, so they stay fixed.
+function computeTaxableSS(nonSS,totalSS,filing,f=1){
   const pi=nonSS+0.5*totalSS;
   let tss=0;
   if(filing==='married'){
-    if(pi>44000)tss=Math.min(6000+0.85*(pi-44000),0.85*totalSS);
-    else if(pi>32000)tss=Math.min(0.5*(pi-32000),0.5*totalSS);
+    if(pi>44000*f)tss=Math.min(6000*f+0.85*(pi-44000*f),0.85*totalSS);
+    else if(pi>32000*f)tss=Math.min(0.5*(pi-32000*f),0.5*totalSS);
   } else {
-    if(pi>34000)tss=Math.min(4500+0.85*(pi-34000),0.85*totalSS);
-    else if(pi>25000)tss=Math.min(0.5*(pi-25000),0.5*totalSS);
+    if(pi>34000*f)tss=Math.min(4500*f+0.85*(pi-34000*f),0.85*totalSS);
+    else if(pi>25000*f)tss=Math.min(0.5*(pi-25000*f),0.5*totalSS);
   }
   return{taxableSS:Math.max(0,tss),provisional:pi};
 }
@@ -439,14 +442,14 @@ function computeTaxableSS(nonSS,totalSS,filing){
 // income, including the compounding effect — an extra dollar of income can
 // push more SS into taxability, which is itself taxed, so this can run
 // above the statutory bracket rate.
-function computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, actualTotalTax){
+function computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, actualTotalTax, f=1){
   const ordTInoSS = Math.max(0, nonSSOrdinary-std);
   const ordTaxNoSS = calcOrdTax(ordTInoSS, ordBrk);
   const qualTaxNoSS = calcQualTax(ordTInoSS, qdiv+ltcg, qBrk);
   const sst = Math.max(0, actualTotalTax - (ordTaxNoSS+qualTaxNoSS));
 
   const bump=100; // $100 numerical-derivative step, normalized back to a per-$1 rate
-  const {taxableSS:taxSS2}=computeTaxableSS(nonSSOrdinary+bump, totalSS, filing);
+  const {taxableSS:taxSS2}=computeTaxableSS(nonSSOrdinary+bump, totalSS, filing, f);
   const ordTI2=Math.max(0, nonSSOrdinary+bump+taxSS2-std);
   const tax2=calcOrdTax(ordTI2, ordBrk)+calcQualTax(ordTI2, qdiv+ltcg, qBrk);
   const marginalRate=Math.max(0,(tax2-actualTotalTax)/bump);
@@ -1277,8 +1280,9 @@ function computeProjection(){
     const iraTotal=iraByPerson.reduce((a,b)=>a+b,0);
 
     const filing = married && alive[0] && alive[1] ? 'married' : 'single';
+    const ssThresholdFactor = Math.pow(1+inflation,-k); // un-indexed SS-tax thresholds, in today's $
     const nonSSOrdinary = wageTotal+pension+rental+iraTotal+odivNQ+stcg;
-    const{taxableSS,provisional}=computeTaxableSS(nonSSOrdinary, totalSS, filing);
+    const{taxableSS,provisional}=computeTaxableSS(nonSSOrdinary, totalSS, filing, ssThresholdFactor);
     const std = filing==='married'?STD_MFJ:STD_SGL;
     const ordBrk = filing==='married'?MFJ_ORD:SGL_ORD;
     const qBrk = filing==='married'?MFJ_QDIV:SGL_QDIV;
@@ -1290,7 +1294,7 @@ function computeProjection(){
     const qualTax = calcQualTax(ordTI, qualIncome, qBrk);
     const agi = nonSSOrdinary+taxableSS+qdiv+ltcg;
     const totalTax = ordTax+qualTax;
-    const {sst,marginalRate} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, totalTax);
+    const {sst,marginalRate} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, totalTax, ssThresholdFactor);
 
     // Roll each brokerage balance forward one year: growth − tax drag (share of TT) − fee drag.
     people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
@@ -1332,6 +1336,8 @@ function displayPersonName(person, idx){
   return entered || `Person ${idx+1}`;
 }
 function p0Name(proj){ return displayPersonName(proj.people[proj.idxP0], proj.idxP0); }
+// X-axis title shared by every age-axis chart: the older person's (P0's) name, e.g. "Alice's age".
+function ageAxisLabel(proj){ return proj ? p0Name(proj)+"'s age" : 'Age'; }
 
 // ═══════════════════════════════════════════════════════════════
 // WHAT-IF ENGINE — run computeProjection() against a temporary clone
@@ -1547,6 +1553,9 @@ if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('incomeOverlay')) C
 // of tweening from its prior position. Mutating in place keeps that identity
 // stable so updates animate smoothly from where the line currently is.
 function updateChartInPlace(chart, labels, datasets){
+  // keep the x-axis title in sync when a name is edited
+  const xt=chart.options.scales&&chart.options.scales.x&&chart.options.scales.x.title;
+  if(xt&&lastProjection) xt.text=ageAxisLabel(lastProjection);
   const L = chart.data.labels;
   if(Array.isArray(L) && L.length===labels.length){
     for(let i=0;i<labels.length;i++) L[i]=labels[i];
@@ -1705,7 +1714,7 @@ function buildSSSection(){
       interaction:{mode:'nearest',intersect:true},
       plugins:{legend:{display:false},tooltip:{enabled:true,...TIP_STYLE,filter:(item,index)=>index===0,callbacks:justifyTip(ssTooltipCallbacks)}},
       scales:{
-        x:ageXAxis(`${p0.name}'s age`),
+        x:ageXAxis(ageAxisLabel(lastProjection)),
         y:{min:0,max:chartYMax.ss,title:axisTitle("Cumulative household SS (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
     }});
@@ -1852,7 +1861,7 @@ function buildIncomeChart(){
         tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
-        x:ageXAxis('Age'),
+        x:ageXAxis(ageAxisLabel(proj)),
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Annual income (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
       }
     }});
@@ -1934,7 +1943,7 @@ function buildTSSChart(){
         }
       },
       scales:{
-        x:ageXAxis('Age'),
+        x:ageXAxis(ageAxisLabel(proj)),
         y:{min:0,max:Y_MAX,position:'left',title:axisTitle("Social Security — total vs. taxable (today's $)"),
           ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
       }
@@ -2038,7 +2047,7 @@ function buildTaxChart(){
         tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
-        x:ageXAxis('Age'),
+        x:ageXAxis(ageAxisLabel(proj)),
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Total tax (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
       }
     }});
@@ -2157,7 +2166,7 @@ function buildAssetChartFor(cfg){
         tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
-        x:ageXAxis('Age'),
+        x:ageXAxis(ageAxisLabel(proj)),
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle(cfg.yTitle),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
     }});

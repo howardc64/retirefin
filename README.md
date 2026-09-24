@@ -19,7 +19,7 @@ It is explicitly a *planning* tool, not a tax-prep tool: tax logic is simplified
 | Principle | Implementation |
 | --- | --- |
 | **Local-only, private** | No backend. All state lives in browser memory; nothing is transmitted anywhere. |
-| **Today's-dollars framing** | Every input can be entered in today's $ or a future year's $ (auto-deflated by the inflation slider). Every chart/table is displayed in today's $. |
+| **Today's-dollars framing** | All inputs are entered in today's $ (entering an amount in a future year's $ is in the spec but not yet built — see Roadmap). Every chart/table is displayed in today's $. |
 | **Two independent, scrollable columns** | Left = inputs (per-person panes), right = output charts. Each scrolls independently so a user can tune an input while watching a chart lower on the page. |
 | **Live, non-destructive recompute** | Every input change re-runs the full projection (debounced) and redraws charts in place rather than rebuilding them, so lines animate smoothly instead of flashing. |
 | **Resumable sessions** | Full state autosaves to `localStorage` continuously, and can also be explicitly exported/imported as a JSON file to move between devices or archive a scenario. |
@@ -64,7 +64,12 @@ When one spouse passes, filing status automatically switches to Single for all d
 
 ### 4.1 Today's-$ vs. future-$ normalization
 
-Any amount entered as a "future year" value is converted to today's-$ terms using the inflation rate before being used in projections; all projection math is then done in real (inflation-adjusted) terms so nominal growth assumptions and inflation cancel out consistently.
+All inputs are entered in today's $, and the whole projection runs in real (inflation-adjusted) terms:
+
+- **Growth:** a fixed-$ item erodes at the inflation rate; "tracks inflation" is flat in real terms; "inflation ± x" grows at x/(1+inflation) real; a custom nominal % grows at (1+nominal)/(1+inflation) − 1. Fixed-$ portfolio fees are deflated by (1+inflation)^k.
+- **Social Security:** COLA = inflation, so benefits are flat in real terms.
+- **Indexed tax tables** (ordinary brackets, standard deduction, QDIV/LTCG tiers, IRMAA tiers) are assumed to track inflation, so they are constant in today's $.
+- **Un-indexed SS-tax thresholds** ($25k/$34k single, $32k/$44k married provisional income) are fixed in nominal terms by law, so they shrink by 1/(1+inflation)^k in today's $ (`ssThresholdFactor`). This is what makes taxable SS grow as a share of income over time.
 
 ### 4.2 Social Security
 
@@ -191,12 +196,17 @@ A `#detailPanel` placeholder exists for the optional "Detailed Tax Calculation A
 7. Refactor: shared Chart.js config replaces five copies of the same options; removed unused CSS; no behavior change.
 8. X-axis per updated spec §6.2: every age-axis chart now runs from P0's current age to P0's age when the younger person reaches 100 (`chartMaxAge()`); single-person households still end at 100. The scale depends only on current ages, so it stays locked as sliders move.
 
+9. Today's-$ review: the un-indexed SS-tax provisional-income thresholds are now deflated each year (they were held constant, i.e. implicitly indexed); "inflation ± x" growth now converts exactly to real terms (x/(1+inflation)) instead of using x directly.
+10. X-axis title on all five age-axis charts is now the older person's name, e.g. "Alice's age" (`ageAxisLabel()`), and updates live when a name is edited.
+
 ---
 
 ## 11. Roadmap
 
 Not yet built:
 
+- Entering an amount in a future year's dollars (spec §2) — all inputs are currently today's $.
+- Provisional income for SS taxation should include QDIV and LTCG (currently only ordinary income + ½ SS); flagged in review, not yet changed.
 - Detailed Tax Calculation Age PDF output (spec: optional stretch).
 - Taxable interest income (in the spec's stack order, but no input exists).
 - AUM fee.
