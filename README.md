@@ -47,10 +47,8 @@ It is explicitly a *planning* tool, not a tax-prep tool: tax logic is simplified
 | **Social Security** | already-started flag, claim age (defaults to FRA), benefit amount |
 | **Pension** | amount, age range, annual change, survivor-benefit (bene) checkbox |
 | **Rental income** | amount, age range, annual change, bene |
-| **Short-term capital gains (STCG)** | amount, annual change, bene |
-| **Long-term capital gains (LTCG)** | amount, annual change, bene |
 | **Pre-tax IRA** | balance, withdrawal age range (default start = RMD age), annual growth (default inflation +3%), bene |
-| **Brokerage portfolio(s)** | user can add multiple; each has balance, age range, annual growth (default inflation +4%), bene, an ODIV yield % (default 1.5%), a Qualified Dividend % of ODIV (default 70%), tax drag (% of annual total tax), fee drag (% of balance or fixed $k/yr), and an **IDGT** checkbox. Annual balance change = growth − tax drag − fee drag. |
+| **Brokerage portfolio(s)** | user can add multiple; each has balance, age range, annual growth (default inflation +4%), bene, an ODIV yield % (default 1.5%), a Qualified Dividend % of ODIV (default 70%), an **IDGT** checkbox, and an **Expenses** checkbox that, when checked, adds tax drag (% of annual total tax), fee drag (% of balance or fixed $k/yr), a living-cost withdrawal (flat in today's $, i.e. inflation-adjusted) and realized LTCG (either $/yr in today's $ — inflation-adjusted — or a % of that year's total tax, solved by fixed-point iteration since TT depends on the LTCG; taxed at the QDIV/LTCG rates and counted in AGI). Annual balance change = growth − tax drag − fee drag − living-cost withdrawal. |
 
 Every "annual change" field supports four modes: fixed $ (no growth), tracks inflation, inflation ± offset, or a custom nominal %.
 
@@ -87,7 +85,7 @@ All inputs are entered in today's $, and the whole projection runs in real (infl
 
 ### 4.4 Household income stacking
 
-For every projection year (P0's current age → P0's age when the younger person reaches 100), income is aggregated by source: pension, wage, IRA RMD (today's $), rental, QDIV, ODIV minus QDIV, STCG, LTCG, SS for P0, SS for the other person (taxable interest is not modeled — the spec has no input for it) — each stopping when that person passes, and each respecting the Spousal Benefit Rule where relevant.
+For every projection year (P0's current age → P0's age when the younger person reaches 100), income is aggregated by source: pension, wage, IRA RMD (today's $), rental, QDIV, ODIV minus QDIV, LTCG (realized from portfolios), SS for P0, SS for the other person (taxable interest is not modeled — the spec has no input for it) — each stopping when that person passes, and each respecting the Spousal Benefit Rule where relevant.
 
 ### 4.5 Taxable Social Security (TSS)
 
@@ -121,7 +119,7 @@ All charts use Chart.js with in-place updates, locked axis scales, 2/3-page widt
 2. **Annual household income stacking** — thick stacked-by-source lines, IRMAA tier dashed overlays, income-tax bracket dashed overlays (rate labeled above/below each line), rescale button, light/dark dashed-line color toggle.
 3. **Taxable Social Security (TSST)** — TSS line with effective tax % shown, filing-status-aware.
 4. **Total tax (TT)** — stacked segments (ordinary/QDIV/LTCG tiers) with dashed current-year bracket overlays.
-5. **Asset value** — all non-IDGT brokerage portfolio and pre-tax IRA balances over time; popup shows each holder's age, value, real annual growth %, tax drag and fee drag. A second **IDGT** chart appears only when at least one portfolio is flagged IDGT.
+5. **Asset value** — all non-IDGT brokerage portfolio and pre-tax IRA balances over time; popup always shows each holder's age, value and the portfolio's configured (gross) annual growth %, and — only when that portfolio's **Expenses** checkbox is on — adds tax drag, fee drag, living-cost withdrawal, realized LTCG, and a net-of-expenses annual growth % (the actual balance-over-balance change once those drags are subtracted). A second **IDGT** chart appears only when at least one portfolio is flagged IDGT; its popup unconditionally shows age, value, gross annual growth %, tax drag, fee drag and living-cost withdrawal (this popup hasn't been updated to the newer §10 wording — see Roadmap).
 
 ### 5.1 Popup (tooltip) layout
 
@@ -200,6 +198,9 @@ A `#detailPanel` placeholder exists for the optional "Detailed Tax Calculation A
 10. X-axis title on all five age-axis charts is now the older person's name, e.g. "Alice's age" (`ageAxisLabel()`), and updates live when a name is edited.
 11. Updated spec: SS section renamed "Start Age Analysis"; income chart note added (graph ~AGI ~ MAGI), IRMAA lines are plain tier values, the income popup shows AGI, and the X axis is defined once in spec §5 (P0's age, current age to the younger person reaching 100), which the income chart follows.
 12. Bug fix: pension and rental survivor benefits ("continues to spouse") stopped the year the owner passed, because the default end age "passing" was compared against the owner's post-death age. The age range is now judged at the owner's last living year, so the stream continues for the surviving spouse (unless it had already ended at an earlier explicit end age).
+13. Portfolio update per spec §4.3: standalone STCG and LTCG income cards removed; each brokerage portfolio gets an **Expenses** checkbox that reveals tax drag, fee drag, living-cost withdrawal and realized LTCG (both inflation-adjusted). Balance change = growth − tax drag − fee drag − living cost. Older saved files that had drag/fees are treated as Expenses-on.
+14. Spec §4.3 update: realized LTCG on a portfolio can be a flat amount (today's $) or a % of annual total tax.
+15. Spec §10 update: the non-IDGT Asset Value chart's popup now always shows value and gross annual growth %, and, only when a portfolio's Expenses checkbox is on, also shows tax drag, fee drag, living-cost withdrawal, realized LTCG, and a net-of-expenses annual growth % (actual balance change once those drags are subtracted). The IDGT chart's popup was intentionally left as-is (out of scope for this change).
 
 ---
 
@@ -207,11 +208,12 @@ A `#detailPanel` placeholder exists for the optional "Detailed Tax Calculation A
 
 Not yet built:
 
+- add 3.8% NIIT in tax calculations
 - Entering an amount in a future year's dollars (spec §2) — all inputs are currently today's $.
 - Provisional income for SS taxation should include QDIV and LTCG (currently only ordinary income + ½ SS); flagged in review, not yet changed.
 - Detailed Tax Calculation Age PDF output (spec: optional stretch).
 - Taxable interest income (in the spec's stack order, but no input exists).
 - AUM fee.
-- STCG/LTCG are placeholders and may be dropped or reworked.
 - Annuities, real estate, tax-exempt income.
 - State-tax overlay, NIIT (3.8%), senior additional standard deduction (OBBBA toggle).
+- IDGT Asset Value chart's popup per spec §10's current wording (ODIV reinvested instead of living-cost withdrawal); it still shows the older field set (growth %, tax drag, fee drag, living-cost withdrawal).

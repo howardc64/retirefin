@@ -58,11 +58,9 @@ One column per person (if married); each income type's card should top-align acr
 | **Wage**                            | Age range (default end age 65), annual change                                                                                                                                                                                                                          |
 | **Social Security**                 | Already-started flag, or FRA (age 67 default) if not yet started<br>SS start age**: slider for each person's claim age (default: FRA, or their already-started age).                                                                       |
 | **Pension**                         | Age range, annual change, survivor benefit                                                                                                                                                                                                                             |
-| **Rental income**                   | Age range, annual change, survivor benefit                                                                                                                                                                                                                             |
-| **Short-term capital gains (STCG)** | Annual change, survivor benefit                                                                                                                                                                                                                                        |
-| **Long-term capital gains (LTCG)**  | Annual change, survivor benefit                                                                                                                                                                                                                                        |
+| **Rental income**                   | Age range, annual change, survivor benefit                                                                                                                                                                                                                                                                                               |
 | **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit                                                                                                                                                                     |
-| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) Qualified Div (QDIV) % (default 70% ODIV), tax drag (% annual total tax (TT)), fee drag (% or fixed amt in $k)), IDGT checkbox. Annual asset value change += annual growth - tax drag - fee drag |
+| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) Qualified Div (QDIV) % (default 70% ODIV), IDGT checkbox, expense checkbox if checked needs : tax drag (% annual total tax (TT)), fee drag (% or fixed amt in $k)), living cost withdraw (inflation adjusted), LTCG (% annual total tax (TT) or amount (inflation adjusted)) Annual asset value change += annual growth - tax drag - fee drag - living cost withdraw |
 
 ### ⁠4.4 ⁠Global assumption
 
@@ -195,7 +193,7 @@ Draw a chart showing, in today's dollars, in a style consistent with the other c
 
 - All brokerage portfolio (excluding IDGTs) values.
 - All pre-tax IRA values.
-- Tooltip : all person’s age, portfolio value, annual growth %, ODIV reinvested, tax drag, fee drag. All in today’s $s 
+- Tooltip : all person’s age, portfolio value, if expenses checked ( expenses, annual growth % with expenses subtracted) annual growth %, All in today’s $s 
 
 If have IDGT portfolios, draw another chart showing, in today's dollars, in a style consistent with the other charts:
 

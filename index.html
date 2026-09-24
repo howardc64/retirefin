@@ -481,8 +481,15 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
 // tax drag (% of the household's annual total tax, TT, paid out of this portfolio),
 // fee drag (% of balance, or a fixed today's-$ amount per year), and an IDGT flag.
 // Annual asset value change = growth - tax drag - fee drag.
+// "Expenses" checkbox (spec 4.3): when on, a portfolio also has tax drag, fee drag, a living-cost
+// withdrawal and realized LTCG. Older saved files without the flag count as on if they had drag/fees.
+function pfExpense(b){
+  if(!b) return false;
+  if(b.expense!==undefined) return !!b.expense;
+  return (Number(b.taxDrag)||0)>0 || (Number(b.fee&&b.fee.value)||0)>0;
+}
 function defaultBrokeragePortfolio(balance, n){
-  return {id:uid(),enabled:true,name:'Brokerage Portfolio '+(n||1),balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false};
+  return {id:uid(),enabled:true,name:'Brokerage Portfolio '+(n||1),balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,ltcg:0,ltcgMode:'amt',taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false};
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
@@ -496,8 +503,6 @@ function defaultPerson(idx){
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     rental:  defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     brokerage:[],
-    stcg:    defaultIncomeItem(0,'inflation',0),
-    ltcg:    defaultIncomeItem(0,'inflation',0),
     ira:{enabled:false, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false}
   };
 }
@@ -844,10 +849,10 @@ function renderIncomeForms(){
   const married = state.filingStatus==='married';
   const n = married?2:1;
   // Every person-column renders the exact same sequence of item types (wage,
-  // SS, pension, rental, ODIV, QDIV, STCG, LTCG, IRA), so both columns
+  // SS, pension, rental, ODIV, QDIV, LTCG, IRA), so both columns
   // always have the same row count; this lets the two-column grid below use
   // CSS subgrid to keep every income type's top edge aligned across people.
-  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 3 /*brokerage,stcg,ltcg*/ + 1 /*ira*/;
+  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*brokerage*/ + 1 /*ira*/;
 
   // Reusable "simple" card for an income item with agerange + change (pension/rental style)
   function agedItemCard(pid, key, title, item, checkboxPath){
@@ -862,25 +867,6 @@ function renderIncomeForms(){
         ${renderAgeRangeRow(checkboxPath+'.ar', item.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
         ${renderChangeRow(checkboxPath+'.change', item.change)}
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${item.bene?'checked':''} onchange="onBeneToggle('${checkboxPath}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
-      </div>
-    </div>`;
-  }
-  // Reusable card for an investment item (annual change only, no agerange) — always per person
-  function invCard(pid, key, title, item, extraNote, i){
-    const isQdiv = key==='qdiv';
-    const onInput = isQdiv
-      ? `onQdivManual(${i}, this.value)`
-      : `onNumberInput('${pid}.${key}.amount', this.value); ${key==='odiv'?`onOdivChanged(${i});`:''}`;
-    return `<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${item.enabled?'checked':''} onclick="onEnableToggle('${pid}.${key}.enabled', this.checked, this.closest('.item'))"> ${title}</label>
-      </div>
-      <div class="item-body ${item.enabled?'open':''}">
-        <div class="field full"><label>Annual amount (today's $)${isQdiv?' <span style="font-weight:400;color:var(--text-faint)">(auto = 70% of ODIV)</span>':''}</label>
-          <input type="number" min="0" step="500" value="${item.amount}" data-qdiv-input="${isQdiv?i:''}" oninput="${onInput}"></div>
-        ${renderChangeRow(pid+'.'+key+'.change', item.change)}
-        ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${item.bene?'checked':''} onchange="onBeneToggle('${pid}.${key}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
-        ${extraNote?`<div class="item-note">${extraNote}</div>`:''}
       </div>
     </div>`;
   }
@@ -939,7 +925,7 @@ function renderIncomeForms(){
     // RENTAL INCOME
     html+=agedItemCard(pid,'rental','Rental income', p.rental, pid+'.rental');
 
-    // BROKERAGE PORTFOLIOS / STCG / LTCG
+    // BROKERAGE PORTFOLIOS (incl. expenses & realized LTCG)
     const portfolios=Array.isArray(p.brokerage)?p.brokerage:[];
     html+=`<div class="item">
       <div class="item-head" onclick="toggleItem(this)">
@@ -957,6 +943,8 @@ function renderIncomeForms(){
               ${renderChangeRow(pid+'.brokerage.'+bi+'.growth', b.growth, 8)}
               <div class="field"><label>Annual ODIV yield %</label><input type="number" min="0" max="100" step="0.1" value="${b.yield!=null?b.yield:1.5}" oninput="onNumberInput('${pid}.brokerage.${bi}.yield', this.value)"></div>
               <div class="field"><label>QDIV as % of ODIV</label><input type="number" min="0" max="100" step="1" value="${b.qdivPct!=null?b.qdivPct:70}" oninput="onNumberInput('${pid}.brokerage.${bi}.qdivPct', this.value)"></div>
+              <div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${pfExpense(b)?'checked':''} onchange="onExpenseToggle('${pid}',${bi},this.checked)"> Expenses &amp; realized gains (tax drag, fees, living cost, LTCG)</label></div>
+              ${pfExpense(b)?`
               <div class="field"><label>Tax drag · % of annual total tax</label><input type="number" min="0" max="100" step="1" value="${b.taxDrag!=null?b.taxDrag:0}" oninput="onNumberInput('${pid}.brokerage.${bi}.taxDrag', this.value)"></div>
               <div class="field full"><label>Fee drag</label>
                 <div class="arow">
@@ -967,16 +955,25 @@ function renderIncomeForms(){
                   <input type="number" min="0" step="${(b.fee&&b.fee.mode==='fixed')?0.5:0.05}" value="${b.fee&&b.fee.value!=null?((b.fee.mode==='fixed')?parseFloat((b.fee.value/1000).toFixed(3)):b.fee.value):0}" oninput="onFeeValue('${pid}',${bi},this.value)">
                 </div>
               </div>
+              <div class="field"><label>Living cost withdrawal ($/yr, today's $)</label><input type="number" min="0" step="1000" value="${b.living||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.living', this.value)"></div>
+              <div class="field full"><label>Realized LTCG</label>
+                <div class="arow">
+                  <select onchange="onLtcgMode('${pid}',${bi},this.value)">
+                    <option value="amt" ${b.ltcgMode!=='pct'?'selected':''}>$ / yr (today's $)</option>
+                    <option value="pct" ${b.ltcgMode==='pct'?'selected':''}>% of annual total tax</option>
+                  </select>
+                  <input type="number" min="0" step="${b.ltcgMode==='pct'?1:1000}" value="${b.ltcg||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.ltcg', this.value)">
+                </div>
+              </div>
+              `:''}
               ${renderAgeRangeRow(pid+'.brokerage.'+bi+'.ar', b.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
               ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${b.bene?'checked':''} onchange="onBeneToggle('${pid}.brokerage.${bi}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
               <div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${b.idgt?'checked':''} onchange="onBeneToggle('${pid}.brokerage.${bi}.idgt', this.checked)"> IDGT (charted separately from the taxable estate)</label></div>
-              <div class="item-note">ODIV = portfolio balance × yield. QDIV is the entered percentage of ODIV. Each year the balance changes by growth − tax drag − fee drag: tax drag is this % of the household's total tax (TT) paid from the portfolio; fee drag is a % of balance, or a fixed $k amount per year that stays flat in future dollars (so it shrinks in today's $ as inflation rises). All in today's-dollar terms.</div>
+              <div class="item-note">ODIV = portfolio balance × yield. QDIV is the entered percentage of ODIV. Each year the balance changes by growth − tax drag − fee drag − living cost withdrawal: tax drag is this % of the household's total tax (TT) paid from the portfolio; fee drag is a % of balance, or a fixed $k amount per year that stays flat in future dollars (so it shrinks in today's $ as inflation rises). All in today's-dollar terms.</div>
             </div>
           </div>`).join(''):`<div class="item-note">Add one or more brokerage portfolios to include portfolio dividend income.</div>`}
       </div>
     </div>`;
-    html+=invCard(pid,'stcg','Short-term capital gains (STCG)', p.stcg, '', i);
-    html+=invCard(pid,'ltcg','Long-term capital gains (LTCG)', p.ltcg, '', i);
 
     // PRETAX IRA
     const rmdAge=rmdAgeForBirthYear(p.birthYear);
@@ -1007,6 +1004,8 @@ function onSSClaimAge(i,val){
   document.getElementById('ssClaimVal_'+i).textContent=val;
   recomputeDebounced(); saveDebounced();
 }
+function onExpenseToggle(pid,bi,checked){ setPath(pid+'.brokerage.'+bi+'.expense',checked); renderIncomeForms(); recompute(); saveDebounced(); }
+function onLtcgMode(pid,bi,mode){ setPath(pid+'.brokerage.'+bi+'.ltcgMode',mode); renderIncomeForms(); recompute(); saveDebounced(); }
 function onBeneToggle(path,checked){ setPath(path,checked); recompute(); saveDebounced(); }
 // Fixed fees are entered in $k but stored in dollars (fee.value), so saved files and the
 // projection engine keep working in plain today's $. Percent fees are stored as entered.
@@ -1166,7 +1165,7 @@ function computeProjection(){
 
   // ── Brokerage portfolio balances (today's $) ──
   // Balances are simulated year by year: each year's tax drag depends on that year's total tax (TT),
-  // so a closed-form (1+g)^k no longer applies. Change per year = growth − tax drag − fee drag.
+  // so a closed-form (1+g)^k no longer applies. Change per year = growth − tax drag − fee drag − living cost withdrawal.
   const pfState=people.map(p=>(p.brokerage||[]).map(b=>({bal:Number(b&&b.balance)||0, dead:false})));
 
   const rows=[];
@@ -1209,7 +1208,7 @@ function computeProjection(){
 
     // Brokerage portfolio income — each portfolio produces ODIV and QDIV.
     function brokerageValues(portfolio, ownerIdx, k, bal){
-      if(!portfolio||!portfolio.enabled||!(bal>0)) return {odiv:0,qdiv:0};
+      if(!portfolio||!portfolio.enabled||!(bal>0)) return {odiv:0,qdiv:0,ltcg:0,ltcgFrac:0,cap:0};
 
       const ownerAge=curAges[ownerIdx]+k;
       const ownerAlive=ownerAge<passAges[ownerIdx];
@@ -1220,19 +1219,24 @@ function computeProjection(){
       // Before the owner passes, use the portfolio's configured age range.
       if(ownerAlive){
         const [sA,eA]=resolveAgeRange(portfolio.ar,people[ownerIdx]);
-        if(ownerAge<sA||ownerAge>=eA) return {odiv:0,qdiv:0};
+        if(ownerAge<sA||ownerAge>=eA) return {odiv:0,qdiv:0,ltcg:0,ltcgFrac:0,cap:0};
       }else{
         // If inheritance is enabled, the portfolio continues for the spouse
         // after the owner passes. Do not re-apply the deceased owner's
         // "end age = passing" check, which would otherwise stop the income.
-        if(!(portfolio.bene&&spouseAlive)) return {odiv:0,qdiv:0};
+        if(!(portfolio.bene&&spouseAlive)) return {odiv:0,qdiv:0,ltcg:0,ltcgFrac:0,cap:0};
       }
 
       // `bal` is this year's starting balance from the running simulation above;
       // spouse continuation therefore keeps the same projected portfolio.
       const odiv=Math.max(0,bal*(Number(portfolio.yield)||0)/100);
       const qdiv=odiv*clamp(Number(portfolio.qdivPct)||0,0,100)/100;
-      return {odiv,qdiv};
+      // Realized LTCG (spec 4.3): either a flat amount (today's $ = inflation-adjusted) or a % of the
+      // year's total tax; the % mode is solved in the tax step below because TT depends on it.
+      const on=pfExpense(portfolio), pctMode=portfolio.ltcgMode==='pct';
+      const ltcg=on&&!pctMode?Math.min(Math.max(0,Number(portfolio.ltcg)||0),bal):0;
+      const ltcgFrac=on&&pctMode?clamp(Number(portfolio.ltcg)||0,0,100)/100:0;
+      return {odiv,qdiv,ltcg,ltcgFrac,cap:bal};
     }
     // Start-of-year balance for every portfolio. A portfolio stops existing once its owner has
     // passed unless it is marked to continue to a surviving spouse.
@@ -1244,36 +1248,20 @@ function computeProjection(){
       return st.dead?0:st.bal;
     }));
     const brokerageByPerson=people.map((p,i)=>{
-      let odiv=0,qdiv=0;
-      (p.brokerage||[]).forEach((b,bi)=>{const v=brokerageValues(b,i,k,pfBalNow[i][bi]);odiv+=v.odiv;qdiv+=v.qdiv;});
-      return {odiv,qdiv};
+      let odiv=0,qdiv=0,ltcg=0; const pct=[];
+      (p.brokerage||[]).forEach((b,bi)=>{const v=brokerageValues(b,i,k,pfBalNow[i][bi]);odiv+=v.odiv;qdiv+=v.qdiv;ltcg+=v.ltcg;if(v.ltcgFrac>0)pct.push({frac:v.ltcgFrac,cap:v.cap});});
+      return {odiv,qdiv,ltcg,pct};
     });
 
     // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>({
-      id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:pfBalNow[i][bi], idgt:!!b.idgt, taxDrag:0, feeDrag:0
+      id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:pfBalNow[i][bi], idgt:!!b.idgt, expense:!!b.expense, taxDrag:0, feeDrag:0, livingCost:0, ltcg:0
     })));
-
-    // STCG/LTCG remain standalone investment-income inputs. They use the
-    // same age-range, spouse-continuation, and real-growth rules as before.
-    function invVal(item, i){
-      if(!item || !item.enabled) return 0;
-      if(!alive[i]){
-        if(!married || !item.bene) return 0;
-        const other=1-i;
-        if(!alive[other]) return 0;
-      }
-      const g=realGrowth(item.change, inflation);
-      return (Number(item.amount)||0)*Math.pow(1+g,k);
-    }
 
     const odivByPerson=brokerageByPerson.map(v=>v.odiv);
     const qdivByPerson=brokerageByPerson.map(v=>v.qdiv);
-    const stcgByPerson=people.map((p,i)=>invVal(p.stcg,i));
-    const ltcgByPerson=people.map((p,i)=>invVal(p.ltcg,i));
     const odivNQByPerson=people.map((p,i)=>Math.max(0,odivByPerson[i]-qdivByPerson[i]));
     const odiv=odivByPerson.reduce((a,b)=>a+b,0), qdiv=qdivByPerson.reduce((a,b)=>a+b,0);
-    const stcg=stcgByPerson.reduce((a,b)=>a+b,0), ltcg=ltcgByPerson.reduce((a,b)=>a+b,0);
     const odivNQ=odivNQByPerson.reduce((a,b)=>a+b,0);
 
     // IRA withdrawals
@@ -1284,7 +1272,7 @@ function computeProjection(){
 
     const filing = married && alive[0] && alive[1] ? 'married' : 'single';
     const ssThresholdFactor = Math.pow(1+inflation,-k); // un-indexed SS-tax thresholds, in today's $
-    const nonSSOrdinary = wageTotal+pension+rental+iraTotal+odivNQ+stcg;
+    const nonSSOrdinary = wageTotal+pension+rental+iraTotal+odivNQ;
     const{taxableSS,provisional}=computeTaxableSS(nonSSOrdinary, totalSS, filing, ssThresholdFactor);
     const std = filing==='married'?STD_MFJ:STD_SGL;
     const ordBrk = filing==='married'?MFJ_ORD:SGL_ORD;
@@ -1293,6 +1281,14 @@ function computeProjection(){
     const ordIncome = nonSSOrdinary+taxableSS;
     const ordTI = Math.max(0, ordIncome-std);
     const ordTax = calcOrdTax(ordTI, ordBrk);
+    // Realized LTCG comes from portfolios (spec 4.3). Amount-mode is fixed; %-of-TT mode solves
+    // LTCG = pct x TT with TT = ordTax + qualTax(QDIV + LTCG) by fixed-point iteration (it converges
+    // because a dollar of LTCG adds at most 20c of tax).
+    const sumArr=a=>a.reduce((x,y)=>x+y,0);
+    const ltcgOf=tt=>brokerageByPerson.map(v=>v.ltcg+v.pct.reduce((a,x)=>a+Math.min(x.cap,x.frac*tt),0));
+    let ttGuess=ordTax;
+    for(let it=0;it<8;it++) ttGuess=ordTax+calcQualTax(ordTI, qdiv+sumArr(ltcgOf(ttGuess)), qBrk);
+    const ltcgByPerson=ltcgOf(ttGuess), ltcg=sumArr(ltcgByPerson);
     const qualIncome = qdiv+ltcg;
     const qualTax = calcQualTax(ordTI, qualIncome, qBrk);
     const agi = nonSSOrdinary+taxableSS+qdiv+ltcg;
@@ -1312,11 +1308,21 @@ function computeProjection(){
       const feeFixed=feeMode==='fixed'?feeVal/Math.pow(1+inflation,k):0;
       // Drag $ applied this year (capped at what the portfolio can actually pay), kept for tooltips.
       const avail=Math.max(0,bal*(1+g));
-      const feeD=Math.min(bal*feePct+feeFixed, avail);
-      const taxD=Math.min(clamp(Number(b.taxDrag)||0,0,100)/100*totalTax, avail-feeD);
-      st.bal=Math.max(0, avail-feeD-taxD);
+      const exp=pfExpense(b);   // tax drag, fees and living cost only apply when Expenses is checked
+      const feeD=exp?Math.min(bal*feePct+feeFixed, avail):0;
+      const taxD=exp?Math.min(clamp(Number(b.taxDrag)||0,0,100)/100*totalTax, avail-feeD):0;
+      const liveD=exp?Math.min(Math.max(0,Number(b.living)||0), avail-feeD-taxD):0; // flat in today's $ = inflation-adjusted
+      st.bal=Math.max(0, avail-feeD-taxD-liveD);
+      // Realized LTCG for this portfolio this year (spec 4.3), kept for tooltips — mirrors the
+      // amount-mode/pct-of-TT logic in brokerageValues() above, now that totalTax is final.
+      const ltcgAmt=exp?(b.ltcgMode==='pct'
+        ? Math.min(bal, clamp(Number(b.ltcg)||0,0,100)/100*totalTax)
+        : Math.min(Math.max(0,Number(b.ltcg)||0), bal)):0;
       const entry=portfoliosByPerson[i][bi];
-      entry.taxDrag=taxD; entry.feeDrag=feeD; entry.growthPct=g*100;
+      entry.taxDrag=taxD; entry.feeDrag=feeD; entry.livingCost=liveD; entry.growthPct=g*100; entry.ltcg=ltcgAmt;
+      // Net growth after subtracting tax drag, fee drag and living-cost withdrawal from this
+      // year's return (spec §10: "annual growth % with expenses subtracted").
+      entry.netGrowthPct = bal>0 ? ((st.bal/bal)-1)*100 : 0;
     }));
 
     const iraBalByPerson = people.map((p,i)=> iraBal[i][k]!=null?iraBal[i][k]:0);
@@ -1324,7 +1330,7 @@ function computeProjection(){
       k, age0: idxP0!=null? ages[idxP0]:ages[0],
       ages, alive, filing,
       wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson,
-      odiv, qdiv, odivNQ, stcg, ltcg, odivByPerson, qdivByPerson, odivNQByPerson, stcgByPerson, ltcgByPerson,
+      odiv, qdiv, odivNQ, ltcg, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       iraByPerson, iraTotal, iraBalByPerson, portfoliosByPerson,
       nonSSOrdinary, taxableSS, provisional, ordIncome, std, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
@@ -1362,7 +1368,7 @@ function withTempState(mutate, run){
 // ═══════════════════════════════════════════════════════════════
 const VZ = {
   pen:'#D06A18', wg:'#7B5EA7', rmd:'#E85D9A', rent:'#A0522D',
-  qdiv:'#2E86AB', odivNQ:'#1A5276', stcg:'#8E44AD', ltcg:'#6C3483',
+  qdiv:'#2E86AB', odivNQ:'#1A5276', ltcg:'#6C3483',
   ssP0:'#0F6E56', ssOther:'#3DB08A'
 };
 const VZ_TAX = { ord:'#C8600A', qdiv0:'#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',
@@ -1744,12 +1750,12 @@ function buildSSSection(){
 // SECTION — ANNUAL HOUSEHOLD INCOME (stacked, with IRMAA/tax overlay)
 // ═══════════════════════════════════════════════════════════════
 let incomeChart=null;
-const INC_KEYS=['pension','wageTotal','iraTotal','rental','qdiv','odivNQ','stcg','ltcg','ssP0','ssOther'];
-const INC_LABELS={pension:'Pension',wageTotal:'Wage',iraTotal:'IRA RMD',rental:'Rental income',qdiv:'Qual. dividends (QDIV)',stcg:'Short-term gains (STCG)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
-const INC_COLORS={pension:VZ.pen,wageTotal:VZ.wg,iraTotal:VZ.rmd,rental:VZ.rent,qdiv:VZ.qdiv,stcg:VZ.stcg,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
+const INC_KEYS=['pension','wageTotal','iraTotal','rental','qdiv','odivNQ','ltcg','ssP0','ssOther'];
+const INC_LABELS={pension:'Pension',wageTotal:'Wage',iraTotal:'IRA RMD',rental:'Rental income',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
+const INC_COLORS={pension:VZ.pen,wageTotal:VZ.wg,iraTotal:VZ.rmd,rental:VZ.rent,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
 // Maps a stacked income key to the per-person breakdown array on each projection row,
 // so the tooltip can attribute the amount to whichever person(s) it belongs to.
-const INC_BYPERSON_FIELD={pension:'pensionByPerson',wageTotal:'wageByPerson',iraTotal:'iraByPerson',rental:'rentalByPerson',qdiv:'qdivByPerson',stcg:'stcgByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
+const INC_BYPERSON_FIELD={pension:'pensionByPerson',wageTotal:'wageByPerson',iraTotal:'iraByPerson',rental:'rentalByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
 // Single source of truth for the SS dataset labels, since they're read both
 // when building the stacked datasets (buildIncomeChart) and the legend HTML
 // (buildIncomeLegend). Must be refreshed before dataset construction on every
@@ -1785,7 +1791,7 @@ function buildIncomeChart(){
   rows.forEach(r=>{
     seriesByKey.pension.push(r.pension); seriesByKey.wageTotal.push(r.wageTotal);
     seriesByKey.iraTotal.push(r.iraTotal); seriesByKey.rental.push(r.rental);
-    seriesByKey.qdiv.push(r.qdiv); seriesByKey.stcg.push(r.stcg); seriesByKey.ltcg.push(r.ltcg);
+    seriesByKey.qdiv.push(r.qdiv); seriesByKey.ltcg.push(r.ltcg);
     seriesByKey.odivNQ.push(r.odivNQ);
     seriesByKey.ssP0.push(r.ssByPerson[idxP0]||0);
     if(proj.married) seriesByKey.ssOther.push(r.ssByPerson[otherIdx]||0);
@@ -1872,7 +1878,7 @@ function buildIncomeChart(){
   }
   buildIncomeLegend();
   document.getElementById('incomeChartNote').textContent =
-    `Stacking order: pension, wage, IRA RMD, rental, QDIV, ordinary dividends (ODIV−QDIV), STCG, LTCG, then Social Security. All figures in today's dollars. Amber/pink dashed = IRMAA tiers. Y-axis locked — use Rescale if the stack runs off the top.`;
+    `Stacking order: pension, wage, IRA RMD, rental, QDIV, ordinary dividends (ODIV−QDIV), LTCG, then Social Security. All figures in today's dollars. Amber/pink dashed = IRMAA tiers. Y-axis locked — use Rescale if the stack runs off the top.`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2146,9 +2152,23 @@ function buildAssetChartFor(cfg){
       if(s && s.type==='portfolio' && r){
         const e=(r.portfoliosByPerson[s.personIdx]||[])[s.bi];
         if(e){
-          lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
-          lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
-          lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
+          if(!cfg.idgt){
+            // Main (non-IDGT) chart, spec §10: value, expenses only if the portfolio's
+            // "Expenses" checkbox is on, then annual growth % — all in today's $.
+            if(e.expense){
+              lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
+              lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
+              lines.push(mrow('      Living cost withdrawal', fmt(e.livingCost||0), W));
+              lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
+              lines.push(mrow('      Annual growth (net of expenses)', (e.netGrowthPct||0).toFixed(1)+'%', W));
+            }
+            lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
+          } else {
+            lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
+            lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
+            lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
+            lines.push(mrow('      Living cost withdrawal', fmt(e.livingCost||0), W));
+          }
         }
       }
       return lines;
