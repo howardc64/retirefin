@@ -73,7 +73,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
    card), so a rigid 1fr/1fr grid squeezed every field to ~50px and clipped inputs/labels.
    auto-fit+minmax lets fields collapse to one column whenever the available width can't fit two. */
 .portfolio-card{background:var(--bg);}
-.portfolio-fields{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}
+.portfolio-fields{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
 /* The list of portfolio cards must stack vertically (one per row) — there isn't room to fit two
    full cards side by side once nested inside a person column, and forcing 2 columns squeezed
    each card's border so it no longer enclosed its own fields. */
@@ -85,6 +85,10 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
    this is what was clipping fields and cutting off note text at narrow column widths. */
 .field,.setup-grid>*,.item-body>*,.slider-row,.slider-row>*{min-width:0;}
 .field input[type=text],.field input[type=number],.field select{width:100%;min-width:0;}
+/* §4.0 — any number entry that can hold a $ value (including as just one of several unit
+   options, e.g. fee drag or LTCG which toggle between % and $) gets room for 12 digits. */
+.field input[type=number].money{min-width:150px;}
+.arow input[type=number].money{width:auto;min-width:150px;flex:1 1 150px;}
 
 table{width:100%;border-collapse:collapse;font-size:12px;}
 thead th{padding:8px 12px;text-align:left;font-size:10px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;}
@@ -872,7 +876,7 @@ function renderIncomeForms(){
       </div>
       <div class="item-body ${item.enabled?'open':''}">
         <div class="field"><label>Annual amount (today's $)</label>
-          <input type="number" min="0" step="500" value="${item.amount}" oninput="onNumberInput('${checkboxPath}.amount', this.value)"></div>
+          <input type="number" class="money" min="0" step="500" value="${item.amount}" oninput="onNumberInput('${checkboxPath}.amount', this.value)"></div>
         <div></div>
         ${renderAgeRangeRow(checkboxPath+'.ar', item.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
         ${renderChangeRow(checkboxPath+'.change', item.change)}
@@ -894,7 +898,7 @@ function renderIncomeForms(){
       </div>
       <div class="item-body ${p.wage.enabled?'open':''}">
         <div class="field"><label>Annual amount (today's $)</label>
-          <input type="number" min="0" step="500" value="${p.wage.amount}" oninput="onNumberInput('${pid}.wage.amount', this.value)"></div>
+          <input type="number" class="money" min="0" step="500" value="${p.wage.amount}" oninput="onNumberInput('${pid}.wage.amount', this.value)"></div>
         <div></div>
         ${renderAgeRangeRow(pid+'.wage.ar', p.wage.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age (default 65)'},{value:'passing',label:'Passing'}])}
         ${renderChangeRow(pid+'.wage.change', p.wage.change)}
@@ -911,11 +915,11 @@ function renderIncomeForms(){
         <div class="field full"><label><input type="checkbox" ${s.started?'checked':''} onchange="onSSStartedToggle(${i}, this.checked)"> Already started collecting</label></div>
         ${s.started?`
         <div class="field full"><label>Current monthly benefit (today's $)</label>
-          <input type="number" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
+          <input type="number" class="money" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
         <div class="item-note">Entered as the actual current benefit; it stays flat in today's dollars for life since COLA is assumed to equal inflation.</div>
         `:`
         <div class="field"><label>PIA at FRA ($/mo, today's $)</label>
-          <input type="number" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
+          <input type="number" class="money" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
         <div class="field"><label>Full retirement age</label>
           <input type="number" min="62" max="70" step="0.1" value="${s.fra.toFixed(2)}" oninput="onNumberInput('${pid}.ss.fra', this.value)"></div>
         <div class="full" style="margin-top:2px">
@@ -949,7 +953,7 @@ function renderIncomeForms(){
               <button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="event.stopPropagation(); removeBrokerage(${i},${bi})">Remove</button></div>
             <div class="item-body open portfolio-fields">
               <div class="field full"><label>Portfolio name</label><input type="text" maxlength="40" placeholder="Portfolio ${bi+1}" value="${escAttr(b.name||'')}" oninput="onPortfolioName('${pid}',${bi},this.value,this)"></div>
-              <div class="field full"><label>Current balance (today's $)</label><input type="number" min="0" step="5000" value="${b.balance||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.balance', this.value)"></div>
+              <div class="field full"><label>Current balance (today's $)</label><input type="number" class="money" min="0" step="5000" value="${b.balance||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.balance', this.value)"></div>
               ${renderChangeRow(pid+'.brokerage.'+bi+'.growth', b.growth, 8)}
               <div class="field"><label>Annual ODIV yield %</label><input type="number" min="0" max="100" step="0.1" value="${b.yield!=null?b.yield:1.5}" oninput="onNumberInput('${pid}.brokerage.${bi}.yield', this.value)"></div>
               <div class="field"><label>QDIV as % of ODIV</label><input type="number" min="0" max="100" step="1" value="${b.qdivPct!=null?b.qdivPct:70}" oninput="onNumberInput('${pid}.brokerage.${bi}.qdivPct', this.value)"></div>
@@ -960,26 +964,27 @@ function renderIncomeForms(){
                 <div class="arow">
                   <select onchange="onFeeMode('${pid}',${bi},this.value)">
                     <option value="pct" ${(!b.fee||b.fee.mode!=='fixed')?'selected':''}>% of balance</option>
-                    <option value="fixed" ${(b.fee&&b.fee.mode==='fixed')?'selected':''}>Fixed $k / yr</option>
+                    <option value="fixed" ${(b.fee&&b.fee.mode==='fixed')?'selected':''}>Fixed $ / yr</option>
                   </select>
-                  <input type="number" min="0" step="${(b.fee&&b.fee.mode==='fixed')?0.5:0.05}" value="${b.fee&&b.fee.value!=null?((b.fee.mode==='fixed')?parseFloat((b.fee.value/1000).toFixed(3)):b.fee.value):0}" oninput="onFeeValue('${pid}',${bi},this.value)">
+                  <input type="number" class="money" min="0" step="${(b.fee&&b.fee.mode==='fixed')?100:0.05}" value="${b.fee&&b.fee.value!=null?b.fee.value:0}" oninput="onFeeValue('${pid}',${bi},this.value)">
                 </div>
               </div>
-              <div class="field"><label>Living cost withdrawal ($/yr, today's $)</label><input type="number" min="0" step="1000" value="${b.living||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.living', this.value)"></div>
+              <div class="field"><label>Living cost withdrawal ($/yr, today's $)</label><input type="number" class="money" min="0" step="1000" value="${b.living||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.living', this.value)"></div>
               <div class="field full"><label>Realized LTCG</label>
                 <div class="arow">
                   <select onchange="onLtcgMode('${pid}',${bi},this.value)">
-                    <option value="amt" ${b.ltcgMode!=='pct'?'selected':''}>$ / yr (today's $)</option>
+                    <option value="amt" ${(!b.ltcgMode||b.ltcgMode==='amt')?'selected':''}>$ / yr (today's $)</option>
                     <option value="pct" ${b.ltcgMode==='pct'?'selected':''}>% of annual total tax</option>
+                    <option value="pctAge" ${b.ltcgMode==='pctAge'?'selected':''}>% of TT × younger person's age/100</option>
                   </select>
-                  <input type="number" min="0" step="${b.ltcgMode==='pct'?1:1000}" value="${b.ltcg||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.ltcg', this.value)">
+                  <input type="number" class="money" min="0" step="${b.ltcgMode==='pct'||b.ltcgMode==='pctAge'?1:1000}" value="${b.ltcg||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.ltcg', this.value)">
                 </div>
               </div>
               `:''}
               ${renderAgeRangeRow(pid+'.brokerage.'+bi+'.ar', b.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
               ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${b.bene?'checked':''} onchange="onBeneToggle('${pid}.brokerage.${bi}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
               <div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${b.idgt?'checked':''} onchange="onBeneToggle('${pid}.brokerage.${bi}.idgt', this.checked)"> IDGT (charted separately from the taxable estate)</label></div>
-              <div class="item-note">ODIV = portfolio balance × yield. QDIV is the entered percentage of ODIV. Each year the balance changes by growth − tax drag − fee drag − living cost withdrawal: tax drag is this % of the household's total tax (TT) paid from the portfolio; fee drag is a % of balance, or a fixed $k amount per year that stays flat in future dollars (so it shrinks in today's $ as inflation rises). All in today's-dollar terms.</div>
+              <div class="item-note">ODIV = portfolio balance × yield. QDIV is the entered percentage of ODIV. Each year the balance changes by growth − tax drag − fee drag − living cost withdrawal: tax drag is this % of the household's total tax (TT) paid from the portfolio; fee drag is a % of balance, or a fixed $ amount per year that stays flat in future dollars (so it shrinks in today's $ as inflation rises). Realized LTCG can also be entered as % of TT × the younger household member's age/100 (clamped to 1) — a rough stand-in for unrealized gains being realized more readily later in retirement. All in today's-dollar terms.</div>
             </div>
           </div>`).join(''):`<div class="item-note">Add one or more brokerage portfolios to include portfolio dividend income.</div>`}
       </div>
@@ -993,7 +998,7 @@ function renderIncomeForms(){
       </div>
       <div class="item-body ${p.ira.enabled?'open':''}">
         <div class="field full"><label>Current balance (today's $)</label>
-          <input type="number" min="0" step="5000" value="${p.ira.balance}" oninput="onNumberInput('${pid}.ira.balance', this.value)"></div>
+          <input type="number" class="money" min="0" step="5000" value="${p.ira.balance}" oninput="onNumberInput('${pid}.ira.balance', this.value)"></div>
         ${renderAgeRangeRow(pid+'.ira.ar', p.ira.ar, [{value:'rmd',label:'RMD age ('+rmdAge+')'},{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'passing',label:'Passing'},{value:'custom',label:'Custom age'}])}
         ${renderChangeRow(pid+'.ira.growth', p.ira.growth, 1)}
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.ira.bene?'checked':''} onchange="onBeneToggle('${pid}.ira.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
@@ -1017,8 +1022,8 @@ function onSSClaimAge(i,val){
 function onExpenseToggle(pid,bi,checked){ setPath(pid+'.brokerage.'+bi+'.expense',checked); renderIncomeForms(); recompute(); saveDebounced(); }
 function onLtcgMode(pid,bi,mode){ setPath(pid+'.brokerage.'+bi+'.ltcgMode',mode); renderIncomeForms(); recompute(); saveDebounced(); }
 function onBeneToggle(path,checked){ setPath(path,checked); recompute(); saveDebounced(); }
-// Fixed fees are entered in $k but stored in dollars (fee.value), so saved files and the
-// projection engine keep working in plain today's $. Percent fees are stored as entered.
+// Fixed fees are entered and stored in plain today's-$ dollars (fee.value). Percent fees are
+// stored as entered.
 function onPortfolioName(pid,bi,val,inputEl){
   setPath(pid+'.brokerage.'+bi+'.name', val);
   // Update the card title in place (a full re-render would drop input focus), then refresh the charts.
@@ -1028,13 +1033,8 @@ function onPortfolioName(pid,bi,val,inputEl){
 }
 function onFeeValue(pid,bi,val){
   const v=val===''?0:+val;
-  const fee=getPortfolioFee(pid,bi);
-  setPath(pid+'.brokerage.'+bi+'.fee.value', fee.mode==='fixed'?v*1000:v);
+  setPath(pid+'.brokerage.'+bi+'.fee.value', v);
   recomputeDebounced(); saveDebounced();
-}
-function getPortfolioFee(pid,bi){
-  const idx=+pid.split('.')[1];
-  return state.people[idx].brokerage[bi].fee;
 }
 function onFeeMode(pid,bi,mode){
   setPath(pid+'.brokerage.'+bi+'.fee.mode', mode);
@@ -1183,6 +1183,10 @@ function computeProjection(){
     const ages=people.map((p,i)=>curAges[i]+k);
     const alive=people.map((p,i)=>ages[i]<passAges[i]);
     if(!alive.some(Boolean)) break;
+    // Younger household member's current age this year (spec §4.3 LTCG "% of TT x age/100" mode):
+    // the younger of the two while both are alive, else whoever is left, else the sole person.
+    const livingAgesNow=ages.filter((a,ix)=>alive[ix]);
+    const youngerHouseholdAge=livingAgesNow.length?Math.min(...livingAgesNow):Math.min(...ages);
 
     // wages
     const wageByPerson=people.map((p,i)=>{
@@ -1241,11 +1245,14 @@ function computeProjection(){
       // spouse continuation therefore keeps the same projected portfolio.
       const odiv=Math.max(0,bal*(Number(portfolio.yield)||0)/100);
       const qdiv=odiv*clamp(Number(portfolio.qdivPct)||0,0,100)/100;
-      // Realized LTCG (spec 4.3): either a flat amount (today's $ = inflation-adjusted) or a % of the
-      // year's total tax; the % mode is solved in the tax step below because TT depends on it.
-      const on=pfExpense(portfolio), pctMode=portfolio.ltcgMode==='pct';
+      // Realized LTCG (spec 4.3): a flat amount, a % of the year's total tax, or that % scaled by
+      // the younger household member's age/100 (clamped to 1) — a rough stand-in for unrealized
+      // gains getting realized more readily later in retirement. The % modes are solved in the tax
+      // step below because TT depends on it.
+      const on=pfExpense(portfolio), pctMode=portfolio.ltcgMode==='pct'||portfolio.ltcgMode==='pctAge';
+      const ageFactor=portfolio.ltcgMode==='pctAge'?clamp(youngerHouseholdAge/100,0,1):1;
       const ltcg=on&&!pctMode?Math.min(Math.max(0,Number(portfolio.ltcg)||0),bal):0;
-      const ltcgFrac=on&&pctMode?clamp(Number(portfolio.ltcg)||0,0,100)/100:0;
+      const ltcgFrac=on&&pctMode?clamp(Number(portfolio.ltcg)||0,0,100)/100*ageFactor:0;
       return {odiv,qdiv,ltcg,ltcgFrac,cap:bal};
     }
     // Start-of-year balance for every portfolio. A portfolio stops existing once its owner has
@@ -1329,9 +1336,9 @@ function computeProjection(){
       const liveD=exp?Math.min(Math.max(0,Number(b.living)||0), avail-feeD-taxD):0; // flat in today's $ = inflation-adjusted
       st.bal=Math.max(0, avail-feeD-taxD-liveD);
       // Realized LTCG for this portfolio this year (spec 4.3), kept for tooltips — mirrors the
-      // amount-mode/pct-of-TT logic in brokerageValues() above, now that totalTax is final.
-      const ltcgAmt=exp?(b.ltcgMode==='pct'
-        ? Math.min(bal, clamp(Number(b.ltcg)||0,0,100)/100*totalTax)
+      // amount-mode/pct-of-TT(×age)-mode logic in brokerageValues() above, now that totalTax is final.
+      const ltcgAmt=exp?((b.ltcgMode==='pct'||b.ltcgMode==='pctAge')
+        ? Math.min(bal, clamp(Number(b.ltcg)||0,0,100)/100*totalTax*(b.ltcgMode==='pctAge'?clamp(youngerHouseholdAge/100,0,1):1))
         : Math.min(Math.max(0,Number(b.ltcg)||0), bal)):0;
       const entry=portfoliosByPerson[i][bi];
       entry.taxDrag=taxD; entry.feeDrag=feeD; entry.livingCost=liveD; entry.growthPct=g*100; entry.ltcg=ltcgAmt;

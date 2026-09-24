@@ -37,6 +37,10 @@ Build an HTML app that runs completely locally in the browser to:
 
 ## ⁠4 ⁠User Input
 
+### 4.0 Visual Layout Guidelines
+
+- Any number entry that can be $ value (including as an options), entry box width should accommodate at least 12 digits.
+
 ### ⁠4.1 ⁠Household setup
 
 - Filing status: Single/widowed, or Married — plus age.
@@ -60,7 +64,7 @@ One column per person (if married); each income type's card should top-align acr
 | **Pension**                         | Age range, annual change, survivor benefit                                                                                                                                                                                                                             |
 | **Rental income**                   | Age range, annual change, survivor benefit                                                                                                                                                                                                                                                                                               |
 | **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit                                                                                                                                                                     |
-| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) Qualified Div (QDIV) % (default 70% ODIV), IDGT checkbox, expense checkbox if checked needs : tax drag (% annual total tax (TT)), fee drag (% or fixed amt in $k)), living cost withdraw (inflation adjusted), LTCG (% annual total tax (TT) or amount (inflation adjusted)) Annual asset value change += annual growth - tax drag - fee drag - living cost withdraw |
+| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) Qualified Div (QDIV) % (default 70% ODIV), IDGT checkbox, expense checkbox if checked needs : tax drag (% annual total tax (TT)), fee drag (% or fixed amt)), living cost withdraw (inflation adjusted), LTCG (% annual total tax (TT) or % annual total tax (TT) x younger person’s age/100 (clamped to 1) (this is ~unrealized gains) or amount (inflation adjusted)) Annual asset value change += annual growth - tax drag - fee drag - living cost withdraw |
 
 ### ⁠4.4 ⁠Global assumption
 
