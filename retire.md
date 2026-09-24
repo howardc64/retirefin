@@ -175,6 +175,7 @@ One column per person (if married); each income type's card should top-align acr
 - Taxable income (TI) = AGI − standard deduction (based on filing status).
 - Use current-year tax brackets (TB).
 - Calculate total tax on TI, including the dividend/capital-gains tax computation.
+- Include NIIT if triggered in chart and tooltip.
 
 **Chart spec:**
 

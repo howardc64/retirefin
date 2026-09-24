@@ -151,6 +151,7 @@ Every chart stops drawing a series once the relevant person(s) have passed, and 
 | QDIV/LTCG brackets | 0% to $98,900 / $49,450; 15% to $613,700 / $545,500; 20% above (MFJ/Single) | IRS Rev. Proc. 2025-32 |
 | IRMAA tiers | $109k/$137k/$171k/$205k/$500k (Single), doubled for MFJ; $1,148–$6,936/yr per person combined Part B+D surcharge | CMS fact sheet, Nov. 14, 2025 |
 | RMD divisors | IRS Uniform Lifetime Table | Unchanged since 2022 revision |
+| NIIT rate / threshold | 3.8% on net investment income above $200k Single / $250k MFJ (not inflation-indexed) | IRC §1411 |
 
 These constants are isolated at the top of the script specifically so they can be re-sourced and swapped each year without touching calculation logic.
 
@@ -158,7 +159,7 @@ These constants are isolated at the top of the script specifically so they can b
 
 ## 8. Known Simplifications (documented in-app)
 
-- All ordinary-rate assumptions; no itemized deductions, credits, state/local tax, NIIT, or AMT.
+- All ordinary-rate assumptions; no itemized deductions, credits, state/local tax, or AMT. NIIT (3.8%) is modeled, but its investment-income base is limited to dividends (ODIV/QDIV) and realized LTCG — no taxable-interest input exists yet, and rental income is treated as ordinary per §9.1 rather than as NII.
 - Single, simplified nationwide IRMAA/tax-bracket set (no MFS schedule, no HOH).
 - Spousal Benefit Rule and survivor-benefit logic follow the general SSA rules but are not a substitute for an SSA benefit estimate.
 
@@ -201,6 +202,7 @@ A `#detailPanel` placeholder exists for the optional "Detailed Tax Calculation A
 13. Portfolio update per spec §4.3: standalone STCG and LTCG income cards removed; each brokerage portfolio gets an **Expenses** checkbox that reveals tax drag, fee drag, living-cost withdrawal and realized LTCG (both inflation-adjusted). Balance change = growth − tax drag − fee drag − living cost. Older saved files that had drag/fees are treated as Expenses-on.
 14. Spec §4.3 update: realized LTCG on a portfolio can be a flat amount (today's $) or a % of annual total tax.
 15. Spec §10 update: the non-IDGT Asset Value chart's popup now always shows value and gross annual growth %, and, only when a portfolio's Expenses checkbox is on, also shows tax drag, fee drag, living-cost withdrawal, realized LTCG, and a net-of-expenses annual growth % (actual balance change once those drags are subtracted). The IDGT chart's popup was intentionally left as-is (out of scope for this change).
+16. Spec §9.4 NIIT: added the 3.8% Net Investment Income Tax as a new top segment on the Total Tax chart, labeled "NIIT (3.8% on QDIV/LTCG + NIIT)," computed as 3.8% × min(net investment income, MAGI over the un-indexed $200k Single / $250k MFJ threshold), where NII = ODIV−QDIV + QDIV + realized LTCG. Threshold is deflated to today's-$ terms the same un-indexed way as the SS provisional-income thresholds. NIIT is added to Total Tax (TT) — and therefore to portfolio tax drag — but is deliberately excluded from the Social Security Tax (SST) hypothetical in §9.3, so a MAGI-driven NIIT change isn't misattributed to taxing SS. Tooltip shows NII and the NIIT dollar amount whenever it's triggered; legend, chart note and section text updated to mention NIIT. Removed NIIT from the "not yet built" and "known simplifications" lists.
 
 ---
 
@@ -208,12 +210,11 @@ A `#detailPanel` placeholder exists for the optional "Detailed Tax Calculation A
 
 Not yet built:
 
-- add 3.8% NIIT in tax calculations
 - Entering an amount in a future year's dollars (spec §2) — all inputs are currently today's $.
 - Provisional income for SS taxation should include QDIV and LTCG (currently only ordinary income + ½ SS); flagged in review, not yet changed.
 - Detailed Tax Calculation Age PDF output (spec: optional stretch).
 - Taxable interest income (in the spec's stack order, but no input exists).
 - AUM fee.
 - Annuities, real estate, tax-exempt income.
-- State-tax overlay, NIIT (3.8%), senior additional standard deduction (OBBBA toggle).
+- State-tax overlay, senior additional standard deduction (OBBBA toggle); extend NIIT's income base to taxable interest once that input exists.
 - IDGT Asset Value chart's popup per spec §10's current wording (ODIV reinvested instead of living-cost withdrawal); it still shows the older field set (growth %, tax drag, fee drag, living-cost withdrawal).
