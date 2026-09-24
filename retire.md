@@ -79,6 +79,7 @@ One column per person (if married); each income type's card should top-align acr
 - Smoothly animate chart changes when an input changes — don't redraw the whole chart from scratch.
 - Add a light/dark color toggle for dashed reference lines and their labels (default: lighter).
 - Once the user enters a person's name, it should update automatically everywhere in the UI.
+- X axis = P0's age, from current age to younger person reaching 100. Locked scale, even as sliders move.
 
 ---
 
@@ -91,12 +92,11 @@ One column per person (if married); each income type's card should top-align acr
   - Follow SSSBR rules for starting SS before/after FRA.
   - Follow SSSBR rules for how SS changes when the spouse passes.
 
-### ⁠6.2 ⁠Start Year Analysis
+### ⁠6.2 ⁠Start Age Analysis
 
 **Chart spec:**
 
 - Y axis = cumulative combined household SS. Locked scale.
-- X axis = P0's age, from current age to younger person reaching 100. Locked scale, even as sliders move.
 - All values converted to today's dollars.
 - Graph one line for every other candidate age P0 could start SS.
 - Graph dashed line for P0’s start age
@@ -133,12 +133,12 @@ One column per person (if married); each income type's card should top-align acr
 
 ### ⁠8.3 ⁠Chart spec
 
+- **Note:** IRRMA brackets determined by MAGI (AGI + tax exempts + foreign tax credits etc) Following graph is ~AGI which is ~MAGI
 - **Y axis**: annual household income. Default locked max = $150k (auto-raise if the data requires more).
   - Draw each income source as a thick line, in a distinct color, stacked in this order (bottom to top): pension, wage, taxable interest, IRA RMD (today's $), rent, QDIV, ODIV minus QDIV, SS for P0, SS for the other person. Respect the SSSBR when stacking SS.
   - Draw income until the last person passes.
   - Overlay dashed IRMAA-tier bracket lines matching that year's filing status, in single colors, drawn on top and labeled "IRMAA Tier #". Include at least the lowest IRMAA tier on the chart.
   - Popup window should include the current IRA value.
-- **X axis**: P0's age, from current age to 100. Locked scale, even as sliders move.
 - All values converted to today's dollars.
 - Chart height = chart width.
 - Stop including a person's income once they pass.

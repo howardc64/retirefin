@@ -105,7 +105,7 @@ For every projection year (P0's current age → P0's age when the younger person
 
 ### 4.7 IRMAA
 
-- MAGI-tier surcharge chart drawn as dashed overlay lines on the income chart, labeled by tier, following the year's filing status.
+- Tiers are set by MAGI (AGI + tax-exempt income + foreign tax credits, etc.). Only AGI is modeled and the income graph is treated as ~AGI ~ MAGI, so each tier is a plain horizontal dashed line (labeled "IRMAA T1 >$109k") following the year's filing status. A note above the chart says so; the popup shows AGI and the surcharge in effect.
 
 ### 4.8 Asset value
 
@@ -194,10 +194,12 @@ A `#detailPanel` placeholder exists for the optional "Detailed Tax Calculation A
 5. Spec alignment: passing-age defaults 85/90; ODIV yield default 1.5%; asset popup shows real growth %, tax drag and fee drag; SS break-even popup requires a cursor hit (radius 8).
 6. ODIV reinvest removed per updated spec: balance change = growth − tax drag − fee drag.
 7. Refactor: shared Chart.js config replaces five copies of the same options; removed unused CSS; no behavior change.
-8. X-axis per updated spec §6.2: every age-axis chart now runs from P0's current age to P0's age when the younger person reaches 100 (`chartMaxAge()`); single-person households still end at 100. The scale depends only on current ages, so it stays locked as sliders move.
+8. X-axis per updated spec §6.2: every age-axis chart, including Annual Household Income, now runs from P0's current age to P0's age when the younger person reaches 100 (`chartMaxAge()`); single-person households still end at 100. The scale depends only on current ages, so it stays locked as sliders move.
 
 9. Today's-$ review: the un-indexed SS-tax provisional-income thresholds are now deflated each year (they were held constant, i.e. implicitly indexed); "inflation ± x" growth now converts exactly to real terms (x/(1+inflation)) instead of using x directly.
 10. X-axis title on all five age-axis charts is now the older person's name, e.g. "Alice's age" (`ageAxisLabel()`), and updates live when a name is edited.
+11. Updated spec: SS section renamed "Start Age Analysis"; income chart note added (graph ~AGI ~ MAGI), IRMAA lines are plain tier values, the income popup shows AGI, and the X axis is defined once in spec §5 (P0's age, current age to the younger person reaching 100), which the income chart follows.
+12. Bug fix: pension and rental survivor benefits ("continues to spouse") stopped the year the owner passed, because the default end age "passing" was compared against the owner's post-death age. The age range is now judged at the owner's last living year, so the stream continues for the surviving spouse (unless it had already ended at an earlier explicit end age).
 
 ---
 

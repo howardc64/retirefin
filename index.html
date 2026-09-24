@@ -227,7 +227,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 <div class="chart-col">
 
 <!-- ═══ SOCIAL SECURITY ═══ -->
-<div class="sec-head">Social Security — Claiming Strategy</div>
+<div class="sec-head">Social Security — Start Age Analysis</div>
 <div class="sec-sub" id="ssSecSub"></div>
 <div id="ssMetrics" class="metric-grid"></div>
 
@@ -240,7 +240,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 
 <!-- ═══ ANNUAL HOUSEHOLD INCOME ═══ -->
 <div class="sec-head">Annual Household Income</div>
-<div class="sec-sub">Stacked by source, in today's dollars. Dashed lines mark IRMAA (Medicare surcharge) tiers for the filing status in effect that year.</div>
+<div class="sec-sub"><strong>Note:</strong> IRMAA brackets are determined by MAGI (AGI + tax-exempt income + foreign tax credits, etc.). The following graph is ~AGI, which is ~MAGI.<br>Stacked by source, in today's dollars. Dashed lines mark IRMAA (Medicare surcharge) tiers for the filing status in effect that year.</div>
 <div class="cc">
   <div class="cc-head"><div class="ct">Annual household income by source · dashed = IRMAA</div>
     <div style="display:flex;gap:6px">
@@ -1156,7 +1156,10 @@ function computeProjection(){
       if(!(curAges[otherIdx]+k<passAges[otherIdx])) return 0;
     }
     const [sA,eA]=resolveAgeRange(item.ar, owner);
-    if(age<sA||age>=eA) return 0;
+    // Judge the owner's age range at the owner's LAST living year once they've passed, so a
+    // survivor benefit isn't cut off by an end age of "passing" (= the owner's own passing age).
+    const rangeAge = ownerAlive ? age : passAges[ownerIdx]-1;
+    if(rangeAge<sA||rangeAge>=eA) return 0;
     const g=realGrowth(item.change, inflation);
     return item.amount*Math.pow(1+g,k);
   }
@@ -1514,27 +1517,27 @@ const incomeOverlayPlugin={
     if(!opts) return;
     const{ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
     const n=chart.data.labels.length, swIdx=opts.switchIdx??n;
+    // IRMAA tiers are set by MAGI (AGI + tax-exempt income + ...). Only AGI is modeled and this
+    // graph is treated as ~AGI ~ MAGI, so each tier is drawn as a plain horizontal line.
     function xP(idx){ return x.getPixelForValue(Math.max(0,Math.min(n-1,idx))); }
-    const splitX = swIdx>0&&swIdx<=n ? (xP(swIdx-1)+xP(Math.min(swIdx,n-1)))/2 : (swIdx<=0?left-1:right);
     ctx.save();
+    ctx.beginPath(); ctx.rect(left,top,right-left,bottom-top); ctx.clip();
     const ov=OV();
     const leftLabels=[], rightLabels=[];
-    function drawLines(lines,xFrom,xTo,bucket){
-      if(!lines||xFrom>=xTo) return;
+    function drawLines(lines,i0,i1,bucket){
+      if(!lines||i0>i1) return;
+      const xa=xP(i0), xb=xP(i1);
       lines.forEach(ln=>{
         const yPx=y.getPixelForValue(ln.magi);
         if(yPx<top||yPx>bottom) return;
-        const sL=Math.max(left,xFrom), sR=Math.min(right,xTo);
-        if(sL>=sR) return;
         const lineCol = ov.irmaa[Math.min(ln.tier,ov.irmaa.length-1)];
         ctx.beginPath(); ctx.setLineDash([8,5]); ctx.lineWidth=1.4; ctx.strokeStyle=lineCol;
-        ctx.moveTo(sL,yPx); ctx.lineTo(sR,yPx); ctx.stroke(); ctx.setLineDash([]);
-        const font='10px DM Sans,sans-serif';
-        bucket.push({y:yPx-5,x:sR-3,text:`IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,font});
+        ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke(); ctx.setLineDash([]);
+        bucket.push({y:yPx-5,x:Math.min(right,xb)-3,text:`IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,font:'10px DM Sans,sans-serif'});
       });
     }
-    drawLines((opts.irmaaMFJ||[]).filter(l=>l.magi<(y.max||Infinity)),left,splitX,leftLabels);
-    drawLines((opts.irmaaSgl||[]).filter(l=>l.magi<(y.max||Infinity)),splitX,right,rightLabels);
+    drawLines(opts.irmaaMFJ,0,Math.min(swIdx,n)-1,leftLabels);
+    drawLines(opts.irmaaSgl,Math.max(swIdx,0),n-1,rightLabels);
     declutterLabels(ctx,leftLabels,top,bottom);
     declutterLabels(ctx,rightLabels,top,bottom);
     ctx.restore();
@@ -1774,7 +1777,7 @@ function buildIncomeChart(){
   updateIncomeLabels(proj); // refresh before any dataset reads INC_LABELS[k] below
   const idxP0=proj.idxP0, otherIdx=proj.married?1-idxP0:null;
   const p0Age0=rows[0].age0;
-  const labels=ageLabelRange(p0Age0,chartMaxAge(proj));
+  const labels=ageLabelRange(p0Age0,chartMaxAge(proj)); // spec §5: shared X axis
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
   const seriesByKey={};
   keys.forEach(k=>seriesByKey[k]=[]);
@@ -1840,6 +1843,7 @@ function buildIncomeChart(){
       const lines=['',mrow('Total income',fmt(total)+'/yr'),mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single')];
       r.iraBalByPerson.forEach((bal,i)=>{ if(bal>1)lines.push(mrow(displayPersonName(proj.people[i],i)+" IRA bal.", fmt(bal))); });
       const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>r.agi>=t.magi);
+      lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
       if(irmaaT) lines.push(`⚠ IRMAA: +${fmt(irmaaT.surch)}/yr`);
       return lines;
     }
