@@ -26,7 +26,7 @@
         "pia": 3200,
         "fra": 67,
         "started": false,
-        "claimAge": 67
+        "claimAge": 70
       },
       "pension": {
         "enabled": false,
@@ -62,41 +62,33 @@
         {
           "id": "hp21oac",
           "enabled": true,
-          "name": "Brokerage Portfolio 1",
+          "name": "John Jane Portfolio",
           "balance": 400000,
           "growth": {
-            "mode": "offset",
-            "value": 3
+            "mode": "custom",
+            "value": 8
           },
           "yield": 1.1,
           "qdivPct": 70,
+          "expense": true,
+          "living": 20000,
+          "ltcg": 0,
+          "ltcgMode": "amt",
+          "taxDrag": 0,
+          "fee": {
+            "mode": "pct",
+            "value": 0
+          },
           "ar": {
             "startMode": "now",
             "startVal": 0,
             "endMode": "passing",
             "endVal": 0
           },
-          "bene": true
+          "bene": true,
+          "idgt": false
         }
       ],
-      "stcg": {
-        "enabled": false,
-        "amount": 0,
-        "change": {
-          "mode": "inflation",
-          "value": 0
-        },
-        "bene": false
-      },
-      "ltcg": {
-        "enabled": false,
-        "amount": 0,
-        "change": {
-          "mode": "inflation",
-          "value": 0
-        },
-        "bene": false
-      },
       "ira": {
         "enabled": true,
         "balance": 400000,
@@ -120,7 +112,7 @@
       "birthMonth": 1,
       "wage": {
         "enabled": true,
-        "amount": 50000,
+        "amount": 100000,
         "ar": {
           "startMode": "now",
           "startVal": 0,
@@ -137,7 +129,7 @@
         "pia": 2500,
         "fra": 67,
         "started": false,
-        "claimAge": 67
+        "claimAge": 70
       },
       "pension": {
         "enabled": false,
@@ -170,24 +162,6 @@
         "bene": false
       },
       "brokerage": [],
-      "stcg": {
-        "enabled": false,
-        "amount": 0,
-        "change": {
-          "mode": "inflation",
-          "value": 0
-        },
-        "bene": false
-      },
-      "ltcg": {
-        "enabled": false,
-        "amount": 0,
-        "change": {
-          "mode": "inflation",
-          "value": 0
-        },
-        "bene": false
-      },
       "ira": {
         "enabled": false,
         "balance": 400000,

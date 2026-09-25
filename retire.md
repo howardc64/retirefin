@@ -2,9 +2,11 @@
 
 *This is a reorganized, typo-corrected version of the original requirements notes (`retire.txt`). Content is unchanged in intent; it's grouped by topic, terms are made consistent (e.g. "IRRMA" → "IRMAA", "sSS" → "SS"), and ambiguous phrasing is clarified in \[bracketed notes\] where the original was terse.*
 
+*Cleanup pass: removed stray invisible characters and broken bold markers from headings, renumbered §4's subsections sequentially (4.1–4.5, closing the gap left by an earlier 4.0 insertion), fixed a leftover "IRRMA" typo in §8.3, and normalized heading capitalization and spacing. No content changed.*
+
 ---
 
-## ⁠1 ⁠Overview
+## 1. Overview
 
 Build an HTML app that runs completely locally in the browser to:
 
@@ -20,60 +22,62 @@ Build an HTML app that runs completely locally in the browser to:
 
 ---
 
-## ⁠2 ⁠Today's Dollars vs. Future Dollars
+## 2. Today's Dollars vs. Future Dollars
 
 - If a value is entered as a future year's dollars, extrapolate it to all other years using the inflation rate.
 - **All chart output is shown in today's dollars** — this is the standard the user reasons in, regardless of how a given input was entered.
 
 ---
 
-## ⁠3 ⁠General Layout
+## 3. General Layout
 
 - An **input column** on the left, with one pane per person.
 - An **output column** on the right, containing the visualization/chart sections.
 - Both columns scroll **independently**, via their own vertical scrollbar — so the user can adjust an input while keeping a specific chart in view further down the page.
+- show_details checkbox (display label “Show Details in Popup”)
 
 ---
 
-## ⁠4 ⁠User Input
+## 4. User Input
 
-### 4.0 Visual Layout Guidelines
+### 4.1. Visual Layout Guidelines
 
 - Any number entry that can be $ value (including as an options), entry box width should accommodate at least 12 digits.
+- Spell out following acronyms in displayed html and tooltip unless already done nearby. SS, TT, TSS, SST. Ignore standard acronyms like IRA AGI etc.
 
-### ⁠4.1 ⁠Household setup
+### 4.2. Household Setup
 
 - Filing status: Single/widowed, or Married — plus age.
 - Person 1 name, Person 2 name (if married).
 - Naming convention: `$P1` = person 1, `$P2` = person 2, `$P0` = the older of the two people. \[Ignore any "if 2 people" feature below when the household is single/widowed.\]
 
-### ⁠4.2 ⁠Shared field types (used across multiple income sources)
+### 4.3. Shared Field Types (Used Across Multiple Income Sources)
 
 - **Age range**: choose a start age (or "now" — default) and an end age (or "passing" — default).
 - **Annual change**: 0%, inflation rate, inflation ± a custom %, or a fully custom entered % (default: inflation rate).
 - **Survivor benefit ("bene")**: for married households, a checkbox marking whether this income source continues to the spouse after the owner passes.
 
-### ⁠4.3 ⁠Income sources table
+### 4.4. Income Sources Table
 
 One column per person (if married); each income type's card should top-align across the two person-columns for visual clarity. Each income type needs its own set of inputs:
 
 | Income source                       | Fields required                                                                                                                                                                                                                                                        |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Wage**                            | Age range (default end age 65), annual change                                                                                                                                                                                                                          |
-| **Social Security**                 | Already-started flag, or FRA (age 67 default) if not yet started<br>SS start age**: slider for each person's claim age (default: FRA, or their already-started age).                                                                       |
+| **Social Security**                 | Already-started flag, or FRA (age 67 default) if not yet started<br>**SS start age**: slider for each person's claim age (default: FRA, or their already-started age).                                                                       |
 | **Pension**                         | Age range, annual change, survivor benefit                                                                                                                                                                                                                             |
-| **Rental income**                   | Age range, annual change, survivor benefit                                                                                                                                                                                                                                                                                               |
+| **Rental income**                   | Age range, annual change, survivor benefit                                                                                                                                                                                                                                                                                |
 | **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit                                                                                                                                                                     |
-| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%) Qualified Div (QDIV) % (default 70% ODIV), IDGT checkbox, expense checkbox if checked needs : tax drag (% annual total tax (TT)), fee drag (% or fixed amt)), living cost withdraw (inflation adjusted), LTCG (% annual total tax (TT) or % annual total tax (TT) x younger person’s age/100 (clamped to 1) (this is ~unrealized gains) or amount (inflation adjusted)) Annual asset value change += annual growth - tax drag - fee drag - living cost withdraw |
+| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%), Qualified Div (QDIV) % (default 70% ODIV), IDGT checkbox, expense checkbox if checked needs: tax drag (% annual total tax (TT)), fee drag (% or fixed amt), living cost withdraw (inflation adjusted), LTCG (% annual total tax (TT) or % annual total tax (TT) x younger person's age/100 (clamped to 1) (this is ~unrealized gains) or amount (inflation adjusted)) Annual asset value change += annual growth - tax drag - fee drag - living cost withdraw |
 
-### ⁠4.4 ⁠Global assumption
+### 4.5. Global Assumption
 
 - **Inflation rate slider**, initial value 3%. Assume the Social Security COLA rate equals the inflation rate.
-- ****Passing age**: P1's passing age (default 85) and P2's passing age (default 90) — both sliders use the same scale (30-100 years) and width.
+- **Passing age**: P1's passing age (default 85) and P2's passing age (default 90) — both sliders use the same scale (30-100 years) and width.
 
 ---
 
-## ⁠5 ⁠Chart UI Conventions
+## 5. Chart UI Conventions
 
 - Popup windows: label left-justified, data right-justified.
 - Chart width = 2/3 of page width, centered horizontally.
@@ -85,23 +89,23 @@ One column per person (if married); each income type's card should top-align acr
 
 ---
 
-## ⁠6 ⁠Section: Social Security (SS)
+## 6. Section: Social Security (SS)
 
-### ⁠6.1 ⁠Spousal Benefit Rule (SSSBR)
+### 6.1. Spousal Benefit Rule (SSSBR)
 
 - If either person qualifies for the Spousal Benefit Rule:
   - Adjust their SS accordingly.
   - Follow SSSBR rules for starting SS before/after FRA.
   - Follow SSSBR rules for how SS changes when the spouse passes.
 
-### ⁠6.2 ⁠Start Age Analysis
+### 6.2. Start Age Analysis
 
 **Chart spec:**
 
 - Y axis = cumulative combined household SS. Locked scale.
 - All values converted to today's dollars.
 - Graph one line for every other candidate age P0 could start SS.
-- Graph dashed line for P0’s start age
+- Graph dashed line for P0's start age
 - Chart width = 2/3 of page width, centered horizontally; height = width.
 - Stop each line once both people have passed.
 
@@ -113,55 +117,55 @@ One column per person (if married); each income type's card should top-align acr
 
 ---
 
-## ⁠7 ⁠IRA Notes
+## 7. IRA Notes
 
 - Track dividend yield for IRA holdings as part of the income model.
 
 ---
 
-## ⁠8 ⁠Section: Annual Household Income
+## 8. Section: Annual Household Income
 
-### ⁠8.1 ⁠RMDs
+### 8.1. RMDs
 
 - Calculate the IRA Required Minimum Distribution (RMD) for every IRA owner.
 - Source the Uniform Lifetime Table from the IRS/Fidelity reference: `https://www.fidelity.com/bin-public/060_www_fidelity_com/documents/UniformLifetimeTable.pdf`
 - Annual RMD = prior-year IRA balance ÷ table divisor for the owner's age that year.
 - After an IRA owner passes, the IRA is inherited by the surviving spouse.
 
-### ⁠8.2 ⁠Reference data
+### 8.2. Reference Data
 
 - Use current-year federal tax income brackets.
 - Use the latest published IRMAA brackets.
 
-### ⁠8.3 ⁠Chart spec
+### 8.3. Chart Spec
 
-- **Note:** IRRMA brackets determined by MAGI (AGI + tax exempts + foreign tax credits etc) Following graph is ~AGI which is ~MAGI
+- **Note:** IRMAA brackets determined by MAGI (AGI + tax exempts + foreign tax credits etc) Following graph is ~AGI which is ~MAGI
 - **Y axis**: annual household income. Default locked max = $150k (auto-raise if the data requires more).
   - Draw each income source as a thick line, in a distinct color, stacked in this order (bottom to top): pension, wage, taxable interest, IRA RMD (today's $), rent, QDIV, ODIV minus QDIV, SS for P0, SS for the other person. Respect the SSSBR when stacking SS.
   - Draw income until the last person passes.
   - Overlay dashed IRMAA-tier bracket lines matching that year's filing status, in single colors, drawn on top and labeled "IRMAA Tier #". Include at least the lowest IRMAA tier on the chart.
-  - Popup window should include the current IRA value.
+  - Tooltip should include total income. If show_show_details show filing status, AGI
 - All values converted to today's dollars.
 - Chart height = chart width.
 - Stop including a person's income once they pass.
 
 ---
 
-## ⁠9 ⁠Taxation
+## 9. Taxation
 
 > **Note:** All tax calculations in this app are simplified: they assume all income is ordinary income, with no lower-rate qualified income unless explicitly modeled (e.g. QDIV/LTCG below).
 
-### ⁠9.1 ⁠Filing status (FS)
+### 9.1. Filing Status (FS)
 
 - When one person passes, filing status switches to Single for that year forward.
 
-### ⁠9.2 Social Security Tax (SST)
+### 9.2. Social Security Tax (SST)
 
 - Calculate provisional income (PI).
 - Calculate actual social security tax (SST) from PI. Re-check filing status in case one person has passed.
 - TSS = Total Social Security Income
 
-### ⁠9.3 Social Security Tax — chart spec
+### 9.3. Social Security Tax — Chart Spec
 
 - Social Security Tax % (SST%) = SST / total social security %
 - Y axis = TSS. Locked scale.
@@ -170,10 +174,10 @@ One column per person (if married); each income type's card should top-align acr
 - Draw until the last person passes; note that filing status changes when the first person passes.
 - **Note:** the model should call out the "torpedo effect" — every additional dollar of income that increases the taxable portion of SS is itself taxed, and pushes more SS into taxability, compounding the effect.
 
-#### 9.3.1 chart Tooltip
-- Show TSS, PI, SST, SST%, top marginal rate
+#### 9.3.1. Chart Tooltip
+- Show TSS, SST, SST%, top marginal rate. If show_details show PI
 
-### ⁠9.4 ⁠Total Tax (TT)
+### 9.4. Total Tax (TT)
 
 - AGI = all non-SS income + TSS.
 - Taxable income (TI) = AGI − standard deduction (based on filing status).
@@ -184,43 +188,46 @@ One column per person (if married); each income type's card should top-align acr
 **Chart spec:**
 
 - Y axis = TT. Locked scale.
+- Show % scale on right of chart
 - Draw a thick line, with distinct colors per segment. Line height = TT amount, with segments stacked bottom-to-top as: ordinary income segment, then each qualified-dividend bracket segment, then each LTCG bracket segment.
 - Draw until the last person passes; filing status changes when the first person passes.
-- Popup window should include: TT, TI, standard deduction, all income components
+- overlay thick bright red dashed line for effective tax rate.
+- overlay thick bright green dashed line for marginal tax rate.
+- Popup window should include: Effective Tax Rate, Marginal Tax Rate. If show_details, show TT, TI, standard deduction, all income components
 
 > **Note:** because Total Tax is simplified, this tax calculation also excludes most deductions and credits.
 
 ---
 
-## ⁠10 ⁠Asset Value — chart spec
+## 10. Asset Value — Chart Spec
 
 Draw a chart showing, in today's dollars, in a style consistent with the other charts:
 
 - All brokerage portfolio (excluding IDGTs) values.
 - All pre-tax IRA values.
-- Tooltip : all person’s age, portfolio value, if expenses checked ( expenses, annual growth % with expenses subtracted) annual growth %, All in today’s $s 
+- Tooltip: all person's age, portfolio value, if expenses checked ( annual growth % with expenses subtracted, if show_details show expenses) annual growth %, All in today's $s
 
 If have IDGT portfolios, draw another chart showing, in today's dollars, in a style consistent with the other charts:
 
 - All IDGT brokerage portfolio values.
-- Tooltip : all person’s age, portfolio value, annual growth %, ODIV reinvested, tax drag, fee drag. All in today’s $s 
+- Tooltip: all person's age, portfolio value, annual growth %. If show_details show tax drag, fee drag. All in today's $s
 
 ---
 
-## ⁠11 ⁠Save / Restore
+## 11. Save / Restore
 
 - Provide an option to save/restore all input parameters and slider values to/from a file, so the user can resume progress later.
 - On restore, reset the app state before loading the saved data.
 
 ---
 
-## ⁠12 ⁠Output
+## 12. Output
 
 - Generate a standalone `index.html` file, suitable for hosting via GitHub Pages (or any static web host).
 
 ---
 
-## ⁠13 ⁠Diagnostics
+## 13. Diagnostics
 
 - Run an HTML validity check before delivering.
 - If a "Detailed Tax Calculation Age" input is defined, produce a PDF output for that age's detail. \[Original note was terse — treat as an optional stretch feature, not a core requirement, unless clarified further.\]

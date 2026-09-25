@@ -193,6 +193,9 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
     <button class="btn" onclick="document.getElementById('importFile').click()">📂 Load from file</button>
     <input type="file" id="importFile" accept="application/json" style="display:none">
     <button class="btn btn-danger" onclick="resetState()">Reset to defaults</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;">
+      <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Show Details in Popup
+    </label>
     <span class="savemsg" id="saveMsg"></span>
   </div>
 </header>
@@ -214,7 +217,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 <div class="panel">
   <div class="panel-title">Assumptions — drag to adjust</div>
   <div class="slider-row">
-    <div class="sl"><strong>Inflation rate</strong> (also used as SS COLA)</div>
+    <div class="sl"><strong>Inflation rate</strong> (also used as Social Security (SS) COLA)</div>
     <input type="range" id="inflationRate" min="0" max="6" step="0.25" value="3">
     <div class="sv" id="inflationValLbl">3.00%</div>
   </div>
@@ -1002,7 +1005,7 @@ function renderIncomeForms(){
         ${renderAgeRangeRow(pid+'.ira.ar', p.ira.ar, [{value:'rmd',label:'RMD age ('+rmdAge+')'},{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'passing',label:'Passing'},{value:'custom',label:'Custom age'}])}
         ${renderChangeRow(pid+'.ira.growth', p.ira.growth, 1)}
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.ira.bene?'checked':''} onchange="onBeneToggle('${pid}.ira.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
-        <div class="item-note">Withdrawals use the IRS Uniform Lifetime Table divisor for the account owner's attained age each year (required starting at age ${rmdAge} under current law; an earlier start is treated as a voluntary withdrawal using the same table, approximated below age 72).</div>
+        <div class="item-note">Withdrawals use the IRS Uniform Lifetime Table divisor for the account owner's attained age each year (required starting at age ${rmdAge} under current law; an earlier start is treated as a voluntary withdrawal using the same table, approximated below age 72). Dividend yield within the account isn't tracked separately — it's folded into the annual growth rate above, since it isn't taxed until withdrawn; only the RMD/withdrawal amount is counted as (ordinary) income.</div>
       </div>
     </div>`;
 
@@ -1395,10 +1398,15 @@ const VZ = {
   ssP0:'#0F6E56', ssOther:'#3DB08A'
 };
 const VZ_TAX = { ord:'#C8600A', qdiv0:'#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',
-                 ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#B0163E' };
+                 ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#B0163E', effRate:'#E8291C', marginalRate:'#1FA92C' };
 const VZ_SS_AGES=[62,64,66,68,70];
 const VZ_SS_COLORS={62:'#E24B4A',63:'#D95A31',64:'#D06A18',65:'#C2820C',66:'#B59A00',67:'#729C2D',68:'#2E9E5A',69:'#1E8658',70:'#0F6E56'};
 let overlayMode='light'; // default: lighter, per spec
+// §3 "show_details checkbox": when on, chart popups reveal the underlying calculation
+// components (provisional income, AGI, standard deduction, etc.) called out as
+// show_details-only in the chart specs (§8.3, §9.3.1, §9.4, §10). Tooltip callbacks read
+// this live (not captured), so toggling it needs no chart rebuild — just re-hover.
+let showDetails=false;
 function OV(){
   if(overlayMode==='light') return {
     irmaa:['rgba(255,200,80,.95)','rgba(255,140,40,.95)','rgba(255,80,60,.95)','rgba(240,40,100,.95)','rgba(200,20,80,.95)'],
@@ -1786,8 +1794,8 @@ const INC_BYPERSON_FIELD={pension:'pensionByPerson',wageTotal:'wageByPerson',ira
 // stale names from whatever plan was loaded previously.
 function updateIncomeLabels(proj){
   if(!proj) return;
-  INC_LABELS.ssP0 = p0Name(proj)+"'s SS";
-  INC_LABELS.ssOther = proj.married ? displayPersonName(proj.people[1-proj.idxP0],1-proj.idxP0)+"'s SS / survivor" : '';
+  INC_LABELS.ssP0 = p0Name(proj)+"'s Social Security (SS)";
+  INC_LABELS.ssOther = proj.married ? displayPersonName(proj.people[1-proj.idxP0],1-proj.idxP0)+"'s Social Security (SS) / survivor" : '';
 }
 function buildIncomeLegend(){
   if(!lastProjection) return;
@@ -1869,10 +1877,14 @@ function buildIncomeChart(){
       const idx=items[0]?items[0].dataIndex:0;
       const r=rowByAge[labels[idx]]; if(!r) return[];
       const total=keys.reduce((s,k)=>s+(aligned[k][idx]||0),0);
-      const lines=['',mrow('Total income',fmt(total)+'/yr'),mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single')];
+      // §8.3: total income always shown; filing status and AGI are shown only when Show details is on.
+      const lines=['',mrow('Total income',fmt(total)+'/yr')];
+      if(showDetails){
+        lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
+        lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
+      }
       r.iraBalByPerson.forEach((bal,i)=>{ if(bal>1)lines.push(mrow(displayPersonName(proj.people[i],i)+" IRA bal.", fmt(bal))); });
       const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>r.agi>=t.magi);
-      lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
       if(irmaaT) lines.push(`⚠ IRMAA: +${fmt(irmaaT.surch)}/yr`);
       return lines;
     }
@@ -1946,13 +1958,13 @@ function buildTSSChart(){
       if(!r) return [];
       const sstPct=r.totalSS>0?(r.sst/r.totalSS*100):0;
       const W=48;
-      return [
-        mrow('  Total Social Security (TSS)', fmt(r.totalSS)+'/yr', W),
-        mrow('  Provisional Income (PI)', fmt(r.provisional)+'/yr', W),
-        mrow('  Social Security Tax (SST)', fmt(r.sst)+'/yr', W),
-        mrow('  Social Security Tax Percentage (SST%)', sstPct.toFixed(1)+'%', W),
-        mrow('  Top Marginal Rate', (r.marginalRate*100).toFixed(1)+'%', W)
-      ];
+      // §9.3.1: TSS, SST, SST%, top marginal rate always shown; PI is shown only when Show details is on.
+      const lines=[mrow('  Total Social Security (TSS)', fmt(r.totalSS)+'/yr', W)];
+      if(showDetails) lines.push(mrow('  Provisional Income (PI)', fmt(r.provisional)+'/yr', W));
+      lines.push(mrow('  Social Security Tax (SST)', fmt(r.sst)+'/yr', W));
+      lines.push(mrow('  Social Security Tax Percentage (SST%)', sstPct.toFixed(1)+'%', W));
+      lines.push(mrow('  Top Marginal Rate', (r.marginalRate*100).toFixed(1)+'%', W));
+      return lines;
     }
   };
 
@@ -2003,7 +2015,9 @@ function buildTaxLegend(){
     `<span class="li"><span class="ls" style="background:${VZ_TAX.ltcg0}"></span>LTCG 0%</span>` +
     `<span class="li"><span class="ls" style="background:${VZ_TAX.ltcg15}"></span>LTCG 15%</span>` +
     `<span class="li"><span class="ls" style="background:${VZ_TAX.ltcg20}"></span>LTCG 20%</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.niit}"></span>NIIT 3.8% (+ on top of QDIV/LTCG)</span>`;
+    `<span class="li"><span class="ls" style="background:${VZ_TAX.niit}"></span>NIIT 3.8% (+ on top of QDIV/LTCG)</span>` +
+    `<span class="li"><span class="ls" style="background:${VZ_TAX.effRate}"></span>Effective tax rate (right axis, dashed)</span>` +
+    `<span class="li"><span class="ls" style="background:${VZ_TAX.marginalRate}"></span>Marginal tax rate (right axis, dashed)</span>`;
 }
 function buildTaxChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -2025,6 +2039,15 @@ function buildTaxChart(){
   const alignedQ=qTiers.map(arr=>alignToAges(ages,arr,labels));
   const alignedL=lTiers.map(arr=>alignToAges(ages,arr,labels));
   const alignedNiit=alignToAges(ages,niitArr,labels);
+  // §9.4: "Draw thick dashed line for effective tax rate. Draw thick dashed line for marginal
+  // tax rate." Both on the right-hand % axis, overlaid on top of the $ stack (but below the
+  // tooltip). Effective rate = TT / AGI; marginal rate reuses the same top-marginal-rate-on-the
+  // -next-dollar figure as the TSS chart (it accounts for the SS torpedo effect, so it can run
+  // above the statutory bracket rate).
+  const effRateArr=rows.map(r=>r.agi>0 ? r.totalTax/r.agi*100 : 0);
+  const alignedEff=alignToAges(ages,effRateArr,labels);
+  const marginalArr=rows.map(r=>(r.marginalRate||0)*100);
+  const alignedMarginal=alignToAges(ages,marginalArr,labels);
 
   if(chartYMax.tax==null){
     let maxV=0;
@@ -2041,36 +2064,59 @@ function buildTaxChart(){
   for(let i=0;i<labels.length;i++){ const r=rowByAge[labels[i]]; if(!r||r.filing!=='married'){ swIdx=i; break; } }
 
   const datasets=[
-    {label:'Ordinary income tax', data:alignedOrd, borderColor:VZ_TAX.ord, backgroundColor:VZ_TAX.ord+'cc', borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax'},
-    {label:'QDIV 0% tax', data:alignedQ[0], borderColor:VZ_TAX.qdiv0, backgroundColor:VZ_TAX.qdiv0+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax'},
-    {label:'QDIV 15% tax', data:alignedQ[1], borderColor:VZ_TAX.qdiv15, backgroundColor:VZ_TAX.qdiv15+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax'},
-    {label:'QDIV 20% tax', data:alignedQ[2], borderColor:VZ_TAX.qdiv20, backgroundColor:VZ_TAX.qdiv20+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax'},
-    {label:'LTCG 0% tax', data:alignedL[0], borderColor:VZ_TAX.ltcg0, backgroundColor:VZ_TAX.ltcg0+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax'},
-    {label:'LTCG 15% tax', data:alignedL[1], borderColor:VZ_TAX.ltcg15, backgroundColor:VZ_TAX.ltcg15+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax'},
-    {label:'LTCG 20% tax', data:alignedL[2], borderColor:VZ_TAX.ltcg20, backgroundColor:VZ_TAX.ltcg20+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax'},
-    {label:'NIIT (3.8% on QDIV/LTCG + NIIT)', data:alignedNiit, borderColor:VZ_TAX.niit, backgroundColor:VZ_TAX.niit+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax'}
+    {label:'Ordinary income tax', data:alignedOrd, borderColor:VZ_TAX.ord, backgroundColor:VZ_TAX.ord+'cc', borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'QDIV 0% tax', data:alignedQ[0], borderColor:VZ_TAX.qdiv0, backgroundColor:VZ_TAX.qdiv0+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'QDIV 15% tax', data:alignedQ[1], borderColor:VZ_TAX.qdiv15, backgroundColor:VZ_TAX.qdiv15+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'QDIV 20% tax', data:alignedQ[2], borderColor:VZ_TAX.qdiv20, backgroundColor:VZ_TAX.qdiv20+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'LTCG 0% tax', data:alignedL[0], borderColor:VZ_TAX.ltcg0, backgroundColor:VZ_TAX.ltcg0+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'LTCG 15% tax', data:alignedL[1], borderColor:VZ_TAX.ltcg15, backgroundColor:VZ_TAX.ltcg15+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'LTCG 20% tax', data:alignedL[2], borderColor:VZ_TAX.ltcg20, backgroundColor:VZ_TAX.ltcg20+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'NIIT (3.8% on QDIV/LTCG + NIIT)', data:alignedNiit, borderColor:VZ_TAX.niit, backgroundColor:VZ_TAX.niit+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    // §9.4: rate lines are overlaid "on top of other graph objects (but below tooltip)" — a lower
+    // Chart.js `order` value draws on top of higher ones, so these get order:1/0 vs. order:2 above.
+    {label:'Effective tax rate', data:alignedEff, borderColor:VZ_TAX.effRate, backgroundColor:'transparent', borderWidth:4, borderDash:[8,4], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:1},
+    {label:'Marginal tax rate', data:alignedMarginal, borderColor:VZ_TAX.marginalRate, backgroundColor:'transparent', borderWidth:4, borderDash:[3,3], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:0}
   ];
 
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.
   const tooltipCallbacks={
     title:i=>{ const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]]; return r?popupPersonAgeLines(proj,r):[]; },
-    label:ctx=>{ if(ctx.raw==null||ctx.raw===0)return null; return mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr'); },
+    label:ctx=>{
+      // Effective-tax-rate line reports in the footer (below), not as a stack segment here.
+      if(ctx.dataset.yAxisID==='y1') return null;
+      if(ctx.raw==null||ctx.raw===0)return null;
+      return mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr');
+    },
     footer:items=>{
       const idx=items[0]?items[0].dataIndex:0;
       const r=rowByAge[labels[idx]]; if(!r) return[];
-      return [
-        '',
-        mrow('Total tax (TT)', fmt(r.totalTax)+'/yr'),
-        mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'),
-        mrow('Taxable income (TI)', fmt(r.ordTI)+'/yr'),
-        mrow('Standard deduction', '('+fmt(r.std)+')'),
-        mrow('Provisional income', fmt(r.provisional)+'/yr'),
-        mrow('Taxable Social Security', fmt(r.taxableSS)+'/yr'),
-        ...(r.niit>0 ? [
-          mrow('Net investment income (NII)', fmt(r.niiIncome)+'/yr'),
-          mrow('NIIT (3.8% + on QDIV/LTCG)', fmt(r.niit)+'/yr')
-        ] : [])
-      ];
+      const effRate=r.agi>0 ? r.totalTax/r.agi*100 : 0;
+      // §9.4: "Popup window should include: Effective Tax Rate, Marginal Tax Rate." — both always
+      // shown. "If show_details, show TT, TI, standard deduction, all income components."
+      const lines=['', mrow('Effective tax rate', effRate.toFixed(1)+'%')];
+      lines.push(mrow('Marginal tax rate', ((r.marginalRate||0)*100).toFixed(1)+'%'));
+      if(showDetails){
+        lines.push(mrow('Total tax (TT)', fmt(r.totalTax)+'/yr'));
+        lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
+        lines.push(mrow('Taxable income (TI)', fmt(r.ordTI)+'/yr'));
+        lines.push(mrow('Standard deduction', '('+fmt(r.std)+')'));
+        // All income components rolling up to AGI (§9.4: "AGI = all non-SS income + TSS").
+        lines.push(mrow('  Wages', fmt(r.wageTotal)+'/yr'));
+        lines.push(mrow('  Pension', fmt(r.pension)+'/yr'));
+        lines.push(mrow('  Rental', fmt(r.rental)+'/yr'));
+        lines.push(mrow('  IRA RMD', fmt(r.iraTotal)+'/yr'));
+        lines.push(mrow('  Ordinary (non-qualified) dividends', fmt(r.odivNQ)+'/yr'));
+        lines.push(mrow('  Qualified dividends (QDIV)', fmt(r.qdiv)+'/yr'));
+        lines.push(mrow('  Long-term capital gains (LTCG)', fmt(r.ltcg)+'/yr'));
+        lines.push(mrow('  Taxable Social Security (TSS)', fmt(r.taxableSS)+'/yr'));
+        lines.push(mrow('  AGI', fmt(r.agi)+'/yr'));
+        lines.push(mrow('Provisional income', fmt(r.provisional)+'/yr'));
+        if(r.niit>0){
+          lines.push(mrow('Net investment income (NII)', fmt(r.niiIncome)+'/yr'));
+          lines.push(mrow('NIIT (3.8% + on QDIV/LTCG)', fmt(r.niit)+'/yr'));
+        }
+      }
+      return lines;
     }
   };
 
@@ -2089,13 +2135,15 @@ function buildTaxChart(){
       },
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Total tax (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Total tax (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID},
+        // §9.4: effective/marginal tax-rate lines share their own right-hand % scale, independent of the $ stack.
+        y1:{position:'right',min:0,max:100,title:axisTitle('Tax rate (effective / marginal)'),ticks:{...AXIS_TICKS,callback:v=>v+'%'},grid:{display:false}}
       }
     }});
   }
   buildTaxLegend();
   document.getElementById('taxChartNote').textContent =
-    `Segments from lowest: ordinary income tax, then QDIV brackets, then LTCG brackets, then NIIT (3.8% surtax on net investment income once MAGI clears the un-indexed $200k single / $250k married threshold — effectively QDIV/LTCG + NIIT). Y-axis locked — use Rescale if the stack runs off the top.`;
+    `Segments from lowest: ordinary income tax, then QDIV brackets, then LTCG brackets, then NIIT (3.8% surtax on net investment income once MAGI clears the un-indexed $200k single / $250k married threshold — effectively QDIV/LTCG + NIIT). The two thick dashed lines overlaid on top are the effective tax rate (TT ÷ AGI, red) and the marginal tax rate on the next dollar of ordinary income (green) — both read off the right-hand % axis. Y-axis locked — use Rescale if the stack runs off the top.`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2184,21 +2232,26 @@ function buildAssetChartFor(cfg){
         const e=(r.portfoliosByPerson[s.personIdx]||[])[s.bi];
         if(e){
           if(!cfg.idgt){
-            // Main (non-IDGT) chart, spec §10: value, expenses only if the portfolio's
-            // "Expenses" checkbox is on, then annual growth % — all in today's $.
+            // Main (non-IDGT) chart, spec §10: value; if Expenses is checked, net-of-expenses
+            // growth % (and, only when Show details is on, the expense breakdown behind it); then gross growth %.
             if(e.expense){
-              lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
-              lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
-              lines.push(mrow('      Living cost withdrawal', fmt(e.livingCost||0), W));
-              lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
+              if(showDetails){
+                lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
+                lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
+                lines.push(mrow('      Living cost withdrawal', fmt(e.livingCost||0), W));
+                lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
+              }
               lines.push(mrow('      Annual growth (net of expenses)', (e.netGrowthPct||0).toFixed(1)+'%', W));
             }
             lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
           } else {
+            // IDGT chart, spec §10: value, annual growth %; tax drag/fee drag are shown only when Show details is on,
+            // and living-cost withdrawal isn't part of this popup at all.
             lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
-            lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
-            lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
-            lines.push(mrow('      Living cost withdrawal', fmt(e.livingCost||0), W));
+            if(showDetails){
+              lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
+              lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
+            }
           }
         }
       }
@@ -2264,7 +2317,7 @@ function renderCharts(){
 // ═══════════════════════════════════════════════════════════════
 function renderFooter(){
   document.getElementById('assumptionsFooter').innerHTML =
-    `All figures shown in today's dollars · SS COLA assumed equal to inflation · 2026 simplified federal tax model (TCJA permanent under OBBBA), no AMT/itemized deductions/credits · includes 3.8% NIIT on net investment income above the un-indexed $200k single / $250k married MAGI threshold · IRMAA uses current-year MAGI as a proxy (actual IRMAA uses a 2-year lookback) · Brokerage balances change each year by growth − tax drag (a share of that year's total tax) − fee drag · IRA required withdrawals follow the IRS Uniform Lifetime Table · For informational purposes only — not financial, tax or legal advice.`;
+    `All figures shown in today's dollars · Social Security (SS) COLA assumed equal to inflation · 2026 simplified federal tax model (TCJA permanent under OBBBA), no AMT/itemized deductions/credits · includes 3.8% NIIT on net investment income above the un-indexed $200k single / $250k married MAGI threshold · IRMAA uses current-year MAGI as a proxy (actual IRMAA uses a 2-year lookback) · Brokerage balances change each year by growth − tax drag (a share of that year's total tax) − fee drag · IRA required withdrawals follow the IRS Uniform Lifetime Table · For informational purposes only — not financial, tax or legal advice.`;
 }
 
 // ═══════════════════════════════════════════════════════════════

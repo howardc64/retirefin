@@ -118,8 +118,8 @@ All charts use Chart.js with in-place updates, locked axis scales, 2/3-page widt
 1. **Social Security break-even** — cumulative household SS vs. age, one line per candidate claim age.
 2. **Annual household income stacking** — thick stacked-by-source lines, IRMAA tier dashed overlays, income-tax bracket dashed overlays (rate labeled above/below each line), rescale button, light/dark dashed-line color toggle.
 3. **Taxable Social Security (TSST)** — TSS line with effective tax % shown, filing-status-aware.
-4. **Total tax (TT)** — stacked segments (ordinary/QDIV/LTCG tiers) with dashed current-year bracket overlays.
-5. **Asset value** — all non-IDGT brokerage portfolio and pre-tax IRA balances over time; popup always shows each holder's age, value and the portfolio's configured (gross) annual growth %, and — only when that portfolio's **Expenses** checkbox is on — adds tax drag, fee drag, living-cost withdrawal, realized LTCG, and a net-of-expenses annual growth % (the actual balance-over-balance change once those drags are subtracted). A second **IDGT** chart appears only when at least one portfolio is flagged IDGT; its popup unconditionally shows age, value, gross annual growth %, tax drag, fee drag and living-cost withdrawal (this popup hasn't been updated to the newer §10 wording — see Roadmap).
+4. **Total tax (TT)** — stacked segments (ordinary/QDIV/LTCG tiers, plus NIIT) with distinct colors per segment, overlaid with a thick bright-red dashed effective-tax-rate line (TT ÷ AGI) and a thick bright-green dashed marginal-tax-rate line, both drawn above the stack (explicit Chart.js draw `order`) and read off their own right-hand % axis.
+5. **Asset value** — all non-IDGT brokerage portfolio and pre-tax IRA balances over time; popup always shows each holder's age, value and the portfolio's configured (gross) annual growth %, and — only when that portfolio's **Expenses** checkbox is on — adds a net-of-expenses annual growth % (the actual balance-over-balance change once drags are subtracted), with the underlying tax drag, fee drag, living-cost withdrawal and realized LTCG shown only when **Show details** is on. A second **IDGT** chart appears only when at least one portfolio is flagged IDGT; its popup shows age, value and gross annual growth % always, with tax drag and fee drag shown only when Show details is on (no living-cost line, per spec §10).
 
 ### 5.1 Popup (tooltip) layout
 
@@ -131,6 +131,20 @@ All five chart popups share one layout helper so labels are left-justified and v
 - Any new chart popup should build its lines with `mrow()` and wrap its callbacks in `justifyTip()`.
 
 Every chart stops drawing a series once the relevant person(s) have passed, and every chart's popup includes the underlying components (e.g., taxable income, standard deduction, provisional income, IRA balance) so the user can see the "why," not just the line.
+
+### 5.2 Show details mode
+
+A checkbox labeled **"Show Details in Popup"** sits in the top bar (spec §3, `#showDetailsToggle`). It's a plain in-memory toggle (not saved to file or `localStorage`) read live by each tooltip, so switching it takes effect on the next hover — no chart rebuild. It reveals underlying calculation components the spec marks as show_details-only:
+
+| Chart | Always shown | Show-details-only |
+| --- | --- | --- |
+| Annual Household Income | Total income | Filing status, AGI |
+| Taxable Social Security | TSS, SST, SST%, top marginal rate | Provisional income (PI) |
+| Total Tax | Effective tax rate, marginal tax rate | TT, filing status, taxable income, standard deduction, all income components (wages, pension, rental, IRA RMD, ordinary/qualified dividends, LTCG, taxable SS, AGI), provisional income, NII/NIIT |
+| Asset value (non-IDGT) | Value, gross annual growth %, and (if Expenses is on) net-of-expenses growth % | Tax drag, fee drag, living-cost withdrawal, realized LTCG |
+| Asset value (IDGT) | Value, gross annual growth % | Tax drag, fee drag |
+
+(The Social Security break-even popup and the IRMAA/income warning line are unaffected — spec doesn't gate them.)
 
 ---
 
@@ -162,6 +176,7 @@ These constants are isolated at the top of the script specifically so they can b
 - All ordinary-rate assumptions; no itemized deductions, credits, state/local tax, or AMT. NIIT (3.8%) is modeled, but its investment-income base is limited to dividends (ODIV/QDIV) and realized LTCG — no taxable-interest input exists yet, and rental income is treated as ordinary per §9.1 rather than as NII.
 - Single, simplified nationwide IRMAA/tax-bracket set (no MFS schedule, no HOH).
 - Spousal Benefit Rule and survivor-benefit logic follow the general SSA rules but are not a substitute for an SSA benefit estimate.
+- Spec §7 asks the model to "track dividend yield for IRA holdings." Since IRA/401(k) dividends aren't taxed until withdrawn, they're folded into the account's single annual-growth-rate input rather than modeled as a separate yield — only the RMD/withdrawal amount counts as income. This is noted in-app on the IRA card.
 
 ---
 
@@ -205,6 +220,16 @@ A `#detailPanel` placeholder exists for the optional "Detailed Tax Calculation A
 16. Spec §9.4 NIIT: added the 3.8% Net Investment Income Tax as a new top segment on the Total Tax chart, labeled "NIIT (3.8% on QDIV/LTCG + NIIT)," computed as 3.8% × min(net investment income, MAGI over the un-indexed $200k Single / $250k MFJ threshold), where NII = ODIV−QDIV + QDIV + realized LTCG. Threshold is deflated to today's-$ terms the same un-indexed way as the SS provisional-income thresholds. NIIT is added to Total Tax (TT) — and therefore to portfolio tax drag — but is deliberately excluded from the Social Security Tax (SST) hypothetical in §9.3, so a MAGI-driven NIIT change isn't misattributed to taxing SS. Tooltip shows NII and the NIIT dollar amount whenever it's triggered; legend, chart note and section text updated to mention NIIT. Removed NIIT from the "not yet built" and "known simplifications" lists.
 17. Spec §4.3 update: Realized LTCG on a portfolio gained a third mode — "% of TT × younger person's age/100" — which scales the entered % of total-tax by clamp(youngerHouseholdMemberAge/100, 0, 1) before the same fixed-point solve used by the plain "% of TT" mode; a rough stand-in for unrealized gains being realized more readily later in retirement. Fee drag's fixed-amount option is now entered and displayed in plain today's-$ dollars ("Fixed $ / yr") instead of thousands ("Fixed $k / yr") — the underlying stored value was already in full dollars, so no saved-file migration was needed, only the input's display/step changed.
 18. Spec §4.0 (new section): any number entry that can hold a $ value — including fields that toggle between a $ amount and a %/other unit via an adjacent dropdown, like fee drag and Realized LTCG — now gets a `.money` CSS class with a 150px minimum width (≈12 digits) so large dollar amounts aren't clipped; the brokerage portfolio fields grid's minimum column width was bumped from 140px to 150px to match.
+19. Spec §3 debug checkbox: added the previously-missing Debug toggle to the top bar, and wired it into the five tooltip locations the spec marks as debug-only (§8.3 filing status/AGI, §9.3.1 provisional income, §9.4 TT/TI/standard deduction/income components, §10 both asset charts' expense/drag breakdowns) — see §5.2. Nothing was previously gated by debug; all of that detail used to show unconditionally.
+20. Spec §9.4: added the previously-missing effective-tax-rate line to the Total Tax chart (TT ÷ AGI) on its own locked 0–100% right-hand axis, shown unconditionally in the popup footer per spec, with TT/TI/standard-deduction/income-component detail moved behind Debug mode.
+21. Spec §4.1 acronym audit: three displayed-text spots used bare "SS" with no full spelling nearby — the inflation-slider caption, the per-person Social Security series label/legend/tooltip on the Annual Income chart, and the footer assumptions line — all now read "Social Security (SS)". (TT/TSS/SST were already spelled out everywhere they appear; other bare "SS" occurrences sit directly beside a full "Social Security" mention and were left as-is.)
+22. Spec §7 ("track dividend yield for IRA holdings"): documented as a deliberate simplification rather than left silently unhandled — IRA/401(k) dividends aren't taxed until withdrawn, so they're folded into the account's single growth-rate input; added a note on the IRA card and to Known Simplifications.
+23. Spec renamed the §3 toggle from "debug checkbox" to "show_details checkbox" throughout (§8.3, §9.3.1, §9.4, §10). Renamed the app's toggle to match: `debugMode` → `showDetails`, `#debugToggle` → `#showDetailsToggle`, label "Debug" → "Show details" — no behavior change, same five gated tooltip locations as entry 19.
+24. Spec §9.4 update: added a marginal-tax-rate line to the Total Tax chart alongside the existing effective-tax-rate line, both on the shared right-hand % axis, drawn on top of the $ stack (per spec, "after above list but below tooltip"). Reuses the same top-marginal-rate-on-the-next-dollar figure already computed for the Taxable Social Security chart, so it reflects the SS torpedo effect. Not added to the tooltip body — spec's popup list under §9.4 names only the effective rate.
+25. Spec §3 label: the show_details checkbox's display label is now "Show Details in Popup" (was "Show details"), matching the spec text exactly.
+26. Spec §9.4 tooltip: added the marginal tax rate to the Total Tax popup (now shown unconditionally alongside effective tax rate, per "Popup window should include: Effective Tax Rate, Marginal Tax Rate"), and, under Show Details, added the full list of income components (wages, pension, rental, IRA RMD, ordinary/qualified dividends, LTCG, taxable SS, AGI) that roll up to AGI, per "If show_details, show TT, TI, standard deduction, all income components."
+27. Spec §9.4 chart-spec update: the effective- and marginal-tax-rate overlay lines are now drawn thick and dashed (previously solid), and colored bright red (effective) and bright green (marginal) per the updated spec, replacing the earlier dark/blue solid pair.
+28. Bug fix: the effective- and marginal-tax-rate lines were being painted over by the stacked tax-segment fill areas because all ten Total Tax datasets shared the same default Chart.js draw `order`. Explicit `order` values (stacked segments = 2, rate lines = 1/0 — lower `order` draws on top in Chart.js) now keep both dashed rate lines visibly on top of the stack, as spec requires ("Overlay ... on top of other graph objects").
 
 ---
 
