@@ -102,6 +102,16 @@
           "endMode": "passing",
           "endVal": 0
         },
+        "bene": true,
+        "conv": 10000
+      },
+      "roth": {
+        "enabled": true,
+        "balance": 0,
+        "growth": {
+          "mode": "offset",
+          "value": 3
+        },
         "bene": true
       }
     },
@@ -174,6 +184,16 @@
           "startVal": 0,
           "endMode": "passing",
           "endVal": 0
+        },
+        "bene": false,
+        "conv": 0
+      },
+      "roth": {
+        "enabled": false,
+        "balance": 0,
+        "growth": {
+          "mode": "offset",
+          "value": 3
         },
         "bene": false
       }
