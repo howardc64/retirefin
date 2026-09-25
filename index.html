@@ -302,9 +302,9 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 
 <!-- ═══ ASSET VALUE ═══ -->
 <div class="sec-head">Asset Value</div>
-<div class="sec-sub">Brokerage portfolios (excluding IDGTs) and pre-tax IRA/401(k) balances, stacked by holder, in today's dollars. Each asset compounds at its configured growth rate, net of tax drag and fee drag, and drops out once its owner has passed (unless marked to continue to, or inherited by, the spouse). Portfolios flagged as an IDGT appear in their own chart below.</div>
+<div class="sec-sub">Brokerage portfolios (excluding IDGTs), pre-tax IRA/401(k) balances, and Roth IRA balances, stacked by holder, in today's dollars. Each asset compounds at its configured growth rate (brokerage/pre-tax IRA also net of tax drag and fee drag), and drops out once its owner has passed (unless marked to continue to, or inherited by, the spouse). Portfolios flagged as an IDGT appear in their own chart below.</div>
 <div class="cc">
-  <div class="cc-head"><div class="ct">Asset value by holder · brokerage (excl. IDGT) + pre-tax IRA · today's dollars</div>
+  <div class="cc-head"><div class="ct">Asset value by holder · brokerage (excl. IDGT) + pre-tax IRA + Roth IRA · today's dollars</div>
     <button class="rescale-btn" onclick="rescaleChart('asset')">↕ Rescale</button></div>
   <div class="legend" id="assetLegend"></div>
   <div class="co"><div class="cw"><canvas id="assetChart"></canvas></div></div>
@@ -520,7 +520,8 @@ function defaultPerson(idx){
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     rental:  defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     brokerage:[],
-    ira:{enabled:false, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false}
+    ira:{enabled:false, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0},
+    roth:{enabled:false, balance:0, growth:defaultChange('offset',3), bene:false}
   };
 }
 function defaultState(){
@@ -869,7 +870,7 @@ function renderIncomeForms(){
   // SS, pension, rental, ODIV, QDIV, LTCG, IRA), so both columns
   // always have the same row count; this lets the two-column grid below use
   // CSS subgrid to keep every income type's top edge aligned across people.
-  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*brokerage*/ + 1 /*ira*/;
+  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*brokerage*/ + 1 /*ira*/ + 1 /*roth*/;
 
   // Reusable "simple" card for an income item with agerange + change (pension/rental style)
   function agedItemCard(pid, key, title, item, checkboxPath){
@@ -1004,8 +1005,24 @@ function renderIncomeForms(){
           <input type="number" class="money" min="0" step="5000" value="${p.ira.balance}" oninput="onNumberInput('${pid}.ira.balance', this.value)"></div>
         ${renderAgeRangeRow(pid+'.ira.ar', p.ira.ar, [{value:'rmd',label:'RMD age ('+rmdAge+')'},{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'passing',label:'Passing'},{value:'custom',label:'Custom age'}])}
         ${renderChangeRow(pid+'.ira.growth', p.ira.growth, 1)}
+        <div class="field full"><label>Annual Roth conversion ($/yr, today's $)</label>
+          <input type="number" class="money" min="0" step="1000" value="${p.ira.conv||0}" oninput="onNumberInput('${pid}.ira.conv', this.value)"></div>
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.ira.bene?'checked':''} onchange="onBeneToggle('${pid}.ira.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
-        <div class="item-note">Withdrawals use the IRS Uniform Lifetime Table divisor for the account owner's attained age each year (required starting at age ${rmdAge} under current law; an earlier start is treated as a voluntary withdrawal using the same table, approximated below age 72). Dividend yield within the account isn't tracked separately — it's folded into the annual growth rate above, since it isn't taxed until withdrawn; only the RMD/withdrawal amount is counted as (ordinary) income.</div>
+        <div class="item-note">Withdrawals use the IRS Uniform Lifetime Table divisor for the account owner's attained age each year (required starting at age ${rmdAge} under current law; an earlier start is treated as a voluntary withdrawal using the same table, approximated below age 72). Dividend yield within the account isn't tracked separately — it's folded into the annual growth rate above, since it isn't taxed until withdrawn; only the RMD/withdrawal amount is counted as (ordinary) income. Annual Roth conversion moves a flat today's-$ amount from this account into the Roth IRA below each year this account still has a balance, until it reaches $0; the converted amount counts as ordinary income the year it's converted. Requires the Roth IRA below to be enabled.</div>
+      </div>
+    </div>`;
+
+    // ROTH IRA
+    html+=`<div class="item">
+      <div class="item-head" onclick="toggleItem(this)">
+        <label onclick="event.stopPropagation()"><input type="checkbox" ${p.roth.enabled?'checked':''} onclick="onEnableToggle('${pid}.roth.enabled', this.checked, this.closest('.item'))"> Roth IRA</label>
+      </div>
+      <div class="item-body ${p.roth.enabled?'open':''}">
+        <div class="field full"><label>Current balance (today's $)</label>
+          <input type="number" class="money" min="0" step="5000" value="${p.roth.balance||0}" oninput="onNumberInput('${pid}.roth.balance', this.value)"></div>
+        ${renderChangeRow(pid+'.roth.growth', p.roth.growth, 1)}
+        ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.roth.bene?'checked':''} onchange="onBeneToggle('${pid}.roth.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
+        <div class="item-note">Grows tax-free; no withdrawals or RMDs are modeled here, only balance growth plus any Annual Roth conversion set on the Pre-tax IRA above.</div>
       </div>
     </div>`;
 
@@ -1102,15 +1119,21 @@ function computeProjection(){
     }
   }
 
-  // ── Pre-tax IRA / 401(k) RMD schedule ──
+  // ── Pre-tax IRA / 401(k) RMD schedule, plus optional annual Roth conversion ──
   // Continue RMDs after an owner's death by transferring the remaining
   // balance to the spouse when the IRA is marked to continue to spouse.
-  const iraW=people.map(()=>({})), iraBal=people.map(()=>({}));
+  // A configured Roth conversion (flat today's-$ amount, spec §4.4) moves money out of the
+  // pre-tax IRA and into this person's Roth IRA each year the pre-tax IRA still has a balance
+  // — independent of the RMD/withdrawal age window — as long as the Roth IRA below is enabled;
+  // the converted amount is added to ordinary income for tax purposes (§9.4, computed below).
+  const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({}));
   people.forEach((p,i)=>{
     if(!p.ira.enabled) return;
     let bal=Number(p.ira.balance)||0;
     const [startAge,ownerEndAge]=resolveAgeRange(p.ira.ar,p);
     const g=realGrowth(p.ira.growth,inflation);
+    const rothOk=!!(p.roth&&p.roth.enabled);
+    const convAmt=rothOk?Math.max(0,Number(p.ira.conv)||0):0;
     for(let k=0;k<=yearsToProject;k++){
       const ownerAge=curAges[i]+k;
       const ownerAlive=ownerAge<passAges[i];
@@ -1122,8 +1145,9 @@ function computeProjection(){
       // owner's configured end age.  Once the owner passes, an IRA marked
       // for spouse continuation becomes an inherited IRA and keeps paying
       // RMDs while the spouse is alive.  Crucially, the owner's passing age
-      // is NOT reused as the inherited IRA's end age.
+      // is NOT reused as the inherited IRA's end age. Conversions stop at death.
       if(!ownerAlive){
+        iraConv[i][k]=0;
         if(!(p.ira.bene&&spouseAlive)) break;
         if(bal<=0){ iraW[i][k]=0; iraBal[i][k]=0; continue; }
         const div=rmdDivisor(spouseAge);
@@ -1136,7 +1160,9 @@ function computeProjection(){
 
       if(ownerAge>=ownerEndAge){
         iraW[i][k]=0;
-        bal=bal*(1+g);
+        const conv=Math.min(convAmt,bal);
+        iraConv[i][k]=conv;
+        bal=Math.max(0,bal-conv)*(1+g);
         iraBal[i][k]=bal;
         continue;
       }
@@ -1144,12 +1170,42 @@ function computeProjection(){
       if(ownerAge>=startAge&&bal>0){
         const div=rmdDivisor(ownerAge), wd=div?Math.min(bal/div,bal):0;
         iraW[i][k]=wd;
-        bal=Math.max(0,(bal-wd)*(1+g));
+        bal=Math.max(0,bal-wd);
       }else{
         iraW[i][k]=0;
-        bal=bal*(1+g);
       }
+      const conv=Math.min(convAmt,bal);
+      iraConv[i][k]=conv;
+      bal=Math.max(0,bal-conv)*(1+g);
       iraBal[i][k]=bal;
+    }
+  });
+
+  // ── Roth IRA: tax-free growth, funded by its starting balance plus any Roth conversion
+  // amount converted from the matching pre-tax IRA above this year. No withdrawals or RMDs
+  // are modeled — it only ever grows until its owner (or, if "continues to spouse", the
+  // surviving spouse) passes.
+  const rothBal=people.map(()=>({}));
+  people.forEach((p,i)=>{
+    if(!(p.roth&&p.roth.enabled)) return;
+    let bal=Number(p.roth.balance)||0;
+    const g=realGrowth(p.roth.growth,inflation);
+    for(let k=0;k<=yearsToProject;k++){
+      const ownerAge=curAges[i]+k;
+      const ownerAlive=ownerAge<passAges[i];
+      const otherIdx=1-i;
+      const spouseAge=(married&&people.length===2)?curAges[otherIdx]+k:Infinity;
+      const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
+
+      if(!ownerAlive){
+        if(!(p.roth.bene&&spouseAlive)) break;
+        bal=bal*(1+g);
+        rothBal[i][k]=bal;
+        continue;
+      }
+      const conv=(iraConv[i]&&iraConv[i][k])||0;
+      bal=(bal+conv)*(1+g);
+      rothBal[i][k]=bal;
     }
   });
 
@@ -1284,15 +1340,17 @@ function computeProjection(){
     const odiv=odivByPerson.reduce((a,b)=>a+b,0), qdiv=qdivByPerson.reduce((a,b)=>a+b,0);
     const odivNQ=odivNQByPerson.reduce((a,b)=>a+b,0);
 
-    // IRA withdrawals
+    // IRA withdrawals, plus any Roth conversion amount (taxed as ordinary income, spec §4.4)
     const iraByPerson=people.map((p,i)=>iraW[i][k]||0);
+    const rothConvByPerson=people.map((p,i)=>iraConv[i][k]||0);
 
     const wageTotal=wageByPerson.reduce((a,b)=>a+b,0);
     const iraTotal=iraByPerson.reduce((a,b)=>a+b,0);
+    const rothConvTotal=rothConvByPerson.reduce((a,b)=>a+b,0);
 
     const filing = married && alive[0] && alive[1] ? 'married' : 'single';
     const ssThresholdFactor = Math.pow(1+inflation,-k); // un-indexed SS-tax thresholds, in today's $
-    const nonSSOrdinary = wageTotal+pension+rental+iraTotal+odivNQ;
+    const nonSSOrdinary = wageTotal+pension+rental+iraTotal+rothConvTotal+odivNQ;
     const{taxableSS,provisional}=computeTaxableSS(nonSSOrdinary, totalSS, filing, ssThresholdFactor);
     const std = filing==='married'?STD_MFJ:STD_SGL;
     const ordBrk = filing==='married'?MFJ_ORD:SGL_ORD;
@@ -1351,12 +1409,13 @@ function computeProjection(){
     }));
 
     const iraBalByPerson = people.map((p,i)=> iraBal[i][k]!=null?iraBal[i][k]:0);
+    const rothBalByPerson = people.map((p,i)=> rothBal[i][k]!=null?rothBal[i][k]:0);
     rows.push({
       k, age0: idxP0!=null? ages[idxP0]:ages[0],
       ages, alive, filing,
       wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson,
       odiv, qdiv, odivNQ, ltcg, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
-      iraByPerson, iraTotal, iraBalByPerson, portfoliosByPerson,
+      iraByPerson, iraTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson,
       nonSSOrdinary, taxableSS, provisional, ordIncome, std, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
       niiIncome, niit,
@@ -2105,6 +2164,7 @@ function buildTaxChart(){
         lines.push(mrow('  Pension', fmt(r.pension)+'/yr'));
         lines.push(mrow('  Rental', fmt(r.rental)+'/yr'));
         lines.push(mrow('  IRA RMD', fmt(r.iraTotal)+'/yr'));
+        if(r.rothConvTotal>0) lines.push(mrow('  Roth conversion', fmt(r.rothConvTotal)+'/yr'));
         lines.push(mrow('  Ordinary (non-qualified) dividends', fmt(r.odivNQ)+'/yr'));
         lines.push(mrow('  Qualified dividends (QDIV)', fmt(r.qdiv)+'/yr'));
         lines.push(mrow('  Long-term capital gains (LTCG)', fmt(r.ltcg)+'/yr'));
@@ -2174,6 +2234,7 @@ function buildAssetChartFor(cfg){
   if(!cfg.idgt){
     proj.people.forEach((p,i)=>{
       if(p.ira && p.ira.enabled) series.push({type:'ira', personIdx:i, name:'Pre-tax IRA/401(k)'});
+      if(p.roth && p.roth.enabled) series.push({type:'roth', personIdx:i, name:'Roth IRA'});
     });
   }
 
@@ -2190,6 +2251,7 @@ function buildAssetChartFor(cfg){
   const rowByAge={}; rows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
   const seriesValues=series.map(s=>rows.map(r=>{
     if(s.type==='ira') return (r.iraBalByPerson&&r.iraBalByPerson[s.personIdx])||0;
+    if(s.type==='roth') return (r.rothBalByPerson&&r.rothBalByPerson[s.personIdx])||0;
     const person=r.portfoliosByPerson[s.personIdx];
     const entry=person&&person[s.bi];
     return entry?entry.balance:0;
@@ -2289,8 +2351,8 @@ function buildAssetChart(){
   buildAssetChartFor({
     key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', noteId:'assetChartNote',
     yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
-    emptyMsg:'Add a non-IDGT brokerage portfolio or enable a pre-tax IRA/401(k) to see this chart.',
-    note:`Each band is one brokerage portfolio (IDGTs excluded) or pre-tax IRA/401(k) balance, compounding at its own configured growth rate less tax drag and fee drag, in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited IRA continues under the surviving spouse until they pass, then drops to zero. Y-axis locked — use Rescale if the stack runs off the top.`
+    emptyMsg:'Add a non-IDGT brokerage portfolio, or enable a pre-tax IRA/401(k) or Roth IRA, to see this chart.',
+    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass, then drops to zero. A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 function buildIdgtChart(){

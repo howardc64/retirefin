@@ -67,7 +67,8 @@ One column per person (if married); each income type's card should top-align acr
 | **Social Security**                 | Already-started flag, or FRA (age 67 default) if not yet started<br>**SS start age**: slider for each person's claim age (default: FRA, or their already-started age).                                                                       |
 | **Pension**                         | Age range, annual change, survivor benefit                                                                                                                                                                                                                             |
 | **Rental income**                   | Age range, annual change, survivor benefit                                                                                                                                                                                                                                                                                |
-| **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit                                                                                                                                                                     |
+| **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit, annual ROTH Conv (convamount : inflation adjusted, until pre-tax IRA value reach 0). Add convamount to ordinary income                                                                                                                                                                    |
+| **ROTH IRA**                     |  annual change (default: inflation + 3%), survivor benefit. Add ROTH Conversion convamount                                                                                                                                                                     |
 | **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%), Qualified Div (QDIV) % (default 70% ODIV), IDGT checkbox, expense checkbox if checked needs: tax drag (% annual total tax (TT)), fee drag (% or fixed amt), living cost withdraw (inflation adjusted), LTCG (% annual total tax (TT) or % annual total tax (TT) x younger person's age/100 (clamped to 1) (this is ~unrealized gains) or amount (inflation adjusted)) Annual asset value change += annual growth - tax drag - fee drag - living cost withdraw |
 
 ### 4.5. Global Assumption
@@ -203,9 +204,10 @@ One column per person (if married); each income type's card should top-align acr
 
 Draw a chart showing, in today's dollars, in a style consistent with the other charts:
 
-- All brokerage portfolio (excluding IDGTs) values.
-- All pre-tax IRA values.
-- Tooltip: all person's age, portfolio value, if expenses checked ( annual growth % with expenses subtracted, if show_details show expenses) annual growth %, All in today's $s
+- All brokerage portfolio (excluding IDGTs) values. Each in distinct color
+- All pre-tax IRA values. Each in distinct color
+- All ROTH IRA values. Each in distinct color
+- Tooltip: all person's age, portfolio value, pre-tax and ROTH IRA value, if expenses checked ( annual growth % with expenses subtracted, if show_details show expenses) annual growth %, All in today's $s
 
 If have IDGT portfolios, draw another chart showing, in today's dollars, in a style consistent with the other charts:
 

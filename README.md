@@ -47,7 +47,8 @@ It is explicitly a *planning* tool, not a tax-prep tool: tax logic is simplified
 | **Social Security** | already-started flag, claim age (defaults to FRA), benefit amount |
 | **Pension** | amount, age range, annual change, survivor-benefit (bene) checkbox |
 | **Rental income** | amount, age range, annual change, bene |
-| **Pre-tax IRA** | balance, withdrawal age range (default start = RMD age), annual growth (default inflation +3%), bene |
+| **Pre-tax IRA** | balance, withdrawal age range (default start = RMD age), annual growth (default inflation +3%), bene, and an optional annual Roth conversion (flat today's-$ amount, added to ordinary income each year the pre-tax balance is still positive, independent of the withdrawal age range) |
+| **Roth IRA** | balance, annual growth (default inflation +3%), bene. Grows tax-free from its own balance plus any Roth conversion configured on the matching Pre-tax IRA above; requires this Roth IRA to be enabled for conversions to apply. No withdrawals or RMDs are modeled. |
 | **Brokerage portfolio(s)** | user can add multiple; each has balance, age range, annual growth (default inflation +4%), bene, an ODIV yield % (default 1.5%), a Qualified Dividend % of ODIV (default 70%), an **IDGT** checkbox, and an **Expenses** checkbox that, when checked, adds tax drag (% of annual total tax), fee drag (% of balance or fixed $/yr), a living-cost withdrawal (flat in today's $, i.e. inflation-adjusted) and realized LTCG (either $/yr in today's $ — inflation-adjusted — a % of that year's total tax, or that % scaled by the younger household member's age/100 clamped to 1 — a rough stand-in for unrealized gains; solved by fixed-point iteration since TT depends on the LTCG; taxed at the QDIV/LTCG rates and counted in AGI/NIIT). Annual balance change = growth − tax drag − fee drag − living-cost withdrawal. |
 
 Every "annual change" field supports four modes: fixed $ (no growth), tracks inflation, inflation ± offset, or a custom nominal %.
@@ -83,9 +84,17 @@ All inputs are entered in today's $, and the whole projection runs in real (infl
 - Annual RMD = prior-year IRA balance ÷ table divisor for the owner's age that year.
 - On the IRA owner's death, the balance and future RMD obligation pass to the surviving spouse.
 
+### 4.3.1 Roth conversion & Roth IRA
+
+- Each person's Pre-tax IRA card can specify an annual Roth conversion — a flat today's-$ amount — that, each year the pre-tax balance is still positive, moves out of the pre-tax IRA (after that year's RMD, before growth is applied) and into that person's own Roth IRA, capped at whatever pre-tax balance remains. Conversion is independent of the withdrawal age range, so it can run before RMDs start.
+- The converted amount is added to that year's ordinary income (`nonSSOrdinary`), consistent with how an actual Roth conversion is taxed.
+- A Roth IRA only receives conversions if it's enabled; if it isn't, any configured conversion amount is simply ignored (no money moves, nothing is taxed).
+- The Roth IRA balance itself just compounds at its own configured growth rate, funded by its starting balance plus each year's conversion inflow — no withdrawals or RMDs are modeled against it, since Roth accounts aren't subject to RMDs and this app doesn't model spending from any account beyond the brokerage "living cost withdrawal."
+- On the owner's death, an inherited Roth IRA (if "Continues to spouse" is checked) keeps compounding under the surviving spouse until they pass, mirroring the pre-tax IRA's inheritance behavior — but with no further RMDs, since none apply to a Roth.
+
 ### 4.4 Household income stacking
 
-For every projection year (P0's current age → P0's age when the younger person reaches 100), income is aggregated by source: pension, wage, IRA RMD (today's $), rental, QDIV, ODIV minus QDIV, LTCG (realized from portfolios), SS for P0, SS for the other person (taxable interest is not modeled — the spec has no input for it) — each stopping when that person passes, and each respecting the Spousal Benefit Rule where relevant.
+For every projection year (P0's current age → P0's age when the younger person reaches 100), income is aggregated by source: pension, wage, IRA RMD (today's $), rental, QDIV, ODIV minus QDIV, LTCG (realized from portfolios), SS for P0, SS for the other person (taxable interest is not modeled — the spec has no input for it) — each stopping when that person passes, and each respecting the Spousal Benefit Rule where relevant. Roth conversion amounts are *not* added as their own stacked band here (they're not new cash income, just a taxable internal transfer) — they only flow into the tax calculation below.
 
 ### 4.5 Taxable Social Security (TSS)
 
@@ -96,7 +105,7 @@ For every projection year (P0's current age → P0's age when the younger person
 
 ### 4.6 Total income tax (TT)
 
-- AGI = all non-SS income + TSS.
+- AGI = all non-SS income + TSS. Non-SS income now includes any Roth conversion amount, so a conversion can push more Social Security into taxability (the torpedo effect above) and raise the marginal rate shown on both tax charts.
 - Taxable income = AGI − standard deduction (status-dependent).
 - Tax computed as ordinary tax on ordinary income (`calcOrdTax`) plus a qualified-dividend/LTCG stacked-bracket calculation (`calcQualTax`) that layers preferential-rate income on top of ordinary income.
 - Chart shows stacked segments (ordinary → QDIV tiers → LTCG tiers) against current-year bracket lines.
@@ -107,7 +116,7 @@ For every projection year (P0's current age → P0's age when the younger person
 
 ### 4.8 Asset value
 
-- Separate chart tracking every brokerage portfolio balance and every pre-tax IRA balance over time, in today's $.
+- Separate chart tracking every brokerage portfolio balance, every pre-tax IRA balance, and every Roth IRA balance over time, in today's $.
 
 ---
 
@@ -119,7 +128,7 @@ All charts use Chart.js with in-place updates, locked axis scales, 2/3-page widt
 2. **Annual household income stacking** — thick stacked-by-source lines, IRMAA tier dashed overlays, income-tax bracket dashed overlays (rate labeled above/below each line), rescale button, light/dark dashed-line color toggle.
 3. **Taxable Social Security (TSST)** — TSS line with effective tax % shown, filing-status-aware.
 4. **Total tax (TT)** — stacked segments (ordinary/QDIV/LTCG tiers, plus NIIT) with distinct colors per segment, overlaid with a thick bright-red dashed effective-tax-rate line (TT ÷ AGI) and a thick bright-green dashed marginal-tax-rate line, both drawn above the stack (explicit Chart.js draw `order`) and read off their own right-hand % axis.
-5. **Asset value** — all non-IDGT brokerage portfolio and pre-tax IRA balances over time; popup always shows each holder's age, value and the portfolio's configured (gross) annual growth %, and — only when that portfolio's **Expenses** checkbox is on — adds a net-of-expenses annual growth % (the actual balance-over-balance change once drags are subtracted), with the underlying tax drag, fee drag, living-cost withdrawal and realized LTCG shown only when **Show details** is on. A second **IDGT** chart appears only when at least one portfolio is flagged IDGT; its popup shows age, value and gross annual growth % always, with tax drag and fee drag shown only when Show details is on (no living-cost line, per spec §10).
+5. **Asset value** — all non-IDGT brokerage portfolio, pre-tax IRA, and Roth IRA balances over time; popup always shows each holder's age and each series' value, and, for brokerage/pre-tax IRA series, the portfolio's configured (gross) annual growth %, plus — only when that portfolio's **Expenses** checkbox is on — a net-of-expenses annual growth % (the actual balance-over-balance change once drags are subtracted), with the underlying tax drag, fee drag, living-cost withdrawal and realized LTCG shown only when **Show Details in Popup** is on. Roth IRA series show only their value (no drag/growth breakdown — a Roth balance is simply its prior balance plus that year's conversion, compounded). A second **IDGT** chart appears only when at least one portfolio is flagged IDGT; its popup shows age, value and gross annual growth % always, with tax drag and fee drag shown only when Show Details in Popup is on (no living-cost line, per spec §10).
 
 ### 5.1 Popup (tooltip) layout
 
@@ -141,7 +150,7 @@ A checkbox labeled **"Show Details in Popup"** sits in the top bar (spec §3, `#
 | Annual Household Income | Total income | Filing status, AGI |
 | Taxable Social Security | TSS, SST, SST%, top marginal rate | Provisional income (PI) |
 | Total Tax | Effective tax rate, marginal tax rate | TT, filing status, taxable income, standard deduction, all income components (wages, pension, rental, IRA RMD, ordinary/qualified dividends, LTCG, taxable SS, AGI), provisional income, NII/NIIT |
-| Asset value (non-IDGT) | Value, gross annual growth %, and (if Expenses is on) net-of-expenses growth % | Tax drag, fee drag, living-cost withdrawal, realized LTCG |
+| Asset value (non-IDGT) | Value (brokerage/pre-tax IRA/Roth IRA), and for brokerage/pre-tax IRA, gross annual growth %, and (if Expenses is on) net-of-expenses growth % | Tax drag, fee drag, living-cost withdrawal, realized LTCG |
 | Asset value (IDGT) | Value, gross annual growth % | Tax drag, fee drag |
 
 (The Social Security break-even popup and the IRMAA/income warning line are unaffected — spec doesn't gate them.)
@@ -230,6 +239,7 @@ A `#detailPanel` placeholder exists for the optional "Detailed Tax Calculation A
 26. Spec §9.4 tooltip: added the marginal tax rate to the Total Tax popup (now shown unconditionally alongside effective tax rate, per "Popup window should include: Effective Tax Rate, Marginal Tax Rate"), and, under Show Details, added the full list of income components (wages, pension, rental, IRA RMD, ordinary/qualified dividends, LTCG, taxable SS, AGI) that roll up to AGI, per "If show_details, show TT, TI, standard deduction, all income components."
 27. Spec §9.4 chart-spec update: the effective- and marginal-tax-rate overlay lines are now drawn thick and dashed (previously solid), and colored bright red (effective) and bright green (marginal) per the updated spec, replacing the earlier dark/blue solid pair.
 28. Bug fix: the effective- and marginal-tax-rate lines were being painted over by the stacked tax-segment fill areas because all ten Total Tax datasets shared the same default Chart.js draw `order`. Explicit `order` values (stacked segments = 2, rate lines = 1/0 — lower `order` draws on top in Chart.js) now keep both dashed rate lines visibly on top of the stack, as spec requires ("Overlay ... on top of other graph objects").
+29. Spec §4.4/§10: added Roth IRA support. Each Pre-tax IRA card gained an "Annual Roth conversion" field (flat today's-$ amount, converted after that year's RMD and before growth, capped at the remaining pre-tax balance, independent of the withdrawal age window); each person also gets a new Roth IRA card (balance, annual growth, survivor-benefit checkbox) that must be enabled for conversions to actually move money. The converted amount is added to ordinary income (and therefore AGI, taxable Social Security, and Total Tax) the year it converts, but — since it's an internal transfer, not new cash — is not added as its own stacked band on the Annual Household Income chart. The Roth balance itself just compounds tax-free from its starting balance plus each year's conversion, with inheritance-on-death handled the same way as the pre-tax IRA (but with no RMDs, since none apply to Roth accounts). The non-IDGT Asset Value chart now includes a distinctly-colored Roth IRA band per person alongside brokerage and pre-tax IRA; its tooltip shows only value (no drag/growth breakdown, since a Roth balance has none to show).
 
 ---
 
