@@ -4,6 +4,8 @@
 
 *Cleanup pass: removed stray invisible characters and broken bold markers from headings, renumbered §4's subsections sequentially (4.1–4.5, closing the gap left by an earlier 4.0 insertion), fixed a leftover "IRRMA" typo in §8.3, and normalized heading capitalization and spacing. No content changed.*
 
+*Revision history on §4.4's Pre-tax IRA row: an early pass removed "Add convamount to ordinary income" on the reasoning that a Roth conversion is just an internal transfer between accounts. That reasoning was wrong in practice — a Roth conversion is genuinely taxed as ordinary income the year it happens — so a second pass restored it, adding a "Roth conversion" band to the §8.3 income chart so it would actually be visible (the original problem wasn't that it was taxed, it was that it was invisible). This version refines that once more: rather than a separate "Roth conversion" concept, the spec now frames it as what it actually is on a tax return — a withdrawal from the pre-tax IRA (`Pre-tax IRA withdraw += convamount`), taxed exactly like the RMD, with its own "Pre-tax IRA withdraw" band on the income chart alongside (not instead of) the "IRA RMD" band. Net effect on the numbers is identical to the second pass; only the framing and the band's name/position changed.*
+
 ---
 
 ## 1. Overview
@@ -35,6 +37,7 @@ Build an HTML app that runs completely locally in the browser to:
 - An **output column** on the right, containing the visualization/chart sections.
 - Both columns scroll **independently**, via their own vertical scrollbar — so the user can adjust an input while keeping a specific chart in view further down the page.
 - show_details checkbox (display label “Show Details in Popup”)
+- button to generate a separate webpage (preferably tab) to show all calculation formulas and list of variables acronyms (with full spelling). This is to help the user verify calculations as compounded formula errors can accumulate quickly.
 
 ---
 
@@ -59,7 +62,9 @@ Build an HTML app that runs completely locally in the browser to:
 
 ### 4.4. Income Sources Table
 
-One column per person (if married); each income type's card should top-align across the two person-columns for visual clarity. Each income type needs its own set of inputs:
+- One column per person (if married); each income type's card should top-align across the two person-columns for visual clarity. Each income type needs its own set of inputs.
+
+- Each income type checkbox on upper left to enable, checkbox on upper right to hide (enable stop using input, hide just hide the income type card to reduce display area)
 
 | Income source                       | Fields required                                                                                                                                                                                                                                                        |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -67,14 +72,18 @@ One column per person (if married); each income type's card should top-align acr
 | **Social Security**                 | Already-started flag, or FRA (age 67 default) if not yet started<br>**SS start age**: slider for each person's claim age (default: FRA, or their already-started age).                                                                       |
 | **Pension**                         | Age range, annual change, survivor benefit                                                                                                                                                                                                                             |
 | **Rental income**                   | Age range, annual change, survivor benefit                                                                                                                                                                                                                                                                                |
-| **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit, annual ROTH Conv (convamount : inflation adjusted, until pre-tax IRA value reach 0). Add convamount to ordinary income                                                                                                                                                                    |
-| **ROTH IRA**                     |  annual change (default: inflation + 3%), survivor benefit. Add ROTH Conversion convamount                                                                                                                                                                     |
-| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, value, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%), Qualified Div (QDIV) % (default 70% ODIV), IDGT checkbox, expense checkbox if checked needs: tax drag (% annual total tax (TT)), fee drag (% or fixed amt), living cost withdraw (inflation adjusted), LTCG (% annual total tax (TT) or % annual total tax (TT) x younger person's age/100 (clamped to 1) (this is ~unrealized gains) or amount (inflation adjusted)) Annual asset value change += annual growth - tax drag - fee drag - living cost withdraw |
+| **Pre-tax IRA**                     | Age range (default start age = RMD age), annual change (default: inflation + 3%), survivor benefit, annual ROTH Conv (convamount : inflation adjusted, until pre-tax IRA value reach 0). Pre-tax IRA withdraw += convamount                                                                                                                                                                    |
+| **ROTH IRA**                     |  annual change (default: inflation + 3%), survivor benefit. Add ROTH Conversion convamount to this account's balance.                                                                                                                                                                     |
+| **Brokerage portfolio(s)**          | User can add multiple portfolios; each needs: name, checkbox to hide remainder input to reduce screen spacevalue, age range, annual growth (default: inflation + 4%), survivor benefit, and annual Ordinary Dividend (ODIV) yield % (default 1.5%), Qualified Div (QDIV) % (default 70% ODIV), IDGT checkbox, expense checkbox if checked needs: tax drag (% annual total tax (TT)), fee drag (% or fixed amt), withdraw (inflation adjusted), LTCG (% annual total tax (TT) or % annual total tax (TT) x younger person's age/100 (clamped to 1) (this is ~unrealized gains) or amount (inflation adjusted)), foreign asset % portfolio, foreign tax credit % (default 0.25%). \[Foreign asset %/foreign tax credit % are also shown, and take effect, whenever the IDGT checkbox is on — even if the expense checkbox is off — since a foreign-asset-holding trust is the more natural home for this pair; every other expense field (tax drag, fee drag, withdraw, LTCG) still requires the expense checkbox regardless of IDGT.\] Annual asset value change += annual growth - tax drag - fee drag - withdraw, foreign tax credit += portfolio value * foreign asset % * foreign tax credit %|
 
 ### 4.5. Global Assumption
 
 - **Inflation rate slider**, initial value 3%. Assume the Social Security COLA rate equals the inflation rate.
 - **Passing age**: P1's passing age (default 85) and P2's passing age (default 90) — both sliders use the same scale (30-100 years) and width.
+- Suspended CG Loss amount (SCGL)
+- checkbox for speculative future tax threshold change (default unchecked). If checked
+  - NIIT exemption threshold : start year, single filing status threshold, married filing status threshold. Threshold entered in today’s $s
+  - Social Security Taxation Threshold : Not Implemented Yet
 
 ---
 
@@ -142,10 +151,11 @@ One column per person (if married); each income type's card should top-align acr
 
 - **Note:** IRMAA brackets determined by MAGI (AGI + tax exempts + foreign tax credits etc) Following graph is ~AGI which is ~MAGI
 - **Y axis**: annual household income. Default locked max = $150k (auto-raise if the data requires more).
-  - Draw each income source as a thick line, in a distinct color, stacked in this order (bottom to top): pension, wage, taxable interest, IRA RMD (today's $), rent, QDIV, ODIV minus QDIV, SS for P0, SS for the other person. Respect the SSSBR when stacking SS.
+- Eliminate annual LTCG amount with available SCGL
+  - Draw each income source as a thick line, in a distinct color, stacked in this order (bottom to top): pension, wage, pre-tax IRA withdraw, IRA RMD (today's $), rent, QDIV, ODIV minus QDIV, SS for P0, SS for the other person. Respect the SSSBR when stacking SS. \[Pre-tax IRA withdraw and IRA RMD are two separate bands: RMD is the mandatory required-minimum-distribution amount, while pre-tax IRA withdraw is the (also taxable) amount withdrawn on top of that specifically to fund a configured Roth conversion (§4.4) — it's a real withdrawal from the pre-tax account, taxed the same way the RMD is, so it needs its own band or the visible stack total wouldn't match what's actually taxed.\]
   - Draw income until the last person passes.
   - Overlay dashed IRMAA-tier bracket lines matching that year's filing status, in single colors, drawn on top and labeled "IRMAA Tier #". Include at least the lowest IRMAA tier on the chart.
-  - Tooltip should include total income. If show_show_details show filing status, AGI
+  - Tooltip should include total income, SCGL. If show_details show filing status, AGI
 - All values converted to today's dollars.
 - Chart height = chart width.
 - Stop including a person's income once they pass.
@@ -180,10 +190,12 @@ One column per person (if married); each income type's card should top-align acr
 
 ### 9.4. Total Tax (TT)
 
+- ordinary income = pension + wage + RMD withdraw + pre-tax IRA withdraw + rent \[+ ODIV minus QDIV, which is also ordinary-rate income though not spelled out in this line — see §4.4's Brokerage row and the AGI line just below\]
 - AGI = all non-SS income + TSS.
 - Taxable income (TI) = AGI − standard deduction (based on filing status).
 - Use current-year tax brackets (TB).
 - Calculate total tax on TI, including the dividend/capital-gains tax computation.
+- Subtract all portfolio foreign tax credit
 - Include NIIT if triggered in chart and tooltip.
 
 **Chart spec:**
@@ -194,7 +206,7 @@ One column per person (if married); each income type's card should top-align acr
 - Draw until the last person passes; filing status changes when the first person passes.
 - overlay thick bright red dashed line for effective tax rate.
 - overlay thick bright green dashed line for marginal tax rate.
-- Popup window should include: Effective Tax Rate, Marginal Tax Rate. If show_details, show TT, TI, standard deduction, all income components
+- Popup window should include: Effective Tax Rate, Marginal Tax Rate, Total Tax. If show_details, show TI, all income components, standard deduction, foreign tax credit
 
 > **Note:** because Total Tax is simplified, this tax calculation also excludes most deductions and credits.
 

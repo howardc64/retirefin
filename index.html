@@ -196,6 +196,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;">
       <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Show Details in Popup
     </label>
+    <button class="btn" onclick="openFormulasPage()" title="Opens a separate tab listing every calculation formula and acronym used in this app">📐 Formulas &amp; Acronyms</button>
     <span class="savemsg" id="saveMsg"></span>
   </div>
 </header>
@@ -222,6 +223,13 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
     <div class="sv" id="inflationValLbl">3.00%</div>
   </div>
   <div id="passingSliders"></div>
+  <div class="field full" style="margin-top:14px">
+    <label>Suspended Capital-Gain Loss carryforward (SCGL, today's $)</label>
+    <input type="number" class="money" id="scglInput" min="0" step="1000" value="0" oninput="onNumberInput('scgl', this.value)">
+  </div>
+  <div class="item-note" id="scglStatusNote" style="margin-top:-4px"></div>
+  <div class="item-note">A capital-loss carryforward available to offset realized long-term gains (LTCG). Each year, available SCGL first eliminates that year's realized LTCG (dollar-for-dollar, before tax) until it's used up; only LTCG left over after that is taxed. Shown net-of-SCGL on the Annual Household Income chart and in the Total Tax calculation.</div>
+  <div id="futureTaxPanel" style="margin-top:14px"></div>
 </div>
 
 <!-- ═══ INCOME SOURCES ═══ -->
@@ -348,10 +356,17 @@ const IRMAA_SGL=[{magi:109000,label:'T1',surch:1148},{magi:137000,label:'T2',sur
 // Net Investment Income Tax (NIIT, IRC §1411): 3.8% on the LESSER of (a) net investment income
 // (here: non-qualified + qualified dividends + realized LTCG — the investment-income items already
 // modeled) or (b) MAGI over the threshold. Thresholds are statutory and, like the SS provisional-
-// income thresholds, are NOT indexed for inflation — deflated the same way (factor `f`).
+// income thresholds, are NOT indexed for inflation — deflated the same way (factor `f`) — UNLESS
+// the speculative future-threshold-change assumption (spec §4.5) is enabled and this year is at or
+// after its configured start year, in which case the configured threshold applies instead, held
+// flat in today's-dollar terms (no deflation): the scenario being modeled is a future law that
+// sets an inflation-indexed threshold, unlike current law's frozen nominal one.
 const NIIT_RATE=0.038, NIIT_THRESH_MFJ=250000, NIIT_THRESH_SGL=200000;
-function computeNIIT(nii, magi, filing, f=1){
-  const thresh=(filing==='married'?NIIT_THRESH_MFJ:NIIT_THRESH_SGL)*f;
+function computeNIIT(nii, magi, filing, f=1, futureTax, year){
+  const useFuture = futureTax && futureTax.enabled && year!=null && year>=Number(futureTax.niitStartYear);
+  const thresh = useFuture
+    ? Math.max(0, Number(filing==='married'?futureTax.niitMarried:futureTax.niitSingle)||0)
+    : (filing==='married'?NIIT_THRESH_MFJ:NIIT_THRESH_SGL)*f;
   const excess=Math.max(0, magi-thresh);
   return NIIT_RATE*Math.min(Math.max(0,nii), excess);
 }
@@ -487,7 +502,7 @@ function defaultIncomeItem(amount, changeMode, changeVal){
 }
 function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal, endMode, endVal){
   return{
-    enabled:false, amount:amount||0,
+    enabled:false, hidden:false, amount:amount||0,
     ar:defaultAgeRange(startMode,startVal,endMode,endVal),
     change:defaultChange(changeMode,changeVal),
     bene:false
@@ -498,15 +513,17 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
 // tax drag (% of the household's annual total tax, TT, paid out of this portfolio),
 // fee drag (% of balance, or a fixed today's-$ amount per year), and an IDGT flag.
 // Annual asset value change = growth - tax drag - fee drag.
-// "Expenses" checkbox (spec 4.3): when on, a portfolio also has tax drag, fee drag, a living-cost
-// withdrawal and realized LTCG. Older saved files without the flag count as on if they had drag/fees.
+// "Expenses" checkbox (spec 4.4): when on, a portfolio also has tax drag, fee drag, a withdrawal,
+// realized LTCG, and a foreign-tax-credit pair (foreign asset % of the portfolio, and the credit
+// rate on that foreign share, default 0.25%). Older saved files without the flag count as on if
+// they had drag/fees.
 function pfExpense(b){
   if(!b) return false;
   if(b.expense!==undefined) return !!b.expense;
   return (Number(b.taxDrag)||0)>0 || (Number(b.fee&&b.fee.value)||0)>0;
 }
 function defaultBrokeragePortfolio(balance, n){
-  return {id:uid(),enabled:true,name:'Brokerage Portfolio '+(n||1),balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,ltcg:0,ltcgMode:'amt',taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false};
+  return {id:uid(),enabled:true,hidden:false,name:'Brokerage Portfolio '+(n||1),balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,ltcg:0,ltcgMode:'amt',taxDrag:0,fee:{mode:'pct',value:0},foreignPct:0,ftcPct:0.25,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false};
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
@@ -515,13 +532,13 @@ function defaultPerson(idx){
     name:'Person '+(idx+1),
     birthYear:by,
     birthMonth:1,
-    wage:{enabled:false, amount:0, ar:defaultAgeRange('now',0,'custom',65), change:defaultChange('inflation')},
-    ss:{enabled:true, pia:0, fra:fraForBirthYear(by), started:false, claimAge:fraForBirthYear(by)},
+    wage:{enabled:false, hidden:false, amount:0, ar:defaultAgeRange('now',0,'custom',65), change:defaultChange('inflation')},
+    ss:{enabled:true, hidden:false, pia:0, fra:fraForBirthYear(by), started:false, claimAge:fraForBirthYear(by)},
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     rental:  defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     brokerage:[],
-    ira:{enabled:false, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0},
-    roth:{enabled:false, balance:0, growth:defaultChange('offset',3), bene:false}
+    ira:{enabled:false, hidden:false, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0},
+    roth:{enabled:false, hidden:false, balance:0, growth:defaultChange('offset',3), bene:false}
   };
 }
 function defaultState(){
@@ -530,6 +547,8 @@ function defaultState(){
     inflation:0.03,
     people:[defaultPerson(0), defaultPerson(1)],
     passing:{p1:85,p2:90},
+    scgl:0,
+    futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ}
   };
 }
 // Fills in any fields missing from a loaded/imported state (e.g. an older save
@@ -779,6 +798,36 @@ function renderPassingSliders(){
   }
   document.getElementById('passingSliders').innerHTML=html;
 }
+// Spec §4.5: a speculative, off-by-default "future tax threshold change" scenario. Currently only
+// covers the NIIT exemption threshold (start year + today's-$ threshold per filing status); Social
+// Security's taxation threshold is a deliberate placeholder ("Not implemented yet" in the spec).
+function renderFutureTaxPanel(){
+  const ft=state.futureTax||{};
+  let html=`<div class="field full">
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4">
+      <input type="checkbox" style="flex:0 0 auto" ${ft.enabled?'checked':''} onclick="onFutureTaxToggle(this.checked)"> Model a speculative future tax-threshold change
+    </label>
+  </div>`;
+  if(ft.enabled){
+    html+=`<div class="item-note" style="margin-top:-6px">Speculative — not current law. Lets you test how the projection would change if Congress enacted a new threshold.</div>
+    <div class="field"><label>NIIT threshold change: start year</label>
+      <input type="number" min="${THIS_YEAR}" max="${THIS_YEAR+80}" step="1" value="${ft.niitStartYear}" oninput="onNumberInput('futureTax.niitStartYear', this.value)"></div>
+    <div class="field"><label>Single filing threshold (today's $)</label>
+      <input type="number" class="money" min="0" step="5000" value="${ft.niitSingle}" oninput="onNumberInput('futureTax.niitSingle', this.value)"></div>
+    <div class="field"><label>Married filing threshold (today's $)</label>
+      <input type="number" class="money" min="0" step="5000" value="${ft.niitMarried}" oninput="onNumberInput('futureTax.niitMarried', this.value)"></div>
+    <div class="item-note">From the start year onward, the Net Investment Income Tax (NIIT) exemption threshold switches to this configured amount, held flat in today's dollars — unlike current law's frozen, un-indexed $200k single / $250k married thresholds used everywhere else in this app before that year (and after it, if this box is unchecked).</div>
+    <div class="field full" style="opacity:0.6"><label>Social Security Taxation Threshold</label>
+      <div style="font-size:12px;padding:2px 0 6px">Not implemented yet.</div></div>`;
+  }
+  document.getElementById('futureTaxPanel').innerHTML=html;
+}
+function onFutureTaxToggle(checked){
+  setPath('futureTax.enabled', checked);
+  renderFutureTaxPanel();
+  recompute();
+  saveDebounced();
+}
 function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function onPassingInput(key,val){
   state.passing[key]=+val;
@@ -845,12 +894,31 @@ function toggleItem(headerEl){
   const body=headerEl.nextElementSibling;
   if(body) body.classList.toggle('open');
 }
-function onEnableToggle(path, checked, itemEl){
+function onEnableToggle(path, checked, itemEl, hidden){
   setPath(path, checked);
   const body=itemEl.querySelector('.item-body');
-  if(body){ body.classList.toggle('open', checked); }
+  if(body){ body.classList.toggle('open', checked && !hidden); }
   recompute(); saveDebounced();
 }
+// Spec §4.4: a second checkbox, upper right, purely cosmetic — collapses the card's detail
+// fields to reduce screen space without touching whether the income source is actually used.
+function onHideToggle(path, checked, itemEl, enabled){
+  setPath(path, checked);
+  const body=itemEl.querySelector('.item-body');
+  if(body){ body.classList.toggle('open', !!enabled && !checked); }
+  saveDebounced();
+}
+// Builds the standard two-checkbox card header: enable (left, drives the label + calculation)
+// and hide (right, purely visual). Shared by every income-type card below.
+function itemHeadHtml(title, path, enabled, hidden){
+  return `<div class="item-head">
+    <label onclick="event.stopPropagation()"><input type="checkbox" ${enabled?'checked':''} onclick="onEnableToggle('${path}.enabled', this.checked, this.closest('.item'), ${hidden?'true':'false'})"> ${title}</label>
+    <label class="hide-toggle" onclick="event.stopPropagation()" title="Hide this card's details to save space" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:400;font-size:11px;opacity:.65;text-transform:none;letter-spacing:normal">
+      <input type="checkbox" ${hidden?'checked':''} onclick="onHideToggle('${path}.hidden', this.checked, this.closest('.item'), ${enabled?'true':'false'})"> Hide
+    </label>
+  </div>`;
+}
+function itemOpenClass(enabled, hidden){ return (enabled && !hidden) ? 'open' : ''; }
 
 // Resolve an age-range spec into concrete [startAge, endAge] for a given person,
 // where "now"->current age, "passing"->that person's passing age, "rmd"->that person's RMD age.
@@ -875,10 +943,8 @@ function renderIncomeForms(){
   // Reusable "simple" card for an income item with agerange + change (pension/rental style)
   function agedItemCard(pid, key, title, item, checkboxPath){
     return `<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${item.enabled?'checked':''} onclick="onEnableToggle('${checkboxPath}.enabled', this.checked, this.closest('.item'))"> ${title}</label>
-      </div>
-      <div class="item-body ${item.enabled?'open':''}">
+      ${itemHeadHtml(title, checkboxPath, item.enabled, item.hidden)}
+      <div class="item-body ${itemOpenClass(item.enabled,item.hidden)}">
         <div class="field"><label>Annual amount (today's $)</label>
           <input type="number" class="money" min="0" step="500" value="${item.amount}" oninput="onNumberInput('${checkboxPath}.amount', this.value)"></div>
         <div></div>
@@ -897,10 +963,8 @@ function renderIncomeForms(){
 
     // WAGE
     html+=`<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${p.wage.enabled?'checked':''} onclick="onEnableToggle('${pid}.wage.enabled', this.checked, this.closest('.item'))"> Wage / earned income</label>
-      </div>
-      <div class="item-body ${p.wage.enabled?'open':''}">
+      ${itemHeadHtml('Wage / earned income', pid+'.wage', p.wage.enabled, p.wage.hidden)}
+      <div class="item-body ${itemOpenClass(p.wage.enabled,p.wage.hidden)}">
         <div class="field"><label>Annual amount (today's $)</label>
           <input type="number" class="money" min="0" step="500" value="${p.wage.amount}" oninput="onNumberInput('${pid}.wage.amount', this.value)"></div>
         <div></div>
@@ -912,10 +976,8 @@ function renderIncomeForms(){
     // SOCIAL SECURITY
     const s=p.ss;
     html+=`<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${s.enabled?'checked':''} onclick="onEnableToggle('${pid}.ss.enabled', this.checked, this.closest('.item'))"> Social Security</label>
-      </div>
-      <div class="item-body ${s.enabled?'open':''}">
+      ${itemHeadHtml('Social Security', pid+'.ss', s.enabled, s.hidden)}
+      <div class="item-body ${itemOpenClass(s.enabled,s.hidden)}">
         <div class="field full"><label><input type="checkbox" ${s.started?'checked':''} onchange="onSSStartedToggle(${i}, this.checked)"> Already started collecting</label></div>
         ${s.started?`
         <div class="field full"><label>Current monthly benefit (today's $)</label>
@@ -953,15 +1015,22 @@ function renderIncomeForms(){
       <div class="item-body open portfolio-list">
         ${portfolios.length?portfolios.map((b,bi)=>`
           <div class="item portfolio-card" style="margin:0;padding:10px 11px">
-            <div class="item-head" style="margin-bottom:6px"><label class="pf-title" style="font-size:12px">${escHtml((b.name&&b.name.trim())||('Portfolio '+(bi+1)))}</label>
-              <button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="event.stopPropagation(); removeBrokerage(${i},${bi})">Remove</button></div>
-            <div class="item-body open portfolio-fields">
+            <div class="item-head" style="margin-bottom:6px">
+              <label class="pf-title" style="font-size:12px">${escHtml((b.name&&b.name.trim())||('Portfolio '+(bi+1)))}</label>
+              <div style="display:flex;align-items:center;gap:10px">
+                <label class="hide-toggle" title="Hide this portfolio's details to save space" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:400;font-size:11px;opacity:.65;text-transform:none;letter-spacing:normal">
+                  <input type="checkbox" ${b.hidden?'checked':''} onchange="onHideToggle('${pid}.brokerage.${bi}.hidden', this.checked, this.closest('.item'), true)"> Hide
+                </label>
+                <button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="removeBrokerage(${i},${bi})">Remove</button>
+              </div>
+            </div>
+            <div class="item-body ${b.hidden?'':'open'} portfolio-fields">
               <div class="field full"><label>Portfolio name</label><input type="text" maxlength="40" placeholder="Portfolio ${bi+1}" value="${escAttr(b.name||'')}" oninput="onPortfolioName('${pid}',${bi},this.value,this)"></div>
               <div class="field full"><label>Current balance (today's $)</label><input type="number" class="money" min="0" step="5000" value="${b.balance||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.balance', this.value)"></div>
               ${renderChangeRow(pid+'.brokerage.'+bi+'.growth', b.growth, 8)}
               <div class="field"><label>Annual ODIV yield %</label><input type="number" min="0" max="100" step="0.1" value="${b.yield!=null?b.yield:1.5}" oninput="onNumberInput('${pid}.brokerage.${bi}.yield', this.value)"></div>
               <div class="field"><label>QDIV as % of ODIV</label><input type="number" min="0" max="100" step="1" value="${b.qdivPct!=null?b.qdivPct:70}" oninput="onNumberInput('${pid}.brokerage.${bi}.qdivPct', this.value)"></div>
-              <div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${pfExpense(b)?'checked':''} onchange="onExpenseToggle('${pid}',${bi},this.checked)"> Expenses &amp; realized gains (tax drag, fees, living cost, LTCG)</label></div>
+              <div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${pfExpense(b)?'checked':''} onchange="onExpenseToggle('${pid}',${bi},this.checked)"> Expenses &amp; realized gains (tax drag, fees, withdrawal, LTCG)</label></div>
               ${pfExpense(b)?`
               <div class="field"><label>Tax drag · % of annual total tax</label><input type="number" min="0" max="100" step="1" value="${b.taxDrag!=null?b.taxDrag:0}" oninput="onNumberInput('${pid}.brokerage.${bi}.taxDrag', this.value)"></div>
               <div class="field full"><label>Fee drag</label>
@@ -973,7 +1042,7 @@ function renderIncomeForms(){
                   <input type="number" class="money" min="0" step="${(b.fee&&b.fee.mode==='fixed')?100:0.05}" value="${b.fee&&b.fee.value!=null?b.fee.value:0}" oninput="onFeeValue('${pid}',${bi},this.value)">
                 </div>
               </div>
-              <div class="field"><label>Living cost withdrawal ($/yr, today's $)</label><input type="number" class="money" min="0" step="1000" value="${b.living||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.living', this.value)"></div>
+              <div class="field"><label>Withdrawal ($/yr, today's $)</label><input type="number" class="money" min="0" step="1000" value="${b.living||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.living', this.value)"></div>
               <div class="field full"><label>Realized LTCG</label>
                 <div class="arow">
                   <select onchange="onLtcgMode('${pid}',${bi},this.value)">
@@ -985,10 +1054,14 @@ function renderIncomeForms(){
                 </div>
               </div>
               `:''}
+              ${(pfExpense(b)||b.idgt)?`
+              <div class="field"><label>Foreign assets · % of portfolio</label><input type="number" min="0" max="100" step="1" value="${b.foreignPct!=null?b.foreignPct:0}" oninput="onNumberInput('${pid}.brokerage.${bi}.foreignPct', this.value)"></div>
+              <div class="field"><label>Foreign tax credit %</label><input type="number" min="0" max="100" step="0.05" value="${b.ftcPct!=null?b.ftcPct:0.25}" oninput="onNumberInput('${pid}.brokerage.${bi}.ftcPct', this.value)"></div>
+              `:''}
               ${renderAgeRangeRow(pid+'.brokerage.'+bi+'.ar', b.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
               ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${b.bene?'checked':''} onchange="onBeneToggle('${pid}.brokerage.${bi}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
-              <div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${b.idgt?'checked':''} onchange="onBeneToggle('${pid}.brokerage.${bi}.idgt', this.checked)"> IDGT (charted separately from the taxable estate)</label></div>
-              <div class="item-note">ODIV = portfolio balance × yield. QDIV is the entered percentage of ODIV. Each year the balance changes by growth − tax drag − fee drag − living cost withdrawal: tax drag is this % of the household's total tax (TT) paid from the portfolio; fee drag is a % of balance, or a fixed $ amount per year that stays flat in future dollars (so it shrinks in today's $ as inflation rises). Realized LTCG can also be entered as % of TT × the younger household member's age/100 (clamped to 1) — a rough stand-in for unrealized gains being realized more readily later in retirement. All in today's-dollar terms.</div>
+              <div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${b.idgt?'checked':''} onchange="onIdgtToggle('${pid}',${bi},this.checked)"> IDGT (charted separately from the taxable estate)</label></div>
+              <div class="item-note">ODIV = portfolio balance × yield. QDIV is the entered percentage of ODIV. Each year the balance changes by growth − tax drag − fee drag − withdrawal: tax drag is this % of the household's total tax (TT) paid from the portfolio; fee drag is a % of balance, or a fixed $ amount per year that stays flat in future dollars (so it shrinks in today's $ as inflation rises). Realized LTCG can also be entered as % of TT × the younger household member's age/100 (clamped to 1) — a rough stand-in for unrealized gains being realized more readily later in retirement. Foreign tax credit = portfolio value × foreign-assets % × foreign-tax-credit %, recomputed each year off the portfolio's current balance and subtracted directly from that year's household Total Tax (TT), alongside every other portfolio's credit; shown whenever Expenses is on, and always available for an IDGT portfolio (foreign-asset holding trusts commonly exist for exactly this) even with Expenses off. All in today's-dollar terms.</div>
             </div>
           </div>`).join(''):`<div class="item-note">Add one or more brokerage portfolios to include portfolio dividend income.</div>`}
       </div>
@@ -997,10 +1070,8 @@ function renderIncomeForms(){
     // PRETAX IRA
     const rmdAge=rmdAgeForBirthYear(p.birthYear);
     html+=`<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${p.ira.enabled?'checked':''} onclick="onEnableToggle('${pid}.ira.enabled', this.checked, this.closest('.item'))"> Pre-tax IRA / 401(k)</label>
-      </div>
-      <div class="item-body ${p.ira.enabled?'open':''}">
+      ${itemHeadHtml('Pre-tax IRA / 401(k)', pid+'.ira', p.ira.enabled, p.ira.hidden)}
+      <div class="item-body ${itemOpenClass(p.ira.enabled,p.ira.hidden)}">
         <div class="field full"><label>Current balance (today's $)</label>
           <input type="number" class="money" min="0" step="5000" value="${p.ira.balance}" oninput="onNumberInput('${pid}.ira.balance', this.value)"></div>
         ${renderAgeRangeRow(pid+'.ira.ar', p.ira.ar, [{value:'rmd',label:'RMD age ('+rmdAge+')'},{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'passing',label:'Passing'},{value:'custom',label:'Custom age'}])}
@@ -1008,21 +1079,19 @@ function renderIncomeForms(){
         <div class="field full"><label>Annual Roth conversion ($/yr, today's $)</label>
           <input type="number" class="money" min="0" step="1000" value="${p.ira.conv||0}" oninput="onNumberInput('${pid}.ira.conv', this.value)"></div>
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.ira.bene?'checked':''} onchange="onBeneToggle('${pid}.ira.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
-        <div class="item-note">Withdrawals use the IRS Uniform Lifetime Table divisor for the account owner's attained age each year (required starting at age ${rmdAge} under current law; an earlier start is treated as a voluntary withdrawal using the same table, approximated below age 72). Dividend yield within the account isn't tracked separately — it's folded into the annual growth rate above, since it isn't taxed until withdrawn; only the RMD/withdrawal amount is counted as (ordinary) income. Annual Roth conversion moves a flat today's-$ amount from this account into the Roth IRA below each year this account still has a balance, until it reaches $0; the converted amount counts as ordinary income the year it's converted. Requires the Roth IRA below to be enabled.</div>
+        <div class="item-note">Withdrawals use the IRS Uniform Lifetime Table divisor for the account owner's attained age each year (required starting at age ${rmdAge} under current law; an earlier start is treated as a voluntary withdrawal using the same table, approximated below age 72). Dividend yield within the account isn't tracked separately — it's folded into the annual growth rate above, since it isn't taxed until withdrawn; only the RMD/withdrawal amount is counted as (ordinary) income. Annual Roth conversion moves a flat today's-$ amount from this account into the Roth IRA below each year this account still has a balance, until it reaches $0; it's a genuine pre-tax IRA withdrawal (Pre-tax IRA withdraw += convamount, spec §4.4/§9.4) that's taxed as ordinary income the year it converts, exactly like the RMD, and appears as its own "Pre-tax IRA withdraw" band on the Annual Household Income chart, separate from the RMD band. Requires the Roth IRA below to be enabled.</div>
       </div>
     </div>`;
 
     // ROTH IRA
     html+=`<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${p.roth.enabled?'checked':''} onclick="onEnableToggle('${pid}.roth.enabled', this.checked, this.closest('.item'))"> Roth IRA</label>
-      </div>
-      <div class="item-body ${p.roth.enabled?'open':''}">
+      ${itemHeadHtml('Roth IRA', pid+'.roth', p.roth.enabled, p.roth.hidden)}
+      <div class="item-body ${itemOpenClass(p.roth.enabled,p.roth.hidden)}">
         <div class="field full"><label>Current balance (today's $)</label>
           <input type="number" class="money" min="0" step="5000" value="${p.roth.balance||0}" oninput="onNumberInput('${pid}.roth.balance', this.value)"></div>
         ${renderChangeRow(pid+'.roth.growth', p.roth.growth, 1)}
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.roth.bene?'checked':''} onchange="onBeneToggle('${pid}.roth.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
-        <div class="item-note">Grows tax-free; no withdrawals or RMDs are modeled here, only balance growth plus any Annual Roth conversion set on the Pre-tax IRA above.</div>
+        <div class="item-note">Grows tax-free; no withdrawals or RMDs are modeled here, only balance growth plus any Annual Roth conversion set on the Pre-tax IRA above. The converted amount is withdrawn from the pre-tax side and taxed as ordinary income there the year it converts (see that card's note, and the "Pre-tax IRA withdraw" band on the income chart) — not here.</div>
       </div>
     </div>`;
 
@@ -1040,6 +1109,7 @@ function onSSClaimAge(i,val){
   recomputeDebounced(); saveDebounced();
 }
 function onExpenseToggle(pid,bi,checked){ setPath(pid+'.brokerage.'+bi+'.expense',checked); renderIncomeForms(); recompute(); saveDebounced(); }
+function onIdgtToggle(pid,bi,checked){ setPath(pid+'.brokerage.'+bi+'.idgt',checked); renderIncomeForms(); recompute(); saveDebounced(); }
 function onLtcgMode(pid,bi,mode){ setPath(pid+'.brokerage.'+bi+'.ltcgMode',mode); renderIncomeForms(); recompute(); saveDebounced(); }
 function onBeneToggle(path,checked){ setPath(path,checked); recompute(); saveDebounced(); }
 // Fixed fees are entered and stored in plain today's-$ dollars (fee.value). Percent fees are
@@ -1124,8 +1194,13 @@ function computeProjection(){
   // balance to the spouse when the IRA is marked to continue to spouse.
   // A configured Roth conversion (flat today's-$ amount, spec §4.4) moves money out of the
   // pre-tax IRA and into this person's Roth IRA each year the pre-tax IRA still has a balance
-  // — independent of the RMD/withdrawal age window — as long as the Roth IRA below is enabled;
-  // the converted amount is added to ordinary income for tax purposes (§9.4, computed below).
+  // — independent of the RMD/withdrawal age window — as long as the Roth IRA below is enabled.
+  // Per spec: "Pre-tax IRA withdraw += convamount" — the conversion is, at bottom, a real
+  // withdrawal from the pre-tax account (the IRS doesn't have a special "conversion income" line;
+  // it's reported and taxed exactly like any other IRA distribution). So it's tracked as its own
+  // "Pre-tax IRA withdraw" amount (iraConv, distinct from the RMD amount iraW below), added to
+  // ordinary income alongside the RMD (§9.4), and shown as its own band on the income chart (§8.3),
+  // separate from the "IRA RMD" band, so the visible stack matches what's actually taxed.
   const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({}));
   people.forEach((p,i)=>{
     if(!p.ira.enabled) return;
@@ -1234,8 +1309,14 @@ function computeProjection(){
 
   // ── Brokerage portfolio balances (today's $) ──
   // Balances are simulated year by year: each year's tax drag depends on that year's total tax (TT),
-  // so a closed-form (1+g)^k no longer applies. Change per year = growth − tax drag − fee drag − living cost withdrawal.
+  // so a closed-form (1+g)^k no longer applies. Change per year = growth − tax drag − fee drag − withdrawal.
   const pfState=people.map(p=>(p.brokerage||[]).map(b=>({bal:Number(b&&b.balance)||0, dead:false})));
+
+  // ── Suspended Capital-Gain Loss (SCGL) carryforward, spec §4.5/§8.3 ──
+  // A household-level pool (today's $) that shields realized LTCG from tax, dollar-for-dollar,
+  // until it's exhausted. Tracked as a running balance across years, consumed before growth/
+  // inflation considerations apply (it's a fixed today's-$ pool, not itself inflation-adjusted).
+  let scglRemaining=Math.max(0,Number(state.scgl)||0);
 
   const rows=[];
   for(let k=0;k<=yearsToProject;k++){
@@ -1281,7 +1362,7 @@ function computeProjection(){
 
     // Brokerage portfolio income — each portfolio produces ODIV and QDIV.
     function brokerageValues(portfolio, ownerIdx, k, bal){
-      if(!portfolio||!portfolio.enabled||!(bal>0)) return {odiv:0,qdiv:0,ltcg:0,ltcgFrac:0,cap:0};
+      if(!portfolio||!portfolio.enabled||!(bal>0)) return {odiv:0,qdiv:0,ltcg:0,ltcgFrac:0,ftc:0,cap:0};
 
       const ownerAge=curAges[ownerIdx]+k;
       const ownerAlive=ownerAge<passAges[ownerIdx];
@@ -1292,19 +1373,19 @@ function computeProjection(){
       // Before the owner passes, use the portfolio's configured age range.
       if(ownerAlive){
         const [sA,eA]=resolveAgeRange(portfolio.ar,people[ownerIdx]);
-        if(ownerAge<sA||ownerAge>=eA) return {odiv:0,qdiv:0,ltcg:0,ltcgFrac:0,cap:0};
+        if(ownerAge<sA||ownerAge>=eA) return {odiv:0,qdiv:0,ltcg:0,ltcgFrac:0,ftc:0,cap:0};
       }else{
         // If inheritance is enabled, the portfolio continues for the spouse
         // after the owner passes. Do not re-apply the deceased owner's
         // "end age = passing" check, which would otherwise stop the income.
-        if(!(portfolio.bene&&spouseAlive)) return {odiv:0,qdiv:0,ltcg:0,ltcgFrac:0,cap:0};
+        if(!(portfolio.bene&&spouseAlive)) return {odiv:0,qdiv:0,ltcg:0,ltcgFrac:0,ftc:0,cap:0};
       }
 
       // `bal` is this year's starting balance from the running simulation above;
       // spouse continuation therefore keeps the same projected portfolio.
       const odiv=Math.max(0,bal*(Number(portfolio.yield)||0)/100);
       const qdiv=odiv*clamp(Number(portfolio.qdivPct)||0,0,100)/100;
-      // Realized LTCG (spec 4.3): a flat amount, a % of the year's total tax, or that % scaled by
+      // Realized LTCG (spec 4.4): a flat amount, a % of the year's total tax, or that % scaled by
       // the younger household member's age/100 (clamped to 1) — a rough stand-in for unrealized
       // gains getting realized more readily later in retirement. The % modes are solved in the tax
       // step below because TT depends on it.
@@ -1312,7 +1393,13 @@ function computeProjection(){
       const ageFactor=portfolio.ltcgMode==='pctAge'?clamp(youngerHouseholdAge/100,0,1):1;
       const ltcg=on&&!pctMode?Math.min(Math.max(0,Number(portfolio.ltcg)||0),bal):0;
       const ltcgFrac=on&&pctMode?clamp(Number(portfolio.ltcg)||0,0,100)/100*ageFactor:0;
-      return {odiv,qdiv,ltcg,ltcgFrac,cap:bal};
+      // Foreign tax credit (spec 4.4): foreign tax credit += portfolio value × foreign-asset % ×
+      // foreign-tax-credit %. Tracked whenever Expenses is on, and also whenever the portfolio is
+      // flagged IDGT — a foreign-asset-holding trust is the more natural home for this input, and
+      // shouldn't require turning on the (otherwise unrelated) tax-drag/fee/withdrawal/LTCG toggle.
+      const ftcOn=on||!!portfolio.idgt;
+      const ftc=ftcOn?bal*clamp(Number(portfolio.foreignPct)||0,0,100)/100*clamp(Number(portfolio.ftcPct)||0,0,100)/100:0;
+      return {odiv,qdiv,ltcg,ltcgFrac,ftc,cap:bal};
     }
     // Start-of-year balance for every portfolio. A portfolio stops existing once its owner has
     // passed unless it is marked to continue to a surviving spouse.
@@ -1324,14 +1411,14 @@ function computeProjection(){
       return st.dead?0:st.bal;
     }));
     const brokerageByPerson=people.map((p,i)=>{
-      let odiv=0,qdiv=0,ltcg=0; const pct=[];
-      (p.brokerage||[]).forEach((b,bi)=>{const v=brokerageValues(b,i,k,pfBalNow[i][bi]);odiv+=v.odiv;qdiv+=v.qdiv;ltcg+=v.ltcg;if(v.ltcgFrac>0)pct.push({frac:v.ltcgFrac,cap:v.cap});});
-      return {odiv,qdiv,ltcg,pct};
+      let odiv=0,qdiv=0,ltcg=0,ftc=0; const pct=[]; const ftcByBi=[];
+      (p.brokerage||[]).forEach((b,bi)=>{const v=brokerageValues(b,i,k,pfBalNow[i][bi]);odiv+=v.odiv;qdiv+=v.qdiv;ltcg+=v.ltcg;ftc+=v.ftc;ftcByBi[bi]=v.ftc;if(v.ltcgFrac>0)pct.push({frac:v.ltcgFrac,cap:v.cap});});
+      return {odiv,qdiv,ltcg,ftc,ftcByBi,pct};
     });
 
     // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>({
-      id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:pfBalNow[i][bi], idgt:!!b.idgt, expense:!!b.expense, taxDrag:0, feeDrag:0, livingCost:0, ltcg:0
+      id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:pfBalNow[i][bi], idgt:!!b.idgt, expense:!!b.expense, taxDrag:0, feeDrag:0, livingCost:0, ltcg:0, foreignTaxCredit:brokerageByPerson[i].ftcByBi[bi]||0
     })));
 
     const odivByPerson=brokerageByPerson.map(v=>v.odiv);
@@ -1339,18 +1426,24 @@ function computeProjection(){
     const odivNQByPerson=people.map((p,i)=>Math.max(0,odivByPerson[i]-qdivByPerson[i]));
     const odiv=odivByPerson.reduce((a,b)=>a+b,0), qdiv=qdivByPerson.reduce((a,b)=>a+b,0);
     const odivNQ=odivNQByPerson.reduce((a,b)=>a+b,0);
+    const ftcByPerson=brokerageByPerson.map(v=>v.ftc);
+    const totalFtc=ftcByPerson.reduce((a,b)=>a+b,0);
 
-    // IRA withdrawals, plus any Roth conversion amount (taxed as ordinary income, spec §4.4)
+    // IRA withdrawals, plus any Roth-conversion-driven withdrawal amount. Spec §4.4/§9.4: a
+    // conversion is a real pre-tax-IRA withdrawal (just redirected into the Roth IRA rather than
+    // handed to the owner), so it's taxed as ordinary income exactly like the RMD — tracked here
+    // as its own "Pre-tax IRA withdraw" figure, distinct from (and additional to) the RMD amount,
+    // and both get their own band on the income chart so the visible stack matches what's taxed.
     const iraByPerson=people.map((p,i)=>iraW[i][k]||0);
-    const rothConvByPerson=people.map((p,i)=>iraConv[i][k]||0);
+    const iraWithdrawByPerson=people.map((p,i)=>iraConv[i][k]||0);
 
     const wageTotal=wageByPerson.reduce((a,b)=>a+b,0);
     const iraTotal=iraByPerson.reduce((a,b)=>a+b,0);
-    const rothConvTotal=rothConvByPerson.reduce((a,b)=>a+b,0);
+    const iraWithdrawTotal=iraWithdrawByPerson.reduce((a,b)=>a+b,0);
 
     const filing = married && alive[0] && alive[1] ? 'married' : 'single';
     const ssThresholdFactor = Math.pow(1+inflation,-k); // un-indexed SS-tax thresholds, in today's $
-    const nonSSOrdinary = wageTotal+pension+rental+iraTotal+rothConvTotal+odivNQ;
+    const nonSSOrdinary = wageTotal+pension+rental+iraTotal+iraWithdrawTotal+odivNQ;
     const{taxableSS,provisional}=computeTaxableSS(nonSSOrdinary, totalSS, filing, ssThresholdFactor);
     const std = filing==='married'?STD_MFJ:STD_SGL;
     const ordBrk = filing==='married'?MFJ_ORD:SGL_ORD;
@@ -1359,14 +1452,24 @@ function computeProjection(){
     const ordIncome = nonSSOrdinary+taxableSS;
     const ordTI = Math.max(0, ordIncome-std);
     const ordTax = calcOrdTax(ordTI, ordBrk);
-    // Realized LTCG comes from portfolios (spec 4.3). Amount-mode is fixed; %-of-TT mode solves
+    // Realized LTCG comes from portfolios (spec 4.4). Amount-mode is fixed; %-of-TT mode solves
     // LTCG = pct x TT with TT = ordTax + qualTax(QDIV + LTCG) by fixed-point iteration (it converges
-    // because a dollar of LTCG adds at most 20c of tax).
+    // because a dollar of LTCG adds at most 20c of tax). Spec §8.3: available SCGL (suspended
+    // capital-gain loss carryforward) eliminates realized LTCG dollar-for-dollar, before tax, so
+    // the iteration solves for tax on the *net-of-SCGL* LTCG, not the gross realized amount.
     const sumArr=a=>a.reduce((x,y)=>x+y,0);
     const ltcgOf=tt=>brokerageByPerson.map(v=>v.ltcg+v.pct.reduce((a,x)=>a+Math.min(x.cap,x.frac*tt),0));
+    const netOfScgl=gross=>Math.max(0, gross-Math.min(scglRemaining,Math.max(0,gross)));
     let ttGuess=ordTax;
-    for(let it=0;it<8;it++) ttGuess=ordTax+calcQualTax(ordTI, qdiv+sumArr(ltcgOf(ttGuess)), qBrk);
-    const ltcgByPerson=ltcgOf(ttGuess), ltcg=sumArr(ltcgByPerson);
+    for(let it=0;it<8;it++) ttGuess=ordTax+calcQualTax(ordTI, qdiv+netOfScgl(sumArr(ltcgOf(ttGuess))), qBrk);
+    const ltcgByPersonGross=ltcgOf(ttGuess), ltcgGross=sumArr(ltcgByPersonGross);
+    const scglUsed=Math.min(scglRemaining,Math.max(0,ltcgGross));
+    scglRemaining=Math.max(0,scglRemaining-scglUsed);
+    const ltcg=Math.max(0,ltcgGross-scglUsed); // net-of-SCGL LTCG — what's actually taxed/displayed
+    // Prorate the SCGL shield across people/portfolios so the per-person breakdown
+    // (used by the income chart's tooltip) still sums to the net total above.
+    const shieldFrac = ltcgGross>0 ? scglUsed/ltcgGross : 0;
+    const ltcgByPerson = ltcgByPersonGross.map(v=>v*(1-shieldFrac));
     const qualIncome = qdiv+ltcg;
     const qualTax = calcQualTax(ordTI, qualIncome, qBrk);
     const agi = nonSSOrdinary+taxableSS+qdiv+ltcg;
@@ -1375,10 +1478,12 @@ function computeProjection(){
     // §9.4 NIIT: 3.8% of the lesser of net investment income (ODIV−QDIV + QDIV + LTCG) or MAGI (~AGI)
     // over the un-indexed threshold. Added on top of ordinary + qualified tax for Total Tax (TT).
     const niiIncome = odivNQ+qdiv+ltcg;
-    const niit = computeNIIT(niiIncome, agi, filing, ssThresholdFactor);
-    const totalTax = incomeTax+niit;
+    const niit = computeNIIT(niiIncome, agi, filing, ssThresholdFactor, state.futureTax, THIS_YEAR+k);
+    // Spec §9.4: "Subtract all portfolio foreign tax credit" from Total Tax (floored at 0 — the
+    // credit offsets tax owed, it doesn't turn into a refund in this simplified model).
+    const totalTax = Math.max(0, incomeTax+niit-totalFtc);
 
-    // Roll each brokerage balance forward one year: growth − tax drag (share of TT) − fee drag.
+    // Roll each brokerage balance forward one year: growth − tax drag (share of TT) − fee drag − withdrawal.
     people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
       const st=pfState[i][bi], bal=pfBalNow[i][bi];
       if(st.dead||!(bal>0)){ st.bal=0; return; }
@@ -1391,19 +1496,19 @@ function computeProjection(){
       const feeFixed=feeMode==='fixed'?feeVal/Math.pow(1+inflation,k):0;
       // Drag $ applied this year (capped at what the portfolio can actually pay), kept for tooltips.
       const avail=Math.max(0,bal*(1+g));
-      const exp=pfExpense(b);   // tax drag, fees and living cost only apply when Expenses is checked
+      const exp=pfExpense(b);   // tax drag, fees and withdrawal only apply when Expenses is checked
       const feeD=exp?Math.min(bal*feePct+feeFixed, avail):0;
       const taxD=exp?Math.min(clamp(Number(b.taxDrag)||0,0,100)/100*totalTax, avail-feeD):0;
-      const liveD=exp?Math.min(Math.max(0,Number(b.living)||0), avail-feeD-taxD):0; // flat in today's $ = inflation-adjusted
-      st.bal=Math.max(0, avail-feeD-taxD-liveD);
-      // Realized LTCG for this portfolio this year (spec 4.3), kept for tooltips — mirrors the
+      const withdrawD=exp?Math.min(Math.max(0,Number(b.living)||0), avail-feeD-taxD):0; // flat in today's $ = inflation-adjusted
+      st.bal=Math.max(0, avail-feeD-taxD-withdrawD);
+      // Realized LTCG for this portfolio this year (spec 4.4), kept for tooltips — mirrors the
       // amount-mode/pct-of-TT(×age)-mode logic in brokerageValues() above, now that totalTax is final.
       const ltcgAmt=exp?((b.ltcgMode==='pct'||b.ltcgMode==='pctAge')
         ? Math.min(bal, clamp(Number(b.ltcg)||0,0,100)/100*totalTax*(b.ltcgMode==='pctAge'?clamp(youngerHouseholdAge/100,0,1):1))
         : Math.min(Math.max(0,Number(b.ltcg)||0), bal)):0;
       const entry=portfoliosByPerson[i][bi];
-      entry.taxDrag=taxD; entry.feeDrag=feeD; entry.livingCost=liveD; entry.growthPct=g*100; entry.ltcg=ltcgAmt;
-      // Net growth after subtracting tax drag, fee drag and living-cost withdrawal from this
+      entry.taxDrag=taxD; entry.feeDrag=feeD; entry.livingCost=withdrawD; entry.growthPct=g*100; entry.ltcg=ltcgAmt;
+      // Net growth after subtracting tax drag, fee drag and withdrawal from this
       // year's return (spec §10: "annual growth % with expenses subtracted").
       entry.netGrowthPct = bal>0 ? ((st.bal/bal)-1)*100 : 0;
     }));
@@ -1414,11 +1519,11 @@ function computeProjection(){
       k, age0: idxP0!=null? ages[idxP0]:ages[0],
       ages, alive, filing,
       wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson,
-      odiv, qdiv, odivNQ, ltcg, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
-      iraByPerson, iraTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson,
+      odiv, qdiv, odivNQ, ltcg, ltcgGross, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
+      iraByPerson, iraTotal, iraBalByPerson, iraWithdrawByPerson, iraWithdrawTotal, rothBalByPerson, portfoliosByPerson,
       nonSSOrdinary, taxableSS, provisional, ordIncome, std, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
-      niiIncome, niit,
+      niiIncome, niit, ftcByPerson, totalFtc,
       totalTax, agi
     });
   }
@@ -1453,7 +1558,7 @@ function withTempState(mutate, run){
 // ═══════════════════════════════════════════════════════════════
 const VZ = {
   pen:'#D06A18', wg:'#7B5EA7', rmd:'#E85D9A', rent:'#A0522D',
-  qdiv:'#2E86AB', odivNQ:'#1A5276', ltcg:'#6C3483',
+  qdiv:'#2E86AB', odivNQ:'#1A5276', ltcg:'#6C3483', rc:'#B8860B',
   ssP0:'#0F6E56', ssOther:'#3DB08A'
 };
 const VZ_TAX = { ord:'#C8600A', qdiv0:'#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',
@@ -1561,8 +1666,14 @@ function chartMaxAge(proj){
   const ages=r0&&r0.ages?r0.ages.filter(Number.isFinite):[];
   return ages.length&&Number.isFinite(r0.age0) ? Math.ceil(r0.age0+100-Math.min(...ages)) : 100;
 }
+// Builds the shared X-axis age labels. Must round the same way every row/series lookup elsewhere
+// keys its data by age (`Math.round`, see alignToAges/rowByAge/ssByAge below) — using Math.floor
+// here used to leave the labels one age below where the data was actually keyed whenever `fromAge`
+// had a fractional part (birth-month-driven ages almost always do), which silently dropped the
+// first column on every "aligned" chart (a null/gap) and shifted every other tooltip/row lookup on
+// that chart by one year versus what the X-axis presented.
 function ageLabelRange(fromAge,toAge){
-  const labels=[]; for(let a=Math.floor(fromAge); a<=toAge; a++) labels.push(a);
+  const labels=[]; for(let a=Math.round(fromAge); a<=toAge; a++) labels.push(a);
   return labels;
 }
 function qualTaxTiers(ordTI, qualIncome, qBrackets){
@@ -1840,12 +1951,12 @@ function buildSSSection(){
 // SECTION — ANNUAL HOUSEHOLD INCOME (stacked, with IRMAA/tax overlay)
 // ═══════════════════════════════════════════════════════════════
 let incomeChart=null;
-const INC_KEYS=['pension','wageTotal','iraTotal','rental','qdiv','odivNQ','ltcg','ssP0','ssOther'];
-const INC_LABELS={pension:'Pension',wageTotal:'Wage',iraTotal:'IRA RMD',rental:'Rental income',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
-const INC_COLORS={pension:VZ.pen,wageTotal:VZ.wg,iraTotal:VZ.rmd,rental:VZ.rent,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
+const INC_KEYS=['pension','wageTotal','iraWithdraw','iraTotal','rental','qdiv','odivNQ','ltcg','ssP0','ssOther'];
+const INC_LABELS={pension:'Pension',wageTotal:'Wage',iraWithdraw:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',rental:'Rental income',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
+const INC_COLORS={pension:VZ.pen,wageTotal:VZ.wg,iraWithdraw:VZ.rc,iraTotal:VZ.rmd,rental:VZ.rent,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
 // Maps a stacked income key to the per-person breakdown array on each projection row,
 // so the tooltip can attribute the amount to whichever person(s) it belongs to.
-const INC_BYPERSON_FIELD={pension:'pensionByPerson',wageTotal:'wageByPerson',iraTotal:'iraByPerson',rental:'rentalByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
+const INC_BYPERSON_FIELD={pension:'pensionByPerson',wageTotal:'wageByPerson',iraWithdraw:'iraWithdrawByPerson',iraTotal:'iraByPerson',rental:'rentalByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
 // Single source of truth for the SS dataset labels, since they're read both
 // when building the stacked datasets (buildIncomeChart) and the legend HTML
 // (buildIncomeLegend). Must be refreshed before dataset construction on every
@@ -1880,7 +1991,7 @@ function buildIncomeChart(){
   const ages=rows.map(r=>r.age0);
   rows.forEach(r=>{
     seriesByKey.pension.push(r.pension); seriesByKey.wageTotal.push(r.wageTotal);
-    seriesByKey.iraTotal.push(r.iraTotal); seriesByKey.rental.push(r.rental);
+    seriesByKey.iraTotal.push(r.iraTotal); seriesByKey.iraWithdraw.push(r.iraWithdrawTotal); seriesByKey.rental.push(r.rental);
     seriesByKey.qdiv.push(r.qdiv); seriesByKey.ltcg.push(r.ltcg);
     seriesByKey.odivNQ.push(r.odivNQ);
     seriesByKey.ssP0.push(r.ssByPerson[idxP0]||0);
@@ -1936,8 +2047,10 @@ function buildIncomeChart(){
       const idx=items[0]?items[0].dataIndex:0;
       const r=rowByAge[labels[idx]]; if(!r) return[];
       const total=keys.reduce((s,k)=>s+(aligned[k][idx]||0),0);
-      // §8.3: total income always shown; filing status and AGI are shown only when Show details is on.
+      // §8.3: total income and remaining SCGL always shown; filing status and AGI are shown only
+      // when Show Details in Popup is on.
       const lines=['',mrow('Total income',fmt(total)+'/yr')];
+      if(r.scglRemaining>0||r.scglUsed>0) lines.push(mrow('Suspended Capital-Gain Loss (SCGL) remaining', fmt(r.scglRemaining)));
       if(showDetails){
         lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
         lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
@@ -1972,7 +2085,7 @@ function buildIncomeChart(){
   }
   buildIncomeLegend();
   document.getElementById('incomeChartNote').textContent =
-    `Stacking order: pension, wage, IRA RMD, rental, QDIV, ordinary dividends (ODIV−QDIV), LTCG, then Social Security. All figures in today's dollars. Amber/pink dashed = IRMAA tiers. Y-axis locked — use Rescale if the stack runs off the top.`;
+    `Stacking order: pension, wage, Pre-tax IRA withdraw, IRA RMD, rental, QDIV, ordinary dividends (ODIV−QDIV), LTCG, then Social Security. "Pre-tax IRA withdraw" is the amount pulled from a pre-tax IRA to fund a configured Roth conversion — a real withdrawal from that account (just redirected into the Roth IRA rather than handed to the owner), so it's taxed the same way the RMD is and gets its own band here for that reason, separate from the RMD amount. LTCG shown here is net of any available Suspended Capital-Gain Loss (SCGL) carryforward, which eliminates realized gains dollar-for-dollar before tax each year until it's used up. All figures in today's dollars. Amber/pink dashed = IRMAA tiers. Y-axis locked — use Rescale if the stack runs off the top.`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2159,15 +2272,16 @@ function buildTaxChart(){
         lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
         lines.push(mrow('Taxable income (TI)', fmt(r.ordTI)+'/yr'));
         lines.push(mrow('Standard deduction', '('+fmt(r.std)+')'));
+        if(r.totalFtc>0) lines.push(mrow('Foreign tax credit', '('+fmt(r.totalFtc)+')'));
         // All income components rolling up to AGI (§9.4: "AGI = all non-SS income + TSS").
         lines.push(mrow('  Wages', fmt(r.wageTotal)+'/yr'));
         lines.push(mrow('  Pension', fmt(r.pension)+'/yr'));
         lines.push(mrow('  Rental', fmt(r.rental)+'/yr'));
         lines.push(mrow('  IRA RMD', fmt(r.iraTotal)+'/yr'));
-        if(r.rothConvTotal>0) lines.push(mrow('  Roth conversion', fmt(r.rothConvTotal)+'/yr'));
+        if(r.iraWithdrawTotal>0) lines.push(mrow('  Pre-tax IRA withdraw (Roth conversion)', fmt(r.iraWithdrawTotal)+'/yr'));
         lines.push(mrow('  Ordinary (non-qualified) dividends', fmt(r.odivNQ)+'/yr'));
         lines.push(mrow('  Qualified dividends (QDIV)', fmt(r.qdiv)+'/yr'));
-        lines.push(mrow('  Long-term capital gains (LTCG)', fmt(r.ltcg)+'/yr'));
+        lines.push(mrow('  Long-term capital gains (LTCG, net of SCGL)', fmt(r.ltcg)+'/yr'));
         lines.push(mrow('  Taxable Social Security (TSS)', fmt(r.taxableSS)+'/yr'));
         lines.push(mrow('  AGI', fmt(r.agi)+'/yr'));
         lines.push(mrow('Provisional income', fmt(r.provisional)+'/yr'));
@@ -2203,7 +2317,7 @@ function buildTaxChart(){
   }
   buildTaxLegend();
   document.getElementById('taxChartNote').textContent =
-    `Segments from lowest: ordinary income tax, then QDIV brackets, then LTCG brackets, then NIIT (3.8% surtax on net investment income once MAGI clears the un-indexed $200k single / $250k married threshold — effectively QDIV/LTCG + NIIT). The two thick dashed lines overlaid on top are the effective tax rate (TT ÷ AGI, red) and the marginal tax rate on the next dollar of ordinary income (green) — both read off the right-hand % axis. Y-axis locked — use Rescale if the stack runs off the top.`;
+    `Segments from lowest: ordinary income tax, then QDIV brackets, then LTCG brackets, then NIIT (3.8% surtax on net investment income once MAGI clears the un-indexed $200k single / $250k married threshold — effectively QDIV/LTCG + NIIT). Each portfolio's foreign tax credit (value × foreign-assets % × credit %, when Expenses is checked) is subtracted from the total shown, floored at $0. The two thick dashed lines overlaid on top are the effective tax rate (TT ÷ AGI, red) and the marginal tax rate on the next dollar of ordinary income (green) — both read off the right-hand % axis. Y-axis locked — use Rescale if the stack runs off the top.`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2300,19 +2414,21 @@ function buildAssetChartFor(cfg){
               if(showDetails){
                 lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
                 lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
-                lines.push(mrow('      Living cost withdrawal', fmt(e.livingCost||0), W));
+                lines.push(mrow('      Withdrawal', fmt(e.livingCost||0), W));
                 lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
+                if(e.foreignTaxCredit>0) lines.push(mrow('      Foreign tax credit', fmt(e.foreignTaxCredit), W));
               }
               lines.push(mrow('      Annual growth (net of expenses)', (e.netGrowthPct||0).toFixed(1)+'%', W));
             }
             lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
           } else {
             // IDGT chart, spec §10: value, annual growth %; tax drag/fee drag are shown only when Show details is on,
-            // and living-cost withdrawal isn't part of this popup at all.
+            // and withdrawal isn't part of this popup at all.
             lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
             if(showDetails){
               lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
               lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
+              if(e.foreignTaxCredit>0) lines.push(mrow('      Foreign tax credit', fmt(e.foreignTaxCredit), W));
             }
           }
         }
@@ -2352,7 +2468,7 @@ function buildAssetChart(){
     key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', noteId:'assetChartNote',
     yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
     emptyMsg:'Add a non-IDGT brokerage portfolio, or enable a pre-tax IRA/401(k) or Roth IRA, to see this chart.',
-    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass, then drops to zero. A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
+    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass, then drops to zero. A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA — withdrawn from that account and taxed as ordinary income there (see the Annual Household Income chart's "Pre-tax IRA withdraw" band). Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 function buildIdgtChart(){
@@ -2379,7 +2495,7 @@ function renderCharts(){
 // ═══════════════════════════════════════════════════════════════
 function renderFooter(){
   document.getElementById('assumptionsFooter').innerHTML =
-    `All figures shown in today's dollars · Social Security (SS) COLA assumed equal to inflation · 2026 simplified federal tax model (TCJA permanent under OBBBA), no AMT/itemized deductions/credits · includes 3.8% NIIT on net investment income above the un-indexed $200k single / $250k married MAGI threshold · IRMAA uses current-year MAGI as a proxy (actual IRMAA uses a 2-year lookback) · Brokerage balances change each year by growth − tax drag (a share of that year's total tax) − fee drag · IRA required withdrawals follow the IRS Uniform Lifetime Table · For informational purposes only — not financial, tax or legal advice.`;
+    `All figures shown in today's dollars · Social Security (SS) COLA assumed equal to inflation · 2026 simplified federal tax model (TCJA permanent under OBBBA), no AMT/itemized deductions, only a foreign tax credit on portfolios that opt in · includes 3.8% NIIT on net investment income above the un-indexed $200k single / $250k married MAGI threshold · IRMAA uses current-year MAGI as a proxy (actual IRMAA uses a 2-year lookback) · Brokerage balances change each year by growth − tax drag (a share of that year's total tax) − fee drag · each portfolio's foreign tax credit (value × foreign-assets % × credit %) is subtracted from that year's Total Tax · IRA required withdrawals follow the IRS Uniform Lifetime Table · For informational purposes only — not financial, tax or legal advice.`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2390,6 +2506,26 @@ let lastProjection=null;
 function recompute(){
   lastProjection = computeProjection();
   renderCharts();
+  updateScglStatusNote();
+}
+// SCGL is a single starting pool (spec §4.5); this surfaces how it actually depletes across the
+// projection right next to the input, since otherwise the running balance is only visible by
+// hovering the Annual Household Income chart year by year.
+function updateScglStatusNote(){
+  const el=document.getElementById('scglStatusNote');
+  if(!el) return;
+  const rows=lastProjection?lastProjection.rows:[];
+  const startAmt=Math.max(0,Number(state.scgl)||0);
+  if(!startAmt||!rows.length){ el.textContent=''; return; }
+  const exhaustedRow=rows.find(r=>r.scglRemaining<=0 && (r.scglUsed>0 || rows[0].scglRemaining<startAmt));
+  if(exhaustedRow){
+    el.textContent=`At this rate, the ${fmt(startAmt)} SCGL balance is fully used by around age ${Math.round(exhaustedRow.age0)}.`;
+  }else{
+    const last=rows[rows.length-1];
+    el.textContent = last.scglRemaining<startAmt
+      ? `At this rate, about ${fmt(last.scglRemaining)} of the ${fmt(startAmt)} SCGL balance is still unused at the end of the projection.`
+      : `No realized LTCG is currently offsetting this balance — the full ${fmt(startAmt)} remains unused.`;
+  }
 }
 const recomputeDebounced = debounce(recompute, 80);
 const saveDebounced = debounce(autosave, 500);
@@ -2410,9 +2546,171 @@ function renderAll(){
   renderPassingSliders();
   document.getElementById('inflationRate').value = Math.round(state.inflation*400)/4;
   document.getElementById('inflationValLbl').textContent=(state.inflation*100).toFixed(2)+'%';
+  document.getElementById('scglInput').value = state.scgl||0;
+  renderFutureTaxPanel();
   renderIncomeForms();
   renderFooter();
   recompute();
+}
+
+// ── Formulas & Acronyms page (spec §3) ──
+// Opens a separate tab with a static, self-contained page listing every formula and acronym
+// used in this app, built from the same constants the calculation engine actually uses (tax
+// brackets, standard deduction, IRMAA tiers, NIIT threshold, RMD table) so it can't drift out
+// of sync with the app. This exists purely so the user can audit the math by eye — compounded
+// formula errors across ~35 projected years can be hard to catch just from chart output.
+function openFormulasPage(){
+  const html=buildFormulasHtml();
+  const blob=new Blob([html], {type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+function fmtBrk(brk){
+  let lo=0; const rows=brk.map(b=>{ const row=`${lo===0?'$0':'$'+lo.toLocaleString()} – ${b.lim===Infinity?'∞':'$'+b.lim.toLocaleString()} → ${(b.r*100).toFixed(0)}%`; lo=b.lim; return row; });
+  return rows.join('<br>');
+}
+function buildFormulasHtml(){
+  const ft=state.futureTax||{};
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Retirement Income Planner — Formulas &amp; Acronyms</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{color-scheme:light dark}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:880px;margin:0 auto;padding:32px 24px 80px;line-height:1.55;color:#1c1c1c;background:#fdfcf9}
+    h1{font-size:22px;margin-bottom:4px}
+    .sub{color:#666;font-size:13px;margin-bottom:28px}
+    h2{font-size:16px;margin-top:36px;border-bottom:1px solid #ddd;padding-bottom:6px}
+    h3{font-size:13.5px;margin-top:20px;margin-bottom:4px}
+    p,li{font-size:13.5px}
+    code{background:#f1ede4;padding:1px 5px;border-radius:4px;font-size:12.5px}
+    table{border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:13px}
+    th,td{border:1px solid #ddd;padding:5px 9px;text-align:left;vertical-align:top}
+    th{background:#f4f1ea}
+    .note{color:#666;font-size:12.5px;font-style:italic}
+    .toc a{display:block;font-size:13px;padding:2px 0;color:#2a5db0;text-decoration:none}
+    .toc a:hover{text-decoration:underline}
+    @media (prefers-color-scheme:dark){
+      body{color:#e8e6e0;background:#1c1b19}
+      h2{border-color:#3a3833} th{background:#2a2823} th,td{border-color:#3a3833}
+      code{background:#2a2823} .sub,.note{color:#9a968c} .toc a{color:#7fb0ff}
+    }
+  </style></head><body>
+  <h1>Retirement Income Planner — Formulas &amp; Acronyms</h1>
+  <div class="sub">Generated ${new Date().toLocaleString()} from this session's live constants and settings. Everything below mirrors the actual calculation code — nothing here is simplified further for presentation. All dollar figures throughout the app are in <b>today's dollars</b> (see §1 below) unless stated otherwise.</div>
+
+  <div class="toc">
+    <a href="#acronyms">1. Acronym glossary</a>
+    <a href="#dollars">2. Today's dollars vs. future dollars</a>
+    <a href="#ss">3. Social Security (SS)</a>
+    <a href="#ira">4. Pre-tax IRA / 401(k), RMDs &amp; Roth conversion</a>
+    <a href="#brokerage">5. Brokerage portfolios, realized LTCG &amp; SCGL</a>
+    <a href="#tax">6. Taxation (provisional income → SST → AGI → TT)</a>
+    <a href="#irmaa">7. IRMAA</a>
+    <a href="#constants">8. This session's tax constants</a>
+  </div>
+
+  <h2 id="acronyms">1. Acronym glossary</h2>
+  <table><tr><th>Acronym</th><th>Full name</th></tr>
+    <tr><td>P0 / P1 / P2</td><td>P1 = person 1, P2 = person 2 (if married), P0 = whichever of the two is older</td></tr>
+    <tr><td>FRA</td><td>Full Retirement Age (Social Security)</td></tr>
+    <tr><td>PIA</td><td>Primary Insurance Amount — the monthly SS benefit at FRA</td></tr>
+    <tr><td>COLA</td><td>Cost-of-Living Adjustment (assumed equal to the inflation rate)</td></tr>
+    <tr><td>SSSBR</td><td>Social Security Spousal Benefit Rule</td></tr>
+    <tr><td>RMD</td><td>Required Minimum Distribution (from a pre-tax IRA/401(k))</td></tr>
+    <tr><td>IRA</td><td>Individual Retirement Account</td></tr>
+    <tr><td>TSS</td><td>Total Social Security income (household)</td></tr>
+    <tr><td>SST</td><td>Social Security Tax — the taxable portion of TSS</td></tr>
+    <tr><td>PI</td><td>Provisional Income — the income measure used to determine how much SS is taxable</td></tr>
+    <tr><td>AGI</td><td>Adjusted Gross Income</td></tr>
+    <tr><td>MAGI</td><td>Modified AGI (used for IRMAA and NIIT thresholds; approximated here as ≈AGI)</td></tr>
+    <tr><td>TI</td><td>Taxable Income (AGI − standard deduction)</td></tr>
+    <tr><td>TB</td><td>Tax Brackets (current-year ordinary brackets)</td></tr>
+    <tr><td>TT</td><td>Total Tax — ordinary tax + qualified-rate tax + NIIT, minus any portfolio foreign tax credit</td></tr>
+    <tr><td>ODIV</td><td>Ordinary Dividends (all dividends, before splitting out the qualified share)</td></tr>
+    <tr><td>QDIV</td><td>Qualified Dividends (taxed at preferential LTCG-style rates)</td></tr>
+    <tr><td>LTCG</td><td>Long-Term Capital Gains</td></tr>
+    <tr><td>NIIT</td><td>Net Investment Income Tax (3.8% surtax)</td></tr>
+    <tr><td>NII</td><td>Net Investment Income (the base NIIT is applied to)</td></tr>
+    <tr><td>FTC</td><td>Foreign Tax Credit (per portfolio: value × foreign-assets % × credit %, subtracted from TT)</td></tr>
+    <tr><td>IRMAA</td><td>Income-Related Monthly Adjustment Amount (Medicare Part B/D surcharge)</td></tr>
+    <tr><td>SCGL</td><td>Suspended Capital-Gain Loss carryforward</td></tr>
+    <tr><td>IDGT</td><td>Intentionally Defective Grantor Trust (charted separately from the taxable estate)</td></tr>
+    <tr><td>MFJ</td><td>Married Filing Jointly</td></tr>
+  </table>
+
+  <h2 id="dollars">2. Today's dollars vs. future dollars</h2>
+  <p>Every dollar amount entered anywhere in the app is treated as already being in <b>today's dollars</b> (real terms) — it stays flat in purchasing-power terms across the whole projection unless an "Annual change" setting is applied. "Annual change" options (0%, inflation, inflation ± a custom %, or a fully custom %) describe how a value grows in <i>real</i> terms year over year; growing at exactly the inflation rate is real-flat and shown as such (no nominal compounding is displayed anywhere). Anything described as "un-indexed" or "frozen" below (SS taxation thresholds, the standard NIIT threshold) is modeled as shrinking in today's-dollar terms as the projection moves forward, since those specific thresholds are fixed in nominal law and not adjusted for inflation.</p>
+
+  <h2 id="ss">3. Social Security (SS)</h2>
+  <h3>Benefit at claim age</h3>
+  <p>Each person's monthly benefit is their PIA (at FRA), adjusted for claiming before or after FRA:</p>
+  <ul>
+    <li>Before FRA: permanently reduced (early-claim reduction factors below FRA).</li>
+    <li>After FRA (up to age 70): increased by delayed retirement credits (~8%/year, prorated monthly).</li>
+  </ul>
+  <h3>Spousal Benefit Rule (SSSBR)</h3>
+  <p>If married, each person receives the higher of (a) their own earned benefit, or (b) up to 50% of the other person's PIA (reduced if claimed before the claimant's own FRA). After one spouse passes, the survivor's benefit becomes the higher of their own benefit or the deceased's full benefit (a "survivor benefit" step-up), for life.</p>
+  <h3>Household total (TSS)</h3>
+  <p><code>TSS = SS(P0) + SS(other person, if married)</code>, each stopping the year that person passes.</p>
+
+  <h2 id="ira">4. Pre-tax IRA / 401(k), RMDs &amp; Roth conversion</h2>
+  <h3>RMD</h3>
+  <p><code>RMD(age) = prior-year IRA balance ÷ IRS Uniform Lifetime Table divisor for that age</code> — required starting at the owner's RMD age (72/73/75 depending on birth year, per SECURE 2.0); an earlier voluntary withdrawal uses the same table, linearly approximated below age 72. On the owner's death, if marked to continue to the spouse, the inherited IRA keeps paying RMDs against the surviving spouse's own age.</p>
+  <h3>Roth conversion</h3>
+  <p>Each year the pre-tax IRA still has a balance (and the matching Roth IRA is enabled): <code>conversion = min(configured convamount, balance remaining after that year's RMD)</code>. The conversion is subtracted from the pre-tax balance and added to the Roth balance (before that year's growth is applied to either account). Per spec §4.4, <code>Pre-tax IRA withdraw += convamount</code>: a conversion is, at bottom, a genuine withdrawal from the pre-tax account — the IRS doesn't have a separate "conversion income" line, it's reported and taxed exactly like any other IRA distribution — so it's added to ordinary income, AGI, taxable Social Security, and Total Tax alongside the RMD, and shown as its own "Pre-tax IRA withdraw" band on the Annual Household Income chart, distinct from the "IRA RMD" band (so the visible stack always matches what's actually taxed).</p>
+  <h3>Roth IRA balance</h3>
+  <p><code>Roth balance(year) = (Roth balance(year−1) + this year's conversion) × (1 + growth rate)</code>. No withdrawals or RMDs are modeled against it. An inherited Roth (marked to continue to spouse) keeps compounding under the survivor, with no RMDs.</p>
+
+  <h2 id="brokerage">5. Brokerage portfolios, realized LTCG &amp; SCGL</h2>
+  <h3>Dividends</h3>
+  <p><code>ODIV = balance × ODIV yield %</code>; <code>QDIV = ODIV × QDIV share %</code>; the non-qualified remainder is <code>ODIV − QDIV</code>.</p>
+  <h3>Realized LTCG (per portfolio)</h3>
+  <p>One of three modes, only active when that portfolio's "Expenses" checkbox is on:</p>
+  <ul>
+    <li><b>$/yr</b>: a flat today's-$ amount (capped at the portfolio's balance).</li>
+    <li><b>% of annual total tax (TT)</b>: <code>LTCG = ltcg% × the household's Total Tax (TT) that year</code>.</li>
+    <li><b>% of TT × age factor</b>: the above, additionally scaled by <code>clamp(younger household member's age ÷ 100, 0, 1)</code> — a rough stand-in for unrealized gains being realized more readily later in retirement.</li>
+  </ul>
+  <p class="note">The %-of-TT modes are circular (LTCG affects TT, which affects LTCG) and are solved by fixed-point iteration, applied net of any available SCGL (below).</p>
+  <h3>Suspended Capital-Gain Loss (SCGL) offset</h3>
+  <p>A single household-level pool, tracked as a running balance across the whole projection. Each year: <code>used = min(SCGL remaining, gross realized LTCG this year)</code>; <code>SCGL remaining -= used</code>; <code>net LTCG = gross LTCG − used</code>. The net (post-SCGL) figure is what's actually taxed and what appears on the Annual Household Income chart; the offset is prorated across whichever people/portfolios realized gains that year.</p>
+  <h3>Balance rolldown</h3>
+  <p><code>balance(year) = balance(year−1) × (1 + growth) − tax drag − fee drag − withdrawal</code>, each drag capped so the balance never goes negative. Tax drag is a % of that year's household Total Tax (TT); fee drag is a % of balance or a flat $/yr amount (held flat in nominal $, so it shrinks in today's-$ terms as inflation compounds); withdrawal is a flat today's-$ amount. Foreign tax credit (below) does <i>not</i> reduce this balance — it's a running credit against household tax, not a drag on the portfolio.</p>
+  <h3>Foreign tax credit (FTC, per portfolio)</h3>
+  <p>Only active when that portfolio's "Expenses" checkbox is on: <code>FTC = portfolio value × foreign-assets % × foreign-tax-credit %</code> (default foreign-tax-credit rate 0.25%), recomputed each year off that year's balance. Every enabled portfolio's FTC is summed and subtracted directly from that year's household Total Tax (TT), floored at $0.</p>
+
+  <h2 id="tax">6. Taxation (provisional income → SST → AGI → TT)</h2>
+  <h3>Provisional income (PI) &amp; taxable SS (SST)</h3>
+  <p><code>PI = non-SS ordinary income + ½ × TSS</code>, where (spec §9.4) <code>ordinary income = pension + wage + RMD withdraw + Pre-tax IRA withdraw + rent</code> [+ ODIV−QDIV, which also gets ordinary-rate tax treatment even though it isn't named in that line]. SST is then computed from PI against the two-tier un-indexed SS-taxation thresholds using the standard IRS worksheet formula (up to 50% of TSS taxable in the first tier, up to 85% in the second). ${ft.enabled?'The speculative future-threshold assumption is currently enabled but does not yet cover the SS taxation threshold (spec marks it "Not implemented yet").':''} The <b>torpedo effect</b>: because more taxable ordinary income both is itself taxed <i>and</i> pushes more SS into taxability, the effective marginal rate in this income range can spike well above the nominal bracket rate.</p>
+  <h3>AGI &amp; taxable income (TI)</h3>
+  <p><code>AGI = non-SS ordinary income + SST + QDIV + net-of-SCGL LTCG</code>. <code>TI = max(0, AGI − standard deduction)</code>, standard deduction depending on filing status (single vs. MFJ; switches to single the year after the first spouse passes).</p>
+  <h3>Ordinary tax</h3>
+  <p>Standard marginal-bracket calculation against TI using the current-year ordinary brackets (see §8 below).</p>
+  <h3>Qualified tax (QDIV + net LTCG)</h3>
+  <p>QDIV and net-of-SCGL LTCG stack on top of ordinary taxable income and are taxed at the 0/15/20% preferential brackets, based on where <code>TI + (QDIV + LTCG)</code> falls relative to the qualified-rate bracket thresholds.</p>
+  <h3>NIIT</h3>
+  <p><code>NIIT = 3.8% × min(net investment income, MAGI − threshold)</code>, where net investment income = (ODIV−QDIV) + QDIV + net-of-SCGL LTCG, and MAGI is approximated as AGI. ${ft.enabled?`The speculative future-threshold assumption is <b>enabled</b> for this session: from ${ft.niitStartYear} onward the threshold switches to $${(Number(ft.niitSingle)||0).toLocaleString()} (single) / $${(Number(ft.niitMarried)||0).toLocaleString()} (married), held flat in today's dollars, in place of the standard figures below.`:'The standard (un-indexed) threshold is used for the whole projection in this session, since the speculative future-threshold assumption is currently off.'}</p>
+  <h3>Total Tax (TT) &amp; rates</h3>
+  <p><code>TT = max(0, ordinary tax + qualified tax + NIIT − total foreign tax credit)</code>, where the foreign tax credit is summed across every portfolio (see §5 above). <code>Effective rate = TT ÷ AGI</code>. <code>Marginal rate</code> is the actual rate paid on the next dollar of ordinary income, including any torpedo-effect amplification from SS taxability.</p>
+
+  <h2 id="irmaa">7. IRMAA</h2>
+  <p>IRMAA tiers are technically set by MAGI (AGI + tax-exempt interest + foreign tax credits, etc.); since none of those add-backs are modeled here, AGI is used directly as an approximation of MAGI. The Annual Household Income chart overlays the current year's IRMAA tier thresholds (by filing status) as dashed reference lines.</p>
+
+  <h2 id="constants">8. This session's tax constants</h2>
+  <table><tr><th>Constant</th><th>Value</th></tr>
+    <tr><td>Ordinary brackets — MFJ</td><td>${fmtBrk(MFJ_ORD)}</td></tr>
+    <tr><td>Ordinary brackets — Single</td><td>${fmtBrk(SGL_ORD)}</td></tr>
+    <tr><td>QDIV/LTCG brackets — MFJ</td><td>${fmtBrk(MFJ_QDIV)}</td></tr>
+    <tr><td>QDIV/LTCG brackets — Single</td><td>${fmtBrk(SGL_QDIV)}</td></tr>
+    <tr><td>Standard deduction</td><td>$${STD_MFJ.toLocaleString()} MFJ / $${STD_SGL.toLocaleString()} Single</td></tr>
+    <tr><td>NIIT rate / threshold</td><td>${(NIIT_RATE*100).toFixed(1)}% above $${NIIT_THRESH_SGL.toLocaleString()} Single / $${NIIT_THRESH_MFJ.toLocaleString()} MFJ (un-indexed)${ft.enabled?` — overridden from ${ft.niitStartYear} on, this session (see §6)`:''}</td></tr>
+    <tr><td>IRMAA tiers — MFJ</td><td>${IRMAA_MFJ.map(t=>`${t.label}: $${t.magi.toLocaleString()}+ ($${t.surch.toLocaleString()}/yr)`).join('<br>')}</td></tr>
+    <tr><td>IRMAA tiers — Single</td><td>${IRMAA_SGL.map(t=>`${t.label}: $${t.magi.toLocaleString()}+ ($${t.surch.toLocaleString()}/yr)`).join('<br>')}</td></tr>
+    <tr><td>Suspended Capital-Gain Loss (SCGL), this session</td><td>$${(Number(state.scgl)||0).toLocaleString()} starting balance</td></tr>
+    <tr><td>Inflation / SS COLA, this session</td><td>${(state.inflation*100).toFixed(2)}%</td></tr>
+  </table>
+  <p class="note">Figures above reflect this browser tab's current inputs at the moment this page was generated; re-open this page after changing assumptions to see updated constants. All dollar constants are current-year, un-adjusted values — the app itself is what converts everything to today's dollars for chart display.</p>
+  </body></html>`;
 }
 
 window.addEventListener('DOMContentLoaded', function(){
