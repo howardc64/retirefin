@@ -15,9 +15,8 @@ function buildBrokerageCard(pid, i, p, married){
       <div class="item-body open portfolio-list">
         ${portfolios.length?portfolios.map((b,bi)=>`
           <div class="item portfolio-card" style="margin:0;padding:10px 11px">
-            <div class="item-head" style="margin-bottom:6px"><label class="pf-title" style="font-size:12px">${escHtml((b.name&&b.name.trim())||('Portfolio '+(bi+1)))}</label>
-              <button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="event.stopPropagation(); removeBrokerage(${i},${bi})">Remove</button></div>
-            <div class="item-body open portfolio-fields">
+            ${cardHeader(`<span class="pf-title" style="font-size:12px">${escHtml((b.name&&b.name.trim())||('Portfolio '+(bi+1)))}</span>`, pid+'.brokerage.'+bi+'.enabled', b.enabled!==false, pid+'.brokerage.'+bi+'.hidden', !!b.hidden, `<button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="removeBrokerage(${i},${bi})">Remove</button>`)}
+            <div class="item-body ${b.hidden?'':'open'} portfolio-fields">
               <div class="field full"><label>Portfolio name</label><input type="text" maxlength="40" placeholder="Portfolio ${bi+1}" value="${escAttr(b.name||'')}" oninput="onPortfolioName('${pid}',${bi},this.value,this)"></div>
               <div class="field full"><label>Current balance (today's $)</label><input type="number" class="money" min="0" step="5000" value="${b.balance||0}" oninput="onNumberInput('${pid}.brokerage.${bi}.balance', this.value)"></div>
               ${renderChangeRow(pid+'.brokerage.'+bi+'.growth', b.growth, 8)}

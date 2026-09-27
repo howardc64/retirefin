@@ -6,10 +6,8 @@
 function buildIraCard(pid, p, married){
   const rmdAge=rmdAgeForBirthYear(p.birthYear);
   return `<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${p.ira.enabled?'checked':''} onclick="onEnableToggle('${pid}.ira.enabled', this.checked, this.closest('.item'))"> Pre-tax IRA / 401(k)</label>
-      </div>
-      <div class="item-body ${p.ira.enabled?'open':''}">
+      ${cardHeader('Pre-tax IRA / 401(k)', pid+'.ira.enabled', p.ira.enabled, pid+'.ira.hidden', !!p.ira.hidden)}
+      <div class="item-body ${p.ira.hidden?'':'open'}">
         <div class="field full"><label>Current balance (today's $)</label>
           <input type="number" class="money" min="0" step="5000" value="${p.ira.balance}" oninput="onNumberInput('${pid}.ira.balance', this.value)"></div>
         ${renderAgeRangeRow(pid+'.ira.ar', p.ira.ar, [{value:'rmd',label:'RMD age ('+rmdAge+')'},{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'passing',label:'Passing'},{value:'custom',label:'Custom age'}])}

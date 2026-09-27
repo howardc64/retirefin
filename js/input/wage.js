@@ -4,10 +4,8 @@
 // ═══════════════════════════════════════════════════════════════
 function buildWageCard(pid, p){
   return `<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${p.wage.enabled?'checked':''} onclick="onEnableToggle('${pid}.wage.enabled', this.checked, this.closest('.item'))"> Wage / earned income</label>
-      </div>
-      <div class="item-body ${p.wage.enabled?'open':''}">
+      ${cardHeader('Wage / earned income', pid+'.wage.enabled', p.wage.enabled, pid+'.wage.hidden', !!p.wage.hidden)}
+      <div class="item-body ${p.wage.hidden?'':'open'}">
         <div class="field"><label>Annual amount (today's $)</label>
           <input type="number" class="money" min="0" step="500" value="${p.wage.amount}" oninput="onNumberInput('${pid}.wage.amount', this.value)"></div>
         <div></div>

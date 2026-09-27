@@ -11,11 +11,11 @@ function defaultAgeRange(startMode,startVal,endMode,endVal){
   return{startMode,startVal:startVal||0,endMode,endVal:endVal||0};
 }
 function defaultIncomeItem(amount, changeMode, changeVal){
-  return{ enabled:false, amount:amount||0, change:defaultChange(changeMode,changeVal), bene:false };
+  return{ enabled:false, hidden:false, amount:amount||0, change:defaultChange(changeMode,changeVal), bene:false };
 }
 function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal, endMode, endVal){
   return{
-    enabled:false, amount:amount||0,
+    enabled:false, hidden:false, amount:amount||0,
     ar:defaultAgeRange(startMode,startVal,endMode,endVal),
     change:defaultChange(changeMode,changeVal),
     bene:false
@@ -34,7 +34,7 @@ function pfExpense(b){
   return (Number(b.taxDrag)||0)>0 || (Number(b.fee&&b.fee.value)||0)>0;
 }
 function defaultBrokeragePortfolio(balance, n){
-  return {id:uid(),enabled:true,name:'Brokerage Portfolio '+(n||1),balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,ltcg:0,ltcgMode:'amt',taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
+  return {id:uid(),enabled:true,hidden:false,name:'Brokerage Portfolio '+(n||1),balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,ltcg:0,ltcgMode:'amt',taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
@@ -43,13 +43,13 @@ function defaultPerson(idx){
     name:'Person '+(idx+1),
     birthYear:by,
     birthMonth:1,
-    wage:{enabled:false, amount:0, ar:defaultAgeRange('now',0,'custom',65), change:defaultChange('inflation')},
-    ss:{enabled:true, pia:0, fra:fraForBirthYear(by), started:false, claimAge:fraForBirthYear(by)},
+    wage:{enabled:false, hidden:false, amount:0, ar:defaultAgeRange('now',0,'custom',65), change:defaultChange('inflation')},
+    ss:{enabled:true, hidden:false, pia:0, fra:fraForBirthYear(by), started:false, claimAge:fraForBirthYear(by)},
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     rental:  defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     brokerage:[],
-    ira:{enabled:false, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0},
-    roth:{enabled:false, balance:0, growth:defaultChange('offset',3), bene:false}
+    ira:{enabled:false, hidden:false, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0},
+    roth:{enabled:false, hidden:false, balance:0, growth:defaultChange('offset',3), bene:false}
   };
 }
 function defaultState(){

@@ -64,6 +64,8 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .item{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:10px 12px;margin-bottom:10px;min-width:0;}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
 .item-head label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;cursor:pointer;}
+.item-head-right{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+.item-head .hide-toggle{font-size:11px;font-weight:400;color:var(--text-muted);gap:5px;white-space:nowrap;}
 .item-body{display:none;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:8px;min-width:0;}
 .item-body.open{display:grid;}
 .item-body .full{grid-column:1/-1;}
@@ -193,6 +195,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
     <button class="btn" onclick="document.getElementById('importFile').click()">📂 Load from file</button>
     <input type="file" id="importFile" accept="application/json" style="display:none">
     <button class="btn btn-danger" onclick="resetState()">Reset to defaults</button>
+    <button class="btn" onclick="openFormulasPage()">Formulas</button>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;">
       <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Show Details in Popup
     </label>
@@ -383,6 +386,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 <script src="js/display/taxChart.js"></script>
 <script src="js/display/assetChart.js"></script>
 <script src="js/display/footer.js"></script>
+<script src="js/display/formulasPage.js"></script>
 
 <!-- app wiring / entry point -->
 <script src="js/app.js"></script>

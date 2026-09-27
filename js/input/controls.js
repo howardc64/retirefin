@@ -57,21 +57,41 @@ function toggleItem(headerEl){
   const body=headerEl.nextElementSibling;
   if(body) body.classList.toggle('open');
 }
-function onEnableToggle(path, checked, itemEl){
+// Enable = whether this card's data is used for compute/display. Independent of Hide (below) —
+// enabling/disabling never changes whether the card's body is visible.
+function onEnableToggle(path, checked){
+  setPath(path, checked);
+  recompute(); saveDebounced();
+}
+// Hide = purely a display-space convenience: collapses the card body without touching whether
+// its data is enabled/used. Enabled data keeps computing and appearing in every chart while its
+// input card is hidden.
+function onHideToggle(path, checked, itemEl){
   setPath(path, checked);
   const body=itemEl.querySelector('.item-body');
-  if(body){ body.classList.toggle('open', checked); }
-  recompute(); saveDebounced();
+  if(body) body.classList.toggle('open', !checked);
+  saveDebounced();
+}
+// Shared enable/hide header for an income-source card: an Enable checkbox (left, controls
+// compute/display inclusion) and a Hide checkbox (right, controls only whether the body below
+// is shown). `extraRight` is any further control (e.g. a brokerage portfolio's Remove button)
+// placed between the two, so it always ends up next to Hide rather than crowding the title.
+function cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight){
+  return `<div class="item-head">
+      <label><input type="checkbox" ${enabled?'checked':''} onclick="onEnableToggle('${enablePath}', this.checked)"> ${title}</label>
+      <div class="item-head-right">
+        ${extraRight||''}
+        <label class="hide-toggle" title="Collapse this card to save space — data is still used for compute and display if Enabled"><input type="checkbox" ${hidden?'checked':''} onclick="onHideToggle('${hidePath}', this.checked, this.closest('.item'))"> Hide</label>
+      </div>
+    </div>`;
 }
 
 // Reusable "simple" card for an income item with age range + annual change (pension/rental style)
 function agedItemCard(pid, key, title, item, checkboxPath){
   const married = state.filingStatus==='married';
   return `<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${item.enabled?'checked':''} onclick="onEnableToggle('${checkboxPath}.enabled', this.checked, this.closest('.item'))"> ${title}</label>
-      </div>
-      <div class="item-body ${item.enabled?'open':''}">
+      ${cardHeader(title, checkboxPath+'.enabled', item.enabled, checkboxPath+'.hidden', !!item.hidden)}
+      <div class="item-body ${item.hidden?'':'open'}">
         <div class="field"><label>Annual amount (today's $)</label>
           <input type="number" class="money" min="0" step="500" value="${item.amount}" oninput="onNumberInput('${checkboxPath}.amount', this.value)"></div>
         <div></div>

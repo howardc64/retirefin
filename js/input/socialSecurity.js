@@ -6,10 +6,8 @@
 function buildSSCard(pid, p, i, married){
   const s=p.ss;
   return `<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${s.enabled?'checked':''} onclick="onEnableToggle('${pid}.ss.enabled', this.checked, this.closest('.item'))"> Social Security</label>
-      </div>
-      <div class="item-body ${s.enabled?'open':''}">
+      ${cardHeader('Social Security', pid+'.ss.enabled', s.enabled, pid+'.ss.hidden', !!s.hidden)}
+      <div class="item-body ${s.hidden?'':'open'}">
         <div class="field full"><label><input type="checkbox" ${s.started?'checked':''} onchange="onSSStartedToggle(${i}, this.checked)"> Already started collecting</label></div>
         ${s.started?`
         <div class="field full"><label>Current monthly benefit (today's $)</label>

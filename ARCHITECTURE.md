@@ -63,6 +63,7 @@ js/
                 brokerage.js  ira.js  roth.js  incomeForms.js
   display/      chartHelpers.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  assetChart.js  footer.js
+                formulasPage.js
   app.js
 ```
 
@@ -96,13 +97,13 @@ Person = {
   id: 'p1' | 'p2',
   name: string,
   birthYear: number, birthMonth: 1-12,
-  wage:    { enabled, amount, ar: AgeRange, change: Change },
-  ss:      { enabled, pia, fra, started: boolean, claimAge },
-  pension: { enabled, amount, ar: AgeRange, change: Change, bene: boolean },
-  rental:  { enabled, amount, ar: AgeRange, change: Change, bene: boolean },
+  wage:    { enabled, hidden, amount, ar: AgeRange, change: Change },
+  ss:      { enabled, hidden, pia, fra, started: boolean, claimAge },
+  pension: { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
+  rental:  { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
   brokerage: [BrokeragePortfolio, ...],   // 0 or more
-  ira:  { enabled, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number },
-  roth: { enabled, balance, growth: Change, bene: boolean }
+  ira:  { enabled, hidden, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number },
+  roth: { enabled, hidden, balance, growth: Change, bene: boolean }
 }
 
 AgeRange = { startMode: 'now'|'custom'|'rmd', startVal: number,
@@ -113,6 +114,8 @@ Change = { mode: 'fixed'|'inflation'|'offset'|'custom', value: number /* percent
 BrokeragePortfolio = {
   id, name, balance, growth: Change, yield: number /* ODIV % */, qdivPct: number /* % of ODIV */,
   ar: AgeRange, bene: boolean, idgt: boolean,
+  enabled: boolean,          // default true — whether this portfolio is used for compute/display
+  hidden: boolean,           // default false — whether its card is collapsed on screen (§5.1)
   expense: boolean,          // gates taxDrag/fee/living/ltcg below
   taxDrag: number,           // % of household Total Tax
   fee: { mode: 'pct'|'fixed', value: number },
@@ -122,6 +125,13 @@ BrokeragePortfolio = {
   ftcPct: number             // foreign tax credit %, default 0.25 — gated by expense OR idgt
 }
 ```
+
+**`enabled` vs. `hidden` (every income item above has both — see §5.1):** `enabled` controls whether
+that item's data is used for compute (§4) and therefore appears in any chart (§6) at all. `hidden`
+controls only whether that item's *input card* is visually collapsed to save screen space — it has
+zero effect on compute or on any chart. The two are fully independent: an item can be enabled and
+hidden (computed and charted, but its input card collapsed), enabled and shown, disabled and hidden,
+or disabled and shown (its fields still visible/editable, just not yet counted).
 
 - `resolveAgeRange(ar, person)` (§4.5) is the only place that turns an `AgeRange` into concrete ages —
   every consumer of an age range goes through it, never reads `startMode`/`endMode` directly.
@@ -237,7 +247,8 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
    continuation using the *deceased's last living year's* age range, so a `passing`-mode end age
    doesn't cut a survivor benefit off immediately.
 5. Brokerage portfolios, per portfolio: ODIV, QDIV, LTCG (net of that portfolio's own rules), and
-   **foreign tax credit** (`balance × foreignPct × ftcPct` ), — independent gating from tax drag/fee/withdrawal/LTCG, which require `expense`
+   **foreign tax credit** (`balance × foreignPct × ftcPct`, active whenever `expense` is on *or*
+   `idgt` is on — independent gating from tax drag/fee/withdrawal/LTCG, which require `expense`
    regardless of `idgt`).
 6. Pre-tax IRA: RMD (or voluntary early withdrawal) via `rmdDivisor`, plus a separate **Roth
    conversion withdrawal** (`rothConvByPerson`/`rothConvTotal`) — a real withdrawal on top of the RMD,
@@ -310,12 +321,15 @@ default or a label — all real computation happens in Compute (§4).
 | `onFieldInput(path, val)`, `onNumberInput(path, val)` | Generic `setPath` + recompute + autosave, used by nearly every input in the app |
 | `renderChangeRow(path, change)` / `onChangeMode(...)` | Renders/handles the shared **Annual change** selector (§2 `Change`) |
 | `renderAgeRangeRow(path, ar, startOptions, endOptions)` / `onAgeRangeMode(...)` | Renders/handles the shared **Age range** selector (§2 `AgeRange`) |
-| `toggleItem(el)` | Expand/collapse an income-item card body |
-| `onEnableToggle(path, checked, cardEl)` | The card-level enable checkbox — also toggles the card's collapsed state |
-| `agedItemCard(pid, key, title, item, checkboxPath)` | Shared card builder for the two income types that are just "amount + age range + change + survivor benefit": Pension and Rental |
+| `toggleItem(el)` | Expand/collapse an element with no persisted state of its own — currently only the outer "Brokerage portfolio income" section header (§5.4), which has no single enabled/hidden flag of its own since it's a container for multiple portfolios |
+| `cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight?)` | **The enable/hide header every income-source card uses** (§2's `enabled`/`hidden` convention). Renders an Enable checkbox (left, wraps `title`) and a Hide checkbox (right, labeled "Hide"), with `extraRight` (e.g. a brokerage portfolio's Remove button) placed between them. Every card in §5.4 calls this instead of hand-rolling its own header. |
+| `onEnableToggle(path, checked)` | Sets `enabled`, then `recompute()` — does **not** touch the card's collapsed state; enabling/disabling never changes what's on screen, only what's computed |
+| `onHideToggle(path, checked, itemEl)` | Sets `hidden`, then toggles that item's `.item-body`'s `open` class directly (no recompute — hiding is purely visual, so there's nothing to recompute) |
+| `agedItemCard(pid, key, title, item, checkboxPath)` | Shared card builder for the two income types that are just "amount + age range + change + survivor benefit": Pension and Rental. Calls `cardHeader` internally. |
 
 **Rule:** any new income-type field that needs an age range, an annual-change mode, or an
-enable/collapse toggle uses these — don't hand-roll a new version of any of them.
+enable/hide header uses these — don't hand-roll a new version of any of them. A card's body is open
+(visible) whenever `!item.hidden`, full stop — never conditioned on `enabled`.
 
 ### 5.2 `household.js`
 Renders: filing status radios, per-person name/birth year/birth month, read-only current-age display,
@@ -330,7 +344,10 @@ Renders the speculative future-tax-threshold panel: a checkbox that, when on, re
 yet implemented in Compute.
 
 ### 5.4 Income-source cards
-One file per income type; `incomeForms.js` (§5.5) calls each in sequence.
+One file per income type; `incomeForms.js` (§5.5) calls each in sequence. **Every card below has an
+Enable + Hide header via `cardHeader` (§5.1)** — omitted from the Fields column since it's identical
+across all of them; the brokerage row calls it out separately since it applies per-portfolio, not once
+for the whole "Brokerage portfolio income" card.
 
 | File | Card | Fields |
 |---|---|---|
@@ -338,7 +355,7 @@ One file per income type; `incomeForms.js` (§5.5) calls each in sequence.
 | `socialSecurity.js` | Social Security | Already-started flag (else FRA, default 67), PIA, claim-age slider (62–70, default = FRA or started age) |
 | `pension.js` | Pension | `agedItemCard` — amount, age range, change, survivor benefit |
 | `rental.js` | Rental income | `agedItemCard` — same shape as Pension |
-| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; per portfolio: name, age range, balance, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), **foreign asset % + foreign tax credit % (default 0.25%), survivor benefit, IDGT flag, Expenses toggle gating tax drag/fee drag/withdrawal/LTCG |
+| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, balance, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), IDGT flag, Expenses toggle gating tax drag/fee drag/withdrawal/LTCG, foreign asset % + foreign tax credit % (default 0.25%) — visible whenever Expenses is on *or* IDGT is on —, age range, survivor benefit. The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
 | `ira.js` | Pre-tax IRA / 401(k) | Balance, age range (default start = RMD age), growth (default inflation+3%), survivor benefit, annual Roth conversion amount |
 | `roth.js` | Roth IRA | Balance, growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
 
@@ -417,6 +434,19 @@ Expenses is on) annual growth % net of drag, with expenses shown under `show_det
 `renderFooter()` — one static line summarizing the app's simplifying tax/benefit assumptions, shown
 beneath the charts.
 
+### 6.9 `formulasPage.js`
+`openFormulasPage()` — triggered by the **Formulas** button (§7.2), opens a new browser tab (via
+`window.open` + `document.write`, so it works the same under `file://` as on a hosted page) containing
+a standalone reference document: the acronym glossary, every current reference-data table, and every
+formula described in §4, written out in full for someone to check the app's math against by hand.
+
+**Rule — this file must never hardcode a number Compute already owns.** Every reference-data table
+on the page (`fpBracketTable`, `fpIrmaaTable`, `fpRmdTable`) is built at open-time directly from the
+same `js/core/constants.js` globals Compute uses (`MFJ_ORD`, `IRMAA_MFJ`, `RMD_TABLE`, etc.) — so a
+tax-year bracket update in `constants.js` (§3.1) is automatically reflected here with no second edit.
+Only the *formula prose* is hand-maintained (formulas change far less often than bracket numbers) —
+if you change a formula in §4, update its description on this page in the same change.
+
 ---
 
 ## 7. App (`js/app.js`, `index.html`)
@@ -433,8 +463,9 @@ beneath the charts.
 
 ### 7.2 `index.html`
 - Layout: independent-scrolling input column (left, one pane per person) and output column (right,
-  the charts) — see §1 for the overall shape. The `show_details` checkbox and a (not-yet-implemented)
-  "show all formulas" button live here as general page controls.
+  the charts) — see §1 for the overall shape. The `show_details` checkbox and the **Formulas** button
+  (§6.9, `onclick="openFormulasPage()"`, placed immediately after **Reset to defaults**) live here as
+  general page controls, alongside save/load/reset (§4.2).
 - **Script load order** (dependency-driven — a file may only use a name defined by a file *earlier* in
   this list):
   `core/constants → core/helpers → compute/socialSecurityCalc → compute/rmd → compute/tax →
@@ -442,7 +473,8 @@ beneath the charts.
   input/controls → input/household → input/assumptions → input/wage → input/socialSecurity →
   input/pension → input/rental → input/brokerage → input/ira → input/roth → input/incomeForms →
   display/chartHelpers → display/overlayPlugin → display/ssChart → display/incomeChart →
-  display/tssChart → display/taxChart → display/assetChart → display/footer → app.js`
+  display/tssChart → display/taxChart → display/assetChart → display/footer →
+  display/formulasPage → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
   that reads from it. Function *calls* deferred to a later event (a click, `DOMContentLoaded`) don't
   need this — only code that runs immediately when the script loads (top-level `let`/`const`
@@ -464,6 +496,11 @@ These apply everywhere, not to one file — listed once here instead of repeated
 - **Survivor benefit ("bene").** Any income source with a `bene` flag continues to the surviving
   spouse using the *deceased's own age-range rule*, evaluated at the deceased's last living age — not
   cut off by an `endMode: 'passing'` that would otherwise equal the deceased's own passing age.
+- **Enable vs. Hide (§2, §5.1).** Every income-source item has both an `enabled` flag (compute/display
+  inclusion) and a `hidden` flag (visual collapse only) — fully independent. Compute (§4) and Display
+  (§6) only ever check `enabled`; nothing there ever reads `hidden`. Input (§5) only ever uses `hidden`
+  to decide whether a card body is open; it never uses `hidden` to skip rendering a field's value into
+  its input, since a hidden card's data must remain editable.
 - **`show_details`.** A single global flag (`chartHelpers.js`) every chart's tooltip reads live —
   toggling it needs no chart rebuild, just re-hovering.
 - **Locked scales + Rescale.** Every chart's Y axis (and the SS/income charts' X axis) is locked so

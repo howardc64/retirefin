@@ -4,10 +4,8 @@
 // ═══════════════════════════════════════════════════════════════
 function buildRothCard(pid, p, married){
   return `<div class="item">
-      <div class="item-head" onclick="toggleItem(this)">
-        <label onclick="event.stopPropagation()"><input type="checkbox" ${p.roth.enabled?'checked':''} onclick="onEnableToggle('${pid}.roth.enabled', this.checked, this.closest('.item'))"> Roth IRA</label>
-      </div>
-      <div class="item-body ${p.roth.enabled?'open':''}">
+      ${cardHeader('Roth IRA', pid+'.roth.enabled', p.roth.enabled, pid+'.roth.hidden', !!p.roth.hidden)}
+      <div class="item-body ${p.roth.hidden?'':'open'}">
         <div class="field full"><label>Current balance (today's $)</label>
           <input type="number" class="money" min="0" step="5000" value="${p.roth.balance||0}" oninput="onNumberInput('${pid}.roth.balance', this.value)"></div>
         ${renderChangeRow(pid+'.roth.growth', p.roth.growth, 1)}
