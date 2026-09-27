@@ -1,0 +1,72 @@
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+// INPUT / INCOME FORMS — orchestrates the per-person income-source
+// column, calling one builder function per income type (spec §4.4),
+// plus the shared onchange/onclick handlers those cards wire up to.
+// ═══════════════════════════════════════════════════════════════
+function renderIncomeForms(){
+  const married = state.filingStatus==='married';
+  const n = married?2:1;
+  // Every person-column renders the exact same sequence of item types (wage,
+  // SS, pension, rental, ODIV, QDIV, LTCG, IRA), so both columns
+  // always have the same row count; this lets the two-column grid below use
+  // CSS subgrid to keep every income type's top edge aligned across people.
+  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*brokerage*/ + 1 /*ira*/ + 1 /*roth*/;
+
+  let html='';
+  for(let i=0;i<n;i++){
+    const p=state.people[i];
+    const pid='people.'+i;
+    html+=`<div class="person-col"><h3 id="personIncomeHeader_${i}">${escHtml(p.name)}</h3>`;
+    html+=buildWageCard(pid, p);
+    html+=buildSSCard(pid, p, i, married);
+    html+=buildPensionCard(pid, p);
+    html+=buildRentalCard(pid, p);
+    html+=buildBrokerageCard(pid, i, p, married);
+    html+=buildIraCard(pid, p, married);
+    html+=buildRothCard(pid, p, married);
+    html+='</div>';
+  }
+  const incomeEl = document.getElementById('perPersonIncome');
+  incomeEl.className = 'income-grid' + (married ? ' two-col' : '');
+  incomeEl.style.gridTemplateRows = married ? `repeat(${rowCount}, auto)` : '';
+  incomeEl.innerHTML=html;
+}
+
+function onSSStartedToggle(i,checked){ state.people[i].ss.started=checked; renderIncomeForms(); recompute(); saveDebounced(); }
+function onSSClaimAge(i,val){
+  state.people[i].ss.claimAge=+val;
+  document.getElementById('ssClaimVal_'+i).textContent=val;
+  recomputeDebounced(); saveDebounced();
+}
+function onExpenseToggle(pid,bi,checked){ setPath(pid+'.brokerage.'+bi+'.expense',checked); renderIncomeForms(); recompute(); saveDebounced(); }
+function onLtcgMode(pid,bi,mode){ setPath(pid+'.brokerage.'+bi+'.ltcgMode',mode); renderIncomeForms(); recompute(); saveDebounced(); }
+function onBeneToggle(path,checked){ setPath(path,checked); recompute(); saveDebounced(); }
+// Fixed fees are entered and stored in plain today's-$ dollars (fee.value). Percent fees are
+// stored as entered.
+function onPortfolioName(pid,bi,val,inputEl){
+  setPath(pid+'.brokerage.'+bi+'.name', val);
+  // Update the card title in place (a full re-render would drop input focus), then refresh the charts.
+  const title=inputEl.closest('.portfolio-card').querySelector('.pf-title');
+  if(title) title.textContent=val.trim()||('Portfolio '+(bi+1));
+  recomputeDebounced(); saveDebounced();
+}
+function onFeeValue(pid,bi,val){
+  const v=val===''?0:+val;
+  setPath(pid+'.brokerage.'+bi+'.fee.value', v);
+  recomputeDebounced(); saveDebounced();
+}
+function onFeeMode(pid,bi,mode){
+  setPath(pid+'.brokerage.'+bi+'.fee.mode', mode);
+  setPath(pid+'.brokerage.'+bi+'.fee.value', 0); // units change (% vs $), so start fresh
+  renderIncomeForms(); recompute(); saveDebounced();
+}
+function addBrokerage(i){
+  if(!Array.isArray(state.people[i].brokerage)) state.people[i].brokerage=[];
+  state.people[i].brokerage.push(defaultBrokeragePortfolio(0, state.people[i].brokerage.length+1));
+  renderIncomeForms(); recompute(); saveDebounced();
+}
+function removeBrokerage(i,bi){
+  state.people[i].brokerage.splice(bi,1);
+  renderIncomeForms(); recompute(); saveDebounced();
+}

@@ -1,0 +1,34 @@
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+// INPUT / SOCIAL SECURITY — "Social Security" card: already-started
+// flag, PIA/FRA, and the claim-age slider (spec §4.4).
+// ═══════════════════════════════════════════════════════════════
+function buildSSCard(pid, p, i, married){
+  const s=p.ss;
+  return `<div class="item">
+      <div class="item-head" onclick="toggleItem(this)">
+        <label onclick="event.stopPropagation()"><input type="checkbox" ${s.enabled?'checked':''} onclick="onEnableToggle('${pid}.ss.enabled', this.checked, this.closest('.item'))"> Social Security</label>
+      </div>
+      <div class="item-body ${s.enabled?'open':''}">
+        <div class="field full"><label><input type="checkbox" ${s.started?'checked':''} onchange="onSSStartedToggle(${i}, this.checked)"> Already started collecting</label></div>
+        ${s.started?`
+        <div class="field full"><label>Current monthly benefit (today's $)</label>
+          <input type="number" class="money" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
+        <div class="item-note">Entered as the actual current benefit; it stays flat in today's dollars for life since COLA is assumed to equal inflation.</div>
+        `:`
+        <div class="field"><label>PIA at FRA ($/mo, today's $)</label>
+          <input type="number" class="money" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
+        <div class="field"><label>Full retirement age</label>
+          <input type="number" min="62" max="70" step="0.1" value="${s.fra.toFixed(2)}" oninput="onNumberInput('${pid}.ss.fra', this.value)"></div>
+        <div class="full" style="margin-top:2px">
+          <label style="font-size:13px;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:normal;display:block;margin-bottom:6px">Starts Social Security at age</label>
+          <div style="display:flex;align-items:center;gap:12px">
+            <input type="range" id="ssClaimSlider_${i}" min="62" max="70" step="1" value="${s.claimAge}" oninput="onSSClaimAge(${i}, this.value)" style="flex:1;min-width:0">
+            <div class="sv" id="ssClaimVal_${i}" style="flex:0 0 auto;min-width:24px;text-align:right">${s.claimAge}</div>
+          </div>
+        </div>
+        <div class="item-note">Below FRA the benefit is permanently reduced; after FRA (up to 70) it earns delayed retirement credits. ${married?'If married, each person also receives the higher of their own benefit or a spousal benefit (up to 50% of the other\u2019s PIA); the survivor later receives the deceased\u2019s benefit for life.':''}</div>
+        `}
+      </div>
+    </div>`;
+}
