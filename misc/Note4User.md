@@ -1,4 +1,19 @@
-# Retirement Financial Patterns
+# NOTES
+
+## Expenses Planning
+
+* **NO Expenses Planning:** This tool doesn’t provide expense planning. Users need to assess if income is sufficient for all the expense needs. If none portfolio incomes ( wage, social security, rental etc. Excluding dividends, LTCG which are from portfolios ) is insufficient for expenses, portfolio include expense entry to support expenses shortfalls
+* **Portfolio Expense Assumption:** A single portfolio (even married) if assumed to support expense shortfalls
+  * % of total income tax
+  * fees (such as financial advisor)
+  * withdraw
+* **Portfolio Income paying Expenses:** Following portfolio income sequence pays the expense needs
+  * dividend yields are first used to pay these expenses
+  * Any remaining dividends is reinvested
+  * If dividend is insufficient, assets are sold and LTCG automatically calculated for income tax.
+* **Portfolio Basis Tracking:** Automatic, Formula display ( click Formula button ) shows details
+  
+---
 
 ## General Observations
 
