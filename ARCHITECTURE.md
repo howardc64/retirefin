@@ -255,8 +255,8 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
    **foreign tax credit** (`balance × foreignPct × ftcPct`) — always active, independent of the
    `expense` toggle and `idgt` flag (unlike tax drag/fee/withdrawal/LTCG, which do require `expense`).
    **Realized LTCG** is not an input: it is derived from tracked cost basis whenever the `expense` toggle
-   is on (see *Cost basis & unrealized gain* below) — dividends pay the year's outflows first and only the
-   shortfall is sold. Its tax-drag term uses **prior-year Total Tax** (`rows[k-1].totalTax`, `$0` in year
+   is on (see *Cost basis & unrealized gain* below) — the year's expenses are paid by other household
+   income, then by dividends, and only the shortfall is sold. Its tax-drag term uses **prior-year Total Tax** (`rows[k-1].totalTax`, `$0` in year
    0) — deliberately: this year's TT depends on this year's LTCG, so using it would be circular; the
    one-year lag avoids any fixed-point iteration.
 6. Pre-tax IRA: RMD (or voluntary early withdrawal) via `rmdDivisor`, plus a separate **Roth
@@ -277,32 +277,43 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
     basis — the credit doesn't offset NIIT).
 13. SST/marginal rate via `computeSSTAndMarginal`, using the pre-credit ordinary+qualified tax as its
     basis (foreign tax credit is unrelated to SS taxation).
-14. Roll every brokerage balance forward: `+growth −tax drag(% of Total Tax) −fee drag −withdrawal`,
-    only when that portfolio's Expenses is on (foreign tax credit itself doesn't touch the balance).
+14. Roll every brokerage balance forward: `+growth −(tax drag(% of Total Tax) + fee drag + withdrawal −
+    the part paid from other household income)`, only when that portfolio's Expenses is on (foreign tax
+    credit itself doesn't touch the balance). Expenses paid by income never leave the portfolio.
     Tracked portfolios also roll their cost basis forward (next block).
 
 **Cost basis & unrealized gain** (per portfolio; only when `pfTracksBasis(b)` — i.e. a basis was entered or Expenses is on;
 otherwise nothing below applies: no LTCG, and dividends simply compound with the balance). Average-cost method, all in today's $:
 - **Start:** `basis` = the entered cost basis, clamped to `[0, balance]`; a blank basis (Expenses on)
   starts at `basis = balance` (no unrealized gain today). **Gain fraction** `f = max(0, (bal − basis) / bal)`.
-- **Outflows and the dividend waterfall:** `outflows = withdrawal + fee + taxDrag` (via the shared
+- **Expenses and the payment waterfall:** a portfolio's `expenses = withdrawal + fee + taxDrag` (via the shared
   `pfOutflows(b, bal, k, tt)` helper, each capped at what the portfolio can pay; only when Expenses is on).
-  Dividends (ODIV = `balance × yield`) **pay outflows first**; `reinvested = max(0, ODIV − outflows)` is
-  added to basis; `sold = max(0, outflows − ODIV)` is covered by selling shares. This is the tax-efficient
-  ordering: cash dividends are spent before any gain is realized. The balance is unaffected — growth is
-  total return, so `bal×(1+g) − outflows` is the same however the outflows are funded; only basis and
-  realized gain depend on the waterfall.
-- **Realized LTCG:** `ltcg = sold × f` (Expenses on only), feeding the same SCGL → qualified income → AGI → NIIT path as any
-  other LTCG. `sold` here is *estimated* with `pfOutflows(..., priorTT)` because this year's tax drag
-  depends on this year's TT, which depends on this year's LTCG (circular); the one-year lag means year 0
-  has no tax-drag term. The roll-forward below uses the actual
-  (this-year-TT) `sold`, so the taxed LTCG and the basis removed can differ slightly when tax drag is on.
+  They are paid in this order:
+  1. **Household other income** — `pool = wages + SS + pension + rental + IRA withdrawals/RMDs` for the year
+     (`expenseIncomePool`). Not LTCG, not dividends (those are the next tier), and **not a Roth conversion**
+     (a transfer into the Roth, not spendable). The pool is **gross** — taxes are not deducted from it.
+     `pfIncomeCover(pool, outs)` covers `min(pool, Σ expenses)` and splits it across portfolios **pro rata to
+     their expenses**, so the result doesn't depend on portfolio order. **IDGT portfolios are masked out** and
+     receive none: they stay self-contained (like their dividends) and still pay their own expenses below.
+  2. **This portfolio's own dividends** (ODIV = `balance × yield`) pay what remains; `reinvested = max(0,
+     ODIV − remaining)` is added to basis. A portfolio's dividends never pay another portfolio's expenses.
+  3. **Sale** of shares for the `shortfall = max(0, remaining − ODIV)`.
+  Only what dividends and sales pay leaves the portfolio: `balance ← bal×(1+g) − (expenses − incomePaid)`.
+  So — unlike dividends vs. sales, which move the balance identically because growth is total return — income
+  paying expenses **does** raise the balance relative to drawing it down.
+- **Realized LTCG:** `ltcg = shortfall × f` (Expenses on only), feeding the same SCGL → qualified income →
+  AGI → NIIT path as any other LTCG. The shortfall is *estimated* with `pfOutflows(..., priorTT)` and this
+  portfolio's estimated income share (`coverEst`), because this year's tax drag depends on this year's TT,
+  which depends on this year's LTCG (circular); the one-year lag means year 0 has no tax-drag term. The
+  roll-forward uses the actual (this-year-TT) expenses and income share, so the taxed LTCG and the basis
+  removed can differ slightly when tax drag is on.
 - **Basis roll-forward, each year (every tracked portfolio):**
   `basis ← (basis − sold×(1 − f) + reinvested) / (1 + inflation)`, clamped to `[0, end-of-year balance]`.
-  Sales remove basis in proportion to cost share; reinvested dividends (already-taxed income) add basis;
+  Sales remove basis in proportion to cost share (expenses paid by income or dividends remove none);
+  reinvested dividends (already-taxed income) add basis;
   and because basis is a fixed nominal amount while the model is in today's $, it **erodes by inflation**
   each year (so gains — and LTCG on later sales — grow in real terms). With Expenses off there are no
-  outflows, so all dividends are reinvested.
+  expenses, so all dividends are reinvested.
 - **Step-up at death:** in the first year the owner has passed *and* the portfolio continues to a
   surviving spouse (`bene`), a **non-IDGT** portfolio's basis resets to its balance (unrealized gain → 0;
   that year's auto LTCG is $0). **IDGT** portfolios keep carryover basis (outside the owner's estate) and
@@ -324,7 +335,7 @@ otherwise nothing below applies: no LTCG, and dividends simply compound with the
 | `ftcByPerson`, `foreignTaxCredit` | Foreign tax credit per person and household total |
 | `iraByPerson`, `iraTotal`, `iraBalByPerson` | IRA RMD/withdrawal and end-of-year balance |
 | `rothConvByPerson`, `rothConvTotal`, `rothBalByPerson` | Roth conversion (pre-tax IRA withdraw) amount and Roth balance |
-| `portfoliosByPerson` | Per-portfolio detail: `{id, name, balance, idgt, expense, taxDrag, feeDrag, livingCost, ltcg, growthPct, netGrowthPct, tracked, basis, unrealizedGain, steppedUp, divUsed, divReinvested, sold}` — the last seven are the cost-basis fields (§4.6): `basis`/`unrealizedGain` are `null` when `tracked` is false; `steppedUp` is true only in the year the death step-up applied; `divUsed`/`divReinvested`/`sold` are the dividend-waterfall amounts (0 unless tracked) |
+| `portfoliosByPerson` | Per-portfolio detail: `{id, name, balance, idgt, expense, taxDrag, feeDrag, livingCost, ltcg, growthPct, netGrowthPct, tracked, basis, unrealizedGain, steppedUp, incomePaid, divUsed, divReinvested, sold}` — the last eight are the cost-basis / expense-waterfall fields (§4.6): `basis`/`unrealizedGain` are `null` when `tracked` is false; `steppedUp` is true only in the year the death step-up applied; `incomePaid`/`divUsed`/`divReinvested`/`sold` are the expense-waterfall amounts (0 unless tracked), with `taxDrag + feeDrag + livingCost = incomePaid + divUsed + sold` |
 | `embeddedGain`, `embeddedGainIdgt` | Household unrealized gain across tracked portfolios, non-IDGT / IDGT (start of year, after any step-up) |
 | `nonSSOrdinary`, `taxableSS`, `provisional` | Ordinary income ex-SS; taxable SS; provisional income |
 | `ordIncome`, `std`, `ordTI`, `ordTax` | AGI components → ordinary taxable income → ordinary tax |
@@ -395,7 +406,7 @@ for the whole "Brokerage portfolio income" card.
 | `socialSecurity.js` | Social Security | Already-started flag (else FRA, default 67), PIA, claim-age slider (62–70, default = FRA or started age) |
 | `pension.js` | Pension | `agedItemCard` — amount, age range, change, survivor benefit |
 | `rental.js` | Rental income | `agedItemCard` — same shape as Pension |
-| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, balance, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, shown before and independent of the Expenses toggle and IDGT flag —, IDGT flag, **optional cost basis (today's $; blank = not tracked)** right under the balance, Expenses toggle gating tax drag/fee drag/withdrawal/realized LTCG — LTCG has **no input**: the panel just shows a note that it is automatic (dividends pay expenses first, only a shortfall is sold and realizes gain from the cost basis) —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
+| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, balance, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, shown before and independent of the Expenses toggle and IDGT flag —, IDGT flag, **optional cost basis (today's $; blank = not tracked)** right under the balance, Expenses toggle gating tax drag/fee drag/withdrawal/realized LTCG — LTCG has **no input**: the panel just shows a note that it is automatic (expenses are paid by other household income, then dividends, and only a shortfall is sold and realizes gain from the cost basis) —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
 | `ira.js` | Pre-tax IRA / 401(k) | Balance, age range (default start = RMD age), growth (default inflation+3%), survivor benefit, annual Roth conversion amount |
 | `roth.js` | Roth IRA | Balance, growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
 
@@ -488,7 +499,7 @@ Reads rows' `portfoliosByPerson` (excluding `idgt` ones), `iraBalByPerson`, `rot
 chart for brokerage (ex-IDGT) + IRA + Roth balances, each portfolio/account its own color; a second
 chart (only if any IDGT portfolio exists) for IDGT balances alone. Tooltip: age, balances, and (if
 Expenses is on) annual growth % net of drag, with expenses shown under `show_details`.
-**Cost basis (§4.6):** under `show_details` only, tracked portfolios add *Dividends used for expenses*,
+**Cost basis (§4.6):** under `show_details` only, tracked portfolios add *Expenses paid by other income*, *Dividends used for expenses*,
 *Dividends reinvested*, *Sold to cover shortfall*, *Cost basis* and *Unrealized gain
 ($ and % of value)* lines to the tooltip on both charts, plus *Basis stepped up at death* in the year of a
 step-up. Below each chart's note, an **"Unrealized gain at end of plan"** line (created by `setGainNote()`;

@@ -35,8 +35,9 @@ function pfExpense(b){
 }
 // Cost-basis / unrealized-gain tracking (spec §4.6, cost basis). A portfolio is tracked when the user
 // entered a cost basis (`basis` is a number; null/blank = none entered) or when its Expenses panel is on
-// (realized LTCG is always automatic there: dividends pay expenses first, only a shortfall is sold and
-// realizes gain — so it needs a basis, and a blank one is treated as no unrealized gain today).
+// (realized LTCG is always automatic there: expenses are paid by other household income, then dividends,
+// and only a shortfall is sold and realizes gain — so it needs a basis, and a blank one is treated as no
+// unrealized gain today).
 function pfBasisEntered(b){ return !!b && b.basis!=null && b.basis!=='' && Number.isFinite(Number(b.basis)); }
 function pfTracksBasis(b){ return pfBasisEntered(b) || pfExpense(b); }
 function defaultBrokeragePortfolio(balance, n){

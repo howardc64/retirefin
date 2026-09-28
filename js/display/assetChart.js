@@ -129,8 +129,10 @@ function buildAssetChartFor(cfg){
           // non-IDGT) is flagged in the year it happens.
           if(showDetails && e.tracked){
             const gainPct=e.balance>0?e.unrealizedGain/e.balance*100:0;
-            // Dividend waterfall: dividends pay the year's outflows first, leftovers are reinvested,
-            // and only a shortfall is sold (which is what realizes gain).
+            // Expense waterfall: the household's other income pays the year's expenses first, then this
+            // portfolio's dividends (leftovers are reinvested), and only a shortfall is sold (which is
+            // what realizes gain). Expenses paid from other income never leave the portfolio.
+            lines.push(mrow('      Expenses paid by other income', fmt(e.incomePaid||0), W));
             lines.push(mrow('      Dividends used for expenses', fmt(e.divUsed||0), W));
             lines.push(mrow('      Dividends reinvested', fmt(e.divReinvested||0), W));
             lines.push(mrow('      Sold to cover shortfall', fmt(e.sold||0), W));
@@ -193,7 +195,7 @@ function buildAssetChart(){
     key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', noteId:'assetChartNote',
     yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
     emptyMsg:'Add a non-IDGT brokerage portfolio, or enable a pre-tax IRA/401(k) or Roth IRA, to see this chart.',
-    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass, then drops to zero. A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
+    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag, less any part of a portfolio's expenses paid from the household's other income), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass, then drops to zero. A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 function buildIdgtChart(){
@@ -201,7 +203,7 @@ function buildIdgtChart(){
     key:'idgt', idgt:true, cardId:'idgtCard', canvasId:'idgtChart', legendId:'idgtLegend', noteId:'idgtChartNote',
     yTitle:"IDGT value (today's $)", totalLabel:'Total IDGT value',
     emptyMsg:'',
-    note:`Each band is one brokerage portfolio flagged as an IDGT, compounding at its own configured growth rate less tax drag and fee drag, in today's dollars. Dividend income from IDGT portfolios is still included in household income and tax. A band drops to zero once its owner passes, unless "Continues to spouse" is checked. Y-axis locked — use Rescale if the stack runs off the top.`
+    note:`Each band is one brokerage portfolio flagged as an IDGT, compounding at its own configured growth rate less tax drag and fee drag (an IDGT's expenses are never paid from household income), in today's dollars. Dividend income from IDGT portfolios is still included in household income and tax. A band drops to zero once its owner passes, unless "Continues to spouse" is checked. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 
