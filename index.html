@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --bg:#f7f5f0;--surface:#fff;--surface2:#f0ede6;
@@ -208,6 +209,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
     <button class="btn btn-danger" onclick="resetState()">Reset to defaults</button>
     <button class="btn" onclick="openFormulasPage()">Formulas</button>
     <button class="btn" onclick="openNotesPage()">Notes</button>
+    <button class="btn" onclick="exportToExcel()">📊 Export to Excel</button>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;">
       <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Show Details in Popup
     </label>
@@ -401,6 +403,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 <script src="js/display/footer.js"></script>
 <script src="js/display/formulasPage.js"></script>
 <script src="js/display/notesPage.js"></script>
+<script src="js/display/excelExport.js"></script>
 
 <!-- app wiring / entry point -->
 <script src="js/app.js"></script>

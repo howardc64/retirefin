@@ -4,5 +4,5 @@
 // agedItemCard() builder from input/controls.js.
 // ═══════════════════════════════════════════════════════════════
 function buildPensionCard(pid, p){
-  return agedItemCard(pid, 'pension', 'Pension', p.pension, pid+'.pension');
+  return agedItemCard(pid, 'pension', 'Pension', p.pension, pid+'.pension', 'Fixed $ (no COLA)');
 }

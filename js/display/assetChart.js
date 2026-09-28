@@ -109,6 +109,7 @@ function buildAssetChartFor(cfg){
               if(showDetails){
                 lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
                 lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
+                lines.push(mrow('      IRMAA surcharge', fmt(e.irmaaDrag||0), W));
                 lines.push(mrow('      Withdrawal', fmt(e.livingCost||0), W));
                 lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
               }
@@ -122,6 +123,7 @@ function buildAssetChartFor(cfg){
             if(showDetails){
               lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
               lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
+              lines.push(mrow('      IRMAA surcharge', fmt(e.irmaaDrag||0), W));
             }
           }
           // Cost basis / unrealized gain (spec §4.6, cost basis) — Show details only, both charts, only for
@@ -129,10 +131,9 @@ function buildAssetChartFor(cfg){
           // non-IDGT) is flagged in the year it happens.
           if(showDetails && e.tracked){
             const gainPct=e.balance>0?e.unrealizedGain/e.balance*100:0;
-            // Expense waterfall: the household's other income pays the year's expenses first, then this
-            // portfolio's dividends (leftovers are reinvested), and only a shortfall is sold (which is
-            // what realizes gain). Expenses paid from other income never leave the portfolio.
-            lines.push(mrow('      Expenses paid by other income', fmt(e.incomePaid||0), W));
+            // Expense waterfall: this portfolio's own dividends pay the year's expenses first (leftovers
+            // are reinvested), and only a shortfall is sold (which is what realizes gain). Household
+            // income never pays a portfolio's expenses.
             lines.push(mrow('      Dividends used for expenses', fmt(e.divUsed||0), W));
             lines.push(mrow('      Dividends reinvested', fmt(e.divReinvested||0), W));
             lines.push(mrow('      Sold to cover shortfall', fmt(e.sold||0), W));
@@ -195,7 +196,7 @@ function buildAssetChart(){
     key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', noteId:'assetChartNote',
     yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
     emptyMsg:'Add a non-IDGT brokerage portfolio, or enable a pre-tax IRA/401(k) or Roth IRA, to see this chart.',
-    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag, less any part of a portfolio's expenses paid from the household's other income), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass, then drops to zero. A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
+    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag, and its own dividends/sales pay its expenses), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass, then drops to zero. A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 function buildIdgtChart(){

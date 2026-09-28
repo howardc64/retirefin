@@ -165,7 +165,8 @@ function computeProjection(){
 
   // ── Brokerage portfolio balances (today's $) ──
   // Balances are simulated year by year: each year's tax drag depends on that year's total tax (TT),
-  // so a closed-form (1+g)^k no longer applies. Change per year = growth − tax drag − fee drag − withdrawal.
+  // so a closed-form (1+g)^k no longer applies. Change per year = growth − tax drag − fee drag − IRMAA (if checked) − withdrawal,
+  // paid only from that portfolio's own dividends and share sales (never household income).
   // Cost basis (spec §4.6, cost basis) is tracked in today's $ alongside the balance for portfolios where
   // pfTracksBasis() is true: `basis` starts at the entered cost basis (blank + 'auto' LTCG = no
   // unrealized gain today, i.e. basis = balance), clamped to [0, balance]. `stepped` marks that the
@@ -181,7 +182,10 @@ function computeProjection(){
   // order. Only when Expenses is on. Used twice a year: with the *prior* year's TT to estimate the
   // shortfall that drives 'auto' LTCG (this year's TT depends on this year's LTCG, so it can't be
   // used there), and with this year's TT in the balance roll-forward.
-  function pfOutflows(b, bal, k, tt){
+  // IRMAA (Medicare Part B/D surcharge) is one more expense when the portfolio's "Include IRMAA" box is
+  // checked: `irmaaAmt` is this portfolio's share of the household surcharge (computed as `irmaaShare` in the row loop).
+  // Cap order: fee, tax drag, IRMAA, withdrawal — the mandatory items before the discretionary withdrawal.
+  function pfOutflows(b, bal, k, tt, irmaaAmt){
     const g=realGrowth(b.growth,inflation);
     const feeMode=b.fee&&b.fee.mode==='fixed'?'fixed':'pct';
     const feeVal=Math.max(0,Number(b.fee&&b.fee.value)||0);
@@ -193,18 +197,9 @@ function computeProjection(){
     const exp=pfExpense(b);   // tax drag, fees and withdrawal only apply when Expenses is checked
     const feeD=exp?Math.min(bal*feePct+feeFixed, avail):0;
     const taxD=exp?Math.min(clamp(Number(b.taxDrag)||0,0,100)/100*tt, avail-feeD):0;
-    const withdrawD=exp?Math.min(Math.max(0,Number(b.living)||0), avail-feeD-taxD):0; // flat in today's $ = inflation-adjusted
-    return {g, avail, exp, feeD, taxD, withdrawD};
-  }
-
-  // Household income pays portfolio expenses first (spec §4.6). `pool` is the year's non-LTCG, non-dividend
-  // income; `outs[i][bi]` is each *eligible* portfolio's expenses (0 for ineligible ones: Expenses off,
-  // IDGT, disabled, dead). The pool covers min(pool, total expenses), split across portfolios pro rata to
-  // their expenses so the result doesn't depend on portfolio order. Returns the $ covered per portfolio.
-  function pfIncomeCover(pool, outs){
-    const total=outs.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
-    const covered=Math.min(Math.max(0,pool), total);
-    return outs.map(row=>row.map(o=>total>0?covered*o/total:0));
+    const irmaaD=(exp&&b.irmaa)?Math.min(Math.max(0,Number(irmaaAmt)||0), avail-feeD-taxD):0;
+    const withdrawD=exp?Math.min(Math.max(0,Number(b.living)||0), avail-feeD-taxD-irmaaD):0; // flat in today's $ = inflation-adjusted
+    return {g, avail, exp, feeD, taxD, irmaaD, withdrawD};
   }
 
   // ── Suspended Capital-Gain Loss (SCGL) carryforward, spec §4.5/§8.3 ──
@@ -255,7 +250,7 @@ function computeProjection(){
     const rental = rentalByPerson.reduce((a,b)=>a+b,0);
 
     // Brokerage portfolio income — each portfolio produces ODIV and QDIV.
-    function brokerageValues(portfolio, ownerIdx, k, bal, st, outEst, cover){
+    function brokerageValues(portfolio, ownerIdx, k, bal, st, outEst){
       if(!portfolio||!portfolio.enabled||!(bal>0)) return {odiv:0,qdiv:0,ltcg:0,ftc:0,cap:0};
 
       const ownerAge=curAges[ownerIdx]+k;
@@ -280,18 +275,19 @@ function computeProjection(){
       const odiv=Math.max(0,bal*(Number(portfolio.yield)||0)/100);
       const qdiv=odiv*clamp(Number(portfolio.qdivPct)||0,0,100)/100;
       // Realized LTCG (spec §4.6, cost basis) is always automatic, and only when Expenses is on. The
-      // portfolio's expenses (withdrawal + fee + tax drag) are paid in this order: (1) the household's other
-      // income (`cover`, this portfolio's pro-rata share of the pool — 0 for IDGTs), (2) this portfolio's
-      // own dividends, with any leftover reinvested; (3) only the remaining shortfall is sold, which
-      // realizes the portfolio's gain share (unrealized gain ÷ value, from tracked cost basis). Expenses
-      // (`outEst`) use the household's *prior-year* Total Tax (TT) for the tax-drag term — deliberately:
-      // this year's TT is itself partly determined by this year's LTCG, so using it would make the two
-      // circularly dependent within the year. The one-year lag avoids that while still tracking the
-      // household's actual tax situation. Year 0 has no prior year, so its tax-drag term is $0.
+      // portfolio's expenses (withdrawal + fee + tax drag + IRMAA, if checked) are paid ONLY by this
+      // portfolio's own income and assets, in order: (1) its own dividends, with any leftover reinvested;
+      // (2) selling shares for the remaining shortfall, which realizes the portfolio's gain share
+      // (unrealized gain ÷ value, from tracked cost basis). Household income (wages, Social Security,
+      // pension, rental, IRA withdrawals) never pays a portfolio's expenses. Expenses (`outEst`) use the
+      // household's *prior-year* Total Tax (TT) for the tax-drag term — deliberately: this year's TT is
+      // itself partly determined by this year's LTCG, so using it would make the two circularly dependent
+      // within the year. The one-year lag avoids that while still tracking the household's actual tax
+      // situation. Year 0 has no prior year, so its tax-drag term is $0.
       const on=pfExpense(portfolio);
       let ltcg=0;
       if(on && st && st.tracked){
-        ltcg=Math.max(0, (outEst||0)-(cover||0)-odiv)*pfGainFraction(bal,st.basis);
+        ltcg=Math.max(0, (outEst||0)-odiv)*pfGainFraction(bal,st.basis);
       }
       // Foreign tax credit (spec §4.4, §9.4): always active, independent of the Expenses toggle
       // and the IDGT flag — unlike tax drag/fee drag/withdrawal/LTCG above, which still require
@@ -316,25 +312,33 @@ function computeProjection(){
       }
       return st.dead?0:st.bal;
     }));
-    // Household income available to pay portfolio expenses (spec §4.6): every non-LTCG, non-dividend income
-    // stream — wages, Social Security, pension, rental and IRA withdrawals/RMDs. (Dividends are the next
-    // tier, per portfolio; LTCG is never used. A Roth conversion is a transfer into the Roth, not spendable
-    // cash, so it is excluded. Income is gross: taxes aren't deducted from it here.)
-    const expenseIncomePool=wageByPerson.reduce((a,b)=>a+b,0)+totalSS+pension+rental+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
-    // Estimated expenses per portfolio (prior-year TT for tax drag), for the LTCG estimate. Every enabled,
-    // funded portfolio with Expenses on has expenses; but only NON-IDGT ones can receive household income —
-    // IDGTs stay self-contained (like their dividends), so they are masked out of the income allocation.
+    // Portfolio expenses (spec §4.6) are paid ONLY from that portfolio's own dividends, then its own
+    // asset sales — never from household income (wages, Social Security, pension, rental, IRA withdrawals).
     const pfHasExp=(b,bal)=>!!b&&!!b.enabled&&bal>0&&pfExpense(b);
+    // Household IRMAA surcharge for this year (today's $; the tier tables are indexed, so they aren't deflated):
+    // the tier reached by the PRIOR year's AGI (a one-year lag — same reason as prior-year TT above: this
+    // year's AGI depends on this year's LTCG, which depends on expenses, which would include this surcharge;
+    // it also mirrors IRMAA's real-world look-back to earlier income) × the number of living people age 65+.
+    // Year 0 has no prior year, so it is $0. Filing status is this year's.
+    const priorAGI = (k>0 && rows[k-1]) ? (rows[k-1].agi||0) : 0;
+    const irmaaEnrolled = people.reduce((n,p,i)=>n+((alive[i]&&ages[i]>=65)?1:0),0);
+    const irmaaFiling = married && alive[0] && alive[1] ? 'married' : 'single';
+    const irmaaTier = (irmaaFiling==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>priorAGI>=t.magi);
+    const irmaaSurcharge = irmaaTier ? irmaaTier.surch*irmaaEnrolled : 0;
+    // Split the household surcharge across the portfolios whose IRMAA box is checked (and that are enabled,
+    // funded and have Expenses on), pro rata to balance, so it is charged once no matter how many are checked.
+    const irmaaBase=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>(b&&b.irmaa&&pfHasExp(b,pfBalNow[i][bi]))?pfBalNow[i][bi]:0));
+    const irmaaBaseSum=irmaaBase.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
+    const irmaaShare=irmaaBase.map(row=>row.map(v=>irmaaBaseSum>0?irmaaSurcharge*v/irmaaBaseSum:0));
     const outEst=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
       const bal=pfBalNow[i][bi];
       if(!pfHasExp(b,bal)) return 0;
-      const o=pfOutflows(b,bal,k,priorTT); return o.feeD+o.taxD+o.withdrawD;
+      const o=pfOutflows(b,bal,k,priorTT,irmaaShare[i][bi]); return o.feeD+o.taxD+o.irmaaD+o.withdrawD;
     }));
-    const coverEst=pfIncomeCover(expenseIncomePool, outEst.map((row,i)=>row.map((o,bi)=>people[i].brokerage[bi].idgt?0:o)));
     const pfVals=people.map(()=>[]);   // per-portfolio brokerageValues() results, reused in the roll-forward below
     const brokerageByPerson=people.map((p,i)=>{
       let odiv=0,qdiv=0,ltcg=0,ftc=0;
-      (p.brokerage||[]).forEach((b,bi)=>{const v=brokerageValues(b,i,k,pfBalNow[i][bi],pfState[i][bi],outEst[i][bi],coverEst[i][bi]);pfVals[i][bi]=v;odiv+=v.odiv;qdiv+=v.qdiv;ltcg+=v.ltcg;ftc+=v.ftc;});
+      (p.brokerage||[]).forEach((b,bi)=>{const v=brokerageValues(b,i,k,pfBalNow[i][bi],pfState[i][bi],outEst[i][bi]);pfVals[i][bi]=v;odiv+=v.odiv;qdiv+=v.qdiv;ltcg+=v.ltcg;ftc+=v.ftc;});
       return {odiv,qdiv,ltcg,ftc};
     });
 
@@ -342,10 +346,10 @@ function computeProjection(){
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
       const st=pfState[i][bi], bal=pfBalNow[i][bi], tracked=!!st.tracked&&bal>0;
       return {
-        id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, expense:!!b.expense, taxDrag:0, feeDrag:0, livingCost:0, ltcg:0,
+        id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, expense:!!b.expense, taxDrag:0, feeDrag:0, irmaaDrag:0, livingCost:0, ltcg:0,
         // Cost-basis tracking (spec §4.6, cost basis) — start-of-year values, after any step-up this year.
         tracked, basis:tracked?st.basis:null, unrealizedGain:tracked?Math.max(0,bal-st.basis):null, steppedUp:tracked&&!!st.steppedNow,
-        incomePaid:0, divUsed:0, divReinvested:0, sold:0   // expense waterfall (filled in the roll-forward below): other income, dividends, sales
+        divUsed:0, divReinvested:0, sold:0   // expense waterfall (filled in the roll-forward below): dividends, sales
       };
     }));
     // Household embedded (unrealized) gain across tracked portfolios, split by whether basis steps up at death.
@@ -409,41 +413,31 @@ function computeProjection(){
     const incomeTaxAfterFtc = Math.max(0, incomeTax-foreignTaxCredit);
     const totalTax = incomeTaxAfterFtc+niit;
 
-    // Actual expenses per eligible portfolio (this year's TT for tax drag) → actual income coverage.
-    const outAct=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
-      const bal=pfBalNow[i][bi];
-      if(b.idgt||!pfHasExp(b,bal)) return 0;   // IDGTs receive no household income
-      const o=pfOutflows(b,bal,k,totalTax); return o.feeD+o.taxD+o.withdrawD;
-    }));
-    const coverAct=pfIncomeCover(expenseIncomePool,outAct);
-    // Roll each brokerage balance forward one year: growth − (tax drag + fee drag + withdrawal not paid by
-    // the household's other income).
+    // Roll each brokerage balance forward one year: growth − (tax drag + fee drag + IRMAA + withdrawal),
+    // paid only from this portfolio's own dividends and share sales — never from household income.
     people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
       const st=pfState[i][bi], bal=pfBalNow[i][bi];
       if(st.dead||!(bal>0)){ st.bal=0; st.basis=0; return; }
-      const {g, avail, exp, feeD, taxD, withdrawD}=pfOutflows(b, bal, k, totalTax);
-      const outflow=feeD+taxD+withdrawD, incomePaid=coverAct[i][bi]||0;
-      // Only the part of the expenses NOT paid by household income leaves the portfolio (as dividends used
-      // or shares sold); the rest never touches it, so the balance no longer falls by the full outflow.
-      st.bal=Math.max(0, avail-(outflow-incomePaid));
+      const {g, avail, exp, feeD, taxD, irmaaD, withdrawD}=pfOutflows(b, bal, k, totalTax, irmaaShare[i][bi]);
+      const outflow=feeD+taxD+irmaaD+withdrawD;
+      st.bal=Math.max(0, avail-outflow);
       // Expense waterfall + basis roll-forward (spec §4.6, cost basis), average-cost method. Expenses are
-      // paid by (1) household other income (above), then (2) this portfolio's dividends (ODIV) — any
-      // dividend left over is reinvested (adds basis) — then (3) selling shares for any shortfall, which
-      // removes basis in proportion to its cost share (1 − gain fraction) and realizes the gain share.
-      // Growth is total return, so dividends used vs. shares sold move the balance identically; only basis
-      // and realized gain differ. Because everything here is in today's $ while basis is a fixed nominal
-      // amount, basis also erodes by inflation each year.
+      // paid by (1) this portfolio's own dividends (ODIV) — any dividend left over is reinvested (adds
+      // basis) — then (2) selling shares for any shortfall, which removes basis in proportion to its cost
+      // share (1 − gain fraction) and realizes the gain share. Growth is total return, so dividends used
+      // vs. shares sold move the balance identically; only basis and realized gain differ. Because
+      // everything here is in today's $ while basis is a fixed nominal amount, basis also erodes by
+      // inflation each year.
       let wf=null;
       if(st.tracked){
         const f=pfGainFraction(bal, st.basis);
-        const div=(pfVals[i][bi]&&pfVals[i][bi].odiv)||0, remaining=outflow-incomePaid;
+        const div=(pfVals[i][bi]&&pfVals[i][bi].odiv)||0, remaining=outflow;
         const divUsed=Math.min(div,remaining), reinvested=div-divUsed, sold=remaining-divUsed;
         wf={divUsed, reinvested, sold};
         st.basis=clamp((st.basis-sold*(1-f)+reinvested)/(1+inflation), 0, st.bal);
       }
       const entry=portfoliosByPerson[i][bi];
-      entry.taxDrag=taxD; entry.feeDrag=feeD; entry.livingCost=withdrawD; entry.growthPct=g*100;
-      entry.incomePaid=incomePaid;
+      entry.taxDrag=taxD; entry.feeDrag=feeD; entry.irmaaDrag=irmaaD; entry.livingCost=withdrawD; entry.growthPct=g*100;
       if(wf){ entry.divUsed=wf.divUsed; entry.divReinvested=wf.reinvested; entry.sold=wf.sold; }
       entry.ltcg=(pfVals[i][bi]&&pfVals[i][bi].ltcg)||0;   // the exact (pre-SCGL) gain realized and taxed this year
       // Net growth after subtracting tax drag, fee drag and withdrawal from this
@@ -463,6 +457,7 @@ function computeProjection(){
       nonSSOrdinary, taxableSS, provisional, ordIncome, std, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
       niiIncome, niit,
+      irmaaSurcharge,
       totalTax, agi
     });
   }

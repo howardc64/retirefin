@@ -109,7 +109,7 @@ function buildIncomeChart(){
       // §8.3: total income and remaining SCGL always shown; filing status and AGI are shown only
       // when Show Details in Popup is on.
       const lines=['',mrow('Total income',fmt(total)+'/yr')];
-      if(r.scglRemaining>0||r.scglUsed>0) lines.push(mrow('Suspended Capital-Gain Loss (SCGL) remaining', fmt(r.scglRemaining)));
+      if(r.scglRemaining>0||r.scglUsed>0) lines.push(mrow("Suspended Capital-Gain Loss (SCGL) remaining (today's $)", fmt(r.scglRemaining)));
       if(showDetails){
         lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
         lines.push(mrow('AGI',fmt(r.agi)+'/yr'));

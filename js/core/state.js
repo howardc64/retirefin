@@ -35,7 +35,7 @@ function pfExpense(b){
 }
 // Cost-basis / unrealized-gain tracking (spec §4.6, cost basis). A portfolio is tracked when the user
 // entered a cost basis (`basis` is a number; null/blank = none entered) or when its Expenses panel is on
-// (realized LTCG is always automatic there: expenses are paid by other household income, then dividends,
+// (realized LTCG is always automatic there: expenses are paid only by the portfolio's own dividends,
 // and only a shortfall is sold and realizes gain — so it needs a basis, and a blank one is treated as no
 // unrealized gain today).
 function pfBasisEntered(b){ return !!b && b.basis!=null && b.basis!=='' && Number.isFinite(Number(b.basis)); }
@@ -45,7 +45,7 @@ function defaultBrokeragePortfolio(balance, n){
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,basis:null,taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,basis:null,taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,irmaa:false,foreignPct:0,ftcPct:0.25};
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);

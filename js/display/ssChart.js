@@ -75,11 +75,26 @@ function buildSSSection(){
   // claiming age shown. Built fresh every call (rather than only on first
   // creation) so it never closes over a stale scenario/labels set from an
   // earlier render after a slider change.
+  // The age lines (title) and the SS amount lines (per person + household total, body) share one
+  // LEFT-aligned value column: every label is padded to the same width, so each value starts in the
+  // same character column (unlike mrow(), which right-justifies values on a common right edge).
+  const ssLW=(()=>{
+    const n=lastProjection&&lastProjection.married?2:1;
+    const names=Array.from({length:n},(_,i)=>displayPersonName(lastProjection.people[i],i));
+    return 2+Math.max(...names.map(nm=>4+nm.length), 4+'Total household SS'.length);
+  })();
+  const lrow=(label,value)=>label.padEnd(ssLW)+value;
   const ssTooltipCallbacks={
     title:items=>{
       const age=Number(items[0]?.label);
       const r=lastProjection?.rows?.find(x=>Math.round(x.age0)===age);
-      return [`Age ${age}`, ...(r?popupPersonAgeLines(lastProjection,r):[])];
+      const n=lastProjection.married?2:1;
+      const ageLines=r?Array.from({length:n},(_,i)=>{
+        const nm=displayPersonName(lastProjection.people[i],i);
+        const a=(r.alive&&r.alive[i]&&Number.isFinite(r.ages[i]))?r.ages[i].toFixed(1):null;
+        return lrow(nm, a!==null?'Age '+a+' · Living':'Passed');
+      }):[];
+      return [`Age ${age}`, ...ageLines];
     },
     label:ctx=>{
       if(ctx.raw==null) return null;
@@ -90,13 +105,13 @@ function buildSSSection(){
       const lines=[mrow('  '+ctx.dataset.label,fmt(ctx.raw))];
       const monthlyTotal=row.reduce((sum,v)=>sum+(Number(v)||0),0);
       if(sc.married){
-        lines.push(mrow('    '+sc.peopleNames[sc.idxP0],fmtM(row[sc.idxP0])));
-        lines.push(mrow('    '+sc.peopleNames[1-sc.idxP0],fmtM(row[1-sc.idxP0])));
+        lines.push(lrow('    '+sc.peopleNames[sc.idxP0],fmtM(row[sc.idxP0])));
+        lines.push(lrow('    '+sc.peopleNames[1-sc.idxP0],fmtM(row[1-sc.idxP0])));
       } else {
-        lines.push(mrow('    '+sc.peopleNames[sc.idxP0],fmtM(row[sc.idxP0])));
+        lines.push(lrow('    '+sc.peopleNames[sc.idxP0],fmtM(row[sc.idxP0])));
       }
-      lines.push(mrow('    Total household SS',fmtM(monthlyTotal)));
-          return lines;
+      lines.push(lrow('    Total household SS',fmtM(monthlyTotal)));
+      return lines;
     }
   };
   if(ssChart){

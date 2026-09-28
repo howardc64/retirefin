@@ -8,13 +8,14 @@
 function onFieldInput(path,val){ setPath(path,val); recomputeDebounced(); saveDebounced(); }
 function onNumberInput(path,val){ setPath(path, val===''?0:+val); recomputeDebounced(); saveDebounced(); }
 
-function renderChangeRow(path, change, defaultPct){
+// `fixedLabel` lets a card word the no-growth option for its own context (e.g. Pension: "no COLA").
+function renderChangeRow(path, change, defaultPct, fixedLabel){
   const showNum = change.mode==='offset'||change.mode==='custom';
   return `
     <div class="field full"><label>Annual change</label>
       <div class="arow">
         <select onchange="onChangeMode('${path}', this.value)">
-          <option value="fixed" ${change.mode==='fixed'?'selected':''}>Fixed $ (no growth)</option>
+          <option value="fixed" ${change.mode==='fixed'?'selected':''}>${fixedLabel||'Fixed $ (no growth)'}</option>
           <option value="inflation" ${change.mode==='inflation'?'selected':''}>Tracks inflation</option>
           <option value="offset" ${change.mode==='offset'?'selected':''}>Inflation &plusmn; X%</option>
           <option value="custom" ${change.mode==='custom'?'selected':''}>Custom annual %</option>
@@ -87,7 +88,7 @@ function cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight){
 }
 
 // Reusable "simple" card for an income item with age range + annual change (pension/rental style)
-function agedItemCard(pid, key, title, item, checkboxPath){
+function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel){
   const married = state.filingStatus==='married';
   return `<div class="item">
       ${cardHeader(title, checkboxPath+'.enabled', item.enabled, checkboxPath+'.hidden', !!item.hidden)}
@@ -96,7 +97,7 @@ function agedItemCard(pid, key, title, item, checkboxPath){
           <input type="number" class="money" min="0" step="500" value="${item.amount}" oninput="onNumberInput('${checkboxPath}.amount', this.value)"></div>
         <div></div>
         ${renderAgeRangeRow(checkboxPath+'.ar', item.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
-        ${renderChangeRow(checkboxPath+'.change', item.change)}
+        ${renderChangeRow(checkboxPath+'.change', item.change, 0, fixedLabel)}
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${item.bene?'checked':''} onchange="onBeneToggle('${checkboxPath}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
       </div>
     </div>`;
