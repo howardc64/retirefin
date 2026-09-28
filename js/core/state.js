@@ -11,11 +11,11 @@ function defaultAgeRange(startMode,startVal,endMode,endVal){
   return{startMode,startVal:startVal||0,endMode,endVal:endVal||0};
 }
 function defaultIncomeItem(amount, changeMode, changeVal){
-  return{ enabled:false, hidden:false, amount:amount||0, change:defaultChange(changeMode,changeVal), bene:false };
+  return{ enabled:false, hidden:true, amount:amount||0, change:defaultChange(changeMode,changeVal), bene:false };
 }
 function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal, endMode, endVal){
   return{
-    enabled:false, hidden:false, amount:amount||0,
+    enabled:false, hidden:true, amount:amount||0,
     ar:defaultAgeRange(startMode,startVal,endMode,endVal),
     change:defaultChange(changeMode,changeVal),
     bene:false
@@ -34,7 +34,11 @@ function pfExpense(b){
   return (Number(b.taxDrag)||0)>0 || (Number(b.fee&&b.fee.value)||0)>0;
 }
 function defaultBrokeragePortfolio(balance, n){
-  return {id:uid(),enabled:true,hidden:false,name:'Brokerage Portfolio '+(n||1),balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,ltcg:0,ltcgMode:'amt',taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
+  // `name` starts blank rather than a pre-filled "Brokerage Portfolio N" — the input's placeholder
+  // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
+  // show a sensible default, and starting blank means the header always visibly tracks the first
+  // character the user types instead of initially showing unrelated placeholder text to overwrite.
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,ltcg:0,ltcgMode:'amt',taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
@@ -43,13 +47,13 @@ function defaultPerson(idx){
     name:'Person '+(idx+1),
     birthYear:by,
     birthMonth:1,
-    wage:{enabled:false, hidden:false, amount:0, ar:defaultAgeRange('now',0,'custom',65), change:defaultChange('inflation')},
+    wage:{enabled:false, hidden:true, amount:0, ar:defaultAgeRange('now',0,'custom',65), change:defaultChange('inflation')},
     ss:{enabled:true, hidden:false, pia:0, fra:fraForBirthYear(by), started:false, claimAge:fraForBirthYear(by)},
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     rental:  defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     brokerage:[],
-    ira:{enabled:false, hidden:false, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0},
-    roth:{enabled:false, hidden:false, balance:0, growth:defaultChange('offset',3), bene:false}
+    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0},
+    roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false}
   };
 }
 function defaultState(){
@@ -137,9 +141,22 @@ function flashMsg(text){
   m.textContent=text;
   setTimeout(()=>{ if(m.textContent===text) m.textContent=''; },3000);
 }
+// Every disabled income-source card collapses by default whenever a file is loaded or the app is
+// reset — a loaded file's own `hidden` values are intentionally overridden here so a freshly opened
+// plan always starts tidy (only what's actually enabled is expanded), while manual Hide/Show toggles
+// made *during* a session (and preserved by ordinary autosave-restore on reload) are left alone.
+function applyDefaultHiddenFromEnabled(s){
+  (s.people||[]).forEach(p=>{
+    ['wage','ss','pension','rental','ira','roth'].forEach(key=>{
+      if(p[key]) p[key].hidden = !p[key].enabled;
+    });
+    (p.brokerage||[]).forEach(b=>{ b.hidden = !(b.enabled!==false); });
+  });
+  return s;
+}
 function resetState(){
   if(!confirm('Reset all inputs to defaults? This cannot be undone.')) return;
-  state=defaultState();
+  state=applyDefaultHiddenFromEnabled(defaultState());
   if(typeof chartYMax!=='undefined'){ chartYMax.ss=null; chartYMax.income=null; chartYMax.tss=null; chartYMax.tax=null; chartYMax.asset=null; chartYMax.idgt=null; }
   renderAll();
   autosave();
@@ -173,20 +190,51 @@ async function saveToFile(){
   URL.revokeObjectURL(url);
   flashMsg('Saved to file.');
 }
+// Shared by both load paths below: parses a save file's raw text and applies it on top of a
+// clean default state, exactly like the file-import spec (§11) requires ("reset state before
+// loading the saved data").
+function applyLoadedFileText(text){
+  const parsed=JSON.parse(text); // throws on malformed JSON — caller decides how to report it
+  destroyCharts();             // discard every visual/data closure from the old plan
+  state=defaultState();        // reset before restoring, per spec
+  state=hydrateState(parsed);  // then apply the restored file on top of that clean default
+  applyDefaultHiddenFromEnabled(state); // collapse anything the loaded file left disabled
+  if(typeof chartYMax!=='undefined'){ chartYMax.ss=null; chartYMax.income=null; chartYMax.tss=null; chartYMax.tax=null; chartYMax.asset=null; chartYMax.idgt=null; }
+  renderAll();
+  autosave();
+  flashMsg('Loaded from file.');
+}
+// "Load from file" (spec §4.4/§11). Prefers the File System Access API's open-file picker, which
+// supports a stable `id` so the browser remembers this app's last-used folder across sessions —
+// there is no web-platform API that can force a *first-ever* picker open in an arbitrary bundled
+// folder (browsers deliberately disallow a page from choosing where its own file dialog starts, to
+// keep sites from probing the local filesystem); the closest available approximation is this
+// per-origin memory once the user has opened the Samples/ folder once. Falls back to the classic
+// hidden <input type="file"> for browsers without the API (e.g. Firefox, Safari), which has no
+// such memory but works everywhere, including plain file:// use.
+async function loadFromFile(){
+  if(window.showOpenFilePicker){
+    try{
+      const [handle]=await window.showOpenFilePicker({
+        id:'retirementPlannerLoad',
+        types:[{description:'Retirement Plan JSON', accept:{'application/json':['.json']}}]
+      });
+      const file=await handle.getFile();
+      applyLoadedFileText(await file.text());
+      return;
+    }catch(err){
+      if(err && err.name==='AbortError') return; // user cancelled the picker
+      console.error('showOpenFilePicker failed, falling back to classic file input',err);
+    }
+  }
+  document.getElementById('importFile').click();
+}
 document.getElementById('importFile').addEventListener('change', function(e){
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=function(ev){
-    try{
-      const parsed=JSON.parse(ev.target.result);
-      destroyCharts();             // discard every visual/data closure from the old plan
-      state=defaultState();        // reset before restoring, per spec
-      state=hydrateState(parsed);  // then apply the restored file on top of that clean default
-      if(typeof chartYMax!=='undefined'){ chartYMax.ss=null; chartYMax.income=null; chartYMax.tss=null; chartYMax.tax=null; chartYMax.asset=null; chartYMax.idgt=null; }
-      renderAll();
-      autosave();
-      flashMsg('Loaded from file.');
-    }catch(err){ alert('Could not read that file as a saved plan.'); }
+    try{ applyLoadedFileText(ev.target.result); }
+    catch(err){ alert('Could not read that file as a saved plan.'); }
   };
   reader.readAsText(file);
   e.target.value='';

@@ -238,24 +238,23 @@ function computeProjection(){
       // spouse continuation therefore keeps the same projected portfolio.
       const odiv=Math.max(0,bal*(Number(portfolio.yield)||0)/100);
       const qdiv=odiv*clamp(Number(portfolio.qdivPct)||0,0,100)/100;
-      // Realized LTCG (spec 4.4): a flat amount, or a % of the portfolio's own configured annual
-      // withdrawal (or that % scaled by the younger household member's age/100, clamped to 1 — a
-      // rough stand-in for unrealized gains getting realized more readily later in retirement).
-      // Both modes are now deterministic per-portfolio numbers (no dependency on total tax), since
-      // the % modes are keyed off the configured withdrawal input, not TT — so there's no longer any
-      // fixed-point iteration needed to resolve LTCG before Total Tax.
+      // Realized LTCG (spec §4.4): a flat amount, or a % of the household's prior-year Total Tax
+      // (TT) — optionally further scaled by the younger household member's age/100 (clamped to 1),
+      // a rough stand-in for unrealized gains getting realized more readily later in retirement.
+      // Prior-year TT is used deliberately, not this year's: this year's TT is itself partly
+      // determined by this year's LTCG, so using this year's TT would make LTCG and TT circularly
+      // dependent on each other within the same year. The one-year lag avoids that while still
+      // tracking the household's actual tax situation. Year 0 has no prior year, so it's $0 there.
       const on=pfExpense(portfolio), pctMode=portfolio.ltcgMode==='pct'||portfolio.ltcgMode==='pctAge';
       const ageFactor=portfolio.ltcgMode==='pctAge'?clamp(youngerHouseholdAge/100,0,1):1;
-      const withdrawAmt=Math.max(0,Number(portfolio.living)||0); // configured annual withdrawal, today's $
+      const priorTT = (k>0 && rows[k-1]) ? (rows[k-1].totalTax||0) : 0;
       const ltcg=on?(pctMode
-        ? Math.min(bal, clamp(Number(portfolio.ltcg)||0,0,100)/100*withdrawAmt*ageFactor)
+        ? Math.min(bal, clamp(Number(portfolio.ltcg)||0,0,100)/100*priorTT*ageFactor)
         : Math.min(Math.max(0,Number(portfolio.ltcg)||0), bal)):0;
-      // Foreign tax credit (spec §4.4, §9.4): active whenever Expenses is checked OR the
-      // portfolio is an IDGT (a foreign-asset-holding trust is the natural home for this pair),
-      // independent of each other — unlike tax drag/fee drag/withdrawal/LTCG above, which require
-      // Expenses regardless of IDGT. Subtracted from the household's Total Tax, not added to income.
-      const ftcOn = pfExpense(portfolio) || !!portfolio.idgt;
-      const ftc = ftcOn ? bal*clamp(Number(portfolio.foreignPct)||0,0,100)/100*clamp(Number(portfolio.ftcPct)||0,0,100)/100 : 0;
+      // Foreign tax credit (spec §4.4, §9.4): always active, independent of the Expenses toggle
+      // and the IDGT flag — unlike tax drag/fee drag/withdrawal/LTCG above, which still require
+      // Expenses. Subtracted from the household's Total Tax, not added to income.
+      const ftc = bal*clamp(Number(portfolio.foreignPct)||0,0,100)/100*clamp(Number(portfolio.ftcPct)||0,0,100)/100;
       return {odiv,qdiv,ltcg,ftc,cap:bal};
     }
     // Start-of-year balance for every portfolio. A portfolio stops existing once its owner has

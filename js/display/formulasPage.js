@@ -154,7 +154,7 @@ ${fpRmdTable()}
   <li><code>Taxable Income (TI) = AGI − standard deduction</code> (married or single, based on that year's filing status)</li>
   <li>Ordinary tax on TI via the bracket table above; QDIV/LTCG taxed separately at their own bracket rates, stacked on top of ordinary TI.</li>
   <li><strong>Suspended Capital-Gain Loss (SCGL):</strong> available SCGL shields realized LTCG dollar-for-dollar, before tax, each year until the pool is exhausted — only the amount left over after that is taxed.</li>
-  <li><strong>Foreign Tax Credit (FTC):</strong> for each brokerage portfolio, active whenever that portfolio's Expenses toggle is on <em>or</em> it's flagged as an IDGT: <code>FTC = portfolio balance × foreign asset % × foreign tax credit %</code>. Summed across every portfolio and subtracted from the ordinary+qualified tax total above (floored at $0) — a nonrefundable credit against regular tax, not against NIIT.</li>
+  <li><strong>Foreign Tax Credit (FTC):</strong> for each brokerage portfolio, always active — independent of that portfolio's Expenses toggle or IDGT flag: <code>FTC = portfolio balance × foreign asset % × foreign tax credit %</code>. Summed across every portfolio and subtracted from the ordinary+qualified tax total above (floored at $0) — a nonrefundable credit against regular tax, not against NIIT.</li>
   <li><strong>Net Investment Income Tax (NIIT):</strong> 3.8% of the lesser of net investment income (ODIV−QDIV + QDIV + LTCG) or MAGI (~AGI) over the threshold above — calculated on the pre-credit ordinary+qualified tax basis, since the foreign tax credit doesn't offset NIIT.</li>
   <li><code>Total Tax (TT) = max(0, ordinary tax + qualified tax − foreign tax credit) + NIIT</code></li>
 </ul>
@@ -163,7 +163,7 @@ ${fpRmdTable()}
 <ul>
   <li><code>ODIV (ordinary dividends) = portfolio balance × ODIV yield %</code></li>
   <li><code>QDIV (qualified dividends) = ODIV × QDIV % of ODIV</code></li>
-  <li>Realized LTCG: a flat today's-dollar amount, or a % of that portfolio's own configured annual withdrawal — optionally further scaled by the younger household member's current age ÷ 100 (clamped to 1), a rough stand-in for a growing share of withdrawals being capital gains later in retirement as cost basis shrinks.</li>
+  <li>Realized LTCG: a flat today's-dollar amount, or a % of the household's <em>prior year's</em> Total Tax (TT) — one year lagged so this year's LTCG doesn't circularly depend on this year's own TT — optionally further scaled by the younger household member's current age ÷ 100 (clamped to 1), a rough stand-in for a growing share of gains being realized later in retirement.</li>
   <li><code>Annual balance change = growth − tax drag − fee drag − withdrawal</code> (tax drag/fee drag/withdrawal/LTCG only apply when that portfolio's Expenses toggle is on). Tax drag is this portfolio's configured % of the household's Total Tax; fee drag is either a % of balance or a fixed today's-dollar amount per year (which shrinks in today's-dollar terms as inflation compounds, since it's held flat in nominal terms).</li>
 </ul>
 

@@ -58,13 +58,15 @@ js/
   core/         constants.js  helpers.js  state.js
   compute/      socialSecurityCalc.js  rmd.js  tax.js  dates.js  ageRange.js
                 projection.js  whatIf.js
-  input/        controls.js  household.js  assumptions.js
+  input/        controls.js  household.js  assumptions.js  loadMenu.js
                 wage.js  socialSecurity.js  pension.js  rental.js
                 brokerage.js  ira.js  roth.js  incomeForms.js
   display/      chartHelpers.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  assetChart.js  footer.js
-                formulasPage.js
+                formulasPage.js  notesPage.js
   app.js
+misc/      Note4User.md        (user-facing notes; rendered to HTML by the Notes button, §6.10)
+Samples/   *.json  manifest.json (example saved plans; each .json is one entry in the Load file menu, §5.6)
 ```
 
 All files are plain (non-module) scripts sharing one global scope, loaded via `<script src>` in
@@ -121,8 +123,8 @@ BrokeragePortfolio = {
   fee: { mode: 'pct'|'fixed', value: number },
   living: number,            // annual withdrawal, today's $
   ltcg: number, ltcgMode: 'amt'|'pct'|'pctAge',
-  foreignPct: number,        // % of portfolio that's foreign assets — gated by expense OR idgt
-  ftcPct: number             // foreign tax credit %, default 0.25 — gated by expense OR idgt
+  foreignPct: number,        // % of portfolio that's foreign assets — always active, ungated
+  ftcPct: number             // foreign tax credit %, default 0.25 — always active, ungated
 }
 ```
 
@@ -176,9 +178,11 @@ that changes.
 | `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has) |
 | `state` | The live, mutable object every other file reads/writes |
 | `autosave()` / `loadAutosave()` | Silent per-browser `localStorage` save/restore, so a reload doesn't lose work |
-| `resetState()` | Confirms, then resets `state` to defaults and re-renders |
+| `resetState()` | Confirms, then resets `state` to defaults (with `applyDefaultHiddenFromEnabled`) and re-renders |
 | `saveToFile()` | Downloads `state` as `retirement-plan.json` (File System Access API where available) |
-| *(import file listener)* | On file import: **destroy every chart → reset to defaults → hydrate the loaded file on top** — always in that order, so no stale state or chart instance survives a restore |
+| `loadFromFile()` | The **Choose file from local directory…** menu entry's action (§5.6). Uses `showOpenFilePicker` (with a stable `id: 'retirementPlannerLoad'`, so browsers that support it remember the last-used folder across sessions) when available; otherwise clicks the hidden `<input type="file" id="importFile">`. **Limitation (browser security, not fixable here):** no web API lets a page force its *first-ever* file dialog to open in a chosen folder such as `Samples/` — the Load file menu (§5.6) lists the shipped `Samples/` folder instead; after the user opens a file from it once, supporting browsers remember it. |
+| `applyLoadedFileText(text)` | Shared by both load paths: parse JSON → **destroy every chart → reset to defaults → hydrate the loaded file on top → `applyDefaultHiddenFromEnabled`** — always in that order, so no stale state or chart instance survives a restore |
+| `applyDefaultHiddenFromEnabled(s)` | Sets `hidden = !enabled` on every income item and brokerage portfolio (§8 "Default coupling"). Called by load and reset — deliberately **not** by autosave-restore, so manual Hide/Show survives a page reload |
 | `setPath(path, value)` | Dot-path set into `state`, e.g. `setPath('people.0.wage.amount', 5000)` — every input control's `onchange` goes through this (via `onFieldInput`/`onNumberInput` in `controls.js`) |
 
 **Rule:** this is the *only* file allowed to declare what a default value is. Every Input file reads
@@ -246,10 +250,14 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 4. Pension / rental, per person, via the shared `personAgedItemActive()` — respects survivor-benefit
    continuation using the *deceased's last living year's* age range, so a `passing`-mode end age
    doesn't cut a survivor benefit off immediately.
-5. Brokerage portfolios, per portfolio: ODIV, QDIV, LTCG (net of that portfolio's own rules), and
-   **foreign tax credit** (`balance × foreignPct × ftcPct`, active whenever `expense` is on *or*
-   `idgt` is on — independent gating from tax drag/fee/withdrawal/LTCG, which require `expense`
-   regardless of `idgt`).
+5. Brokerage portfolios, per portfolio: ODIV, QDIV, LTCG, and
+   **foreign tax credit** (`balance × foreignPct × ftcPct`) — always active, independent of the
+   `expense` toggle and `idgt` flag (unlike tax drag/fee/withdrawal/LTCG, which do require `expense`).
+   **Realized LTCG** is a flat today's-$ amount (`ltcgMode:'amt'`), or a % of the household's
+   **prior-year Total Tax** (`'pct'`), optionally × the younger living person's age/100 clamped to 1
+   (`'pctAge'`). Prior-year — not current-year — TT is deliberate: this year's TT depends on this
+   year's LTCG, so using it would be circular; the one-year lag (`rows[k-1].totalTax`, `$0` in year 0)
+   avoids any fixed-point iteration.
 6. Pre-tax IRA: RMD (or voluntary early withdrawal) via `rmdDivisor`, plus a separate **Roth
    conversion withdrawal** (`rothConvByPerson`/`rothConvTotal`) — a real withdrawal on top of the RMD,
    taxed exactly like the RMD, continuing until the balance hits $0. Requires the matching Roth IRA
@@ -355,7 +363,7 @@ for the whole "Brokerage portfolio income" card.
 | `socialSecurity.js` | Social Security | Already-started flag (else FRA, default 67), PIA, claim-age slider (62–70, default = FRA or started age) |
 | `pension.js` | Pension | `agedItemCard` — amount, age range, change, survivor benefit |
 | `rental.js` | Rental income | `agedItemCard` — same shape as Pension |
-| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, balance, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), IDGT flag, Expenses toggle gating tax drag/fee drag/withdrawal/LTCG, foreign asset % + foreign tax credit % (default 0.25%) — visible whenever Expenses is on *or* IDGT is on —, age range, survivor benefit. The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
+| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, balance, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, shown before and independent of the Expenses toggle and IDGT flag —, IDGT flag, Expenses toggle gating tax drag/fee drag/withdrawal/LTCG — LTCG as flat $, % of total tax (TT), or % of TT × younger age/100 —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
 | `ira.js` | Pre-tax IRA / 401(k) | Balance, age range (default start = RMD age), growth (default inflation+3%), survivor benefit, annual Roth conversion amount |
 | `roth.js` | Roth IRA | Balance, growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
 
@@ -367,6 +375,25 @@ brokerage expense/LTCG-mode/fee-mode toggles, survivor-benefit toggle, portfolio
 
 **Rule:** a handler used by exactly one card lives in that card's own file (§5.4); a handler used by
 two or more cards lives here.
+
+### 5.6 `loadMenu.js` — the **Load file ▾** dropdown
+Replaces the old single "Load from file" button (now labeled **Load file ▾**, `#loadMenuBtn`). Menu entries:
+1. **Choose file from local directory…** → `loadFromFile()` (§3.3).
+2. A **Samples** group: one entry per saved-plan JSON in `Samples/`, labeled with the file name minus
+   `.json`; clicking fetches `Samples/<name>` and feeds it to `applyLoadedFileText()` (§3.3), so a sample
+   loads exactly like a local file (reset → hydrate → collapse disabled cards).
+
+| Export | Contract |
+|---|---|
+| `discoverSamples()` | Returns the sample file names. Tries **`Samples/manifest.json`** (a JSON array of names — authoritative, required on hosts with no folder listing such as GitHub Pages), then falls back to parsing the server's directory-listing page for `.json` links. Throws if neither is readable. |
+| `toggleLoadMenu(ev)` / `closeLoadMenu()` | Opens the menu instantly with the local-file entry, then fills in Samples when discovery resolves; closes on outside click or Escape |
+| `buildLoadMenu(menu, samples)` | `null` = still looking, `undefined` = discovery failed (shows an explanation), array = entries. Builds via DOM `textContent`, never HTML strings, so odd file names can't inject markup |
+| `loadSample(name)` | Fetch + `applyLoadedFileText`; failures `alert` |
+
+**To add a sample:** put the `.json` in `Samples/` and add its name to `Samples/manifest.json`.
+**Limitation:** the browser can't list a folder, and Chrome blocks `fetch` of sibling files under
+`file://` — there the Samples group shows an explanatory note, while *Choose file from local directory…*
+keeps working.
 
 ---
 
@@ -447,6 +474,19 @@ tax-year bracket update in `constants.js` (§3.1) is automatically reflected her
 Only the *formula prose* is hand-maintained (formulas change far less often than bracket numbers) —
 if you change a formula in §4, update its description on this page in the same change.
 
+### 6.10 `notesPage.js`
+`openNotesPage()` — the **Notes** button (immediately right of **Formulas**). Opens a new tab, `fetch`es
+`misc/Note4User.md`, converts it to HTML **at the moment of opening** with the file's own small
+Markdown converter `mdToHtml()` (headings, bold/italic, inline code, fenced code, links, lists,
+blockquotes, rules, paragraphs — extend that function rather than adding a CDN library, so it keeps
+working offline), wraps it in `mdPageHtml()`, and `document.write`s it. Editing `Note4User.md` therefore
+needs no code change — the next click shows the new text.
+
+**Limitation:** `fetch` of a sibling file only works when the app is served over `http(s)` (GitHub
+Pages, any local static server); Chrome blocks it under `file://`. On failure the new tab shows an
+explanation and the two workarounds instead of failing silently. The file also lives at a fixed path
+(`misc/Note4User.md`), so it must ship alongside `index.html`.
+
 ---
 
 ## 7. App (`js/app.js`, `index.html`)
@@ -463,18 +503,19 @@ if you change a formula in §4, update its description on this page in the same 
 
 ### 7.2 `index.html`
 - Layout: independent-scrolling input column (left, one pane per person) and output column (right,
-  the charts) — see §1 for the overall shape. The `show_details` checkbox and the **Formulas** button
-  (§6.9, `onclick="openFormulasPage()"`, placed immediately after **Reset to defaults**) live here as
-  general page controls, alongside save/load/reset (§4.2).
+  the charts) — see §1 for the overall shape. The topbar holds, in order: **Save to file**, **Load file ▾**
+  (dropdown, §5.6), **Reset to defaults**, **Formulas** (§6.9), **Notes** (§6.10), and
+  the `show_details` checkbox.
 - **Script load order** (dependency-driven — a file may only use a name defined by a file *earlier* in
   this list):
   `core/constants → core/helpers → compute/socialSecurityCalc → compute/rmd → compute/tax →
   core/state → compute/dates → compute/ageRange → compute/projection → compute/whatIf →
   input/controls → input/household → input/assumptions → input/wage → input/socialSecurity →
   input/pension → input/rental → input/brokerage → input/ira → input/roth → input/incomeForms →
+  input/loadMenu →
   display/chartHelpers → display/overlayPlugin → display/ssChart → display/incomeChart →
   display/tssChart → display/taxChart → display/assetChart → display/footer →
-  display/formulasPage → app.js`
+  display/formulasPage → display/notesPage → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
   that reads from it. Function *calls* deferred to a later event (a click, `DOMContentLoaded`) don't
   need this — only code that runs immediately when the script loads (top-level `let`/`const`
@@ -501,6 +542,12 @@ These apply everywhere, not to one file — listed once here instead of repeated
   (§6) only ever check `enabled`; nothing there ever reads `hidden`. Input (§5) only ever uses `hidden`
   to decide whether a card body is open; it never uses `hidden` to skip rendering a field's value into
   its input, since a hidden card's data must remain editable.
+  **Default coupling:** at the moments a plan is *freshly established* — first-ever boot with no
+  autosave, **Reset to defaults**, or **Load file** — `hidden` is set to `!enabled` for every
+  item (`applyDefaultHiddenFromEnabled()` in `core/state.js`, §3.3), overriding whatever `hidden` value
+  a loaded file carried, so the screen starts showing only what's turned on. Manual Hide/Show toggles
+  made *during* a session persist through ordinary autosave-restore on reload; only load/reset re-derives
+  them. A brand-new brokerage portfolio (via **+ Add**) starts enabled and visible.
 - **`show_details`.** A single global flag (`chartHelpers.js`) every chart's tooltip reads live —
   toggling it needs no chart rebuild, just re-hovering.
 - **Locked scales + Rescale.** Every chart's Y axis (and the SS/income charts' X axis) is locked so
