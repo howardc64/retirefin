@@ -122,7 +122,7 @@ BrokeragePortfolio = {
   taxDrag: number,           // % of household Total Tax
   fee: { mode: 'pct'|'fixed', value: number },
   living: number,            // annual withdrawal, today's $
-  ltcg: number, ltcgMode: 'amt'|'pct'|'pctAge',
+  basis: number | null,      // cost basis, today's $. null/blank = not entered. Tracked (§4.6) when a number, or when Expenses is on (a blank basis then means no unrealized gain today). Realized LTCG has no input: it is always derived from basis (§4.6). Older saves' `ltcg`/`ltcgMode` are dropped on load
   foreignPct: number,        // % of portfolio that's foreign assets — always active, ungated
   ftcPct: number             // foreign tax credit %, default 0.25 — always active, ungated
 }
@@ -174,6 +174,7 @@ that changes.
 | Export | Contract |
 |---|---|
 | `defaultState()`, `defaultPerson(idx)`, `defaultBrokeragePortfolio(balance,n)`, `defaultChange`, `defaultAgeRange`, `defaultIncomeItem`, `defaultAgeRangedItem` | Canonical default shapes (§2). **If you add a field to the schema, add its default here.** |
+| `pfBasisEntered(b)`, `pfTracksBasis(b)` | Cost-basis tracking predicates (§4.6): a cost basis was entered (`basis` is a number; `null`/blank is *not* the same as `0`); and that OR Expenses on (`pfExpense`) — whether a portfolio's basis/unrealized gain is tracked at all |
 | `pfExpense(b)` | Whether a portfolio's Expenses panel is "on" — `b.expense` if present, else true if legacy `taxDrag`/`fee.value` is nonzero |
 | `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has) |
 | `state` | The live, mutable object every other file reads/writes |
@@ -253,11 +254,11 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 5. Brokerage portfolios, per portfolio: ODIV, QDIV, LTCG, and
    **foreign tax credit** (`balance × foreignPct × ftcPct`) — always active, independent of the
    `expense` toggle and `idgt` flag (unlike tax drag/fee/withdrawal/LTCG, which do require `expense`).
-   **Realized LTCG** is a flat today's-$ amount (`ltcgMode:'amt'`), or a % of the household's
-   **prior-year Total Tax** (`'pct'`), optionally × the younger living person's age/100 clamped to 1
-   (`'pctAge'`). Prior-year — not current-year — TT is deliberate: this year's TT depends on this
-   year's LTCG, so using it would be circular; the one-year lag (`rows[k-1].totalTax`, `$0` in year 0)
-   avoids any fixed-point iteration.
+   **Realized LTCG** is not an input: it is derived from tracked cost basis whenever the `expense` toggle
+   is on (see *Cost basis & unrealized gain* below) — dividends pay the year's outflows first and only the
+   shortfall is sold. Its tax-drag term uses **prior-year Total Tax** (`rows[k-1].totalTax`, `$0` in year
+   0) — deliberately: this year's TT depends on this year's LTCG, so using it would be circular; the
+   one-year lag avoids any fixed-point iteration.
 6. Pre-tax IRA: RMD (or voluntary early withdrawal) via `rmdDivisor`, plus a separate **Roth
    conversion withdrawal** (`rothConvByPerson`/`rothConvTotal`) — a real withdrawal on top of the RMD,
    taxed exactly like the RMD, continuing until the balance hits $0. Requires the matching Roth IRA
@@ -278,6 +279,36 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
     basis (foreign tax credit is unrelated to SS taxation).
 14. Roll every brokerage balance forward: `+growth −tax drag(% of Total Tax) −fee drag −withdrawal`,
     only when that portfolio's Expenses is on (foreign tax credit itself doesn't touch the balance).
+    Tracked portfolios also roll their cost basis forward (next block).
+
+**Cost basis & unrealized gain** (per portfolio; only when `pfTracksBasis(b)` — i.e. a basis was entered or Expenses is on;
+otherwise nothing below applies: no LTCG, and dividends simply compound with the balance). Average-cost method, all in today's $:
+- **Start:** `basis` = the entered cost basis, clamped to `[0, balance]`; a blank basis (Expenses on)
+  starts at `basis = balance` (no unrealized gain today). **Gain fraction** `f = max(0, (bal − basis) / bal)`.
+- **Outflows and the dividend waterfall:** `outflows = withdrawal + fee + taxDrag` (via the shared
+  `pfOutflows(b, bal, k, tt)` helper, each capped at what the portfolio can pay; only when Expenses is on).
+  Dividends (ODIV = `balance × yield`) **pay outflows first**; `reinvested = max(0, ODIV − outflows)` is
+  added to basis; `sold = max(0, outflows − ODIV)` is covered by selling shares. This is the tax-efficient
+  ordering: cash dividends are spent before any gain is realized. The balance is unaffected — growth is
+  total return, so `bal×(1+g) − outflows` is the same however the outflows are funded; only basis and
+  realized gain depend on the waterfall.
+- **Realized LTCG:** `ltcg = sold × f` (Expenses on only), feeding the same SCGL → qualified income → AGI → NIIT path as any
+  other LTCG. `sold` here is *estimated* with `pfOutflows(..., priorTT)` because this year's tax drag
+  depends on this year's TT, which depends on this year's LTCG (circular); the one-year lag means year 0
+  has no tax-drag term. The roll-forward below uses the actual
+  (this-year-TT) `sold`, so the taxed LTCG and the basis removed can differ slightly when tax drag is on.
+- **Basis roll-forward, each year (every tracked portfolio):**
+  `basis ← (basis − sold×(1 − f) + reinvested) / (1 + inflation)`, clamped to `[0, end-of-year balance]`.
+  Sales remove basis in proportion to cost share; reinvested dividends (already-taxed income) add basis;
+  and because basis is a fixed nominal amount while the model is in today's $, it **erodes by inflation**
+  each year (so gains — and LTCG on later sales — grow in real terms). With Expenses off there are no
+  outflows, so all dividends are reinvested.
+- **Step-up at death:** in the first year the owner has passed *and* the portfolio continues to a
+  surviving spouse (`bene`), a **non-IDGT** portfolio's basis resets to its balance (unrealized gain → 0;
+  that year's auto LTCG is $0). **IDGT** portfolios keep carryover basis (outside the owner's estate) and
+  are never stepped up. A portfolio that does not continue leaves the model at the owner's death.
+- **Embedded gain:** each row reports per-portfolio `basis`/`unrealizedGain` and household totals
+  `embeddedGain` (non-IDGT) and `embeddedGainIdgt`, all at start of year after any step-up.
 
 **Row schema** (every field on each element of `rows[]`):
 
@@ -293,7 +324,8 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 | `ftcByPerson`, `foreignTaxCredit` | Foreign tax credit per person and household total |
 | `iraByPerson`, `iraTotal`, `iraBalByPerson` | IRA RMD/withdrawal and end-of-year balance |
 | `rothConvByPerson`, `rothConvTotal`, `rothBalByPerson` | Roth conversion (pre-tax IRA withdraw) amount and Roth balance |
-| `portfoliosByPerson` | Per-portfolio detail: `{id, name, balance, idgt, expense, taxDrag, feeDrag, livingCost, ltcg, growthPct, netGrowthPct}` |
+| `portfoliosByPerson` | Per-portfolio detail: `{id, name, balance, idgt, expense, taxDrag, feeDrag, livingCost, ltcg, growthPct, netGrowthPct, tracked, basis, unrealizedGain, steppedUp, divUsed, divReinvested, sold}` — the last seven are the cost-basis fields (§4.6): `basis`/`unrealizedGain` are `null` when `tracked` is false; `steppedUp` is true only in the year the death step-up applied; `divUsed`/`divReinvested`/`sold` are the dividend-waterfall amounts (0 unless tracked) |
+| `embeddedGain`, `embeddedGainIdgt` | Household unrealized gain across tracked portfolios, non-IDGT / IDGT (start of year, after any step-up) |
 | `nonSSOrdinary`, `taxableSS`, `provisional` | Ordinary income ex-SS; taxable SS; provisional income |
 | `ordIncome`, `std`, `ordTI`, `ordTax` | AGI components → ordinary taxable income → ordinary tax |
 | `qualIncome`, `qualTax` | QDIV+LTCG and its tax |
@@ -363,7 +395,7 @@ for the whole "Brokerage portfolio income" card.
 | `socialSecurity.js` | Social Security | Already-started flag (else FRA, default 67), PIA, claim-age slider (62–70, default = FRA or started age) |
 | `pension.js` | Pension | `agedItemCard` — amount, age range, change, survivor benefit |
 | `rental.js` | Rental income | `agedItemCard` — same shape as Pension |
-| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, balance, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, shown before and independent of the Expenses toggle and IDGT flag —, IDGT flag, Expenses toggle gating tax drag/fee drag/withdrawal/LTCG — LTCG as flat $, % of total tax (TT), or % of TT × younger age/100 —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
+| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, balance, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, shown before and independent of the Expenses toggle and IDGT flag —, IDGT flag, **optional cost basis (today's $; blank = not tracked)** right under the balance, Expenses toggle gating tax drag/fee drag/withdrawal/realized LTCG — LTCG has **no input**: the panel just shows a note that it is automatic (dividends pay expenses first, only a shortfall is sold and realizes gain from the cost basis) —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
 | `ira.js` | Pre-tax IRA / 401(k) | Balance, age range (default start = RMD age), growth (default inflation+3%), survivor benefit, annual Roth conversion amount |
 | `roth.js` | Roth IRA | Balance, growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
 
@@ -371,7 +403,7 @@ for the whole "Brokerage portfolio income" card.
 **Purpose:** orchestrates the person-column(s), calling each §5.4 builder in the same fixed order for
 every person-column, so the two-column grid (married) keeps every income type's row aligned via CSS
 subgrid. Also owns every handler shared by more than one card: SS-started toggle, SS claim-age slider,
-brokerage expense/LTCG-mode/fee-mode toggles, survivor-benefit toggle, portfolio name/add/remove.
+brokerage expense/fee-mode toggles, cost-basis input (`onBasisInput`: blank → `null`, not `0`), survivor-benefit toggle, portfolio name/add/remove.
 
 **Rule:** a handler used by exactly one card lives in that card's own file (§5.4); a handler used by
 two or more cards lives here.
@@ -456,6 +488,13 @@ Reads rows' `portfoliosByPerson` (excluding `idgt` ones), `iraBalByPerson`, `rot
 chart for brokerage (ex-IDGT) + IRA + Roth balances, each portfolio/account its own color; a second
 chart (only if any IDGT portfolio exists) for IDGT balances alone. Tooltip: age, balances, and (if
 Expenses is on) annual growth % net of drag, with expenses shown under `show_details`.
+**Cost basis (§4.6):** under `show_details` only, tracked portfolios add *Dividends used for expenses*,
+*Dividends reinvested*, *Sold to cover shortfall*, *Cost basis* and *Unrealized gain
+($ and % of value)* lines to the tooltip on both charts, plus *Basis stepped up at death* in the year of a
+step-up. Below each chart's note, an **"Unrealized gain at end of plan"** line (created by `setGainNote()`;
+hidden when no portfolio on that chart is tracked) reports the final row's unrealized gain vs. value across
+that chart's tracked portfolios — with a per-portfolio split when there are several — and a one-line
+reminder of the tax treatment: non-IDGT gets a step-up at death, IDGT keeps carryover basis.
 
 ### 6.8 `footer.js`
 `renderFooter()` — one static line summarizing the app's simplifying tax/benefit assumptions, shown

@@ -18,6 +18,9 @@ function realGrowth(change, inflation){
   }
 }
 
+// Share of a portfolio's value that is unrealized gain (average-cost method): 0 when basis >= value.
+function pfGainFraction(bal, basis){ return bal>0 ? Math.max(0,(bal-basis)/bal) : 0; }
+
 function computeProjection(){
   const inflation=state.inflation;
   const married=state.filingStatus==='married';
@@ -163,7 +166,36 @@ function computeProjection(){
   // ── Brokerage portfolio balances (today's $) ──
   // Balances are simulated year by year: each year's tax drag depends on that year's total tax (TT),
   // so a closed-form (1+g)^k no longer applies. Change per year = growth − tax drag − fee drag − withdrawal.
-  const pfState=people.map(p=>(p.brokerage||[]).map(b=>({bal:Number(b&&b.balance)||0, dead:false})));
+  // Cost basis (spec §4.6, cost basis) is tracked in today's $ alongside the balance for portfolios where
+  // pfTracksBasis() is true: `basis` starts at the entered cost basis (blank + 'auto' LTCG = no
+  // unrealized gain today, i.e. basis = balance), clamped to [0, balance]. `stepped` marks that the
+  // owner-death step-up has been considered; `steppedNow` flags the year it actually applied.
+  const pfState=people.map(p=>(p.brokerage||[]).map(b=>{
+    const bal0=Number(b&&b.balance)||0, tracked=pfTracksBasis(b);
+    const bas0=tracked?clamp(pfBasisEntered(b)?Number(b.basis):bal0, 0, bal0):0;
+    return {bal:bal0, dead:false, tracked, basis:bas0, stepped:false, steppedNow:false};
+  }));
+
+  // One portfolio-year of outflows (spec §4.6): fee drag, tax drag (a % of the household's Total Tax,
+  // `tt`) and the configured withdrawal, each capped at what the portfolio can still pay, in that
+  // order. Only when Expenses is on. Used twice a year: with the *prior* year's TT to estimate the
+  // shortfall that drives 'auto' LTCG (this year's TT depends on this year's LTCG, so it can't be
+  // used there), and with this year's TT in the balance roll-forward.
+  function pfOutflows(b, bal, k, tt){
+    const g=realGrowth(b.growth,inflation);
+    const feeMode=b.fee&&b.fee.mode==='fixed'?'fixed':'pct';
+    const feeVal=Math.max(0,Number(b.fee&&b.fee.value)||0);
+    const feePct=feeMode==='pct'?feeVal/100:0;
+    // A fixed fee is a flat nominal amount (entered in today's $ for year 0), so in today's-dollar
+    // terms it shrinks each year with inflation.
+    const feeFixed=feeMode==='fixed'?feeVal/Math.pow(1+inflation,k):0;
+    const avail=Math.max(0,bal*(1+g));
+    const exp=pfExpense(b);   // tax drag, fees and withdrawal only apply when Expenses is checked
+    const feeD=exp?Math.min(bal*feePct+feeFixed, avail):0;
+    const taxD=exp?Math.min(clamp(Number(b.taxDrag)||0,0,100)/100*tt, avail-feeD):0;
+    const withdrawD=exp?Math.min(Math.max(0,Number(b.living)||0), avail-feeD-taxD):0; // flat in today's $ = inflation-adjusted
+    return {g, avail, exp, feeD, taxD, withdrawD};
+  }
 
   // ── Suspended Capital-Gain Loss (SCGL) carryforward, spec §4.5/§8.3 ──
   // A household-level pool (today's $) that shields realized LTCG from tax, dollar-for-dollar,
@@ -176,10 +208,6 @@ function computeProjection(){
     const ages=people.map((p,i)=>curAges[i]+k);
     const alive=people.map((p,i)=>ages[i]<passAges[i]);
     if(!alive.some(Boolean)) break;
-    // Younger household member's current age this year (spec §4.3 LTCG "% of TT x age/100" mode):
-    // the younger of the two while both are alive, else whoever is left, else the sole person.
-    const livingAgesNow=ages.filter((a,ix)=>alive[ix]);
-    const youngerHouseholdAge=livingAgesNow.length?Math.min(...livingAgesNow):Math.min(...ages);
 
     // wages
     const wageByPerson=people.map((p,i)=>{
@@ -214,7 +242,7 @@ function computeProjection(){
     const rental = rentalByPerson.reduce((a,b)=>a+b,0);
 
     // Brokerage portfolio income — each portfolio produces ODIV and QDIV.
-    function brokerageValues(portfolio, ownerIdx, k, bal){
+    function brokerageValues(portfolio, ownerIdx, k, bal, st){
       if(!portfolio||!portfolio.enabled||!(bal>0)) return {odiv:0,qdiv:0,ltcg:0,ftc:0,cap:0};
 
       const ownerAge=curAges[ownerIdx]+k;
@@ -238,19 +266,20 @@ function computeProjection(){
       // spouse continuation therefore keeps the same projected portfolio.
       const odiv=Math.max(0,bal*(Number(portfolio.yield)||0)/100);
       const qdiv=odiv*clamp(Number(portfolio.qdivPct)||0,0,100)/100;
-      // Realized LTCG (spec §4.4): a flat amount, or a % of the household's prior-year Total Tax
-      // (TT) — optionally further scaled by the younger household member's age/100 (clamped to 1),
-      // a rough stand-in for unrealized gains getting realized more readily later in retirement.
-      // Prior-year TT is used deliberately, not this year's: this year's TT is itself partly
-      // determined by this year's LTCG, so using this year's TT would make LTCG and TT circularly
-      // dependent on each other within the same year. The one-year lag avoids that while still
-      // tracking the household's actual tax situation. Year 0 has no prior year, so it's $0 there.
-      const on=pfExpense(portfolio), pctMode=portfolio.ltcgMode==='pct'||portfolio.ltcgMode==='pctAge';
-      const ageFactor=portfolio.ltcgMode==='pctAge'?clamp(youngerHouseholdAge/100,0,1):1;
+      // Realized LTCG (spec §4.6, cost basis) is always automatic, and only when Expenses is on: dividends
+      // pay the year's outflows (withdrawal + fee + tax drag) first; only the shortfall is sold, and selling
+      // realizes the portfolio's gain share (unrealized gain ÷ value, from tracked cost basis). Tax drag is
+      // estimated from the household's *prior-year* Total Tax (TT) — deliberately: this year's TT is itself
+      // partly determined by this year's LTCG, so using it would make the two circularly dependent within the
+      // year. The one-year lag avoids that while still tracking the household's actual tax situation. Year 0
+      // has no prior year, so its tax-drag term is $0.
+      const on=pfExpense(portfolio);
       const priorTT = (k>0 && rows[k-1]) ? (rows[k-1].totalTax||0) : 0;
-      const ltcg=on?(pctMode
-        ? Math.min(bal, clamp(Number(portfolio.ltcg)||0,0,100)/100*priorTT*ageFactor)
-        : Math.min(Math.max(0,Number(portfolio.ltcg)||0), bal)):0;
+      let ltcg=0;
+      if(on && st && st.tracked){
+        const o=pfOutflows(portfolio, bal, k, priorTT);
+        ltcg=Math.max(0, o.feeD+o.taxD+o.withdrawD-odiv)*pfGainFraction(bal,st.basis);
+      }
       // Foreign tax credit (spec §4.4, §9.4): always active, independent of the Expenses toggle
       // and the IDGT flag — unlike tax drag/fee drag/withdrawal/LTCG above, which still require
       // Expenses. Subtracted from the household's Total Tax, not added to income.
@@ -264,18 +293,36 @@ function computeProjection(){
       if(!b||!b.enabled) return 0;
       const spouseAlive=married&&people.length===2&&alive[1-i];
       if(!alive[i] && !(b.bene&&spouseAlive)) st.dead=true;
+      // Step-up in basis (spec §4.6, cost basis): the year the owner has passed and the portfolio continues to
+      // the surviving spouse, a tracked, non-IDGT portfolio's basis resets to its value (unrealized
+      // gain → 0). IDGT assets are outside the owner's estate, so they keep their carryover basis.
+      st.steppedNow=false;
+      if(!alive[i] && !st.dead && st.tracked && !st.stepped){
+        st.stepped=true;
+        if(!b.idgt){ st.basis=st.bal; st.steppedNow=true; }
+      }
       return st.dead?0:st.bal;
     }));
+    const pfVals=people.map(()=>[]);   // per-portfolio brokerageValues() results, reused in the roll-forward below
     const brokerageByPerson=people.map((p,i)=>{
       let odiv=0,qdiv=0,ltcg=0,ftc=0;
-      (p.brokerage||[]).forEach((b,bi)=>{const v=brokerageValues(b,i,k,pfBalNow[i][bi]);odiv+=v.odiv;qdiv+=v.qdiv;ltcg+=v.ltcg;ftc+=v.ftc;});
+      (p.brokerage||[]).forEach((b,bi)=>{const v=brokerageValues(b,i,k,pfBalNow[i][bi],pfState[i][bi]);pfVals[i][bi]=v;odiv+=v.odiv;qdiv+=v.qdiv;ltcg+=v.ltcg;ftc+=v.ftc;});
       return {odiv,qdiv,ltcg,ftc};
     });
 
     // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
-    const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>({
-      id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:pfBalNow[i][bi], idgt:!!b.idgt, expense:!!b.expense, taxDrag:0, feeDrag:0, livingCost:0, ltcg:0
-    })));
+    const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
+      const st=pfState[i][bi], bal=pfBalNow[i][bi], tracked=!!st.tracked&&bal>0;
+      return {
+        id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, expense:!!b.expense, taxDrag:0, feeDrag:0, livingCost:0, ltcg:0,
+        // Cost-basis tracking (spec §4.6, cost basis) — start-of-year values, after any step-up this year.
+        tracked, basis:tracked?st.basis:null, unrealizedGain:tracked?Math.max(0,bal-st.basis):null, steppedUp:tracked&&!!st.steppedNow,
+        divUsed:0, divReinvested:0, sold:0   // dividend waterfall (filled in the roll-forward below; tracked portfolios only)
+      };
+    }));
+    // Household embedded (unrealized) gain across tracked portfolios, split by whether basis steps up at death.
+    let embeddedGain=0, embeddedGainIdgt=0;
+    portfoliosByPerson.forEach(list=>list.forEach(e=>{ if(e.tracked){ if(e.idgt) embeddedGainIdgt+=e.unrealizedGain; else embeddedGain+=e.unrealizedGain; } }));
 
     const odivByPerson=brokerageByPerson.map(v=>v.odiv);
     const qdivByPerson=brokerageByPerson.map(v=>v.qdiv);
@@ -307,9 +354,9 @@ function computeProjection(){
     const ordIncome = nonSSOrdinary+taxableSS;
     const ordTI = Math.max(0, ordIncome-std);
     const ordTax = calcOrdTax(ordTI, ordBrk);
-    // Realized LTCG comes from portfolios (spec 4.4): a flat amount, or a % of that portfolio's own
-    // configured withdrawal amount (optionally scaled by age) — both computed per-portfolio in
-    // brokerageValues() above, deterministically, with no dependency on Total Tax. Spec §8.3:
+    // Realized LTCG comes from portfolios (spec §4.6, cost basis): the shortfall sold after dividends pay
+    // the year's outflows, times the portfolio's gain share — computed per-portfolio in brokerageValues()
+    // above, using prior-year (not this year's) Total Tax for the tax-drag term. Spec §8.3:
     // available SCGL (suspended capital-gain loss carryforward) then eliminates realized LTCG
     // dollar-for-dollar, before tax, so only the *net-of-SCGL* amount is actually taxed/displayed.
     const sumArr=a=>a.reduce((x,y)=>x+y,0);
@@ -337,31 +384,28 @@ function computeProjection(){
     // Roll each brokerage balance forward one year: growth − tax drag (share of TT) − fee drag − withdrawal.
     people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
       const st=pfState[i][bi], bal=pfBalNow[i][bi];
-      if(st.dead||!(bal>0)){ st.bal=0; return; }
-      const g=realGrowth(b.growth,inflation);
-      const feeMode=b.fee&&b.fee.mode==='fixed'?'fixed':'pct';
-      const feeVal=Math.max(0,Number(b.fee&&b.fee.value)||0);
-      const feePct=feeMode==='pct'?feeVal/100:0;
-      // A fixed fee is a flat nominal amount (entered in today's $ for year 0), so in today's-dollar
-      // terms it shrinks each year with inflation.
-      const feeFixed=feeMode==='fixed'?feeVal/Math.pow(1+inflation,k):0;
-      // Drag $ applied this year (capped at what the portfolio can actually pay), kept for tooltips.
-      const avail=Math.max(0,bal*(1+g));
-      const exp=pfExpense(b);   // tax drag, fees and withdrawal only apply when Expenses is checked
-      const feeD=exp?Math.min(bal*feePct+feeFixed, avail):0;
-      const taxD=exp?Math.min(clamp(Number(b.taxDrag)||0,0,100)/100*totalTax, avail-feeD):0;
-      const withdrawD=exp?Math.min(Math.max(0,Number(b.living)||0), avail-feeD-taxD):0; // flat in today's $ = inflation-adjusted
+      if(st.dead||!(bal>0)){ st.bal=0; st.basis=0; return; }
+      const {g, avail, exp, feeD, taxD, withdrawD}=pfOutflows(b, bal, k, totalTax);
       st.bal=Math.max(0, avail-feeD-taxD-withdrawD);
-      // Realized LTCG for this portfolio this year (spec 4.4), kept for tooltips — mirrors the
-      // amount-mode/pct-of-withdrawal(×age)-mode logic in brokerageValues() above. Deterministic:
-      // unlike tax drag, LTCG here is keyed off the portfolio's own configured withdrawal amount,
-      // not Total Tax, so it doesn't need to wait for totalTax to be final — recomputed here only
-      // for symmetry with the other per-portfolio tooltip fields.
-      const ltcgAmt=exp?((b.ltcgMode==='pct'||b.ltcgMode==='pctAge')
-        ? Math.min(bal, clamp(Number(b.ltcg)||0,0,100)/100*Math.max(0,Number(b.living)||0)*(b.ltcgMode==='pctAge'?clamp(youngerHouseholdAge/100,0,1):1))
-        : Math.min(Math.max(0,Number(b.ltcg)||0), bal)):0;
+      // Dividend waterfall + basis roll-forward (spec §4.6, cost basis), average-cost method. Dividends
+      // (ODIV) are used first to pay the year's outflows (withdrawal + fee + tax drag); any dividend left
+      // over is reinvested (adds basis); any shortfall is covered by selling, which removes basis in
+      // proportion to its cost share (1 − gain fraction) and realizes the gain share. The balance itself
+      // is unaffected — growth is total return, so the balance is the same whether dividends or sales
+      // fund the outflows. Because everything here is in today's $ while basis is a fixed nominal amount,
+      // basis also erodes by inflation each year.
+      let wf=null;
+      if(st.tracked){
+        const f=pfGainFraction(bal, st.basis);
+        const div=(pfVals[i][bi]&&pfVals[i][bi].odiv)||0, outflow=feeD+taxD+withdrawD;
+        const divUsed=Math.min(div,outflow), reinvested=div-divUsed, sold=outflow-divUsed;
+        wf={divUsed, reinvested, sold};
+        st.basis=clamp((st.basis-sold*(1-f)+reinvested)/(1+inflation), 0, st.bal);
+      }
       const entry=portfoliosByPerson[i][bi];
-      entry.taxDrag=taxD; entry.feeDrag=feeD; entry.livingCost=withdrawD; entry.growthPct=g*100; entry.ltcg=ltcgAmt;
+      entry.taxDrag=taxD; entry.feeDrag=feeD; entry.livingCost=withdrawD; entry.growthPct=g*100;
+      if(wf){ entry.divUsed=wf.divUsed; entry.divReinvested=wf.reinvested; entry.sold=wf.sold; }
+      entry.ltcg=(pfVals[i][bi]&&pfVals[i][bi].ltcg)||0;   // the exact (pre-SCGL) gain realized and taxed this year
       // Net growth after subtracting tax drag, fee drag and withdrawal from this
       // year's return (spec §10: "annual growth % with expenses subtracted").
       entry.netGrowthPct = bal>0 ? ((st.bal/bal)-1)*100 : 0;
@@ -375,7 +419,7 @@ function computeProjection(){
       wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson,
       odiv, qdiv, odivNQ, ltcg, ltcgGross, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
-      iraByPerson, iraTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson,
+      iraByPerson, iraTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, embeddedGain, embeddedGainIdgt,
       nonSSOrdinary, taxableSS, provisional, ordIncome, std, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
       niiIncome, niit,

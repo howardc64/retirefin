@@ -40,7 +40,12 @@ function onSSClaimAge(i,val){
   recomputeDebounced(); saveDebounced();
 }
 function onExpenseToggle(pid,bi,checked){ setPath(pid+'.brokerage.'+bi+'.expense',checked); renderIncomeForms(); recompute(); saveDebounced(); }
-function onLtcgMode(pid,bi,mode){ setPath(pid+'.brokerage.'+bi+'.ltcgMode',mode); renderIncomeForms(); recompute(); saveDebounced(); }
+// Cost basis (spec §4.6, cost basis): blank means "not entered" (stored as null), which is different from 0
+// (a real $0 basis, i.e. 100% unrealized gain). Only the projection depends on it, so no re-render.
+function onBasisInput(pid,bi,val){
+  setPath(pid+'.brokerage.'+bi+'.basis', val===''||val==null?null:Math.max(0,+val||0));
+  recomputeDebounced(); saveDebounced();
+}
 function onBeneToggle(path,checked){ setPath(path,checked); recompute(); saveDebounced(); }
 // Fixed fees are entered and stored in plain today's-$ dollars (fee.value). Percent fees are
 // stored as entered.

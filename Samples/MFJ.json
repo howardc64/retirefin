@@ -77,8 +77,7 @@
           "qdivPct": 70,
           "expense": true,
           "living": 20000,
-          "ltcg": 0,
-          "ltcgMode": "amt",
+          "basis": null,
           "taxDrag": 0,
           "fee": {
             "mode": "pct",

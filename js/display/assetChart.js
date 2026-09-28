@@ -6,6 +6,20 @@
 const assetCharts={asset:null, idgt:null};
 const ASSET_COLORS=['#0f6e56','#2E86AB','#8E44AD','#D06A18','#C0392B','#3DB08A','#7B5EA7','#E85D9A','#1A5276','#B5891D'];
 
+// "Embedded gain at end of plan" line (spec §4.6 cost basis, §6.7): a second line under a chart's note. It is
+// created on first use next to the note element (index.html doesn't need a matching element) and
+// hidden whenever there's nothing to say (no portfolio on this chart has cost basis tracked).
+function setGainNote(cfg, noteEl, text){
+  if(!noteEl) return;
+  const id=cfg.noteId+'Gain';
+  let el=document.getElementById(id);
+  if(!el){
+    el=document.createElement('div'); el.id=id; el.className=noteEl.className; el.style.marginTop='6px';
+    noteEl.parentNode.insertBefore(el, noteEl.nextSibling);
+  }
+  el.textContent=text||''; el.style.display=text?'':'none';
+}
+
 // One builder for both asset charts. `cfg` picks which series belong on the chart
 // (main chart: non-IDGT brokerage + pre-tax IRAs; IDGT chart: IDGT brokerage only).
 function buildAssetChartFor(cfg){
@@ -35,6 +49,7 @@ function buildAssetChartFor(cfg){
   const clear=(msg)=>{
     if(assetCharts[cfg.key]){ try{ assetCharts[cfg.key].destroy(); }catch(e){} assetCharts[cfg.key]=null; }
     legendEl.innerHTML=''; noteEl.textContent=msg||'';
+    setGainNote(cfg, noteEl, '');
   };
   if(card) card.style.display = series.length ? '' : 'none';
   if(!series.length){ clear(cfg.emptyMsg); return; }
@@ -109,6 +124,20 @@ function buildAssetChartFor(cfg){
               lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
             }
           }
+          // Cost basis / unrealized gain (spec §4.6, cost basis) — Show details only, both charts, only for
+          // portfolios with basis tracked. A step-up (owner passed, portfolio continues to spouse,
+          // non-IDGT) is flagged in the year it happens.
+          if(showDetails && e.tracked){
+            const gainPct=e.balance>0?e.unrealizedGain/e.balance*100:0;
+            // Dividend waterfall: dividends pay the year's outflows first, leftovers are reinvested,
+            // and only a shortfall is sold (which is what realizes gain).
+            lines.push(mrow('      Dividends used for expenses', fmt(e.divUsed||0), W));
+            lines.push(mrow('      Dividends reinvested', fmt(e.divReinvested||0), W));
+            lines.push(mrow('      Sold to cover shortfall', fmt(e.sold||0), W));
+            lines.push(mrow('      Cost basis', fmt(e.basis||0), W));
+            lines.push(mrow('      Unrealized gain', fmt(e.unrealizedGain||0)+' ('+gainPct.toFixed(0)+'% of value)', W));
+            if(e.steppedUp) lines.push(mrow('      Basis stepped up at death', 'reset to value', W));
+          }
         }
       }
       return lines;
@@ -139,6 +168,24 @@ function buildAssetChartFor(cfg){
     `<span class="li"><span class="ls" style="background:${ASSET_COLORS[si%ASSET_COLORS.length]}"></span>${escHtml(seriesLabel(s,si))}</span>`
   ).join('');
   noteEl.textContent = cfg.note;
+
+  // Embedded (unrealized) gain in the plan's final year, across this chart's tracked portfolios.
+  const last=rows[rows.length-1], tracked=[];
+  series.forEach((s,si)=>{
+    if(s.type!=='portfolio') return;
+    const e=(last.portfoliosByPerson[s.personIdx]||[])[s.bi];
+    if(e && e.tracked) tracked.push({label:seriesLabel(s,si), gain:e.unrealizedGain||0, value:e.balance||0});
+  });
+  let gainText='';
+  if(tracked.length){
+    const gain=tracked.reduce((a,t)=>a+t.gain,0), value=tracked.reduce((a,t)=>a+t.value,0);
+    gainText=`Unrealized gain at end of plan (${ageAxisLabel(proj)} ${Math.round(last.age0)}): ${fmt(gain)} on ${fmt(value)} of portfolio value (${value>0?(gain/value*100).toFixed(0):0}%).`
+      +(tracked.length>1?' By portfolio: '+tracked.map(t=>t.label+' '+fmt(t.gain)).join(' · ')+'.':'')
+      +(cfg.idgt
+        ? ' IDGT assets keep their original (carryover) cost basis at death, so this gain generally stays taxable to whoever later sells.'
+        : ' Non-IDGT portfolios generally receive a step-up in cost basis at death, so heirs would not owe tax on this gain.');
+  }
+  setGainNote(cfg, noteEl, gainText);
 }
 
 function buildAssetChart(){
