@@ -88,6 +88,7 @@ state = {
   passing: { p1: number, p2: number },  // passing age per person id
   living: number,                 // household living expenses per year, today's $ (flat in real terms); funded income → dividends → asset sales (§4.6)
   scgl: number,                   // Suspended Capital-Gain Loss pool, today's $
+  aumFee: { mode: 'pct'|'fixed', value: number },  // AUM fee: 'pct' = % of the AUM balance (sum of balances of portfolios with `aum` checked); 'fixed' = $/yr in today's $ (flat nominal, so it shrinks with inflation). Household-level; UI is below SCGL in the Assumptions panel (§5.3)
   futureTax: {
     enabled: boolean,
     niitStartYear: number,
@@ -105,8 +106,8 @@ Person = {
   pension: { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
   rental:  { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
   brokerage: [BrokeragePortfolio, ...],   // 0 or more
-  ira:  { enabled, hidden, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number, stretch: boolean },
-  roth: { enabled, hidden, balance, growth: Change, bene: boolean, stretch: boolean }
+  ira:  { enabled, hidden, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number, stretch: boolean, aum: boolean },
+  roth: { enabled, hidden, balance, growth: Change, bene: boolean, stretch: boolean, aum: boolean }   // aum (default false): this account's start-of-year balance counts toward the AUM balance (§4.6)
 }
 
 AgeRange = { startMode: 'now'|'custom'|'rmd', startVal: number,
@@ -119,10 +120,9 @@ BrokeragePortfolio = {
   ar: AgeRange, bene: boolean, idgt: boolean,
   enabled: boolean,          // default true — whether this portfolio is used for compute/display
   hidden: boolean,           // default false — whether its card is collapsed on screen (§5.1)
-  expense: boolean,          // gates fee/irmaa below (living expenses are household-level: `state.living`)
-  fee: { mode: 'pct'|'fixed', value: number },
+  payExp: boolean,           // default FALSE — "Pay expenses": only portfolios with this checked (IDGT or not) contribute dividends and asset sales to household expenses (§4.6). Saves that predate the field load as true for non-IDGT portfolios (their old behavior)
+  aum: boolean,              // default false — this portfolio's balance counts toward the AUM balance the household AUM fee (`state.aumFee`) is charged on. Older saves' per-portfolio `expense`/`fee`/`irmaa` are dropped by `hydrateState` (a portfolio that had a fee on becomes `aum: true`; the household `aumFee` takes the first % fee found, or the sum of fixed fees)
   basisPct: number | null,   // cost basis as a % of the start balance (0–100). null/blank = not entered. Older saves' dollar `basis` is converted to a % in `hydrateState`. Every portfolio is tracked (§4.6); a blank basis means no unrealized gain today. Realized LTCG has no input: it is always derived from basis (§4.6). Older saves' `ltcg`/`ltcgMode`, per-portfolio `taxDrag` and `living` withdrawal are dropped on load (the withdrawals are summed into `state.living` by `hydrateState`)
-  irmaa: boolean,            // default false — include the household IRMAA surcharge as an expense (needs `expense`); see §4.6
   foreignPct: number,        // % of portfolio that's foreign assets — always active, ungated
   ftcPct: number             // foreign tax credit %, default 0.25 — always active, ungated
 }
@@ -175,7 +175,6 @@ that changes.
 |---|---|
 | `defaultState()`, `defaultPerson(idx)`, `defaultBrokeragePortfolio(balance,n)`, `defaultChange`, `defaultAgeRange`, `defaultIncomeItem`, `defaultAgeRangedItem` | Canonical default shapes (§2). **If you add a field to the schema, add its default here.** |
 | `pfBasisEntered(b)`, `pfTracksBasis(b)` | Cost-basis predicates (§4.6): a cost basis was entered (`basisPct` is a number; `null`/blank is *not* the same as `0`); and whether basis is tracked — now true for every portfolio, since household expenses can force a sale from any of them |
-| `pfExpense(b)` | Whether a portfolio's Expenses panel is "on" (fee drag / IRMAA) — `b.expense` if present, else true if legacy `fee.value` is nonzero |
 | `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has). Migration: if a loaded file has no `living`, it is set to the sum of the old enabled portfolios' `living` withdrawals |
 | `state` | The live, mutable object every other file reads/writes |
 | `autosave()` / `loadAutosave()` | Silent per-browser `localStorage` save/restore, so a reload doesn't lose work |
@@ -257,7 +256,7 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
    **Realized LTCG is not an input and is not computed per portfolio here** — it falls out of the household expense
    waterfall (step 5a).
 5a. **Household expense funding waterfall + tax fixed point** (see *Expense funding* and *Tax ↔ LTCG iteration* below): expenses —
-   living, fees, IRMAA and **this year's income tax** — are paid by household income, then portfolio dividends (leftovers
+   living, the IRMAA surcharge, the AUM fee and **this year's income tax** — are paid by household income, then portfolio dividends (leftovers
    reinvested), then portfolio asset sales, which realize LTCG from tracked cost basis. Because that LTCG changes the tax,
    steps 5a–12 are iterated to convergence. The ordinary side of the return (steps 8–9, ordinary tax) does not depend on LTCG and is computed once, before the loop.
 6. Pre-tax IRA: RMD (or voluntary early withdrawal) via `rmdDivisor`, plus a separate **Roth
@@ -281,22 +280,24 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 14. Roll every brokerage balance forward: `+growth −(dividends used for expenses + shares sold)`, from the step-5a
    waterfall. Foreign tax credit doesn't touch the balance. Every portfolio also rolls its cost basis forward (below).
 
-**IRMAA as an expense** (optional, per portfolio via `irmaa`; part of every expense calculation below — dividend/sale waterfall, LTCG estimate, roll-forward):
-- **Household surcharge** = `irmaaSurcharge` = surcharge of the IRMAA tier (`IRMAA_MFJ`/`IRMAA_SGL`, this year's filing status) reached by the **prior year's AGI** × the number of living people age ≥ 65. Year 0 is `$0`. The one-year lag avoids the circularity (this year's AGI ← LTCG ← asset sales ← surcharge) and mirrors IRMAA's real look-back. Tier tables are indexed, so no deflation. The row always reports `irmaaSurcharge`; it only becomes an expense where a portfolio has the box checked.
-- **Allocation:** charged once per household, split pro rata to start-of-year balance across the portfolios that are enabled, inside their age range, funded, Expenses-on and IRMAA-checked (IDGTs included — an IDGT's share is paid from its own dividends/sales).
+**IRMAA as an expense** (always a household expense — there is no per-portfolio checkbox):
+- **Household surcharge** = `irmaaSurcharge` = surcharge of the IRMAA tier (`IRMAA_MFJ`/`IRMAA_SGL`, this year's filing status) reached by the **prior year's AGI** × the number of living people age ≥ 65. Year 0 is `$0`. The one-year lag mirrors IRMAA's real look-back. Tier tables are indexed, so no deflation. The row reports it as `irmaaSurcharge` and it is included in `expIrmaa`.
+- **Payment:** part of the household expense pool below, so it is paid income → dividends → sales like everything else, by portfolios with Pay expenses checked.
+
+**AUM fee** (household assumption `state.aumFee`; per-portfolio `aum` box):
+- **AUM balance** (`aumBalance`) = sum of start-of-year balances of every brokerage portfolio that has `aum` checked and is enabled, alive, inside its age range and funded (IDGTs included if checked), **plus** every pre-tax IRA and Roth IRA with `aum` checked (`aumBalanceIra`, start-of-year, counted only while the household holds it: owner alive, or inherited by a living spouse — not while held by heirs under IRA stretch).
+- **Fee** (`aumFee` on the row) = `aumBalance × value/100` (mode `pct`, "% AUM balance") or `value ÷ (1+inflation)^k` (mode `fixed`, charged only when `aumBalance > 0`).
+- **Allocation:** split across the checked accounts pro rata to balance. Each account's share is informational (`feeDrag` on a portfolio row): the **whole fee is one household expense** (`expAum = aumFee`) paid by the pool, i.e. only by portfolios with **Pay expenses** checked — not by the account it is charged on unless that account also pays expenses. No portfolio, IDGT included, pays a fee share on its own account.
 
 **Expense funding** (household-level; replaces the old per-portfolio withdrawal / tax-drag / own-money waterfall):
-- **Expenses** = `state.living` (flat in today's $) + **the year's income tax (`totalTax`, "tax drag")** + the fee drag and IRMAA share of every **non-IDGT** portfolio that is enabled,
-  in its age range and funded (fee/IRMAA only when that portfolio's Expenses is on and, for IRMAA, its box is checked;
-  `pfFeeIrmaa(b, bal, k, irmaaAmt)` computes them, each capped at what the portfolio can pay). Income tax is an expense again, at household level (there is no per-portfolio *tax drag %* input);
-  it is charged to the household pool only — an IDGT never pays it. Because it depends on this year's LTCG, it is solved by iteration (below), not lagged.
-- **Funding order:** (1) **household cash income** = wages + Social Security + pension + rental + IRA RMDs (the
+- **Expenses** = `state.living` (flat in today's $) + **the year's income tax (`totalTax`, "tax drag")** + the **IRMAA surcharge** + the **AUM fee** (charged on the AUM-checked portfolios and IRAs, above). Income tax is an expense again, at household level (there is no per-portfolio *tax drag %* input);
+  it is charged to the household pool only. Because it depends on this year's LTCG, it is solved by iteration (below), not lagged.
+- **Funding order** (portfolio sources are only the in-range portfolios with **Pay expenses** checked — default off, IDGT or not; an unchecked portfolio reinvests all its dividends and is never sold for expenses, and if none is checked the shortfall shows as `expUnfunded`): (1) **household cash income** = wages + Social Security + pension + rental + IRA RMDs (the
   Roth-conversion amount is excluded — it moves to the Roth, it isn't spendable; it is gross, since the tax it triggers is itself one of the expenses), then
   (2) **portfolio dividends** (ODIV of the non-IDGT in-range portfolios), shared pro rata to each portfolio's ODIV — any dividend not
   needed is **reinvested** (adds basis), then (3) **asset sales**, shared pro rata to balance (a portfolio that runs out
   hands the remainder to the others). Anything still unpaid is reported as `expUnfunded`.
-- **IDGT:** outside the household — never pays living expenses. It pays only its own fee/IRMAA, from its own dividends,
-  then its own sales.
+- **IDGT:** follows the same rule as any portfolio — it pays household expenses only if its own **Pay expenses** box is checked (off by default); otherwise it reinvests all its dividends and is never sold for expenses. It keeps carryover basis (no step-up) and its own chart.
 - **Realized LTCG** = amount sold × the portfolio's gain fraction `f`, for every portfolio (IDGT on its own sales), feeding
   SCGL → qualified income → AGI → NIIT as before.
 
@@ -337,17 +338,19 @@ The IRMAA surcharge keeps its prior-year-AGI lag — that is IRMAA's real look-b
 | `ftcByPerson`, `foreignTaxCredit` | Foreign tax credit per person and household total |
 | `iraByPerson`, `iraTotal`, `iraBalByPerson` | IRA RMD/withdrawal and end-of-year balance |
 | `rothConvByPerson`, `rothConvTotal`, `rothBalByPerson` | Roth conversion (pre-tax IRA withdraw) amount and Roth balance |
-| `portfoliosByPerson` | Per-portfolio detail: `{id, name, balance, idgt, expense, feeDrag, irmaaDrag, ltcg, growthPct, netGrowthPct, tracked, basis, unrealizedGain, steppedUp, divUsed, divReinvested, sold}` — the last seven are the cost-basis / expense-waterfall fields (§4.6): `basis`/`unrealizedGain` are `null` when `tracked` is false; `steppedUp` is true only in the year the death step-up applied; `divUsed`/`divReinvested`/`sold` are this portfolio's share of the household waterfall (dividends used, dividends reinvested, shares sold), so `divUsed + sold` is what this portfolio paid toward expenses (household income pays the rest) |
+| `portfoliosByPerson` | Per-portfolio detail: `{id, name, balance, idgt, aum, feeDrag, ltcg, growthPct, netGrowthPct, tracked, basis, unrealizedGain, steppedUp, divUsed, divReinvested, sold}` — the last seven are the cost-basis / expense-waterfall fields (§4.6): `basis`/`unrealizedGain` are `null` when `tracked` is false; `steppedUp` is true only in the year the death step-up applied; `divUsed`/`divReinvested`/`sold` are this portfolio's share of the household waterfall (dividends used, dividends reinvested, shares sold), so `divUsed + sold` is what this portfolio paid toward expenses (household income pays the rest) |
 | `embeddedGain`, `embeddedGainIdgt` | Household unrealized gain across tracked portfolios, non-IDGT / IDGT (start of year, after any step-up) |
 | `nonSSOrdinary`, `taxableSS`, `provisional` | Ordinary income ex-SS; taxable SS; provisional income |
 | `ordIncome`, `std`, `ordTI`, `ordTax` | AGI components → ordinary taxable income → ordinary tax |
 | `qualIncome`, `qualTax` | QDIV+LTCG and its tax |
 | `sst`, `marginalRate` | Social Security tax and true marginal rate (torpedo effect) |
 | `niiIncome`, `niit` | Net investment income and NIIT |
-| `expLiving`, `expPortfolio`, `expTax`, `expTotal` | Household living expenses; non-IDGT portfolio fees + IRMAA; income tax paid as an expense (tax drag); their sum |
+| `aumBalanceIra` | The part of `aumBalance` that comes from AUM-checked IRAs / Roth IRAs |
+| `expLiving`, `expIrmaa`, `expAum`, `expTax`, `expTotal` | Household living expenses; IRMAA surcharge; the AUM fee (all of it — a household expense); income tax paid as an expense (tax drag); their sum |
+| `aumBalance`, `aumFee` | AUM balance (start of year) and the total AUM fee charged this year (equals `expAum`) |
 | `taxIters`, `taxConverged` | Rounds the tax↔LTCG iteration took (≥1) and whether it met `TAX_TOL` |
 | `cashIncome`, `expFromIncome`, `expFromDiv`, `expFromSales`, `expUnfunded` | The expense-funding waterfall (§4.6): household cash income available (wage+SS+pension+rental+RMD), and the expense amount paid by income, by dividends, by asset sales, and left unfunded (`expTotal = expFromIncome + expFromDiv + expFromSales + expUnfunded`) |
-| `irmaaSurcharge` | Household IRMAA surcharge for the year (prior-year-AGI tier × enrolled people 65+); only charged to portfolios with `irmaa` checked |
+| `irmaaSurcharge` | Household IRMAA surcharge for the year (prior-year-AGI tier × enrolled people 65+) ; always charged as a household expense (`expIrmaa`) |
 | `totalTax` | Final Total Tax: `max(0, ordTax+qualTax−foreignTaxCredit) + niit` |
 | `agi` | Adjusted gross income |
 
@@ -395,7 +398,7 @@ change into every place a person's name appears without a full re-render (so typ
 focus).
 
 ### 5.3 `assumptions.js` (+ the Assumptions panel in `index.html`)
-The Assumptions panel in `index.html` holds two household fields, in this order below the passing-age sliders: **Living expenses** (`state.living`, `#livingInput`, $/yr in today's $, `onNumberInput('living', …)`) directly **above** the **SCGL** input (`state.scgl`). `renderAll()` writes both from `state`.
+The Assumptions panel in `index.html` holds two household fields, in this order below the passing-age sliders: **Living expenses** (`state.living`, `#livingInput`, $/yr in today's $, `onNumberInput('living', …)`) directly **above** the **SCGL** input (`state.scgl`), followed **below SCGL** by the **AUM fee** (`state.aumFee`): a mode select (`#aumFeeMode`: **% AUM balance** / **Fixed $ / yr**, `onAumFeeMode` resets the value because the units change) and a value input (`#aumFeeValue`, `onNumberInput('aumFee.value', …)`); `renderAumFee()` (in `assumptions.js`) writes both from `state`. AUM balance = sum of the balances of portfolios with their **AUM** box checked (§4.6). `renderAll()` writes both from `state`.
 
 Renders the speculative future-tax-threshold panel: a checkbox that, when on, reveals `niitStartYear`
 + `niitSingle`/`niitMarried` (today's $) fields feeding `state.futureTax` (§2), consumed by
@@ -414,15 +417,15 @@ for the whole "Brokerage portfolio income" card.
 | `socialSecurity.js` | Social Security | Already-started flag (else FRA, default 67), PIA, claim-age slider (62–70, default = FRA or started age) |
 | `pension.js` | Pension | `agedItemCard` — amount, age range, change (the fixed option is worded **Fixed $ (no COLA)** here via `renderChangeRow`'s `fixedLabel`; elsewhere **Fixed $ (no growth)**), survivor benefit |
 | `rental.js` | Rental income | `agedItemCard` — same shape as Pension |
-| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, **age range (start/end) directly below the name**, **start balance**, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, shown before and independent of the Expenses toggle and IDGT flag —, IDGT flag, **optional cost basis (% of start balance, 0–100; blank = no unrealized gain today)** right under the balance, Expenses toggle gating fee drag and the IRMAA-surcharge checkbox — there is **no** tax drag or withdrawal field (living expenses are household-level, §5.3), and LTCG has **no input**: the panel just notes that expenses are paid household income → dividends → asset sales, and that sales realize gain from the cost basis —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
-| `ira.js` | Pre-tax IRA / 401(k) | Balance, age range (default start = RMD age), growth (default inflation+3%), survivor benefit, annual Roth conversion amount |
-| `roth.js` | Roth IRA | Balance, growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
+| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, **age range (start/end) directly below the name**, **start balance**, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, independent of the AUM box and IDGT flag —, IDGT flag, **AUM checkbox** (counts this balance toward the AUM fee base), **Pay expenses checkbox** (`payExp`, default on; only checked portfolios' dividends and sales fund household expenses), **optional cost basis (% of start balance, 0–100; blank = no unrealized gain today)** right under the balance, there is **no** fee, IRMAA, tax drag or withdrawal field on the card (fee and IRMAA are household-level, §5.3) (living expenses are household-level, §5.3), and LTCG has **no input**: the panel just notes that expenses are paid household income → dividends → asset sales, and that sales realize gain from the cost basis —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
+| `ira.js` | Pre-tax IRA / 401(k) | Balance, **AUM checkbox** (`ira.aum`), age range (default start = RMD age), growth (default inflation+3%), survivor benefit, annual Roth conversion amount |
+| `roth.js` | Roth IRA | Balance, **AUM checkbox** (`roth.aum`), growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
 
 ### 5.5 `incomeForms.js`
 **Purpose:** orchestrates the person-column(s), calling each §5.4 builder in the same fixed order for
 every person-column, so the two-column grid (married) keeps every income type's row aligned via CSS
 subgrid. Also owns every handler shared by more than one card: SS-started toggle, SS claim-age slider,
-brokerage expense/fee-mode toggles, cost-basis % input (`onBasisInput`: blank → `null`, not `0`; clamped to 0–100), survivor-benefit toggle, portfolio name/add/remove.
+cost-basis % input (`onBasisInput`: blank → `null`, not `0`; clamped to 0–100), survivor-benefit toggle, portfolio name/add/remove.
 
 **Rule:** a handler used by exactly one card lives in that card's own file (§5.4); a handler used by
 two or more cards lives here.
@@ -506,7 +509,7 @@ and NIIT detail if nonzero.
 ### 6.7 `assetChart.js` — Asset value
 Reads rows' `portfoliosByPerson` (excluding `idgt` ones), `iraBalByPerson`, `rothBalByPerson`. One
 chart for brokerage (ex-IDGT) + IRA + Roth balances, each portfolio/account its own color; a second
-chart (only if any IDGT portfolio exists) for IDGT balances alone. Tooltip: age, balances, and (if the portfolio paid anything toward expenses that year) annual growth % net of expenses paid, with fee drag, IRMAA surcharge and LTCG realized shown under `show_details`.
+chart (only if any IDGT portfolio exists) for IDGT balances alone. Tooltip: age, balances, and (if the portfolio paid anything toward expenses that year) annual growth % net of expenses paid, with the AUM fee charged on the portfolio's balance and LTCG realized shown under `show_details`.
 **IRA stretch (per account):** each pre-tax IRA card and each Roth IRA card has an **IRA stretch** checkbox (`ira.stretch` /
 `roth.stretch`, default off; label reads "…until 10 years after the 2nd passing", or "this person's passing" when single). Unchecked
 = the account ends as before. Checked = the account is *not* dropped when its owner passes unless a surviving spouse inherits it

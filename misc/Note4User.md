@@ -6,21 +6,15 @@
 * **No Tax Exempts:** Not Implemented
 * **No Annuities:** Not Implemented
 * **Excel Export Rudimentary:** Currently just table of #s output by the app. Plan to include cell calculation based on formulas. Waiting until app matures as formula based spreadsheet require AI/LLM to work much longer to build the application 2x (once each for HTML and EXCEL followed by correlation check and testing)
-* **No AUM with Multiple Portfolios:** Not Implemented. Require ability to group portfolios balance + AUM fee %
 
 ---
 
 ## Expenses Planning
 
-* **NO Expenses Planning:** This tool doesn’t provide expense planning. Users need to assess if income is sufficient for all the expense needs. If none portfolio incomes ( wage, social security, rental etc. Excluding dividends, LTCG which are from portfolios ) is insufficient for expenses, portfolio include expense entry to support expenses shortfalls
-* **Portfolio Expense Assumption:** A single portfolio (even married) if assumed to support expense shortfalls
-  * % of total income tax
-  * fees (such as financial advisor)
-  * withdraw
-* **Portfolio Income paying Expenses:** Following portfolio income sequence pays the expense needs
-  * dividend yields are first used to pay these expenses
-  * Any remaining dividends is reinvested
-  * If dividend is insufficient, assets are sold and LTCG automatically calculated for income tax.
+* **Expenses Planning:** This program provide a single entry for living cost. Total expenses are living cost + income tax + IRMAA surcharge + AUM fees. Program will the following sequence of incomes to pay for expenses.
+  * household income (wages, social security, pension, rent) first
+  * portfolio (non IDGT) dividends. Left overs will be reinvested
+  * portfolio assets are then used to cover shortfalls (triggering LTCG)
 * **Portfolio Basis Tracking:** Automatic, Formula display ( click Formula button ) shows details
   
 ---
@@ -34,6 +28,7 @@
 * **Social Security Tax Torpedo:** SS taxation is designed to be highly taxable once overall income increase slightly. Widower usually gets torpedoed as they keep all income sources except deceased spouse’s SS while tax bracket is halved. 20-40% of SS are taxes if hit by torpedo
 * **Widower Taxation:** Widower tax rate increase signification from while married. Generally only deceased spouse’s social security income is lost while everything else remains. But all the tax brackets, exemptions etc. are all generally halved
 * **IRMAA:** Medicare cost has surcharges for higher income levels (5 income tiers) Top tiers + Medigap cost converge toward private health insurance costs (~60yo) but probably still cheaper in higher ages. Medicare + good Medigap generally better insurance than cheaper private health insurance.
+* **AUM fee drag:** A 1% AUM fee is significant drag on portfolio value (See MFJ2 sample data). For smaller portfolios, < 1% is difficult. For larger portfolios in maintenance phase, re-negotiate fees with advisor is highly desirable to reduce drag. Probably many financial advisor have business model to lower fees to keep customer fees flowing (even if less) in maintenance phase.
 * **Long Term Compounding Implications:** This can cause geometric change. Even smaller IRA account can compound significantly with only inflation drag. Foreign Tax Credit’s impact can also be high if have typical 20-30%+ international equities. Any error will also have significant geometric impact. So carefully review all inputs. Hopefully program itself will have no significant errors (NO GUARANTEE!)
 ---
 

@@ -22,16 +22,13 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
   };
 }
 // Brokerage portfolio (spec 4.3): value, age range, annual growth (default inflation + 4%),
-// survivor benefit, ODIV yield (default 1.5%), QDIV share of ODIV (default 70%),
-// fee drag (% of balance, or a fixed today's-$ amount per year), and an IDGT flag.
-// "Expenses" checkbox (spec 4.4): when on, a portfolio has fee drag and can carry the IRMAA surcharge. Those
-// (with the household living expenses, state.living) are funded by household income first, then portfolio
-// dividends, then asset sales (which realize LTCG). Older saved files without the flag count as on if they had fees.
-function pfExpense(b){
-  if(!b) return false;
-  if(b.expense!==undefined) return !!b.expense;
-  return (Number(b.fee&&b.fee.value)||0)>0;
-}
+// survivor benefit, ODIV yield (default 1.5%), QDIV share of ODIV (default 70%), an IDGT flag, an AUM flag and a
+// `payExp` flag (default OFF): only portfolios with it checked contribute dividends and asset sales to the household
+// expenses — living costs, IRMAA, the AUM fee and income tax (IDGT or not). Saves that predate the field load with it on
+// for non-IDGT portfolios, as they behaved before.
+// `aum` (default off): the portfolio's balance counts toward the AUM balance the household AUM fee is charged on
+// (`state.aumFee`, Assumptions panel). The fee, the household IRMAA surcharge, living expenses and income tax are all
+// funded by household income first, then portfolio dividends, then asset sales (which realize LTCG).
 // Cost-basis / unrealized-gain tracking (spec §4.6, cost basis). Every portfolio is tracked: household expenses
 // can force asset sales from any portfolio, and realized LTCG is always automatic (sale × unrealized-gain share),
 // so every portfolio needs a basis. A blank cost basis (`basisPct` null) is treated as no unrealized gain today.
@@ -44,7 +41,7 @@ function defaultBrokeragePortfolio(balance, n){
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,basisPct:null,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,irmaa:false,foreignPct:0,ftcPct:0.25};
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,aum:false,payExp:false,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
@@ -58,8 +55,8 @@ function defaultPerson(idx){
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     rental:  defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     brokerage:[],
-    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, stretch:false},
-    roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false}
+    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, stretch:false, aum:false},
+    roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false, aum:false}
   };
 }
 function defaultState(){
@@ -70,6 +67,7 @@ function defaultState(){
     passing:{p1:85,p2:90},
     living:0,   // household living expenses per year, today's $ (funded income → dividends → asset sales)
     scgl:0,
+    aumFee:{mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ}
   };
 }
@@ -110,6 +108,17 @@ function hydrateState(loaded){
   if(loaded && loaded.living===undefined && Array.isArray(loaded.people)){
     out.living=loaded.people.reduce((t,p)=>t+((p&&Array.isArray(p.brokerage))?p.brokerage.reduce((u,b)=>u+(Number(b&&b.enabled!==false&&b.living)||0),0):0),0);
   }
+  // Older saves had a per-portfolio Expenses toggle with its own fee drag (`expense`/`fee`) and an IRMAA checkbox (`irmaa`).
+  // The fee is now one household AUM fee on the portfolios flagged `aum`; IRMAA is always a household expense. Carry the
+  // old fee over: portfolios that had the fee on become AUM-checked, and the household fee takes the first % fee found
+  // (or, if all were fixed $, their sum).
+  if(loaded && loaded.aumFee===undefined && Array.isArray(loaded.people)){
+    const feeOn=b=>!!b&&(b.expense!==undefined?!!b.expense:(Number(b.fee&&b.fee.value)||0)>0)&&(Number(b.fee&&b.fee.value)||0)>0;
+    const all=[]; loaded.people.forEach(p=>{ if(p&&Array.isArray(p.brokerage)) p.brokerage.forEach(b=>{ if(feeOn(b)) all.push(b); }); });
+    const pct=all.find(b=>b.fee.mode!=='fixed');
+    if(pct) out.aumFee={mode:'pct', value:Number(pct.fee.value)||0};
+    else if(all.length) out.aumFee={mode:'fixed', value:all.reduce((t,b)=>t+(Number(b.fee.value)||0),0)};
+  }
   if(Array.isArray(out.people)) out.people.forEach(p=>{
     if(!Array.isArray(p.brokerage)) p.brokerage=[];
     // Fill any missing fields (older saves) from a default portfolio, then drop untouched blank
@@ -120,6 +129,13 @@ function hydrateState(loaded){
         if(b && b.basisPct===undefined && b.basis!=null && b.basis!=='' && Number.isFinite(Number(b.basis))){
           const bal=Number(b.balance)||0;
           b=Object.assign({}, b, {basisPct: bal>0 ? Math.round(Math.min(100,Math.max(0,Number(b.basis)/bal*100))*100)/100 : null});
+        }
+        // Saves that predate "Pay expenses" had every non-IDGT portfolio paying expenses: keep that behavior.
+        if(b && b.payExp===undefined) b=Object.assign({}, b, {payExp: !b.idgt});
+        // Legacy fee-drag portfolios become AUM-checked (see the aumFee migration above).
+        if(b && b.aum===undefined){
+          const fv=Number(b.fee&&b.fee.value)||0;
+          b=Object.assign({}, b, {aum: (b.expense!==undefined?!!b.expense:fv>0) && fv>0});
         }
         return merge(b, defaultBrokeragePortfolio(0));
       })

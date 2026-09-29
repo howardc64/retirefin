@@ -39,7 +39,6 @@ function onSSClaimAge(i,val){
   document.getElementById('ssClaimVal_'+i).textContent=val;
   recomputeDebounced(); saveDebounced();
 }
-function onExpenseToggle(pid,bi,checked){ setPath(pid+'.brokerage.'+bi+'.expense',checked); renderIncomeForms(); recompute(); saveDebounced(); }
 // Cost basis (spec §4.6, cost basis), entered as a % of the portfolio's start balance: blank means
 // "not entered" (stored as null), which is different from 0 (a real 0% basis, i.e. 100% unrealized gain).
 // Clamped to 0–100. Only the projection depends on it, so no re-render.
@@ -48,24 +47,12 @@ function onBasisInput(pid,bi,val){
   recomputeDebounced(); saveDebounced();
 }
 function onBeneToggle(path,checked){ setPath(path,checked); recompute(); saveDebounced(); }
-// Fixed fees are entered and stored in plain today's-$ dollars (fee.value). Percent fees are
-// stored as entered.
 function onPortfolioName(pid,bi,val,inputEl){
   setPath(pid+'.brokerage.'+bi+'.name', val);
   // Update the card title in place (a full re-render would drop input focus), then refresh the charts.
   const title=inputEl.closest('.portfolio-card').querySelector('.pf-title');
   if(title) title.textContent=val.trim()||('Portfolio '+(bi+1));
   recomputeDebounced(); saveDebounced();
-}
-function onFeeValue(pid,bi,val){
-  const v=val===''?0:+val;
-  setPath(pid+'.brokerage.'+bi+'.fee.value', v);
-  recomputeDebounced(); saveDebounced();
-}
-function onFeeMode(pid,bi,mode){
-  setPath(pid+'.brokerage.'+bi+'.fee.mode', mode);
-  setPath(pid+'.brokerage.'+bi+'.fee.value', 0); // units change (% vs $), so start fresh
-  renderIncomeForms(); recompute(); saveDebounced();
 }
 function addBrokerage(i){
   if(!Array.isArray(state.people[i].brokerage)) state.people[i].brokerage=[];

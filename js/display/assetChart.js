@@ -134,10 +134,7 @@ function buildAssetChartFor(cfg){
           if(paid>0) lines.push(mrow('      Annual growth (net of expenses paid)', (e.netGrowthPct||0).toFixed(1)+'%', W));
           lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
           if(showDetails){
-            if(e.expense){
-              lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
-              lines.push(mrow('      IRMAA surcharge', fmt(e.irmaaDrag||0), W));
-            }
+            if(e.aum) lines.push(mrow('      AUM fee charged on this balance', fmt(e.feeDrag||0), W));
             lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
           }
           // Cost basis / unrealized gain (spec §4.6) — Show details only. A step-up (owner passed, portfolio
@@ -208,7 +205,7 @@ function buildAssetChart(){
     key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', noteId:'assetChartNote',
     yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
     emptyMsg:'Add a non-IDGT brokerage portfolio, or enable a pre-tax IRA/401(k) or Roth IRA, to see this chart.',
-    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate, in today's dollars. Household expenses (living expenses, fee drag, IRMAA) are paid from household income first, then portfolio dividends, then asset sales, so a brokerage band is only drawn down by the dividends used and shares sold. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass. An IRA with its "IRA stretch" box checked is not dropped when its owner passes; the band continues, held by heirs, until ${STRETCH_YEARS} years after the last passing, still compounding at its growth rate with no withdrawals or RMDs modeled and no tax on heirs; only those IRA bands are stacked in those years (brokerage bands end at the last passing). A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
+    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate, in today's dollars. Household expenses (living expenses, IRMAA surcharge, AUM fee, income tax) are paid from household income first, then the dividends, then the asset sales of the portfolios with Pay expenses checked, so a brokerage band is only drawn down by the dividends used and shares sold. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass. An IRA with its "IRA stretch" box checked is not dropped when its owner passes; the band continues, held by heirs, until ${STRETCH_YEARS} years after the last passing, still compounding at its growth rate with no withdrawals or RMDs modeled and no tax on heirs; only those IRA bands are stacked in those years (brokerage bands end at the last passing). A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 function buildIdgtChart(){
@@ -216,7 +213,7 @@ function buildIdgtChart(){
     key:'idgt', idgt:true, cardId:'idgtCard', canvasId:'idgtChart', legendId:'idgtLegend', noteId:'idgtChartNote',
     yTitle:"IDGT value (today's $)", totalLabel:'Total IDGT value',
     emptyMsg:'',
-    note:`Each band is one brokerage portfolio flagged as an IDGT, compounding at its own configured growth rate, in today's dollars, drawn down only by its own fee/IRMAA expenses (paid from its own dividends, then its own sales — an IDGT never pays household living expenses and its expenses are never paid from household income). Dividend income from IDGT portfolios is still included in household income and tax. A band drops to zero once its owner passes, unless "Continues to spouse" is checked. Y-axis locked — use Rescale if the stack runs off the top.`
+    note:`Each band is one brokerage portfolio flagged as an IDGT, compounding at its own configured growth rate, in today's dollars, drawn down only if its Pay expenses box is checked, in which case its dividends, then its sales, help pay household expenses (living costs, IRMAA, AUM fee, income tax) like any other portfolio. Dividend income from IDGT portfolios is still included in household income and tax. A band drops to zero once its owner passes, unless "Continues to spouse" is checked. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 

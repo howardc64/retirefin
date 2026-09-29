@@ -75,12 +75,9 @@
           },
           "yield": 1.1,
           "qdivPct": 70,
-          "expense": true,
+          "aum": false,
+          "payExp": true,
           "basisPct": 50,
-          "fee": {
-            "mode": "pct",
-            "value": 0
-          },
           "ar": {
             "startMode": "now",
             "startVal": 0,
@@ -89,7 +86,6 @@
           },
           "bene": true,
           "idgt": false,
-          "irmaa": false,
           "foreignPct": 33,
           "ftcPct": 0.25
         },
@@ -105,12 +101,9 @@
           },
           "yield": 1.5,
           "qdivPct": 70,
-          "expense": false,
+          "aum": false,
+          "payExp": false,
           "basisPct": 50,
-          "fee": {
-            "mode": "pct",
-            "value": 0
-          },
           "ar": {
             "startMode": "now",
             "startVal": 0,
@@ -119,7 +112,6 @@
           },
           "bene": true,
           "idgt": true,
-          "irmaa": false,
           "foreignPct": 33,
           "ftcPct": 0.25
         }
@@ -140,7 +132,8 @@
         },
         "bene": true,
         "conv": 100000,
-        "stretch": true
+        "stretch": true,
+        "aum": false
       },
       "roth": {
         "enabled": true,
@@ -151,7 +144,8 @@
           "value": 3
         },
         "bene": true,
-        "stretch": true
+        "stretch": true,
+        "aum": false
       }
     },
     {
@@ -231,7 +225,8 @@
         },
         "bene": false,
         "conv": 0,
-        "stretch": false
+        "stretch": false,
+        "aum": false
       },
       "roth": {
         "enabled": false,
@@ -242,7 +237,8 @@
           "value": 3
         },
         "bene": false,
-        "stretch": false
+        "stretch": false,
+        "aum": false
       }
     }
   ],
@@ -252,6 +248,10 @@
   },
   "living": 100000,
   "scgl": 200000,
+  "aumFee": {
+    "mode": "pct",
+    "value": 0
+  },
   "futureTax": {
     "enabled": false,
     "niitStartYear": 2036,

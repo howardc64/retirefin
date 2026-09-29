@@ -3,7 +3,8 @@
 // INPUT / ASSUMPTIONS — speculative future tax-threshold scenario
 // (spec §4.5). Inflation and passing-age sliders live in household.js
 // since they're part of the same Assumptions panel; SCGL is a single
-// plain field wired directly in the HTML via onNumberInput.
+// plain field wired directly in the HTML via onNumberInput. The AUM fee (below SCGL) is a
+// mode select + value, rendered by renderAumFee().
 // ═══════════════════════════════════════════════════════════════
 // Spec §4.5: a speculative, off-by-default "future tax threshold change" scenario. Currently only
 // covers the NIIT exemption threshold (start year + today's-$ threshold per filing status); Social
@@ -34,4 +35,20 @@ function onFutureTaxToggle(checked){
   renderFutureTaxPanel();
   recompute();
   saveDebounced();
+}
+
+// AUM fee (household, Assumptions panel, below SCGL): charged on the AUM balance = the sum of the balances of every
+// portfolio whose AUM box is checked. Mode '% AUM balance' (value = percent) or 'Fixed $ / yr' (today's $).
+function renderAumFee(){
+  const f=state.aumFee||{mode:'pct',value:0}, fixed=f.mode==='fixed';
+  const sel=document.getElementById('aumFeeMode'), inp=document.getElementById('aumFeeValue');
+  if(!sel||!inp) return;
+  sel.value=fixed?'fixed':'pct';
+  inp.step=fixed?100:0.05;
+  inp.value=f.value!=null?f.value:0;
+}
+function onAumFeeMode(mode){
+  setPath('aumFee.mode', mode);
+  setPath('aumFee.value', 0);   // units change (% vs $), so start fresh
+  renderAumFee(); recompute(); saveDebounced();
 }

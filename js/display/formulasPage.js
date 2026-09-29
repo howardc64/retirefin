@@ -195,7 +195,7 @@ ${fpEq(
   `SCGL<sub>remaining</sub> = max( 0, SCGL<sub>available</sub> − LTCG )`
 )}
 
-<p><strong>Foreign Tax Credit (FTC).</strong> For each brokerage portfolio — always active, independent of that portfolio's Expenses toggle or IDGT flag:</p>
+<p><strong>Foreign Tax Credit (FTC).</strong> For each brokerage portfolio — always active, independent of that portfolio's AUM box or IDGT flag:</p>
 ${fpEq(`FTC = portfolio balance × foreign asset % × foreign tax credit %`)}
 <p>It is summed across every portfolio and subtracted from the ordinary + qualified tax total (floored at $0) — a nonrefundable credit against regular tax, not against NIIT.</p>
 
@@ -216,9 +216,9 @@ ${fpEq(
 )}
 
 <p><strong>Household expense funding waterfall.</strong> The household's expenses are:</p>
-${fpEq(`Expenses = living expenses + fees + IRMAA surcharge + income tax`)}
-${fpWhere('Living expenses is a flat today\'s-dollar amount. Fees and the IRMAA surcharge count only for portfolios whose Expenses toggle is on (IRMAA only where its box is also checked). Income tax (tax drag) is the year\'s Total Tax, always a household expense. An IDGT is outside the household: it never pays living expenses or income tax, only its own fee/IRMAA.')}
-<p>They are paid in this order: (1) household income (wages, Social Security, pension, rental, IRA RMDs); (2) portfolio dividends (ODIV), shared pro rata to each portfolio\'s dividends, with any dividend not needed reinvested; (3) selling portfolio assets, shared pro rata to balance, for what is left.</p>
+${fpEq(`Expenses = living expenses + IRMAA surcharge + AUM fee + income tax`)}
+${fpWhere('Living expenses is a flat today\'s-dollar amount. The IRMAA surcharge and income tax (tax drag, the year\'s Total Tax) are always household expenses. The AUM fee is charged on the portfolios whose AUM box is checked (below); the whole AUM fee is a household expense like the rest, so it is paid only by the portfolios with <em>Pay expenses</em> checked.')}
+<p>They are paid in this order: (1) household income (wages, Social Security, pension, rental, IRA RMDs); (2) the dividends (ODIV) of the portfolios with <em>Pay expenses</em> checked, shared pro rata, with any dividend not needed reinvested; (3) selling those portfolios\' assets, shared pro rata to balance, for what is left. A portfolio without <em>Pay expenses</em> (the default) contributes neither dividends nor sales to household expenses and reinvests all its dividends. An IDGT follows the same rule.</p>
 ${fpEq(
   `Paid by income = min( Expenses, household income )`,
   `Paid by dividends = min( ΣODIV, Expenses − Paid by income )`,
@@ -237,7 +237,7 @@ ${fpEq(
 <p><strong>Tax ↔ LTCG circularity.</strong> Income tax is an expense, so selling shares to pay it realizes more LTCG, which raises the tax. The model solves this by fixed-point iteration each year: start from last year's tax, run the waterfall, recompute the tax, and repeat until the tax moves by less than half a cent (at most 30 rounds; typically 6–8):</p>
 ${fpEq(
   `T<sub>0</sub> = prior-year Total Tax`,
-  `T<sub>n+1</sub> = Tax( LTCG( Waterfall( living + fees + IRMAA + T<sub>n</sub> ) ) )`,
+  `T<sub>n+1</sub> = Tax( LTCG( Waterfall( living + IRMAA + AUM fee + T<sub>n</sub> ) ) )`,
   `stop when |T<sub>n+1</sub> − T<sub>n</sub>| &lt; $0.005`
 )}
 <p>Each extra dollar of tax creates well under a dollar of new tax (only the gain share of a sale is LTCG, taxed at no more than about 24% with NIIT), so the map is a contraction and always converges. The Suspended Capital-Gain Loss (SCGL) pool is drawn down once, after the iteration settles.</p>
@@ -246,17 +246,24 @@ ${fpEq(
 ${fpEq(`basis<sub>next</sub> = ${fpFr('basis − Sold × (1 − <em>f</em>) + Reinvested','1 + inflation')}`)}
 <p>Sales remove basis in proportion to cost share, reinvested dividends add basis, and basis erodes with inflation because it is a fixed nominal amount. When the owner passes and the portfolio continues to a surviving spouse, a non-IDGT portfolio's basis steps up to its value (gain becomes $0); an IDGT keeps its original basis. The balance itself is unaffected, since growth is total return. The asset charts report the unrealized gain remaining at the end of the plan.</p>
 
-<p><strong>IRMAA as an expense</strong> (optional, per portfolio):</p>
+<p><strong>AUM fee.</strong> The AUM balance is the sum of the start-of-year balances of every enabled, funded brokerage portfolio inside its age range whose AUM box is checked, plus every pre-tax IRA and Roth IRA whose AUM box is checked (while held by the household — not while held by heirs under IRA stretch). The fee is a percentage of it, or a fixed dollar amount:</p>
+${fpEq(
+  `AUM balance = Σ balance<sub>i</sub> &ensp;(AUM box checked; portfolios, pre-tax IRAs, Roth IRAs)`,
+  `AUM fee = AUM balance × fee %&emsp;or&emsp;Fixed $ ÷ (1 + inflation)<sup>k</sup>`,
+  `share<sub>i</sub> = AUM fee × ${fpFr('balance<sub>i</sub>','AUM balance')}`
+)}
+<p>A fixed fee is entered in today\'s dollars for year 0 and held flat in nominal terms, so it shrinks in today\'s dollars as inflation compounds. The fee is split across the AUM accounts pro rata to balance, but it is one household expense: it is paid through the waterfall above, by the portfolios with <em>Pay expenses</em> checked — not by the account it is charged on unless that account also pays expenses.</p>
+
+<p><strong>IRMAA as an expense</strong> (always a household expense):</p>
 ${fpEq(`IRMAA<sub>household</sub> = surcharge( tier reached by prior-year AGI ) × N<sub>65+</sub>`)}
 ${fpWhere('N<sub>65+</sub> is the number of living people age 65 or older, and the tier uses this year\'s filing status. Year 0 is $0.')}
-<p>The prior-year AGI avoids a circularity (this year's AGI depends on LTCG, which depends on asset sales, which fund this surcharge) and mirrors IRMAA's look-back. The tier table is indexed, so it is used in today's dollars as-is. If several portfolios have the box checked, the surcharge is charged once, split pro rata to their balances. It is paid through the same income → dividends → sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</p>
+<p>The prior-year AGI avoids a circularity (this year's AGI depends on LTCG, which depends on asset sales, which fund this surcharge) and mirrors IRMAA's look-back. The tier table is indexed, so it is used in today's dollars as-is. It is charged once per household and paid through the same income → dividends → sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</p>
 
 <p><strong>Annual balance change.</strong></p>
 ${fpEq(
-  `Δ balance = growth − ( dividends used + shares sold )`,
-  `fee drag = fee % × balance&emsp;or&emsp;fixed $ per year`
+  `Δ balance = growth − ( dividends used + shares sold )`
 )}
-<p>Household income pays expenses first, so a portfolio is only drawn down when income falls short. A fixed fee is held flat in nominal terms, so it shrinks in today's-dollar terms as inflation compounds. A portfolio outside its age range just compounds: it pays no dividends and is not sold.</p>
+<p>Household income pays expenses first, so a portfolio is only drawn down when income falls short. A portfolio outside its age range just compounds: it pays no dividends and is not sold.</p>
 
 <h3>Today's-Dollar Convention</h3>
 <p>Every figure in this app — inputs, intermediate values, and every chart — is expressed in today's dollars. An "Annual change" of <em>Fixed $ (no growth)</em> (worded <em>Fixed $ (no COLA)</em> on the Pension card) actually erodes in real terms by the inflation rate each year; <em>Tracks inflation</em> means 0% real growth; <em>Inflation ± X%</em> and <em>Custom annual %</em> both express a real (today's-dollar) growth rate directly.</p>

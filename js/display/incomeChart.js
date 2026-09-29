@@ -117,6 +117,8 @@ function buildIncomeChart(){
         if(r.expTotal>0){
           lines.push(mrow('Household expenses',fmt(r.expTotal)+'/yr'));
           lines.push(mrow('  incl. income tax',fmt(r.expTax)+'/yr'));
+          if(r.expIrmaa>0) lines.push(mrow('  incl. IRMAA surcharge',fmt(r.expIrmaa)+'/yr'));
+          if(r.expAum>0) lines.push(mrow('  incl. AUM fee',fmt(r.expAum)+'/yr'));
           lines.push(mrow('  paid by household income',fmt(r.expFromIncome)+'/yr'));
           lines.push(mrow('  paid by dividends',fmt(r.expFromDiv)+'/yr'));
           lines.push(mrow('  paid by asset sales',fmt(r.expFromSales)+'/yr'));

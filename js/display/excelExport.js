@@ -45,9 +45,12 @@ function xlsxColumns(proj){
     {head:'SCGL remaining (today\'s $)', get:r=>r.scglRemaining},
     {head:'LTCG, net of SCGL (taxed)', get:r=>r.ltcg},
     {head:'Foreign tax credit', get:r=>r.foreignTaxCredit},
-    {head:'Household IRMAA surcharge', get:r=>r.irmaaSurcharge||0},
+    {head:'Household IRMAA surcharge (expense)', get:r=>r.irmaaSurcharge||0},
+    {head:'AUM balance (start of year)', get:r=>r.aumBalance||0},
+    {head:'  of which IRAs (pre-tax + Roth)', get:r=>r.aumBalanceIra||0},
+    {head:'AUM fee, total charged', get:r=>r.aumFee||0},
     {head:'Living expenses', get:r=>r.expLiving||0},
-    {head:'Portfolio fees + IRMAA (non-IDGT)', get:r=>r.expPortfolio||0},
+    {head:'AUM fee paid by household (non-IDGT)', get:r=>r.expAum||0},
     {head:'Income tax paid as expense (tax drag)', get:r=>r.expTax||0},
     {head:'Total household expenses', get:r=>r.expTotal||0},
     {head:'Household cash income (wage+SS+pension+rental+RMD)', get:r=>r.cashIncome||0},
@@ -102,11 +105,11 @@ function xlsxSheetName(base, used){
 
 function xlsxPortfolioSheet(proj, i, bi){
   const person=displayPersonName(proj.people[i], i);
-  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','Fee drag','IRMAA surcharge','Realized LTCG','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Dividends used for expenses','Dividends reinvested','Shares sold']];
+  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','AUM fee share','Realized LTCG','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Dividends used for expenses','Dividends reinvested','Shares sold']];
   proj.rows.forEach(r=>{
     const e=r.portfoliosByPerson[i][bi]; if(!e) return;
     rows.push([THIS_YEAR+r.k, round1(r.ages[i]), e.balance, round1(e.growthPct), round1(e.netGrowthPct!=null?e.netGrowthPct:e.growthPct),
-      e.feeDrag, e.irmaaDrag||0, e.ltcg,
+      e.feeDrag, e.ltcg,
       e.tracked?e.basis:'', e.tracked?e.unrealizedGain:'', e.steppedUp?'Yes':'',
       e.divUsed, e.divReinvested, e.sold]);
   });

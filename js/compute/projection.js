@@ -61,7 +61,7 @@ function computeProjection(){
   // pre-tax IRA and into this person's Roth IRA each year the pre-tax IRA still has a balance
   // — independent of the RMD/withdrawal age window — as long as the Roth IRA below is enabled;
   // the converted amount is added to ordinary income for tax purposes (§9.4, computed below).
-  const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({}));
+  const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({})), iraAum=people.map(()=>({})), rothAum=people.map(()=>({}));
   people.forEach((p,i)=>{
     if(!p.ira.enabled) return;
     let bal=Number(p.ira.balance)||0;
@@ -75,6 +75,9 @@ function computeProjection(){
       const otherIdx=1-i;
       const spouseAge=(married&&people.length===2)?curAges[otherIdx]+k:Infinity;
       const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
+      // AUM box: the start-of-year balance counts toward the household AUM balance while the account is held by the
+      // household (owner alive, or inherited by a living spouse) — not while held by heirs under the stretch option.
+      if(p.ira.aum && (ownerAlive || (p.ira.bene&&spouseAlive))) iraAum[i][k]=bal;
 
       // While the owner is alive, use the owner's RMD schedule and the
       // owner's configured end age.  Once the owner passes, an IRA marked
@@ -141,6 +144,7 @@ function computeProjection(){
       const spouseAge=(married&&people.length===2)?curAges[otherIdx]+k:Infinity;
       const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
 
+      if(p.roth.aum && (ownerAlive || (p.roth.bene&&spouseAlive))) rothAum[i][k]=bal;   // start-of-year, as for the pre-tax IRA
       if(!ownerAlive){
         if(!(p.roth.bene&&spouseAlive)){
           // Same "IRA stretch" rule as the pre-tax IRA above: held by heirs and still compounding.
@@ -184,13 +188,13 @@ function computeProjection(){
 
   // ── Brokerage portfolio balances (today's $) ──
   // Balances are simulated year by year. Change per year = growth − (dividends used for expenses + shares sold).
-  // ALL expenses — the household living expenses (state.living), each non-IDGT portfolio's fee drag and its
-  // share of the IRMAA surcharge — are pooled and funded in this order (spec §4.6, expense funding):
+  // ALL expenses — the household living expenses (state.living), the household IRMAA surcharge, the AUM fee on the
+  // AUM-checked portfolios and IRAs, and the year's income tax — are pooled and funded in this order (spec §4.6):
   //   (1) household income (wages, Social Security, pension, rental, IRA RMDs), then
   //   (2) portfolio dividends (ODIV) — any dividend not needed is reinvested (adds cost basis), then
   //   (3) portfolio asset sales for whatever is left, which realize LTCG from the tracked cost basis.
-  // An IDGT is outside the household, so it never funds living expenses; its own fee/IRMAA are paid from
-  // its own dividends, then its own sales.
+  // Only portfolios with "Pay expenses" checked (IDGT or not) supply dividends and asset sales to that pool; no portfolio pays
+  // any expense on its own account, so the AUM fee is paid by the pay-expenses portfolios, not by the portfolio it is charged on.
   // Cost basis is tracked in today's $ alongside every portfolio's balance: `basis` starts at the entered cost
   // basis % × start balance (blank = no unrealized gain today, i.e. basis = balance), clamped to [0, balance].
   // `stepped` marks that the owner-death step-up has been considered; `steppedNow` flags the year it applied.
@@ -199,26 +203,6 @@ function computeProjection(){
     const bas0=tracked?clamp(pfBasisEntered(b)?bal0*Number(b.basisPct)/100:bal0, 0, bal0):0;
     return {bal:bal0, dead:false, tracked, basis:bas0, stepped:false, steppedNow:false};
   }));
-
-  // One portfolio-year of portfolio-specific charges (spec §4.6): fee drag and (if that portfolio's
-  // "Include IRMAA" box is checked) its share of the household IRMAA surcharge, `irmaaAmt` — each capped at
-  // what the portfolio can still pay, in that order. Only when the portfolio's Expenses toggle is on.
-  // These are inputs to the household expense pool below; they are not paid by the portfolio itself
-  // unless household income and dividends fall short.
-  function pfFeeIrmaa(b, bal, k, irmaaAmt){
-    const g=realGrowth(b.growth,inflation);
-    const feeMode=b.fee&&b.fee.mode==='fixed'?'fixed':'pct';
-    const feeVal=Math.max(0,Number(b.fee&&b.fee.value)||0);
-    const feePct=feeMode==='pct'?feeVal/100:0;
-    // A fixed fee is a flat nominal amount (entered in today's $ for year 0), so in today's-dollar
-    // terms it shrinks each year with inflation.
-    const feeFixed=feeMode==='fixed'?feeVal/Math.pow(1+inflation,k):0;
-    const avail=Math.max(0,bal*(1+g));
-    const exp=pfExpense(b);   // fees and IRMAA only apply when Expenses is checked
-    const feeD=exp?Math.min(bal*feePct+feeFixed, avail):0;
-    const irmaaD=(exp&&b.irmaa)?Math.min(Math.max(0,Number(irmaaAmt)||0), avail-feeD):0;
-    return {g, avail, exp, feeD, irmaaD};
-  }
 
   // ── Suspended Capital-Gain Loss (SCGL) carryforward, spec §4.5/§8.3 ──
   // A household-level pool (today's $) that shields realized LTCG from tax, dollar-for-dollar,
@@ -293,7 +277,7 @@ function computeProjection(){
       // spouse continuation therefore keeps the same projected portfolio.
       const odiv=Math.max(0,bal*(Number(portfolio.yield)||0)/100);
       const qdiv=odiv*clamp(Number(portfolio.qdivPct)||0,0,100)/100;
-      // Foreign tax credit (spec §4.4, §9.4): always active, independent of the Expenses toggle
+      // Foreign tax credit (spec §4.4, §9.4): always active, independent of the AUM box
       // and the IDGT flag. Subtracted from the household's Total Tax, not added to income.
       const ftc = bal*clamp(Number(portfolio.foreignPct)||0,0,100)/100*clamp(Number(portfolio.ftcPct)||0,0,100)/100;
       return {odiv,qdiv,ftc,active:true};
@@ -318,8 +302,6 @@ function computeProjection(){
     // Dividends / foreign tax credit per portfolio (independent of expenses).
     const pfVals=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>brokerageValues(b,i,k,pfBalNow[i][bi])));
 
-    // A portfolio takes part in expenses (fee drag / IRMAA share) only when it is enabled, funded and its Expenses toggle is on.
-    const pfHasExp=(b,bal)=>!!b&&!!b.enabled&&bal>0&&pfExpense(b);
     // Household IRMAA surcharge for this year (today's $; the tier tables are indexed, so they aren't deflated):
     // the tier reached by the PRIOR year's AGI (a one-year lag: this year's AGI depends on this
     // year's LTCG, which depends on asset sales, which fund this surcharge — so using it would be circular;
@@ -330,14 +312,22 @@ function computeProjection(){
     const irmaaFiling = married && alive[0] && alive[1] ? 'married' : 'single';
     const irmaaTier = (irmaaFiling==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>priorAGI>=t.magi);
     const irmaaSurcharge = irmaaTier ? irmaaTier.surch*irmaaEnrolled : 0;
-    // Split the household surcharge across the portfolios whose IRMAA box is checked (and that are enabled,
-    // inside their age range, funded and have Expenses on), pro rata to balance, so it is charged once no matter how many are checked.
-    const irmaaBase=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>(b&&b.irmaa&&pfVals[i][bi].active&&pfHasExp(b,pfBalNow[i][bi]))?pfBalNow[i][bi]:0));
-    const irmaaBaseSum=irmaaBase.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
-    const irmaaShare=irmaaBase.map(row=>row.map(v=>irmaaBaseSum>0?irmaaSurcharge*v/irmaaBaseSum:0));
+    // The IRMAA surcharge is always a household expense (no per-portfolio opt-in); it is paid by the pool below.
+    // AUM fee (spec §4.6): a household assumption (`state.aumFee`) charged on the AUM balance = the start-of-year
+    // balances of every portfolio whose AUM box is checked (and that is enabled, inside its age range and funded).
+    // '% AUM balance' × that sum, or a fixed $/yr (entered in today's $ for year 0, flat nominal, so it shrinks with inflation).
+    // The charge is split across the checked accounts pro rata to balance (for display); the whole fee is a household expense
+    // paid by the pool below — i.e. only by portfolios with "Pay expenses" checked.
+    const aumMode=(state.aumFee&&state.aumFee.mode==='fixed')?'fixed':'pct';
+    const aumVal=Math.max(0,Number(state.aumFee&&state.aumFee.value)||0);
+    const aumBase=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>(b&&b.aum&&pfVals[i][bi].active&&!pfState[i][bi].dead&&pfBalNow[i][bi]>0)?pfBalNow[i][bi]:0));
+    // IRAs (pre-tax and Roth) with their AUM box checked add their start-of-year balances to the AUM balance.
+    const aumBalanceIra=people.reduce((a,p,i)=>a+(iraAum[i][k]||0)+(rothAum[i][k]||0),0);
+    const aumBalance=aumBase.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0)+aumBalanceIra;
+    const aumFee=aumBalance>0?(aumMode==='pct'?aumBalance*aumVal/100:aumVal/Math.pow(1+inflation,k)):0;
     // ── Household expense funding waterfall (spec §4.6) ──
-    // Expenses = household living expenses (today's $, flat in real terms) + each non-IDGT portfolio's fee drag
-    // and IRMAA share + THIS YEAR'S INCOME TAX (tax drag is an expense). Funded by, in order: (1) household
+    // Expenses = household living expenses (today's $, flat in real terms) + the household IRMAA surcharge + the
+    // AUM fee + THIS YEAR'S INCOME TAX (tax drag is an expense). Funded by, in order: (1) household
     // income, (2) portfolio dividends (leftovers are reinvested), (3) portfolio asset sales (each sale realizes
     // LTCG = amount sold × the portfolio's unrealized-gain fraction).
     // Circularity: tax ← LTCG ← asset sales ← expenses ← tax. It is resolved by fixed-point iteration (see the
@@ -348,24 +338,19 @@ function computeProjection(){
     const cashIncome = sumArr(wageByPerson)+totalSS+pension+rental+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
     // Per-portfolio working entries. Only live, funded portfolios have one.
     const pfx=people.map(()=>[]);
-    const poolPf=[];   // non-IDGT portfolios inside their age range — the sources for household expenses
+    const poolPf=[];   // portfolios inside their age range with "Pay expenses" checked — the only sources for household expenses
     people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
       const st=pfState[i][bi], bal=pfBalNow[i][bi];
       if(st.dead||!(bal>0)) return;
       const v=pfVals[i][bi];
-      const o=v.active?pfFeeIrmaa(b,bal,k,irmaaShare[i][bi]):{g:realGrowth(b.growth,inflation),avail:Math.max(0,bal*(1+realGrowth(b.growth,inflation))),feeD:0,irmaaD:0};
-      const x={active:v.active, idgt:!!b.idgt, bal, g:o.g, avail:o.avail, feeD:o.feeD, irmaaD:o.irmaaD, odiv:v.odiv,
+      const g=realGrowth(b.growth,inflation), avail=Math.max(0,bal*(1+g));
+      const feeShare=aumBalance>0?aumFee*aumBase[i][bi]/aumBalance:0;   // this portfolio's share of the AUM fee
+      const feeD=feeShare;   // informational: the AUM fee charged on this balance (paid by the pool, not by this portfolio)
+      const x={active:v.active, idgt:!!b.idgt, payExp:!!b.payExp, feeShare, bal, g, avail, feeD, odiv:v.odiv,
                f:st.tracked?pfGainFraction(bal,st.basis):0, divUsed:0, sold:0, ltcg:0};
       pfx[i][bi]=x;
-      if(x.active && !x.idgt) poolPf.push(x);
-      if(x.active && x.idgt){
-        // IDGT: outside the household — pays only its own fee/IRMAA, from its own dividends then its own sales.
-        // (Income tax is a household expense, so an IDGT never pays it.) Fixed for the year — not part of the iteration.
-        const need=x.feeD+x.irmaaD;
-        x.divUsed=Math.min(x.odiv,need);
-        x.sold=Math.min(need-x.divUsed, Math.max(0,x.avail-x.divUsed));
-        x.ltcg=x.sold*x.f;
-      }
+      // Only portfolios with "Pay expenses" checked contribute dividends and asset sales to household expenses.
+      if(x.active && x.payExp) poolPf.push(x);
     }));
 
     // Dividends / foreign tax credit per person — independent of the waterfall and of LTCG.
@@ -405,12 +390,14 @@ function computeProjection(){
     const ordTI = Math.max(0, ordIncome-std);
     const ordTax = calcOrdTax(ordTI, ordBrk);
     const expLiving=Math.max(0,Number(state.living)||0);
-    const expPortfolio=poolPf.reduce((a,x)=>a+x.feeD+x.irmaaD,0);
+    const expIrmaa=irmaaSurcharge;
+    // The whole AUM fee is a household expense (paid by the pay-expenses portfolios via the waterfall).
+    const expAum=aumFee;
 
     // One pass of the funding waterfall for a given income-tax expense `taxExp`. Resets and refills every pool
-    // portfolio's divUsed / sold / ltcg (IDGT entries are fixed above), and returns the funding split.
+    // portfolio's divUsed / sold / ltcg and returns the funding split.
     function runWaterfall(taxExp){
-      const expTotal=expLiving+expPortfolio+taxExp;
+      const expTotal=expLiving+expIrmaa+expAum+taxExp;
       poolPf.forEach(x=>{ x.divUsed=0; x.sold=0; x.ltcg=0; });
       const expFromIncome=Math.min(expTotal,cashIncome);
       let expNeed=expTotal-expFromIncome;
@@ -456,7 +443,7 @@ function computeProjection(){
     }
 
     // ── Tax ↔ LTCG fixed-point iteration ──
-    // T_{n+1} = Tax( LTCG( Waterfall( living + fees + IRMAA + T_n ) ) ). More tax → more expenses → more shares
+    // T_{n+1} = Tax( LTCG( Waterfall( living + IRMAA + AUM fee + T_n ) ) ). More tax → more expenses → more shares
     // sold → more LTCG → more tax, but each extra tax dollar creates well under a dollar of new tax (LTCG is
     // taxed at ≤ ~24% including NIIT, and only the gain share of a sale is LTCG), so the map is a contraction:
     // the error shrinks ~4× per round and a few rounds settle it to the cent. Warm-started from last year's tax.
@@ -483,7 +470,7 @@ function computeProjection(){
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
       const st=pfState[i][bi], bal=pfBalNow[i][bi], tracked=!!st.tracked&&bal>0;
       return {
-        id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, expense:pfExpense(b), feeDrag:0, irmaaDrag:0, ltcg:0,
+        id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, aum:!!b.aum, payExp:!!b.payExp, feeDrag:0, ltcg:0,
         // Cost-basis tracking (spec §4.6, cost basis) — start-of-year values, after any step-up this year.
         tracked, basis:tracked?st.basis:null, unrealizedGain:tracked?Math.max(0,bal-st.basis):null, steppedUp:tracked&&!!st.steppedNow,
         divUsed:0, divReinvested:0, sold:0   // expense waterfall (filled in the roll-forward below): dividends used, dividends reinvested, shares sold
@@ -506,7 +493,7 @@ function computeProjection(){
       const reinvested=Math.max(0,x.odiv-x.divUsed);
       if(st.tracked) st.basis=clamp((st.basis-x.sold*(1-x.f)+reinvested)/(1+inflation), 0, st.bal);
       const entry=portfoliosByPerson[i][bi];
-      entry.feeDrag=x.feeD; entry.irmaaDrag=x.irmaaD; entry.growthPct=x.g*100;
+      entry.feeDrag=x.feeD; entry.growthPct=x.g*100;
       entry.divUsed=x.divUsed; entry.divReinvested=reinvested; entry.sold=x.sold;
       entry.ltcg=x.ltcg;   // the exact (pre-SCGL) gain realized and taxed this year
       // Net growth after expenses paid from this portfolio (dividends used + shares sold) — actual balance change.
@@ -526,7 +513,7 @@ function computeProjection(){
       sst, marginalRate,
       niiIncome, niit,
       irmaaSurcharge,
-      expLiving, expPortfolio, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, cashIncome, taxIters, taxConverged,
+      expLiving, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, cashIncome, taxIters, taxConverged,
       totalTax, agi
     });
   }
