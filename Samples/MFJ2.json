@@ -68,14 +68,14 @@
           "enabled": true,
           "hidden": false,
           "name": "Joe Jill Portfolio",
-          "balance": 2000000,
+          "balance": 3000000,
           "growth": {
             "mode": "custom",
             "value": 7
           },
           "yield": 1.1,
           "qdivPct": 70,
-          "aum": false,
+          "aum": true,
           "payExp": true,
           "basisPct": 50,
           "ar": {
@@ -101,7 +101,7 @@
           },
           "yield": 1.5,
           "qdivPct": 70,
-          "aum": false,
+          "aum": true,
           "payExp": false,
           "basisPct": 50,
           "ar": {
@@ -133,7 +133,7 @@
         "bene": true,
         "conv": 100000,
         "stretch": true,
-        "aum": false
+        "aum": true
       },
       "roth": {
         "enabled": true,
@@ -145,7 +145,7 @@
         },
         "bene": true,
         "stretch": true,
-        "aum": false
+        "aum": true
       }
     },
     {
@@ -250,10 +250,10 @@
   "scgl": 200000,
   "aumFee": {
     "mode": "pct",
-    "value": 0
+    "value": 1
   },
   "futureTax": {
-    "enabled": false,
+    "enabled": true,
     "niitStartYear": 2036,
     "niitSingle": 200000,
     "niitMarried": 250000

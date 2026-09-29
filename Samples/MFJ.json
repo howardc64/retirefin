@@ -4,8 +4,8 @@
   "people": [
     {
       "id": "p1",
-      "name": "Joe",
-      "birthYear": 1961,
+      "name": "John",
+      "birthYear": 1965,
       "birthMonth": 7,
       "wage": {
         "enabled": false,
@@ -33,7 +33,7 @@
       "pension": {
         "enabled": true,
         "hidden": false,
-        "amount": 0,
+        "amount": 24000,
         "ar": {
           "startMode": "now",
           "startVal": 0,
@@ -41,7 +41,7 @@
           "endVal": 0
         },
         "change": {
-          "mode": "inflation",
+          "mode": "fixed",
           "value": 0
         },
         "bene": false
@@ -67,17 +67,20 @@
           "id": "hp21oac",
           "enabled": true,
           "hidden": false,
-          "name": "Joe Jill Portfolio",
-          "balance": 3000000,
+          "name": "John Jane Portfolio",
+          "balance": 400000,
           "growth": {
             "mode": "custom",
-            "value": 7
+            "value": 8
           },
           "yield": 1.1,
           "qdivPct": 70,
-          "aum": true,
-          "payExp": true,
+          "expense": true,
           "basisPct": 50,
+          "fee": {
+            "mode": "pct",
+            "value": 0
+          },
           "ar": {
             "startMode": "now",
             "startVal": 0,
@@ -86,32 +89,7 @@
           },
           "bene": true,
           "idgt": false,
-          "foreignPct": 33,
-          "ftcPct": 0.25
-        },
-        {
-          "id": "1h7dxyo",
-          "enabled": true,
-          "hidden": false,
-          "name": "Kids IDGT",
-          "balance": 2000000,
-          "growth": {
-            "mode": "custom",
-            "value": 8
-          },
-          "yield": 1.5,
-          "qdivPct": 70,
-          "aum": true,
-          "payExp": false,
-          "basisPct": 50,
-          "ar": {
-            "startMode": "now",
-            "startVal": 0,
-            "endMode": "passing",
-            "endVal": 0
-          },
-          "bene": true,
-          "idgt": true,
+          "irmaa": false,
           "foreignPct": 33,
           "ftcPct": 0.25
         }
@@ -119,7 +97,7 @@
       "ira": {
         "enabled": true,
         "hidden": false,
-        "balance": 1000000,
+        "balance": 400000,
         "growth": {
           "mode": "offset",
           "value": 3
@@ -131,9 +109,8 @@
           "endVal": 0
         },
         "bene": true,
-        "conv": 100000,
-        "stretch": true,
-        "aum": true
+        "conv": 20000,
+        "stretch": true
       },
       "roth": {
         "enabled": true,
@@ -144,19 +121,18 @@
           "value": 3
         },
         "bene": true,
-        "stretch": true,
-        "aum": true
+        "stretch": true
       }
     },
     {
       "id": "p2",
-      "name": "Jill",
-      "birthYear": 1966,
+      "name": "Jane",
+      "birthYear": 1969,
       "birthMonth": 1,
       "wage": {
-        "enabled": false,
-        "hidden": true,
-        "amount": 0,
+        "enabled": true,
+        "hidden": false,
+        "amount": 50000,
         "ar": {
           "startMode": "now",
           "startVal": 0,
@@ -225,8 +201,7 @@
         },
         "bene": false,
         "conv": 0,
-        "stretch": false,
-        "aum": false
+        "stretch": false
       },
       "roth": {
         "enabled": false,
@@ -237,21 +212,16 @@
           "value": 3
         },
         "bene": false,
-        "stretch": false,
-        "aum": false
+        "stretch": false
       }
     }
   ],
   "passing": {
-    "p1": 86,
+    "p1": 89,
     "p2": 92
   },
-  "living": 100000,
-  "scgl": 200000,
-  "aumFee": {
-    "mode": "pct",
-    "value": 1
-  },
+  "living": 90000,
+  "scgl": 0,
   "futureTax": {
     "enabled": false,
     "niitStartYear": 2036,
