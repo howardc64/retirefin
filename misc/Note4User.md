@@ -6,6 +6,7 @@
 * **No Tax Exempts:** Not Implemented
 * **No Annuities:** Not Implemented
 * **Excel Export Rudimentary:** Currently just table of #s output by the app. Plan to include cell calculation based on formulas. Waiting until app matures as formula based spreadsheet require AI/LLM to work much longer to build the application 2x (once each for HTML and EXCEL followed by correlation check and testing)
+* **No AUM with Multiple Portfolios:** Not Implemented. Require ability to group portfolios balance + AUM fee %
 
 ---
 
