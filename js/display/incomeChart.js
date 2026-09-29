@@ -113,6 +113,15 @@ function buildIncomeChart(){
       if(showDetails){
         lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
         lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
+        // Household expense funding (income → dividends → asset sales), when there are any expenses.
+        if(r.expTotal>0){
+          lines.push(mrow('Household expenses',fmt(r.expTotal)+'/yr'));
+          lines.push(mrow('  incl. income tax',fmt(r.expTax)+'/yr'));
+          lines.push(mrow('  paid by household income',fmt(r.expFromIncome)+'/yr'));
+          lines.push(mrow('  paid by dividends',fmt(r.expFromDiv)+'/yr'));
+          lines.push(mrow('  paid by asset sales',fmt(r.expFromSales)+'/yr'));
+          if(r.expUnfunded>1) lines.push(mrow('  unfunded shortfall',fmt(r.expUnfunded)+'/yr'));
+        }
       }
       r.iraBalByPerson.forEach((bal,i)=>{ if(bal>1)lines.push(mrow(displayPersonName(proj.people[i],i)+" IRA bal.", fmt(bal))); });
       const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>r.agi>=t.magi);

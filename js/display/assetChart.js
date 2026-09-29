@@ -65,7 +65,14 @@ function buildAssetChartFor(cfg){
   const ages=allRows.map(r=>r.age0);
   const rowByAge={}; allRows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
   const seriesValues=series.map(s=>allRows.map(r=>{
-    if(r.stretchYear && s.type==='portfolio') return null;
+    // In stretch years, only IRAs whose "IRA stretch" box is checked (and still hold a balance) have a value;
+    // everything else is null (not 0) so it draws no band, no line, and no sliver in the transition.
+    if(r.stretchYear){
+      if(s.type==='portfolio') return null;
+      const acct=proj.people[s.personIdx][s.type];   // person.ira / person.roth
+      const v=(s.type==='ira'?r.iraBalByPerson:r.rothBalByPerson)[s.personIdx]||0;
+      return (acct&&acct.stretch&&v>0)?v:null;
+    }
     if(s.type==='ira') return (r.iraBalByPerson&&r.iraBalByPerson[s.personIdx])||0;
     if(s.type==='roth') return (r.rothBalByPerson&&r.rothBalByPerson[s.personIdx])||0;
     const person=r.portfoliosByPerson[s.personIdx];
@@ -89,9 +96,15 @@ function buildAssetChartFor(cfg){
     const personName=displayPersonName(proj.people[s.personIdx], s.personIdx);
     return proj.married ? `${personName} — ${s.name}` : s.name;
   };
+  // Index of the last real projection year on the axis. The segment from it to the first stretch year is
+  // not drawn (line or fill): otherwise a stretched band would interpolate diagonally across the jump from
+  // "everything" to "stretched IRAs only", smearing the other series' colors through that one-year gap.
+  const cliffIdx = stretch.length ? labels.indexOf(Math.round(rows[rows.length-1].age0)) : -1;
+  const skipCliff = ctx => ctx.p0DataIndex===cliffIdx;
   const datasets=series.map((s,si)=>{
     const color=ASSET_COLORS[si%ASSET_COLORS.length];
     return {
+      segment:{ borderColor:ctx=>skipCliff(ctx)?'transparent':undefined, backgroundColor:ctx=>skipCliff(ctx)?'transparent':undefined },
       label:seriesLabel(s,si), data:aligned[si],
       borderColor:color, backgroundColor:color+'bb',
       borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'pf'
@@ -107,7 +120,7 @@ function buildAssetChartFor(cfg){
       if(r.stretchYear) lines.push(mrow('IRAs held by heirs', 'year '+r.stretchYear+' of '+STRETCH_YEARS+' after last passing'));
       return lines;
     },
-    // Per portfolio: value, then the tax drag and fee drag applied that year (all today's $).
+    // Per portfolio: value, net growth after the expenses paid from it, and (Show details) the expense-funding breakdown.
     label:ctx=>{
       if(ctx.raw==null||ctx.raw<1) return null;
       const W=46, lines=[mrow('  '+ctx.dataset.label, fmt(ctx.raw), W)];
@@ -115,38 +128,24 @@ function buildAssetChartFor(cfg){
       if(s && s.type==='portfolio' && r){
         const e=(r.portfoliosByPerson[s.personIdx]||[])[s.bi];
         if(e){
-          if(!cfg.idgt){
-            // Main (non-IDGT) chart, spec §10: value; if Expenses is checked, net-of-expenses
-            // growth % (and, only when Show details is on, the expense breakdown behind it); then gross growth %.
+          // Net-of-expenses growth % (the actual balance change once dividends used and shares sold come out)
+          // is shown whenever the portfolio paid anything that year, then gross growth %.
+          const paid=(e.divUsed||0)+(e.sold||0);
+          if(paid>0) lines.push(mrow('      Annual growth (net of expenses paid)', (e.netGrowthPct||0).toFixed(1)+'%', W));
+          lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
+          if(showDetails){
             if(e.expense){
-              if(showDetails){
-                lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
-                lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
-                lines.push(mrow('      IRMAA surcharge', fmt(e.irmaaDrag||0), W));
-                lines.push(mrow('      Withdrawal', fmt(e.livingCost||0), W));
-                lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
-              }
-              lines.push(mrow('      Annual growth (net of expenses)', (e.netGrowthPct||0).toFixed(1)+'%', W));
-            }
-            lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
-          } else {
-            // IDGT chart, spec §10: value, annual growth %; tax drag/fee drag are shown only when Show details is on,
-            // and withdrawal isn't part of this popup at all.
-            lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
-            if(showDetails){
-              lines.push(mrow('      Tax drag', fmt(e.taxDrag||0), W));
               lines.push(mrow('      Fee drag', fmt(e.feeDrag||0), W));
               lines.push(mrow('      IRMAA surcharge', fmt(e.irmaaDrag||0), W));
             }
+            lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
           }
-          // Cost basis / unrealized gain (spec §4.6, cost basis) — Show details only, both charts, only for
-          // portfolios with basis tracked. A step-up (owner passed, portfolio continues to spouse,
-          // non-IDGT) is flagged in the year it happens.
+          // Cost basis / unrealized gain (spec §4.6) — Show details only. A step-up (owner passed, portfolio
+          // continues to spouse, non-IDGT) is flagged in the year it happens.
           if(showDetails && e.tracked){
             const gainPct=e.balance>0?e.unrealizedGain/e.balance*100:0;
-            // Expense waterfall: this portfolio's own dividends pay the year's expenses first (leftovers
-            // are reinvested), and only a shortfall is sold (which is what realizes gain). Household
-            // income never pays a portfolio's expenses.
+            // Household expenses are paid by household income first (not shown per portfolio), then this portfolio's
+            // dividends (leftovers are reinvested), then shares sold — which is what realizes gain.
             lines.push(mrow('      Dividends used for expenses', fmt(e.divUsed||0), W));
             lines.push(mrow('      Dividends reinvested', fmt(e.divReinvested||0), W));
             lines.push(mrow('      Sold to cover shortfall', fmt(e.sold||0), W));
@@ -209,7 +208,7 @@ function buildAssetChart(){
     key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', noteId:'assetChartNote',
     yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
     emptyMsg:'Add a non-IDGT brokerage portfolio, or enable a pre-tax IRA/401(k) or Roth IRA, to see this chart.',
-    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag, and its own dividends/sales pay its expenses), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass. An IRA with its "IRA stretch" box checked is not dropped when its owner passes; the band continues, held by heirs, until ${STRETCH_YEARS} years after the last passing, still compounding at its growth rate with no withdrawals or RMDs modeled and no tax on heirs; only those IRA bands are stacked in those years (brokerage bands end at the last passing). A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
+    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate, in today's dollars. Household expenses (living expenses, fee drag, IRMAA) are paid from household income first, then portfolio dividends, then asset sales, so a brokerage band is only drawn down by the dividends used and shares sold. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass. An IRA with its "IRA stretch" box checked is not dropped when its owner passes; the band continues, held by heirs, until ${STRETCH_YEARS} years after the last passing, still compounding at its growth rate with no withdrawals or RMDs modeled and no tax on heirs; only those IRA bands are stacked in those years (brokerage bands end at the last passing). A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 function buildIdgtChart(){
@@ -217,7 +216,7 @@ function buildIdgtChart(){
     key:'idgt', idgt:true, cardId:'idgtCard', canvasId:'idgtChart', legendId:'idgtLegend', noteId:'idgtChartNote',
     yTitle:"IDGT value (today's $)", totalLabel:'Total IDGT value',
     emptyMsg:'',
-    note:`Each band is one brokerage portfolio flagged as an IDGT, compounding at its own configured growth rate less tax drag and fee drag (an IDGT's expenses are never paid from household income), in today's dollars. Dividend income from IDGT portfolios is still included in household income and tax. A band drops to zero once its owner passes, unless "Continues to spouse" is checked. Y-axis locked — use Rescale if the stack runs off the top.`
+    note:`Each band is one brokerage portfolio flagged as an IDGT, compounding at its own configured growth rate, in today's dollars, drawn down only by its own fee/IRMAA expenses (paid from its own dividends, then its own sales — an IDGT never pays household living expenses and its expenses are never paid from household income). Dividend income from IDGT portfolios is still included in household income and tax. A band drops to zero once its owner passes, unless "Continues to spouse" is checked. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 

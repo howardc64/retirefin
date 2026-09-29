@@ -23,31 +23,28 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
 }
 // Brokerage portfolio (spec 4.3): value, age range, annual growth (default inflation + 4%),
 // survivor benefit, ODIV yield (default 1.5%), QDIV share of ODIV (default 70%),
-// tax drag (% of the household's annual total tax, TT, paid out of this portfolio),
 // fee drag (% of balance, or a fixed today's-$ amount per year), and an IDGT flag.
-// Annual asset value change = growth - tax drag - fee drag.
-// "Expenses" checkbox (spec 4.4): when on, a portfolio also has tax drag, fee drag, a withdrawal
-// and realized LTCG. Older saved files without the flag count as on if they had drag/fees.
+// "Expenses" checkbox (spec 4.4): when on, a portfolio has fee drag and can carry the IRMAA surcharge. Those
+// (with the household living expenses, state.living) are funded by household income first, then portfolio
+// dividends, then asset sales (which realize LTCG). Older saved files without the flag count as on if they had fees.
 function pfExpense(b){
   if(!b) return false;
   if(b.expense!==undefined) return !!b.expense;
-  return (Number(b.taxDrag)||0)>0 || (Number(b.fee&&b.fee.value)||0)>0;
+  return (Number(b.fee&&b.fee.value)||0)>0;
 }
-// Cost-basis / unrealized-gain tracking (spec §4.6, cost basis). A portfolio is tracked when the user
-// entered a cost basis (`basisPct` is a number; null/blank = none entered) or when its Expenses panel is on
-// (realized LTCG is always automatic there: expenses are paid only by the portfolio's own dividends,
-// and only a shortfall is sold and realizes gain — so it needs a basis, and a blank one is treated as no
-// unrealized gain today).
+// Cost-basis / unrealized-gain tracking (spec §4.6, cost basis). Every portfolio is tracked: household expenses
+// can force asset sales from any portfolio, and realized LTCG is always automatic (sale × unrealized-gain share),
+// so every portfolio needs a basis. A blank cost basis (`basisPct` null) is treated as no unrealized gain today.
 // `basisPct` is the cost basis as a % of the portfolio's start balance (0–100); it replaced the older
 // dollar-valued `basis` field (older saves are converted in hydrateState).
 function pfBasisEntered(b){ return !!b && b.basisPct!=null && b.basisPct!=='' && Number.isFinite(Number(b.basisPct)); }
-function pfTracksBasis(b){ return pfBasisEntered(b) || pfExpense(b); }
+function pfTracksBasis(b){ return !!b; }
 function defaultBrokeragePortfolio(balance, n){
   // `name` starts blank rather than a pre-filled "Brokerage Portfolio N" — the input's placeholder
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,basisPct:null,taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,irmaa:false,foreignPct:0,ftcPct:0.25};
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,basisPct:null,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,irmaa:false,foreignPct:0,ftcPct:0.25};
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
@@ -71,6 +68,7 @@ function defaultState(){
     inflation:0.03,
     people:[defaultPerson(0), defaultPerson(1)],
     passing:{p1:85,p2:90},
+    living:0,   // household living expenses per year, today's $ (funded income → dividends → asset sales)
     scgl:0,
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ}
   };
@@ -107,6 +105,11 @@ function hydrateState(loaded){
     return out;
   }
   const out=merge(loaded, base);
+  // Older saves had a per-portfolio "Withdrawal" (`living`) and "tax drag %" — both are gone. Carry the
+  // withdrawals over as the household living expenses so an old plan keeps roughly the same spending.
+  if(loaded && loaded.living===undefined && Array.isArray(loaded.people)){
+    out.living=loaded.people.reduce((t,p)=>t+((p&&Array.isArray(p.brokerage))?p.brokerage.reduce((u,b)=>u+(Number(b&&b.enabled!==false&&b.living)||0),0):0),0);
+  }
   if(Array.isArray(out.people)) out.people.forEach(p=>{
     if(!Array.isArray(p.brokerage)) p.brokerage=[];
     // Fill any missing fields (older saves) from a default portfolio, then drop untouched blank

@@ -76,9 +76,7 @@
           "yield": 1.1,
           "qdivPct": 70,
           "expense": true,
-          "living": 20000,
           "basisPct": 50,
-          "taxDrag": 100,
           "fee": {
             "mode": "pct",
             "value": 0
@@ -108,9 +106,7 @@
           "yield": 1.5,
           "qdivPct": 70,
           "expense": false,
-          "living": 0,
           "basisPct": 50,
-          "taxDrag": 0,
           "fee": {
             "mode": "pct",
             "value": 0
@@ -254,7 +250,8 @@
     "p1": 86,
     "p2": 92
   },
-  "scgl": 0,
+  "living": 100000,
+  "scgl": 200000,
   "futureTax": {
     "enabled": false,
     "niitStartYear": 2036,

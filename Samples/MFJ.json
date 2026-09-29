@@ -76,9 +76,7 @@
           "yield": 1.1,
           "qdivPct": 70,
           "expense": true,
-          "living": 20000,
           "basisPct": 50,
-          "taxDrag": 0,
           "fee": {
             "mode": "pct",
             "value": 0
@@ -222,6 +220,7 @@
     "p1": 89,
     "p2": 92
   },
+  "living": 90000,
   "scgl": 0,
   "futureTax": {
     "enabled": false,

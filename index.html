@@ -240,6 +240,11 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
   </div>
   <div id="passingSliders"></div>
   <div class="field full" style="margin-top:14px">
+    <label>Living expenses (household, $/yr, today's $)</label>
+    <input type="number" class="money" id="livingInput" min="0" step="1000" value="0" oninput="onNumberInput('living', this.value)">
+  </div>
+  <div class="item-note">Annual household spending, held flat in today's dollars. Each year it is paid, in this order, from (1) household income (wages, Social Security, pension, rental, IRA RMDs), then (2) brokerage portfolio dividends (any dividends not needed are reinvested), then (3) selling portfolio assets — each sale realizes long-term capital gain (LTCG) in proportion to the portfolio's unrealized gain (see each portfolio's cost basis). Income tax (tax drag) is also paid this way, so selling shares to cover it can realize more LTCG — the model iterates until the tax and the sales agree. Portfolio fees and the IRMAA surcharge, when a portfolio's Expenses box is on, are paid the same way. IDGT portfolios are outside the household and never pay living expenses.</div>
+  <div class="field full" style="margin-top:14px">
     <label>Suspended Capital-Gain Loss carryforward (SCGL, today's $)</label>
     <input type="number" class="money" id="scglInput" min="0" step="1000" value="0" oninput="onNumberInput('scgl', this.value)">
   </div>
@@ -325,7 +330,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 
 <!-- ═══ ASSET VALUE ═══ -->
 <div class="sec-head">Asset Value</div>
-<div class="sec-sub">Brokerage portfolios (excluding IDGTs), pre-tax IRA/401(k) balances, and Roth IRA balances, stacked by holder, in today's dollars. Each asset compounds at its configured growth rate (brokerage/pre-tax IRA also net of tax drag and fee drag), and drops out once its owner has passed (unless marked to continue to, or inherited by, the spouse). Portfolios flagged as an IDGT appear in their own chart below.</div>
+<div class="sec-sub">Brokerage portfolios (excluding IDGTs), pre-tax IRA/401(k) balances, and Roth IRA balances, stacked by holder, in today's dollars. Each asset compounds at its configured growth rate (a brokerage portfolio is also drawn down by the dividends used and shares sold to pay household expenses, after household income), and drops out once its owner has passed (unless marked to continue to, or inherited by, the spouse). An IRA with its <em>IRA stretch</em> box checked instead stays until 10 years after the last passing. Portfolios flagged as an IDGT appear in their own chart below.</div>
 <div class="cc">
   <div class="cc-head"><div class="ct">Asset value by holder · brokerage (excl. IDGT) + pre-tax IRA + Roth IRA · today's dollars</div>
     <button class="rescale-btn" onclick="rescaleChart('asset')">↕ Rescale</button></div>

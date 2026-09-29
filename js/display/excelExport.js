@@ -46,6 +46,15 @@ function xlsxColumns(proj){
     {head:'LTCG, net of SCGL (taxed)', get:r=>r.ltcg},
     {head:'Foreign tax credit', get:r=>r.foreignTaxCredit},
     {head:'Household IRMAA surcharge', get:r=>r.irmaaSurcharge||0},
+    {head:'Living expenses', get:r=>r.expLiving||0},
+    {head:'Portfolio fees + IRMAA (non-IDGT)', get:r=>r.expPortfolio||0},
+    {head:'Income tax paid as expense (tax drag)', get:r=>r.expTax||0},
+    {head:'Total household expenses', get:r=>r.expTotal||0},
+    {head:'Household cash income (wage+SS+pension+rental+RMD)', get:r=>r.cashIncome||0},
+    {head:'Expenses paid by household income', get:r=>r.expFromIncome||0},
+    {head:'Expenses paid by dividends', get:r=>r.expFromDiv||0},
+    {head:'Expenses paid by asset sales', get:r=>r.expFromSales||0},
+    {head:'Expenses unfunded', get:r=>r.expUnfunded||0},
     ...per('iraBalByPerson','Pre-tax IRA balance (EOY)'),
     ...per('rothBalByPerson','Roth IRA balance (EOY)'),
     {head:'Brokerage balance, non-IDGT (SOY)', get:r=>sumPortfolios(r,false,'balance')},
@@ -93,11 +102,11 @@ function xlsxSheetName(base, used){
 
 function xlsxPortfolioSheet(proj, i, bi){
   const person=displayPersonName(proj.people[i], i);
-  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','Tax drag','Fee drag','IRMAA surcharge','Withdrawal','Realized LTCG','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Dividends used','Dividends reinvested','Shares sold']];
+  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','Fee drag','IRMAA surcharge','Realized LTCG','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Dividends used for expenses','Dividends reinvested','Shares sold']];
   proj.rows.forEach(r=>{
     const e=r.portfoliosByPerson[i][bi]; if(!e) return;
     rows.push([THIS_YEAR+r.k, round1(r.ages[i]), e.balance, round1(e.growthPct), round1(e.netGrowthPct!=null?e.netGrowthPct:e.growthPct),
-      e.taxDrag, e.feeDrag, e.irmaaDrag||0, e.livingCost, e.ltcg,
+      e.feeDrag, e.irmaaDrag||0, e.ltcg,
       e.tracked?e.basis:'', e.tracked?e.unrealizedGain:'', e.steppedUp?'Yes':'',
       e.divUsed, e.divReinvested, e.sold]);
   });

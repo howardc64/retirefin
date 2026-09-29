@@ -215,41 +215,48 @@ ${fpEq(
   `QDIV = ODIV × QDIV % of ODIV`
 )}
 
-<p><strong>Portfolio expenses waterfall</strong> (when Expenses is on). A portfolio's expenses are:</p>
-${fpEq(`Expenses = withdrawal + fees + tax drag + IRMAA surcharge`)}
-${fpWhere('The IRMAA surcharge counts only if that portfolio\'s IRMAA box is checked.')}
-<p>They are paid ONLY from that portfolio's own money — never from household income — in this order: (1) that portfolio's own dividends (ODIV), with any leftover reinvested; (2) selling shares for any shortfall. Each portfolio's dividends pay only its own expenses.</p>
+<p><strong>Household expense funding waterfall.</strong> The household's expenses are:</p>
+${fpEq(`Expenses = living expenses + fees + IRMAA surcharge + income tax`)}
+${fpWhere('Living expenses is a flat today\'s-dollar amount. Fees and the IRMAA surcharge count only for portfolios whose Expenses toggle is on (IRMAA only where its box is also checked). Income tax (tax drag) is the year\'s Total Tax, always a household expense. An IDGT is outside the household: it never pays living expenses or income tax, only its own fee/IRMAA.')}
+<p>They are paid in this order: (1) household income (wages, Social Security, pension, rental, IRA RMDs); (2) portfolio dividends (ODIV), shared pro rata to each portfolio\'s dividends, with any dividend not needed reinvested; (3) selling portfolio assets, shared pro rata to balance, for what is left.</p>
 ${fpEq(
-  `Shortfall = max( 0, Expenses − ODIV )`,
-  `Reinvested = max( 0, ODIV − Expenses )`
+  `Paid by income = min( Expenses, household income )`,
+  `Paid by dividends = min( ΣODIV, Expenses − Paid by income )`,
+  `Shortfall = Expenses − Paid by income − Paid by dividends`,
+  `Reinvested = max( 0, ODIV − dividends used )`
 )}
 
 <p><strong>Starting cost basis.</strong> The cost basis is entered as a percentage of the portfolio's start balance; a blank basis is treated as no unrealized gain today (100%):</p>
 ${fpEq(`basis<sub>0</sub> = basis % × start balance`)}
 
-<p><strong>Realized LTCG</strong> (automatic, when Expenses is on). Selling the shortfall realizes the portfolio's unrealized-gain share:</p>
+<p><strong>Realized LTCG</strong> (automatic, for every portfolio). Selling shares to cover the shortfall realizes the portfolio's unrealized-gain share:</p>
 ${fpEq(
   `gain fraction <em>f</em> = max( 0,&ensp;${fpFr('value − basis','value')} )`,
-  `LTCG = Shortfall × <em>f</em>`
+  `LTCG = Sold × <em>f</em>`
 )}
-<p>Tax drag in this estimate uses the <em>prior year's</em> total tax (TT), so this year's LTCG doesn't circularly depend on this year's own TT.</p>
+<p><strong>Tax ↔ LTCG circularity.</strong> Income tax is an expense, so selling shares to pay it realizes more LTCG, which raises the tax. The model solves this by fixed-point iteration each year: start from last year's tax, run the waterfall, recompute the tax, and repeat until the tax moves by less than half a cent (at most 30 rounds; typically 6–8):</p>
+${fpEq(
+  `T<sub>0</sub> = prior-year Total Tax`,
+  `T<sub>n+1</sub> = Tax( LTCG( Waterfall( living + fees + IRMAA + T<sub>n</sub> ) ) )`,
+  `stop when |T<sub>n+1</sub> − T<sub>n</sub>| &lt; $0.005`
+)}
+<p>Each extra dollar of tax creates well under a dollar of new tax (only the gain share of a sale is LTCG, taxed at no more than about 24% with NIIT), so the map is a contraction and always converges. The Suspended Capital-Gain Loss (SCGL) pool is drawn down once, after the iteration settles.</p>
 
 <p><strong>Cost basis roll-forward.</strong> Each year:</p>
-${fpEq(`basis<sub>next</sub> = ${fpFr('basis − Shortfall × (1 − <em>f</em>) + Reinvested','1 + inflation')}`)}
+${fpEq(`basis<sub>next</sub> = ${fpFr('basis − Sold × (1 − <em>f</em>) + Reinvested','1 + inflation')}`)}
 <p>Sales remove basis in proportion to cost share, reinvested dividends add basis, and basis erodes with inflation because it is a fixed nominal amount. When the owner passes and the portfolio continues to a surviving spouse, a non-IDGT portfolio's basis steps up to its value (gain becomes $0); an IDGT keeps its original basis. The balance itself is unaffected, since growth is total return. The asset charts report the unrealized gain remaining at the end of the plan.</p>
 
 <p><strong>IRMAA as an expense</strong> (optional, per portfolio):</p>
 ${fpEq(`IRMAA<sub>household</sub> = surcharge( tier reached by prior-year AGI ) × N<sub>65+</sub>`)}
 ${fpWhere('N<sub>65+</sub> is the number of living people age 65 or older, and the tier uses this year\'s filing status. Year 0 is $0.')}
-<p>The prior-year AGI avoids a circularity (this year's AGI depends on LTCG, which depends on expenses) and mirrors IRMAA's look-back. The tier table is indexed, so it is used in today's dollars as-is. If several portfolios have the box checked, the surcharge is charged once, split pro rata to their balances. It is paid through the same dividends-then-sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</p>
+<p>The prior-year AGI avoids a circularity (this year's AGI depends on LTCG, which depends on asset sales, which fund this surcharge) and mirrors IRMAA's look-back. The tier table is indexed, so it is used in today's dollars as-is. If several portfolios have the box checked, the surcharge is charged once, split pro rata to their balances. It is paid through the same income → dividends → sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</p>
 
 <p><strong>Annual balance change.</strong></p>
 ${fpEq(
-  `Δ balance = growth − ( tax drag + fee drag + IRMAA + withdrawal )`,
-  `tax drag = tax drag % × TT`,
+  `Δ balance = growth − ( dividends used + shares sold )`,
   `fee drag = fee % × balance&emsp;or&emsp;fixed $ per year`
 )}
-<p>The change is paid only from that portfolio's own dividends and share sales (tax drag / fee drag / IRMAA / withdrawal / LTCG only apply when that portfolio's Expenses toggle is on). Tax drag is this portfolio's configured % of the household's Total Tax; a fixed fee is held flat in nominal terms, so it shrinks in today's-dollar terms as inflation compounds.</p>
+<p>Household income pays expenses first, so a portfolio is only drawn down when income falls short. A fixed fee is held flat in nominal terms, so it shrinks in today's-dollar terms as inflation compounds. A portfolio outside its age range just compounds: it pays no dividends and is not sold.</p>
 
 <h3>Today's-Dollar Convention</h3>
 <p>Every figure in this app — inputs, intermediate values, and every chart — is expressed in today's dollars. An "Annual change" of <em>Fixed $ (no growth)</em> (worded <em>Fixed $ (no COLA)</em> on the Pension card) actually erodes in real terms by the inflation rate each year; <em>Tracks inflation</em> means 0% real growth; <em>Inflation ± X%</em> and <em>Custom annual %</em> both express a real (today's-dollar) growth rate directly.</p>
