@@ -537,11 +537,15 @@ needs no code change — the next click shows the new text.
 ### 6.11 `excelExport.js`
 `exportToExcel()` — the **📊 Export to Excel** button (topbar, right of **Notes**) downloads the current
 plan's full projection as a `.xlsx` workbook via the SheetJS (`XLSX`) library (loaded from a pinned CDN
-`<script>` tag in `index.html`, same pattern as Chart.js). Two sheets: **Projection by year** — one row
-per projected year, every field in the row schema (§4.6) a chart could plot (income sources, taxes,
-SST/NIIT/IRMAA, AGI, effective/marginal rate, IRA/Roth/brokerage balances) — and **Brokerage portfolios**
-— one row per person × portfolio × year, the cost-basis/expense-waterfall detail (§4.6) that doesn't fit
-a one-row-per-year shape. Read-only: reads `lastProjection` (§7.1), never writes into `state`. If
+`<script>` tag in `index.html`, same pattern as Chart.js). **Projection by year** is always the first sheet —
+one row per projected year, every field in the row schema (§4.6) a chart could plot (income sources, taxes,
+SST/NIIT/IRMAA, AGI, effective/marginal rate, IRA/Roth/brokerage balances). After it, **every enabled account
+gets its own sheet** (one row per year; `xlsxAccountSheets`), in person order: each enabled brokerage portfolio
+(`"<Person> - <Portfolio>"`, plus ` (IDGT)` when flagged — balance, growth %, drags, withdrawal, LTCG, cost
+basis / unrealized gain, expense-waterfall amounts), then that person's **Pre-tax IRA** (RMD, Roth-conversion
+withdraw, EOY balance) and **Roth IRA** (converted in, EOY balance). Disabled accounts are skipped, so the sheet
+count follows the plan. Sheet names are sanitized and de-duplicated by `xlsxSheetName` (≤31 chars, no `[]:*?/\`).
+Read-only: reads `lastProjection` (§7.1), never writes into `state`. If
 `lastProjection` has no rows (no income source enabled) or the `XLSX` library failed to load, shows an
 `alert()` instead of downloading an empty/broken file.
 

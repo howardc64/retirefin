@@ -5,7 +5,7 @@
 * **Simplistic Tax Calculation:** Tax Calculations are general of course. Projection does not calculate complete taxes
 * **No Tax Exempts:** Not Implemented
 * **No Annuities:** Not Implemented
-* **Excel Export Rudimentary:** Currently just table of #s output by the app. Plan to have all portfolios/IRA in separate sheets and cell calculation based on formulas. Waiting until app matures as formula based spreadsheet require AI/LLM to work much longer to build the application 2x (once each for HTML and EXCEL followed by correlation check and testing)
+* **Excel Export Rudimentary:** Currently just table of #s output by the app. Plan to include cell calculation based on formulas. Waiting until app matures as formula based spreadsheet require AI/LLM to work much longer to build the application 2x (once each for HTML and EXCEL followed by correlation check and testing)
 
 ---
 
