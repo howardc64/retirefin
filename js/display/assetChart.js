@@ -96,15 +96,12 @@ function buildAssetChartFor(cfg){
     const personName=displayPersonName(proj.people[s.personIdx], s.personIdx);
     return proj.married ? `${personName} — ${s.name}` : s.name;
   };
-  // Index of the last real projection year on the axis. The segment from it to the first stretch year is
-  // not drawn (line or fill): otherwise a stretched band would interpolate diagonally across the jump from
-  // "everything" to "stretched IRAs only", smearing the other series' colors through that one-year gap.
-  const cliffIdx = stretch.length ? labels.indexOf(Math.round(rows[rows.length-1].age0)) : -1;
-  const skipCliff = ctx => ctx.p0DataIndex===cliffIdx;
+  // No gap at the last passing: a stretched band's line and fill run straight on from the last real year into the
+  // first stretch year. Accounts that don't continue (brokerage, unchecked IRAs) are null in the stretch years, so
+  // they simply end at the last real year and never reach into it.
   const datasets=series.map((s,si)=>{
     const color=ASSET_COLORS[si%ASSET_COLORS.length];
     return {
-      segment:{ borderColor:ctx=>skipCliff(ctx)?'transparent':undefined, backgroundColor:ctx=>skipCliff(ctx)?'transparent':undefined },
       label:seriesLabel(s,si), data:aligned[si],
       borderColor:color, backgroundColor:color+'bb',
       borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'pf'

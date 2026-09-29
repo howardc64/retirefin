@@ -519,7 +519,7 @@ the last projection row, and then `computeProjection()`'s extra `stretch` array 
 taxes are not modeled. The pseudo-rows are deliberately *not* in `rows`, so the income/tax/SS charts and the Excel summary never see
 them. The **main** asset chart (not the IDGT chart) appends them: only stretched IRA bands continue, brokerage bands (null there)
 stop, the x-axis is extended past the shared axis end if needed (the one age-axis chart not locked to `chartMaxAge`), and the
-tooltip adds "IRAs held by heirs — year n of 10". In stretch years an account that isn't stretched is `null` (not 0), so it draws no line or band; and each dataset's `segment` option hides the one segment from the last real year to the first stretch year (line and fill), so stretched bands don't interpolate diagonally across the jump and smear other series' colors through it — the drop reads as a clean cliff. The Excel IRA / Roth sheets append the same years, flagged "After last passing
+tooltip adds "IRAs held by heirs — year n of 10". In stretch years an account that isn't stretched is `null` (not 0), so it draws no line or band; and there is **no gap** at the last passing: a stretched band's line and fill run continuously from the last real year into the first stretch year (the connecting segment is drawn, sloping down over that one year from "everything" to "stretched IRAs only"), while accounts that do not continue end at the last real year. The Excel IRA / Roth sheets append the same years, flagged "After last passing
 (heirs)", only for accounts with the box checked.
 
 **Cost basis (§4.6):** under `show_details` only, portfolios add *Dividends used for expenses*,
