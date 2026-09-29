@@ -122,7 +122,7 @@ BrokeragePortfolio = {
   taxDrag: number,           // % of household Total Tax
   fee: { mode: 'pct'|'fixed', value: number },
   living: number,            // annual withdrawal, today's $
-  basis: number | null,      // cost basis, today's $. null/blank = not entered. Tracked (§4.6) when a number, or when Expenses is on (a blank basis then means no unrealized gain today). Realized LTCG has no input: it is always derived from basis (§4.6). Older saves' `ltcg`/`ltcgMode` are dropped on load
+  basisPct: number | null,   // cost basis as a % of the start balance (0–100). null/blank = not entered. Older saves' dollar `basis` is converted to a % in `hydrateState`. Tracked (§4.6) when a number, or when Expenses is on (a blank basis then means no unrealized gain today). Realized LTCG has no input: it is always derived from basis (§4.6). Older saves' `ltcg`/`ltcgMode` are dropped on load
   irmaa: boolean,            // default false — include the household IRMAA surcharge as an expense (needs `expense`); see §4.6
   foreignPct: number,        // % of portfolio that's foreign assets — always active, ungated
   ftcPct: number             // foreign tax credit %, default 0.25 — always active, ungated
@@ -289,7 +289,7 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 
 **Cost basis & unrealized gain** (per portfolio; only when `pfTracksBasis(b)` — i.e. a basis was entered or Expenses is on;
 otherwise nothing below applies: no LTCG, and dividends simply compound with the balance). Average-cost method, all in today's $:
-- **Start:** `basis` = the entered cost basis, clamped to `[0, balance]`; a blank basis (Expenses on)
+- **Start:** `basis` = `basisPct / 100 × balance` (the entered cost basis %), clamped to `[0, balance]`; a blank basis (Expenses on)
   starts at `basis = balance` (no unrealized gain today). **Gain fraction** `f = max(0, (bal − basis) / bal)`.
 - **Expenses and the payment waterfall:** a portfolio's `expenses = withdrawal + fee + taxDrag + irmaa` (via the shared
   `pfOutflows(b, bal, k, tt, irmaaAmt)` helper, each capped at what the portfolio can pay in the order fee, tax drag, IRMAA, withdrawal; only when Expenses is on; `irmaa` only when that portfolio's `irmaa` box is checked).
@@ -404,7 +404,7 @@ for the whole "Brokerage portfolio income" card.
 | `socialSecurity.js` | Social Security | Already-started flag (else FRA, default 67), PIA, claim-age slider (62–70, default = FRA or started age) |
 | `pension.js` | Pension | `agedItemCard` — amount, age range, change (the fixed option is worded **Fixed $ (no COLA)** here via `renderChangeRow`'s `fixedLabel`; elsewhere **Fixed $ (no growth)**), survivor benefit |
 | `rental.js` | Rental income | `agedItemCard` — same shape as Pension |
-| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, **age range (start/end) directly below the name**, **start balance**, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, shown before and independent of the Expenses toggle and IDGT flag —, IDGT flag, **optional cost basis (today's $; blank = not tracked)** right under the balance, Expenses toggle gating tax drag/fee drag/withdrawal/IRMAA-surcharge checkbox/realized LTCG — LTCG has **no input**: the panel just shows a note that it is automatic (expenses are paid only from the portfolio's own dividends, and only a shortfall is sold and realizes gain from the cost basis) —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
+| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, **age range (start/end) directly below the name**, **start balance**, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, shown before and independent of the Expenses toggle and IDGT flag —, IDGT flag, **optional cost basis (% of start balance, 0–100; blank = not tracked)** right under the balance, Expenses toggle gating tax drag/fee drag/withdrawal/IRMAA-surcharge checkbox/realized LTCG — LTCG has **no input**: the panel just shows a note that it is automatic (expenses are paid only from the portfolio's own dividends, and only a shortfall is sold and realizes gain from the cost basis) —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
 | `ira.js` | Pre-tax IRA / 401(k) | Balance, age range (default start = RMD age), growth (default inflation+3%), survivor benefit, annual Roth conversion amount |
 | `roth.js` | Roth IRA | Balance, growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
 
@@ -412,7 +412,7 @@ for the whole "Brokerage portfolio income" card.
 **Purpose:** orchestrates the person-column(s), calling each §5.4 builder in the same fixed order for
 every person-column, so the two-column grid (married) keeps every income type's row aligned via CSS
 subgrid. Also owns every handler shared by more than one card: SS-started toggle, SS claim-age slider,
-brokerage expense/fee-mode toggles, cost-basis input (`onBasisInput`: blank → `null`, not `0`), survivor-benefit toggle, portfolio name/add/remove.
+brokerage expense/fee-mode toggles, cost-basis % input (`onBasisInput`: blank → `null`, not `0`; clamped to 0–100), survivor-benefit toggle, portfolio name/add/remove.
 
 **Rule:** a handler used by exactly one card lives in that card's own file (§5.4); a handler used by
 two or more cards lives here.
@@ -515,6 +515,9 @@ beneath the charts.
 `window.open` + `document.write`, so it works the same under `file://` as on a hosted page) containing
 a standalone reference document: the acronym glossary, every current reference-data table, and every
 formula described in §4, written out in full for someone to check the app's math against by hand.
+Equations are set as centered **display equations**, one per line, like a math textbook (helpers `fpEq`, `fpFr`
+for stacked fractions, `fpPw` for piecewise definitions, `fpWhere` for a small "where …" caption); prose sentences
+introduce each equation but never carry the math inline.
 
 **Rule — this file must never hardcode a number Compute already owns.** Every reference-data table
 on the page (`fpBracketTable`, `fpIrmaaTable`, `fpRmdTable`) is built at open-time directly from the

@@ -168,12 +168,12 @@ function computeProjection(){
   // so a closed-form (1+g)^k no longer applies. Change per year = growth − tax drag − fee drag − IRMAA (if checked) − withdrawal,
   // paid only from that portfolio's own dividends and share sales (never household income).
   // Cost basis (spec §4.6, cost basis) is tracked in today's $ alongside the balance for portfolios where
-  // pfTracksBasis() is true: `basis` starts at the entered cost basis (blank + 'auto' LTCG = no
+  // pfTracksBasis() is true: `basis` starts at the entered cost basis % × start balance (blank + 'auto' LTCG = no
   // unrealized gain today, i.e. basis = balance), clamped to [0, balance]. `stepped` marks that the
   // owner-death step-up has been considered; `steppedNow` flags the year it actually applied.
   const pfState=people.map(p=>(p.brokerage||[]).map(b=>{
     const bal0=Number(b&&b.balance)||0, tracked=pfTracksBasis(b);
-    const bas0=tracked?clamp(pfBasisEntered(b)?Number(b.basis):bal0, 0, bal0):0;
+    const bas0=tracked?clamp(pfBasisEntered(b)?bal0*Number(b.basisPct)/100:bal0, 0, bal0):0;
     return {bal:bal0, dead:false, tracked, basis:bas0, stepped:false, steppedNow:false};
   }));
 

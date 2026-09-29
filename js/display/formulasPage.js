@@ -44,6 +44,18 @@ function fpRmdTable(){
   return `<table class="fp-rmd"><caption>Age (divisor)</caption><tbody>${rows}</tbody></table>`;
 }
 
+// ── Display-equation helpers ("math book" style) ──────────────────────────────
+// eq(...) renders each argument as its own centered line; fr(n,d) stacks a fraction; pw(rows) renders a
+// piecewise definition (a big left brace, one "value  if condition" row per case). Names are set upright and
+// the operators are spaced, so an equation reads like a textbook display rather than a run of prose.
+function fpFr(n,d){ return `<span class="fp-fr"><span class="fp-n">${n}</span><span class="fp-d">${d}</span></span>`; }
+function fpEq(...lines){ return lines.map(l=>`<div class="fp-eq">${l}</div>`).join(''); }
+function fpPw(lhs, rows){
+  const r = rows.map(([v,c])=>`<tr><td class="fp-pv">${v}</td><td class="fp-pc">${c}</td></tr>`).join('');
+  return `<div class="fp-eq"><span class="fp-lhs">${lhs} =</span><span class="fp-brace"></span><table class="fp-pw"><tbody>${r}</tbody></table></div>`;
+}
+function fpWhere(text){ return `<p class="fp-where">${text}</p>`; }
+
 function buildFormulasHtml(){
   const glossary = [
     ['SS','Social Security'], ['SSA','Social Security Administration'],
@@ -76,6 +88,19 @@ function buildFormulasHtml(){
   code{background:#f2f0ea;padding:1px 5px;border-radius:3px;font-family:'SF Mono',Consolas,monospace;font-size:12.5px;}
   ul{padding-left:20px;} li{margin-bottom:5px;}
   .fp-src{color:#888;font-size:11.5px;}
+  /* display equations */
+  .fp-eq{margin:12px 0;text-align:center;font-family:'STIX Two Text','Cambria Math','Times New Roman',Georgia,serif;font-size:17px;line-height:2.1;overflow-x:auto;}
+  .fp-eq .fp-lhs{margin-right:6px;}
+  .fp-fr{display:inline-block;vertical-align:middle;text-align:center;margin:0 4px;line-height:1.35;}
+  .fp-fr .fp-n{display:block;padding:0 5px 2px;border-bottom:1px solid #1c1c1c;}
+  .fp-fr .fp-d{display:block;padding:2px 5px 0;}
+  .fp-brace{display:inline-block;vertical-align:middle;width:9px;height:4.6em;margin:0 6px 0 2px;border:1.5px solid #1c1c1c;border-right:none;border-radius:9px 0 0 9px;}
+  .fp-pw{display:inline-table;vertical-align:middle;border-collapse:collapse;margin:0;width:auto;font-size:inherit;}
+  .fp-pw td{border:none;padding:0 0 0 0;text-align:left;line-height:1.7;}
+  .fp-pw .fp-pv{padding-right:26px;white-space:nowrap;}
+  .fp-pw .fp-pc{font-size:14.5px;color:#333;white-space:nowrap;}
+  .fp-where{font-size:13px;color:#444;margin:-4px 0 14px;text-align:center;}
+  .fp-item{margin:0 0 4px;}
 </style></head>
 <body>
 <h1>Calculation Reference</h1>
@@ -118,57 +143,113 @@ ${fpRmdTable()}
 <h2>Formulas</h2>
 
 <h3>Social Security</h3>
-<ul>
-  <li><strong>Full Retirement Age (FRA)</strong> by birth year: 65 for 1937 or earlier, rising 2 months per year through 66 (1943–1954), then rising again 2 months per year to 67 (1960 or later).</li>
-  <li><strong>Own-benefit claiming factor:</strong> claiming before FRA reduces PIA by 5/9% per month for the first 36 months early, then 5/12% per month beyond that. Claiming after FRA (up to age 70) adds 8% per year of delay.</li>
-  <li><strong>Spousal-benefit claiming factor:</strong> the spousal benefit (up to 50% of the other spouse's PIA) uses a different early-claim rate: 25/36% per month for the first 36 months early, then 5/12% per month beyond — with no delayed-retirement credit past FRA. Each spouse receives the higher of their own benefit or this spousal amount (SSSBR).</li>
-  <li><strong>Survivor benefit:</strong> when one spouse dies, the survivor's benefit becomes the larger of their own benefit or the deceased's benefit.</li>
-</ul>
+<p><strong>Full Retirement Age (FRA)</strong> by birth year: 65 for 1937 or earlier, rising 2 months per year through 66 (1943–1954), then rising again 2 months per year to 67 (1960 or later).</p>
+
+<p><strong>Own-benefit claiming factor.</strong> Claiming <em>m</em> months before FRA reduces PIA by 5/9% per month for the first 36 months early, then 5/12% per month beyond that:</p>
+${fpEq(`Benefit<sub>early</sub> = PIA × [ 1 − ${fpFr('5','9')}% × min(<em>m</em>, 36) − ${fpFr('5','12')}% × max(0, <em>m</em> − 36) ]`)}
+<p>Claiming after FRA (up to age 70) adds 8% per year of delay:</p>
+${fpEq(`Benefit<sub>delayed</sub> = PIA × [ 1 + 8% × (years past FRA) ]`)}
+
+<p><strong>Spousal-benefit claiming factor.</strong> The spousal benefit (up to 50% of the other spouse's PIA) uses a different early-claim rate — 25/36% per month for the first 36 months early, then 5/12% per month beyond — with no delayed-retirement credit past FRA:</p>
+${fpEq(`Spousal = 50% × PIA<sub>other</sub> × [ 1 − ${fpFr('25','36')}% × min(<em>m</em>, 36) − ${fpFr('5','12')}% × max(0, <em>m</em> − 36) ]`)}
+<p>Each spouse receives the higher of their own benefit or the spousal amount (SSSBR):</p>
+${fpEq(`SS benefit = max( own benefit, Spousal )`)}
+
+<p><strong>Survivor benefit.</strong> When one spouse dies, the survivor's benefit becomes the larger of their own benefit or the deceased's benefit:</p>
+${fpEq(`Survivor benefit = max( own benefit, deceased's benefit )`)}
 
 <h3>Required Minimum Distributions</h3>
-<ul>
-  <li><code>Annual RMD = prior-year IRA balance ÷ Uniform Lifetime Table divisor for the owner's age that year</code></li>
-  <li>RMDs are required starting at age 72, 73, or 75 depending on birth year under current law; an earlier voluntary withdrawal uses the same table with an approximated divisor.</li>
-  <li>After an IRA owner passes, if marked to continue to spouse, the surviving spouse inherits the IRA and continues taking RMDs against their own age.</li>
-  <li><strong>Pre-tax IRA withdraw</strong> (Roth conversion): a separate, real withdrawal on top of the RMD — a flat today's-dollar amount moved into the linked Roth IRA each year the pre-tax IRA still has a balance, taxed exactly like the RMD as ordinary income.</li>
-</ul>
+${fpEq(`RMD = ${fpFr('prior-year IRA balance','Uniform Lifetime Table divisor for the owner\'s age that year')}`)}
+<p>RMDs are required starting at age 72, 73, or 75 depending on birth year under current law; an earlier voluntary withdrawal uses the same table with an approximated divisor. After an IRA owner passes, if marked to continue to spouse, the surviving spouse inherits the IRA and continues taking RMDs against their own age.</p>
+<p><strong>Pre-tax IRA withdraw</strong> (Roth conversion): a separate, real withdrawal on top of the RMD — a flat today's-dollar amount moved into the linked Roth IRA each year the pre-tax IRA still has a balance, taxed exactly like the RMD as ordinary income.</p>
+${fpEq(`Withdraw = min( conversion amount, remaining pre-tax IRA balance )`)}
 
 <h3>Taxable Social Security &amp; Social Security Tax (SST)</h3>
-<ul>
-  <li><code>Provisional Income (PI) = non-SS ordinary income + 50% × total Social Security (TSS)</code></li>
-  <li>Taxable SS is calculated from PI against the statutory thresholds ($25k/$34k single, $32k/$44k married — not indexed for inflation, so deflated here since everything is shown in today's dollars):
-    <ul>
-      <li>Below the first threshold: $0 taxable.</li>
-      <li>Between the two thresholds: up to 50% of the excess over the first threshold (capped at 50% of TSS).</li>
-      <li>Above the second threshold: 85% of the excess over it, plus a fixed base amount, capped at 85% of TSS.</li>
-    </ul>
-  </li>
-  <li><strong>SST</strong> is <em>not</em> the taxable-SS dollar amount — it's the incremental tax that including taxable SS actually generates: <code>SST = actual Total Tax − a hypothetical Total Tax computed as if none of the household's SS were taxable</code> (holding non-SS income, filing status and qualified income fixed).</li>
-  <li><strong>Marginal rate / "torpedo effect":</strong> the true marginal rate on the next dollar of ordinary income is computed by a small numerical derivative (adding $100 of ordinary income and re-running the taxable-SS and tax calculations). Because an extra dollar of income can push more Social Security into taxability — and that newly-taxable SS is itself taxed — this marginal rate can run meaningfully above the statutory bracket rate. This compounding effect is what's meant by the "torpedo effect."</li>
-</ul>
+<p>Provisional income is the non-Social-Security ordinary income plus half of total Social Security (TSS):</p>
+${fpEq(`PI = non-SS ordinary income + 50% × TSS`)}
+<p>Taxable SS is then calculated from PI against the statutory thresholds T<sub>1</sub> and T<sub>2</sub> ($25k / $34k single, $32k / $44k married — not indexed for inflation, so deflated here since everything is shown in today's dollars). For a single filer the base amount is $4,500; for a married couple filing jointly it is $6,000 (deflated the same way):</p>
+${fpPw('Taxable SS',[
+  ['0','PI ≤ T<sub>1</sub>'],
+  ['min( 50% × (PI − T<sub>1</sub>),&ensp;50% × TSS )','T<sub>1</sub> &lt; PI ≤ T<sub>2</sub>'],
+  ['min( base + 85% × (PI − T<sub>2</sub>),&ensp;85% × TSS )','PI &gt; T<sub>2</sub>']
+])}
+<p><strong>SST</strong> is <em>not</em> the taxable-SS dollar amount — it's the incremental tax that including taxable SS actually generates, holding non-SS income, filing status and qualified income fixed:</p>
+${fpEq(`SST = TT<sub>actual</sub> − TT<sub>no SS taxed</sub>`)}
+<p><strong>Marginal rate / "torpedo effect".</strong> The true marginal rate on the next dollar of ordinary income is a small numerical derivative — add $100 of ordinary income, then re-run the taxable-SS and tax calculations:</p>
+${fpEq(`Marginal rate = ${fpFr('Tax(ordinary income + $100) − Tax(ordinary income)','$100')}`)}
+<p>Because an extra dollar of income can push more Social Security into taxability — and that newly-taxable SS is itself taxed — this marginal rate can run meaningfully above the statutory bracket rate. This compounding effect is what's meant by the "torpedo effect."</p>
 
 <h3>Total Tax (TT)</h3>
-<ul>
-  <li><code>Ordinary income = wages + pension + rental + IRA RMD + pre-tax IRA withdraw + (ODIV − QDIV)</code></li>
-  <li><code>AGI = ordinary income + taxable SS + QDIV + LTCG (net of SCGL)</code></li>
-  <li><code>Taxable Income (TI) = AGI − standard deduction</code> (married or single, based on that year's filing status)</li>
-  <li>Ordinary tax on TI via the bracket table above; QDIV/LTCG taxed separately at their own bracket rates, stacked on top of ordinary TI.</li>
-  <li><strong>Suspended Capital-Gain Loss (SCGL):</strong> available SCGL shields realized LTCG dollar-for-dollar, before tax, each year until the pool is exhausted — only the amount left over after that is taxed.</li>
-  <li><strong>Foreign Tax Credit (FTC):</strong> for each brokerage portfolio, always active — independent of that portfolio's Expenses toggle or IDGT flag: <code>FTC = portfolio balance × foreign asset % × foreign tax credit %</code>. Summed across every portfolio and subtracted from the ordinary+qualified tax total above (floored at $0) — a nonrefundable credit against regular tax, not against NIIT.</li>
-  <li><strong>Net Investment Income Tax (NIIT):</strong> 3.8% of the lesser of net investment income (ODIV−QDIV + QDIV + LTCG) or MAGI (~AGI) over the threshold above — calculated on the pre-credit ordinary+qualified tax basis, since the foreign tax credit doesn't offset NIIT.</li>
-  <li><code>Total Tax (TT) = max(0, ordinary tax + qualified tax − foreign tax credit) + NIIT</code></li>
-</ul>
+<p>Income is built up in stages:</p>
+${fpEq(
+  `Ordinary income = wages + pension + rental + IRA RMD + pre-tax IRA withdraw + (ODIV − QDIV)`,
+  `AGI = ordinary income + taxable SS + QDIV + LTCG<sub>net of SCGL</sub>`,
+  `TI = AGI − standard deduction`
+)}
+${fpWhere('The standard deduction is the married or single amount, based on that year\'s filing status.')}
+<p>Ordinary tax on TI comes from the bracket table above; QDIV and LTCG are taxed separately at their own bracket rates, stacked on top of ordinary TI.</p>
+
+<p><strong>Suspended Capital-Gain Loss (SCGL).</strong> Available SCGL shields realized LTCG dollar-for-dollar, before tax, each year until the pool is exhausted — only the amount left over is taxed:</p>
+${fpEq(
+  `LTCG<sub>net</sub> = max( 0, LTCG − SCGL<sub>available</sub> )`,
+  `SCGL<sub>remaining</sub> = max( 0, SCGL<sub>available</sub> − LTCG )`
+)}
+
+<p><strong>Foreign Tax Credit (FTC).</strong> For each brokerage portfolio — always active, independent of that portfolio's Expenses toggle or IDGT flag:</p>
+${fpEq(`FTC = portfolio balance × foreign asset % × foreign tax credit %`)}
+<p>It is summed across every portfolio and subtracted from the ordinary + qualified tax total (floored at $0) — a nonrefundable credit against regular tax, not against NIIT.</p>
+
+<p><strong>Net Investment Income Tax (NIIT).</strong> 3.8% of the lesser of net investment income or MAGI (~AGI) over the threshold above — calculated on the pre-credit ordinary + qualified tax basis, since the foreign tax credit doesn't offset NIIT:</p>
+${fpEq(
+  `NII = (ODIV − QDIV) + QDIV + LTCG`,
+  `NIIT = 3.8% × min( NII,&ensp;max(0, MAGI − threshold) )`
+)}
+
+<p>Putting it together:</p>
+${fpEq(`TT = max( 0,&ensp;ordinary tax + qualified tax − FTC ) + NIIT`)}
 
 <h3>Brokerage Portfolios</h3>
-<ul>
-  <li><code>ODIV (ordinary dividends) = portfolio balance × ODIV yield %</code></li>
-  <li><code>QDIV (qualified dividends) = ODIV × QDIV % of ODIV</code></li>
-  <li><strong>Portfolio expenses waterfall (when Expenses is on):</strong> a portfolio's expenses are <code>withdrawal + fees + tax drag + IRMAA surcharge (if that portfolio's IRMAA box is checked)</code>. They are paid ONLY from that portfolio's own money — never from household income — in this order: (1) that portfolio's own dividends (ODIV), with any leftover reinvested; (2) selling shares for any <code>shortfall = max(0, expenses − ODIV)</code>. Each portfolio's dividends pay only its own expenses.</li>
-  <li><strong>Realized LTCG (automatic, when Expenses is on):</strong> selling the shortfall realizes the portfolio's unrealized-gain share: <code>gain fraction = max(0, (value − basis) ÷ value)</code> and <code>LTCG = shortfall × gain fraction</code>. Tax drag in this estimate uses the <em>prior year's</em> total tax (TT), so this year's LTCG doesn't circularly depend on this year's own TT. Enter a cost basis on the portfolio; a blank basis is treated as no unrealized gain today.</li>
-  <li><strong>Cost basis:</strong> <code>basis = (basis − shortfall × (1 − gain fraction) + reinvested dividends) ÷ (1 + inflation)</code> each year: sales remove basis in proportion to cost share, reinvested dividends add basis, and basis erodes with inflation because it is a fixed nominal amount. When the owner passes and the portfolio continues to a surviving spouse, a non-IDGT portfolio's basis steps up to its value (gain becomes $0); an IDGT keeps its original basis. Each portfolio's dividends pay only its own outflows. The balance itself is unaffected, since growth is total return. The asset charts report the unrealized gain remaining at the end of the plan.</li>
-  <li><strong>IRMAA as an expense (optional, per portfolio):</strong> <code>household IRMAA = surcharge of the IRMAA tier reached by the <em>prior year's</em> AGI (this year's filing status) × number of living people age 65+</code>; year 0 is $0. The prior-year AGI avoids a circularity (this year's AGI depends on LTCG, which depends on expenses) and mirrors IRMAA's look-back. The tier table is indexed, so it is used in today's dollars as-is. If several portfolios have the box checked, the surcharge is charged once, split pro rata to their balances. It is paid through the same dividends-then-sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</li>
-  <li><code>Annual balance change = growth − (tax drag + fee drag + IRMAA + withdrawal)</code>, paid only from that portfolio's own dividends and share sales (tax drag/fee drag/IRMAA/withdrawal/LTCG only apply when that portfolio's Expenses toggle is on). Tax drag is this portfolio's configured % of the household's Total Tax; fee drag is either a % of balance or a fixed today's-dollar amount per year (which shrinks in today's-dollar terms as inflation compounds, since it's held flat in nominal terms).</li>
-</ul>
+<p><strong>Dividends.</strong></p>
+${fpEq(
+  `ODIV = portfolio balance × ODIV yield %`,
+  `QDIV = ODIV × QDIV % of ODIV`
+)}
+
+<p><strong>Portfolio expenses waterfall</strong> (when Expenses is on). A portfolio's expenses are:</p>
+${fpEq(`Expenses = withdrawal + fees + tax drag + IRMAA surcharge`)}
+${fpWhere('The IRMAA surcharge counts only if that portfolio\'s IRMAA box is checked.')}
+<p>They are paid ONLY from that portfolio's own money — never from household income — in this order: (1) that portfolio's own dividends (ODIV), with any leftover reinvested; (2) selling shares for any shortfall. Each portfolio's dividends pay only its own expenses.</p>
+${fpEq(
+  `Shortfall = max( 0, Expenses − ODIV )`,
+  `Reinvested = max( 0, ODIV − Expenses )`
+)}
+
+<p><strong>Starting cost basis.</strong> The cost basis is entered as a percentage of the portfolio's start balance; a blank basis is treated as no unrealized gain today (100%):</p>
+${fpEq(`basis<sub>0</sub> = basis % × start balance`)}
+
+<p><strong>Realized LTCG</strong> (automatic, when Expenses is on). Selling the shortfall realizes the portfolio's unrealized-gain share:</p>
+${fpEq(
+  `gain fraction <em>f</em> = max( 0,&ensp;${fpFr('value − basis','value')} )`,
+  `LTCG = Shortfall × <em>f</em>`
+)}
+<p>Tax drag in this estimate uses the <em>prior year's</em> total tax (TT), so this year's LTCG doesn't circularly depend on this year's own TT.</p>
+
+<p><strong>Cost basis roll-forward.</strong> Each year:</p>
+${fpEq(`basis<sub>next</sub> = ${fpFr('basis − Shortfall × (1 − <em>f</em>) + Reinvested','1 + inflation')}`)}
+<p>Sales remove basis in proportion to cost share, reinvested dividends add basis, and basis erodes with inflation because it is a fixed nominal amount. When the owner passes and the portfolio continues to a surviving spouse, a non-IDGT portfolio's basis steps up to its value (gain becomes $0); an IDGT keeps its original basis. The balance itself is unaffected, since growth is total return. The asset charts report the unrealized gain remaining at the end of the plan.</p>
+
+<p><strong>IRMAA as an expense</strong> (optional, per portfolio):</p>
+${fpEq(`IRMAA<sub>household</sub> = surcharge( tier reached by prior-year AGI ) × N<sub>65+</sub>`)}
+${fpWhere('N<sub>65+</sub> is the number of living people age 65 or older, and the tier uses this year\'s filing status. Year 0 is $0.')}
+<p>The prior-year AGI avoids a circularity (this year's AGI depends on LTCG, which depends on expenses) and mirrors IRMAA's look-back. The tier table is indexed, so it is used in today's dollars as-is. If several portfolios have the box checked, the surcharge is charged once, split pro rata to their balances. It is paid through the same dividends-then-sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</p>
+
+<p><strong>Annual balance change.</strong></p>
+${fpEq(
+  `Δ balance = growth − ( tax drag + fee drag + IRMAA + withdrawal )`,
+  `tax drag = tax drag % × TT`,
+  `fee drag = fee % × balance&emsp;or&emsp;fixed $ per year`
+)}
+<p>The change is paid only from that portfolio's own dividends and share sales (tax drag / fee drag / IRMAA / withdrawal / LTCG only apply when that portfolio's Expenses toggle is on). Tax drag is this portfolio's configured % of the household's Total Tax; a fixed fee is held flat in nominal terms, so it shrinks in today's-dollar terms as inflation compounds.</p>
 
 <h3>Today's-Dollar Convention</h3>
 <p>Every figure in this app — inputs, intermediate values, and every chart — is expressed in today's dollars. An "Annual change" of <em>Fixed $ (no growth)</em> (worded <em>Fixed $ (no COLA)</em> on the Pension card) actually erodes in real terms by the inflation rate each year; <em>Tracks inflation</em> means 0% real growth; <em>Inflation ± X%</em> and <em>Custom annual %</em> both express a real (today's-dollar) growth rate directly.</p>

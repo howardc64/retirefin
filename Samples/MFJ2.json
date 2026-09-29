@@ -77,7 +77,7 @@
           "qdivPct": 70,
           "expense": true,
           "living": 20000,
-          "basis": 1000000,
+          "basisPct": 50,
           "taxDrag": 100,
           "fee": {
             "mode": "pct",
@@ -91,6 +91,7 @@
           },
           "bene": true,
           "idgt": false,
+          "irmaa": false,
           "foreignPct": 33,
           "ftcPct": 0.25
         },
@@ -108,7 +109,7 @@
           "qdivPct": 70,
           "expense": false,
           "living": 0,
-          "basis": 1000000,
+          "basisPct": 50,
           "taxDrag": 0,
           "fee": {
             "mode": "pct",
@@ -122,6 +123,7 @@
           },
           "bene": true,
           "idgt": true,
+          "irmaa": false,
           "foreignPct": 33,
           "ftcPct": 0.25
         }

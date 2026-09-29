@@ -77,7 +77,7 @@
           "qdivPct": 70,
           "expense": true,
           "living": 20000,
-          "basis": 200000,
+          "basisPct": 50,
           "taxDrag": 0,
           "fee": {
             "mode": "pct",
@@ -91,6 +91,7 @@
           },
           "bene": true,
           "idgt": false,
+          "irmaa": false,
           "foreignPct": 33,
           "ftcPct": 0.25
         }

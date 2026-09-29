@@ -34,18 +34,20 @@ function pfExpense(b){
   return (Number(b.taxDrag)||0)>0 || (Number(b.fee&&b.fee.value)||0)>0;
 }
 // Cost-basis / unrealized-gain tracking (spec §4.6, cost basis). A portfolio is tracked when the user
-// entered a cost basis (`basis` is a number; null/blank = none entered) or when its Expenses panel is on
+// entered a cost basis (`basisPct` is a number; null/blank = none entered) or when its Expenses panel is on
 // (realized LTCG is always automatic there: expenses are paid only by the portfolio's own dividends,
 // and only a shortfall is sold and realizes gain — so it needs a basis, and a blank one is treated as no
 // unrealized gain today).
-function pfBasisEntered(b){ return !!b && b.basis!=null && b.basis!=='' && Number.isFinite(Number(b.basis)); }
+// `basisPct` is the cost basis as a % of the portfolio's start balance (0–100); it replaced the older
+// dollar-valued `basis` field (older saves are converted in hydrateState).
+function pfBasisEntered(b){ return !!b && b.basisPct!=null && b.basisPct!=='' && Number.isFinite(Number(b.basisPct)); }
 function pfTracksBasis(b){ return pfBasisEntered(b) || pfExpense(b); }
 function defaultBrokeragePortfolio(balance, n){
   // `name` starts blank rather than a pre-filled "Brokerage Portfolio N" — the input's placeholder
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,basis:null,taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,irmaa:false,foreignPct:0,ftcPct:0.25};
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,expense:false,living:0,basisPct:null,taxDrag:0,fee:{mode:'pct',value:0},ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,irmaa:false,foreignPct:0,ftcPct:0.25};
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
@@ -110,7 +112,14 @@ function hydrateState(loaded){
     // Fill any missing fields (older saves) from a default portfolio, then drop untouched blank
     // ones (zero balance and still the auto-generated name) that older versions created on start.
     p.brokerage=p.brokerage
-      .map(b=>merge(b, defaultBrokeragePortfolio(0)))
+      .map(b=>{
+        // Legacy saves stored the cost basis in dollars (`basis`); convert to % of start balance.
+        if(b && b.basisPct===undefined && b.basis!=null && b.basis!=='' && Number.isFinite(Number(b.basis))){
+          const bal=Number(b.balance)||0;
+          b=Object.assign({}, b, {basisPct: bal>0 ? Math.round(Math.min(100,Math.max(0,Number(b.basis)/bal*100))*100)/100 : null});
+        }
+        return merge(b, defaultBrokeragePortfolio(0));
+      })
       .filter(b=>!((Number(b.balance)||0)===0 && (!b.name||!b.name.trim()||/^Brokerage Portfolio \d+$/.test(b.name.trim()))));
     if(p.odiv && Number(p.odiv.amount)>0 && !p.brokerage.some(b=>Number(b.balance)>0)){
       const od=Number(p.odiv.amount)||0, q=Number(p.qdiv?.amount)||0;

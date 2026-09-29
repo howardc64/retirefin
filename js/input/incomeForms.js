@@ -40,10 +40,11 @@ function onSSClaimAge(i,val){
   recomputeDebounced(); saveDebounced();
 }
 function onExpenseToggle(pid,bi,checked){ setPath(pid+'.brokerage.'+bi+'.expense',checked); renderIncomeForms(); recompute(); saveDebounced(); }
-// Cost basis (spec §4.6, cost basis): blank means "not entered" (stored as null), which is different from 0
-// (a real $0 basis, i.e. 100% unrealized gain). Only the projection depends on it, so no re-render.
+// Cost basis (spec §4.6, cost basis), entered as a % of the portfolio's start balance: blank means
+// "not entered" (stored as null), which is different from 0 (a real 0% basis, i.e. 100% unrealized gain).
+// Clamped to 0–100. Only the projection depends on it, so no re-render.
 function onBasisInput(pid,bi,val){
-  setPath(pid+'.brokerage.'+bi+'.basis', val===''||val==null?null:Math.max(0,+val||0));
+  setPath(pid+'.brokerage.'+bi+'.basisPct', val===''||val==null?null:Math.min(100,Math.max(0,+val||0)));
   recomputeDebounced(); saveDebounced();
 }
 function onBeneToggle(path,checked){ setPath(path,checked); recompute(); saveDebounced(); }
