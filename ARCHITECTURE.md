@@ -104,8 +104,8 @@ Person = {
   pension: { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
   rental:  { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
   brokerage: [BrokeragePortfolio, ...],   // 0 or more
-  ira:  { enabled, hidden, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number },
-  roth: { enabled, hidden, balance, growth: Change, bene: boolean }
+  ira:  { enabled, hidden, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number, stretch: boolean },
+  roth: { enabled, hidden, balance, growth: Change, bene: boolean, stretch: boolean }
 }
 
 AgeRange = { startMode: 'now'|'custom'|'rmd', startVal: number,
@@ -237,7 +237,7 @@ Total Tax there, not folded into any of these functions.
 
 ### 4.6 `projection.js`
 **Purpose:** the core year-by-year model. `computeProjection()` takes no arguments (reads `state`
-directly) and returns `{ rows, people, idxP0, married }`. **This is the contract every Display file
+directly) and returns `{ rows, stretch, people, idxP0, married }` (`stretch`: the post-passing IRA years, see §6.7). **This is the contract every Display file
 consumes — nothing in `js/display/` should recompute anything listed in the row schema below.**
 
 **`realGrowth(change, inflation)`** — converts a `Change` spec (§2) into a real (today's-$) annual
@@ -498,6 +498,18 @@ Reads rows' `portfoliosByPerson` (excluding `idgt` ones), `iraBalByPerson`, `rot
 chart for brokerage (ex-IDGT) + IRA + Roth balances, each portfolio/account its own color; a second
 chart (only if any IDGT portfolio exists) for IDGT balances alone. Tooltip: age, balances, and (if
 Expenses is on) annual growth % net of drag, with expenses (tax drag, fee drag, IRMAA surcharge, withdrawal, LTCG) shown under `show_details`.
+**IRA stretch (per account):** each pre-tax IRA card and each Roth IRA card has an **IRA stretch** checkbox (`ira.stretch` /
+`roth.stretch`, default off; label reads "…until 10 years after the 2nd passing", or "this person's passing" when single). Unchecked
+= the account ends as before. Checked = the account is *not* dropped when its owner passes unless a surviving spouse inherits it
+(`bene`, unchanged): it is held by heirs — no RMDs/withdrawals/conversions, still compounding at its own real growth rate — through
+the last projection row, and then `computeProjection()`'s extra `stretch` array carries it `STRETCH_YEARS` (10) more years
+(`{k, stretchYear, age0, ages, alive:[false…], iraBalByPerson, rothBalByPerson}`; `[]` when no checked account has a balance). Heir
+taxes are not modeled. The pseudo-rows are deliberately *not* in `rows`, so the income/tax/SS charts and the Excel summary never see
+them. The **main** asset chart (not the IDGT chart) appends them: only stretched IRA bands continue, brokerage bands (null there)
+stop, the x-axis is extended past the shared axis end if needed (the one age-axis chart not locked to `chartMaxAge`), and the
+tooltip adds "IRAs held by heirs — year n of 10". The Excel IRA / Roth sheets append the same years, flagged "After last passing
+(heirs)", only for accounts with the box checked.
+
 **Cost basis (§4.6):** under `show_details` only, tracked portfolios add *Expenses paid by other income*, *Dividends used for expenses*,
 *Dividends reinvested*, *Sold to cover shortfall*, *Cost basis* and *Unrealized gain
 ($ and % of value)* lines to the tooltip on both charts, plus *Basis stepped up at death* in the year of a

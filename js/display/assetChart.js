@@ -55,10 +55,17 @@ function buildAssetChartFor(cfg){
   if(!series.length){ clear(cfg.emptyMsg); return; }
   if(!rows.length){ clear(''); return; }
 
-  const labels=ageLabelRange(rows[0].age0,chartMaxAge(proj));
-  const ages=rows.map(r=>r.age0);
-  const rowByAge={}; rows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
-  const seriesValues=series.map(s=>rows.map(r=>{
+  // IRA stretch: on the main chart only, the 10 years after the household's last passing carry just the
+  // pre-tax / Roth IRA bands (proj.stretch, compute/projection.js). The axis is extended if those years
+  // run past the shared axis end; brokerage bands have no value there, so they simply stop.
+  const stretch=(!cfg.idgt&&proj.stretch)||[];
+  const allRows=rows.concat(stretch);
+  const endAge=Math.max(chartMaxAge(proj), stretch.length?Math.round(stretch[stretch.length-1].age0):0);
+  const labels=ageLabelRange(rows[0].age0,endAge);
+  const ages=allRows.map(r=>r.age0);
+  const rowByAge={}; allRows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
+  const seriesValues=series.map(s=>allRows.map(r=>{
+    if(r.stretchYear && s.type==='portfolio') return null;
     if(s.type==='ira') return (r.iraBalByPerson&&r.iraBalByPerson[s.personIdx])||0;
     if(s.type==='roth') return (r.rothBalByPerson&&r.rothBalByPerson[s.personIdx])||0;
     const person=r.portfoliosByPerson[s.personIdx];
@@ -93,7 +100,13 @@ function buildAssetChartFor(cfg){
 
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.
   const tooltipCallbacks={
-    title:i=>{ const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]]; return r?popupPersonAgeLines(proj,r):[]; },
+    title:i=>{
+      const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]];
+      if(!r) return [];
+      const lines=popupPersonAgeLines(proj,r);
+      if(r.stretchYear) lines.push(mrow('IRAs held by heirs', 'year '+r.stretchYear+' of '+STRETCH_YEARS+' after last passing'));
+      return lines;
+    },
     // Per portfolio: value, then the tax drag and fee drag applied that year (all today's $).
     label:ctx=>{
       if(ctx.raw==null||ctx.raw<1) return null;
@@ -196,7 +209,7 @@ function buildAssetChart(){
     key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', noteId:'assetChartNote',
     yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
     emptyMsg:'Add a non-IDGT brokerage portfolio, or enable a pre-tax IRA/401(k) or Roth IRA, to see this chart.',
-    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag, and its own dividends/sales pay its expenses), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass, then drops to zero. A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
+    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate (brokerage/IRA balances also net of tax drag and fee drag, and its own dividends/sales pay its expenses), in today's dollars. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass. An IRA with its "IRA stretch" box checked is not dropped when its owner passes; the band continues, held by heirs, until ${STRETCH_YEARS} years after the last passing, still compounding at its growth rate with no withdrawals or RMDs modeled and no tax on heirs; only those IRA bands are stacked in those years (brokerage bands end at the last passing). A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 function buildIdgtChart(){

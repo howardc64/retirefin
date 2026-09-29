@@ -21,6 +21,8 @@ function realGrowth(change, inflation){
 // Share of a portfolio's value that is unrealized gain (average-cost method): 0 when basis >= value.
 function pfGainFraction(bal, basis){ return bal>0 ? Math.max(0,(bal-basis)/bal) : 0; }
 
+// Years an IRA keeps compounding after the household's last passing (see the stretch block at the end).
+const STRETCH_YEARS=10;
 function computeProjection(){
   const inflation=state.inflation;
   const married=state.filingStatus==='married';
@@ -79,7 +81,16 @@ function computeProjection(){
       // is NOT reused as the inherited IRA's end age. Conversions stop at death.
       if(!ownerAlive){
         iraConv[i][k]=0;
-        if(!(p.ira.bene&&spouseAlive)) break;
+        if(!(p.ira.bene&&spouseAlive)){
+          // Not (or no longer) inherited by a living spouse. Normally the account ends here; with the
+          // "IRA stretch" box checked it is instead held by heirs: no RMDs/withdrawals, still compounding
+          // (through the last passing here, then STRETCH_YEARS more in the stretch block at the end).
+          if(!p.ira.stretch) break;
+          iraW[i][k]=0;
+          bal=bal*(1+g);
+          iraBal[i][k]=bal;
+          continue;
+        }
         if(bal<=0){ iraW[i][k]=0; iraBal[i][k]=0; continue; }
         const div=rmdDivisor(spouseAge);
         const wd=div?Math.min(bal/div,bal):0;
@@ -129,7 +140,13 @@ function computeProjection(){
       const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
 
       if(!ownerAlive){
-        if(!(p.roth.bene&&spouseAlive)) break;
+        if(!(p.roth.bene&&spouseAlive)){
+          // Same "IRA stretch" rule as the pre-tax IRA above: held by heirs and still compounding.
+          if(!p.roth.stretch) break;
+          bal=bal*(1+g);
+          rothBal[i][k]=bal;
+          continue;
+        }
         bal=bal*(1+g);
         rothBal[i][k]=bal;
         continue;
@@ -461,7 +478,28 @@ function computeProjection(){
       totalTax, agi
     });
   }
-  return {rows, people, idxP0, married};
+  // ── IRA "stretch": after the household's last passing, any pre-tax / Roth IRA that has its own
+  // "IRA stretch" checkbox on (`ira.stretch` / `roth.stretch`) and still holds a balance keeps compounding
+  // for STRETCH_YEARS more years (heirs' 10-year window). No RMDs or withdrawals are
+  // modeled in these years (heirs' own taxes are out of scope), and only IRAs are carried — brokerage
+  // balances end at the last passing as before. These are NOT projection rows (income/tax charts and the
+  // Excel summary never see them); they're returned separately as `stretch` for the asset chart / export.
+  const stretch=[];
+  if(rows.length){
+    const last=rows[rows.length-1];
+    const gIra=people.map(p=>realGrowth(p.ira.growth,inflation));
+    const gRoth=people.map(p=>p.roth&&p.roth.growth?realGrowth(p.roth.growth,inflation):0);
+    let any=false;
+    for(let n=1;n<=STRETCH_YEARS;n++){
+      const k=last.k+n, ages=curAges.map(a=>a+k);
+      const iraBalByPerson=people.map((p,i)=>{ const b=(last.iraBalByPerson[i]||0); return (p.ira.enabled&&p.ira.stretch&&b>0)?b*Math.pow(1+gIra[i],n):0; });
+      const rothBalByPerson=people.map((p,i)=>{ const b=(last.rothBalByPerson[i]||0); return (p.roth&&p.roth.enabled&&p.roth.stretch&&b>0)?b*Math.pow(1+gRoth[i],n):0; });
+      if(iraBalByPerson.some(v=>v>0)||rothBalByPerson.some(v=>v>0)) any=true;
+      stretch.push({k, stretchYear:n, age0:ages[idxP0], ages, alive:ages.map(()=>false), iraBalByPerson, rothBalByPerson});
+    }
+    if(!any) stretch.length=0;
+  }
+  return {rows, stretch, people, idxP0, married};
 }
 
 function displayPersonName(person, idx){

@@ -111,7 +111,8 @@
           "endVal": 0
         },
         "bene": true,
-        "conv": 20000
+        "conv": 20000,
+        "stretch": true
       },
       "roth": {
         "enabled": true,
@@ -121,7 +122,8 @@
           "mode": "offset",
           "value": 3
         },
-        "bene": true
+        "bene": true,
+        "stretch": true
       }
     },
     {
@@ -200,7 +202,8 @@
           "endVal": 0
         },
         "bene": false,
-        "conv": 0
+        "conv": 0,
+        "stretch": false
       },
       "roth": {
         "enabled": false,
@@ -210,7 +213,8 @@
           "mode": "offset",
           "value": 3
         },
-        "bene": false
+        "bene": false,
+        "stretch": false
       }
     }
   ],

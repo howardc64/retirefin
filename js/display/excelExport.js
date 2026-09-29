@@ -105,14 +105,16 @@ function xlsxPortfolioSheet(proj, i, bi){
 }
 function xlsxIraSheet(proj, i){
   const person=displayPersonName(proj.people[i], i);
-  const rows=[['Year',`${person} age`,'RMD','Pre-tax IRA withdraw (Roth conversion)','Pre-tax IRA balance (EOY)']];
-  proj.rows.forEach(r=>rows.push([THIS_YEAR+r.k, round1(r.ages[i]), r.iraByPerson[i]||0, r.rothConvByPerson[i]||0, r.iraBalByPerson[i]||0]));
+  const rows=[['Year',`${person} age`,'RMD','Pre-tax IRA withdraw (Roth conversion)','Pre-tax IRA balance (EOY)','After last passing (heirs)']];
+  proj.rows.forEach(r=>rows.push([THIS_YEAR+r.k, round1(r.ages[i]), r.iraByPerson[i]||0, r.rothConvByPerson[i]||0, r.iraBalByPerson[i]||0, '']));
+  if(proj.people[i].ira.stretch) (proj.stretch||[]).forEach(r=>rows.push([THIS_YEAR+r.k, round1(r.ages[i]), 0, 0, r.iraBalByPerson[i]||0, 'Yes']));
   return rows;
 }
 function xlsxRothSheet(proj, i){
   const person=displayPersonName(proj.people[i], i);
-  const rows=[['Year',`${person} age`,'Converted in from pre-tax IRA','Roth IRA balance (EOY)']];
-  proj.rows.forEach(r=>rows.push([THIS_YEAR+r.k, round1(r.ages[i]), r.rothConvByPerson[i]||0, r.rothBalByPerson[i]||0]));
+  const rows=[['Year',`${person} age`,'Converted in from pre-tax IRA','Roth IRA balance (EOY)','After last passing (heirs)']];
+  proj.rows.forEach(r=>rows.push([THIS_YEAR+r.k, round1(r.ages[i]), r.rothConvByPerson[i]||0, r.rothBalByPerson[i]||0, '']));
+  if(proj.people[i].roth.stretch) (proj.stretch||[]).forEach(r=>rows.push([THIS_YEAR+r.k, round1(r.ages[i]), 0, r.rothBalByPerson[i]||0, 'Yes']));
   return rows;
 }
 // [{name, rows}] for every enabled portfolio / IRA / Roth IRA, in person order (portfolios, then IRA, then Roth).
