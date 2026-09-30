@@ -48,7 +48,7 @@ function buildAssetChartFor(cfg){
 
   const clear=(msg)=>{
     if(assetCharts[cfg.key]){ try{ assetCharts[cfg.key].destroy(); }catch(e){} assetCharts[cfg.key]=null; }
-    legendEl.innerHTML=''; noteEl.textContent=msg||'';
+    legendEl.innerHTML='';
     setGainNote(cfg, noteEl, '');
   };
   if(card) card.style.display = series.length ? '' : 'none';
@@ -176,7 +176,6 @@ function buildAssetChartFor(cfg){
   legendEl.innerHTML = series.map((s,si)=>
     `<span class="li"><span class="ls" style="background:${ASSET_COLORS[si%ASSET_COLORS.length]}"></span>${escHtml(seriesLabel(s,si))}</span>`
   ).join('');
-  noteEl.textContent = cfg.note;
 
   // Embedded (unrealized) gain in the plan's final year, across this chart's tracked portfolios.
   const last=rows[rows.length-1], tracked=[];

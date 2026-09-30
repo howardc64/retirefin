@@ -22,7 +22,7 @@ function buildTaxLegend(){
 function buildTaxChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
   const proj=lastProjection, rows=proj.rows;
-  if(!rows.length){ document.getElementById('taxChartNote').textContent=''; return; }
+  if(!rows.length){ return; }
   const labels=ageLabelRange(rows[0].age0,chartMaxAge(proj));
   const ages=rows.map(r=>r.age0);
 
@@ -151,7 +151,5 @@ function buildTaxChart(){
     }});
   }
   buildTaxLegend();
-  document.getElementById('taxChartNote').textContent =
-    `Segments from lowest: ordinary income tax, then QDIV brackets, then LTCG brackets, then NIIT (3.8% surtax on net investment income once MAGI clears the un-indexed $200k single / $250k married threshold — effectively QDIV/LTCG + NIIT). Any brokerage foreign tax credit is netted out of the ordinary/QDIV/LTCG segments first (in that order) so the stack's total height matches Total Tax. The two thick dashed lines overlaid on top are the effective tax rate (TT ÷ AGI, red) and the marginal tax rate on the next dollar of ordinary income (green) — both read off the right-hand % axis. Y-axis locked — use Rescale if the stack runs off the top.`;
 }
 

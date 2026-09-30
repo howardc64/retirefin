@@ -113,7 +113,7 @@ function ageLabelRange(fromAge,toAge){
 }
 
 // Manual rescale: clears the "locked" chart max so the next recompute re-fits it.
-const chartYMax={ss:null, income:null, tss:null, tax:null, asset:null, idgt:null};
+const chartYMax={ss:null, income:null, tss:null, tax:null, expense:null, asset:null, idgt:null};
 function rescaleChart(which){ chartYMax[which]=null; recompute(); }
 
 // Update an existing Chart.js chart's labels/datasets by mutating the same
@@ -148,4 +148,11 @@ function updateChartInPlace(chart, labels, datasets){
   } else {
     chart.data.datasets = datasets;
   }
+}
+
+// Re-fit every chart after a hidden section is shown again (a canvas measured at display:none has no size).
+function resizeAllCharts(){
+  [ssChart,incomeChart,tssChart,taxChart,expenseChart,assetCharts.asset,assetCharts.idgt].forEach(ch=>{
+    try{ if(ch) ch.resize(); }catch(e){}
+  });
 }

@@ -23,10 +23,7 @@ function renderFutureTaxPanel(){
     <div class="field"><label>Single filing threshold (today's $)</label>
       <input type="number" class="money" min="0" step="5000" value="${ft.niitSingle}" oninput="onNumberInput('futureTax.niitSingle', this.value)"></div>
     <div class="field"><label>Married filing threshold (today's $)</label>
-      <input type="number" class="money" min="0" step="5000" value="${ft.niitMarried}" oninput="onNumberInput('futureTax.niitMarried', this.value)"></div>
-    <div class="item-note">From the start year onward, the Net Investment Income Tax (NIIT) exemption threshold switches to this configured amount, held flat in today's dollars — unlike current law's frozen, un-indexed $200k single / $250k married thresholds used everywhere else in this app before that year (and after it, if this box is unchecked).</div>
-    <div class="field full" style="opacity:0.6"><label>Social Security Taxation Threshold</label>
-      <div style="font-size:12px;padding:2px 0 6px">Not implemented yet.</div></div>`;
+      <input type="number" class="money" min="0" step="5000" value="${ft.niitMarried}" oninput="onNumberInput('futureTax.niitMarried', this.value)"></div>`;
   }
   document.getElementById('futureTaxPanel').innerHTML=html;
 }

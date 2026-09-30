@@ -1,5 +1,17 @@
 # NOTES
 
+## Features
+
+* **Todays’s $s:** All numbers in today’s $s for easy understanding
+* **Income, Expense and Portfolio/IRA Projection:** Income (Wage, Pension, Social Security) Portfolio (incl IDGTs), IRAs (Pre-tax, Roth)
+* **Portfolio Features:** Yield, Qualified Div, Foreign % and Tax Credits. Delayed Start (conversion of assets to equity investment portfolios in the future - ie work stock options, real estate etc.)
+* **IRA Features:** Roth Conversion, Stretched IRA
+* **On Passing Actions:** Forward asset to survivor, basis step-up, and residual unrealized gains
+* **AUM fees:** Fixed and AUM %
+* **Social Security:** Start age and torpedo analysis
+* **Suspended Long Term Capital Gains Tracking**
+* **Married and Single/Widower Status**
+
 ## Lacking and Incomplete Features
 
 * **Simplistic Tax Calculation:** Tax Calculations are general of course. Projection does not calculate complete taxes

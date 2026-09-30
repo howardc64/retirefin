@@ -17,10 +17,10 @@ function destroyCharts(){
   // A file restore is a hard data boundary. Destroy the existing Chart.js
   // instances so no tooltip/plugin closure, active hover state, dataset, or
   // canvas pixels from the previous plan can survive into the newly loaded plan.
-  [ssChart,incomeChart,tssChart,taxChart,assetCharts.asset,assetCharts.idgt].forEach(ch=>{
+  [ssChart,incomeChart,tssChart,taxChart,expenseChart,assetCharts.asset,assetCharts.idgt].forEach(ch=>{
     try{ if(ch) ch.destroy(); }catch(e){}
   });
-  ssChart=null; incomeChart=null; tssChart=null; taxChart=null; assetCharts.asset=null; assetCharts.idgt=null;
+  ssChart=null; incomeChart=null; tssChart=null; taxChart=null; expenseChart=null; assetCharts.asset=null; assetCharts.idgt=null;
   lastProjection=null;
 }
 
@@ -30,6 +30,7 @@ function renderCharts(){
   buildIncomeChart();
   buildTSSChart();
   buildTaxChart();
+  buildExpenseChart();
   buildAssetChart();
   buildIdgtChart();
 }

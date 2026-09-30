@@ -38,7 +38,7 @@ function buildIncomeLegend(){
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
   const proj=lastProjection, rows=proj.rows;
-  if(!rows.length){ document.getElementById('incomeChartNote').textContent='Enable at least one income source to see this chart.'; return; }
+  if(!rows.length){ return; }
   updateIncomeLabels(proj); // refresh before any dataset reads INC_LABELS[k] below
   const idxP0=proj.idxP0, otherIdx=proj.married?1-idxP0:null;
   const p0Age0=rows[0].age0;
@@ -154,7 +154,5 @@ function buildIncomeChart(){
     }});
   }
   buildIncomeLegend();
-  document.getElementById('incomeChartNote').textContent =
-    `Stacking order: pension, wage, pre-tax IRA withdraw (Roth conversion amount, taxed the same as an RMD), IRA RMD, rental, QDIV, ordinary dividends (ODIV−QDIV), LTCG, then Social Security. LTCG shown here is net of any available Suspended Capital-Gain Loss (SCGL) carryforward, which eliminates realized gains dollar-for-dollar before tax each year until it's used up. All figures in today's dollars. Amber/pink dashed = IRMAA tiers. Y-axis locked — use Rescale if the stack runs off the top.`;
 }
 

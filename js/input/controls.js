@@ -102,3 +102,14 @@ function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel){
       </div>
     </div>`;
 }
+
+// ── Section Hide checkbox (chart sections + Assumptions panel) ──
+// Display-only, default off, not saved in `state`: ticking Hide collapses everything below the header (up to the next
+// .sec-head) so only the header and its checkbox remain. Compute and charts keep updating while hidden.
+function onSectionHide(cb){
+  const head=cb.closest('.sec-head, .panel-title'); if(!head) return;
+  head.classList.toggle('is-hidden',cb.checked);
+  for(let el=head.nextElementSibling; el && !el.classList.contains('sec-head'); el=el.nextElementSibling)
+    el.classList.toggle('sec-hidden',cb.checked);
+  if(!cb.checked && typeof resizeAllCharts==='function') resizeAllCharts();
+}

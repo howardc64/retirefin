@@ -12,7 +12,6 @@ function buildSSCard(pid, p, i, married){
         ${s.started?`
         <div class="field full"><label>Current monthly benefit (today's $)</label>
           <input type="number" class="money" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
-        <div class="item-note">Entered as the actual current benefit; it stays flat in today's dollars for life since COLA is assumed to equal inflation.</div>
         `:`
         <div class="field"><label>PIA at FRA ($/mo, today's $)</label>
           <input type="number" class="money" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
@@ -25,7 +24,6 @@ function buildSSCard(pid, p, i, married){
             <div class="sv" id="ssClaimVal_${i}" style="flex:0 0 auto;min-width:24px;text-align:right">${s.claimAge}</div>
           </div>
         </div>
-        <div class="item-note">Below FRA the benefit is permanently reduced; after FRA (up to 70) it earns delayed retirement credits. ${married?'If married, each person also receives the higher of their own benefit or a spousal benefit (up to 50% of the other\u2019s PIA); the survivor later receives the deceased\u2019s benefit for life.':''}</div>
         `}
       </div>
     </div>`;

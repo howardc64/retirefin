@@ -142,6 +142,11 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
   .people-panes.two-col{grid-template-columns:1fr;}
 }
 
+/* ── Hide checkbox on chart sections and the Assumptions panel (display-only; default off) ── */
+.hideable{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.hide-cb{display:flex;align-items:center;gap:5px;font-family:'DM Sans',system-ui,sans-serif;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-muted);cursor:pointer;flex-shrink:0;}
+.sec-hidden{display:none!important;}
+.sec-head.hideable.is-hidden{margin-bottom:16px;}
 /* ── Charts / visualization sections ── */
 .metric-grid{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
 .metric{flex:1 1 170px;max-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;min-width:0;}
@@ -232,7 +237,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 </div>
 
 <div class="panel">
-  <div class="panel-title">Assumptions — drag to adjust</div>
+  <div class="panel-title hideable"><span>Assumptions — drag to adjust</span><label class="hide-cb"><input type="checkbox" onchange="onSectionHide(this)">Hide</label></div>
   <div class="slider-row">
     <div class="sl"><strong>Inflation rate</strong> (also used as Social Security (SS) COLA)</div>
     <input type="range" id="inflationRate" min="0" max="6" step="0.25" value="3">
@@ -243,12 +248,10 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
     <label>Living expenses (household, $/yr, today's $)</label>
     <input type="number" class="money" id="livingInput" min="0" step="1000" value="0" oninput="onNumberInput('living', this.value)">
   </div>
-  <div class="item-note">Annual household spending, held flat in today's dollars. Each year it is paid, in this order, from (1) household income (wages, Social Security, pension, rental, IRA RMDs), then (2) the dividends of the brokerage portfolios that have <em>Pay expenses</em> checked (any dividends not needed are reinvested), then (3) selling those portfolios' assets — each sale realizes long-term capital gain (LTCG) in proportion to the portfolio's unrealized gain (see each portfolio's cost basis). Income tax (tax drag) is also paid this way, so selling shares to cover it can realize more LTCG — the model iterates until the tax and the sales agree. The AUM fee (below) and the Medicare IRMAA surcharge are paid the same way. Only portfolios with <em>Pay expenses</em> checked (off by default; IDGT or not) supply those dividends and sales.</div>
   <div class="field full" style="margin-top:14px">
     <label>Suspended Capital-Gain Loss carryforward (SCGL, today's $)</label>
     <input type="number" class="money" id="scglInput" min="0" step="1000" value="0" oninput="onNumberInput('scgl', this.value)">
   </div>
-  <div class="item-note">A capital-loss carryforward available to offset realized long-term gains (LTCG). Each year, available SCGL first eliminates that year's realized LTCG (dollar-for-dollar, before tax) until it's used up; only LTCG left over after that is taxed. Shown net-of-SCGL on the Annual Household Income chart and in the Total Tax calculation.</div>
   <div class="field full" style="margin-top:14px">
     <label>AUM fee</label>
     <div class="arow">
@@ -273,7 +276,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 <div class="chart-col">
 
 <!-- ═══ SOCIAL SECURITY ═══ -->
-<div class="sec-head">Social Security — Start Age Analysis</div>
+<div class="sec-head hideable"><span>Social Security — Start Age Analysis</span><label class="hide-cb"><input type="checkbox" onchange="onSectionHide(this)">Hide</label></div>
 <div class="sec-sub" id="ssSecSub"></div>
 <div id="ssMetrics" class="metric-grid"></div>
 
@@ -285,8 +288,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 </div>
 
 <!-- ═══ ANNUAL HOUSEHOLD INCOME ═══ -->
-<div class="sec-head">Annual Household Income</div>
-<div class="sec-sub"><strong>Note:</strong> IRMAA brackets are determined by MAGI (AGI + tax-exempt income + foreign tax credits, etc.). The following graph is ~AGI, which is ~MAGI.<br>Stacked by source, in today's dollars. Dashed lines mark IRMAA (Medicare surcharge) tiers for the filing status in effect that year.</div>
+<div class="sec-head hideable"><span>Annual Household Income</span><label class="hide-cb"><input type="checkbox" onchange="onSectionHide(this)">Hide</label></div>
 <div class="cc">
   <div class="cc-head"><div class="ct">Annual household income by source · dashed = IRMAA</div>
     <div style="display:flex;gap:6px">
@@ -296,11 +298,10 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
   </div>
   <div class="legend" id="incomeLegend"></div>
   <div class="co"><div class="cw"><canvas id="incomeChart"></canvas></div></div>
-  <p class="cn" id="incomeChartNote"></p>
 </div>
 
 <!-- ═══ TAXABLE SOCIAL SECURITY ═══ -->
-<div class="sec-head">Social Security Tax</div>
+<div class="sec-head hideable"><span>Social Security Tax</span><label class="hide-cb"><input type="checkbox" onchange="onSectionHide(this)">Hide</label></div>
 <div class="ic">
   <h3>Taxable Social Security</h3>
   <p>The taxable portion of Social Security is determined using the applicable filing-status thresholds below, then taxed as ordinary income — the resulting dollars of tax are the <strong>actual Social Security Tax (SST)</strong>.</p>
@@ -325,23 +326,25 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 </div>
 
 <!-- ═══ TOTAL INCOME TAX ═══ -->
-<div class="sec-head">Total Income Tax</div>
-<div class="ic">
-  <h3>Ordinary income + qualified dividends &amp; LTCG</h3>
-  <p>Ordinary rates apply to wages, pension, rental, IRA withdrawals, non-qualified dividends, short-term gains and taxable Social Security. Qualified dividends and long-term gains stack on top and are taxed at preferential 0/15/20% rates, plus a 3.8% Net Investment Income Tax (NIIT) once MAGI clears the (un-indexed) $200k single / $250k married threshold — shown as "QDIV/LTCG + NIIT."</p>
-  <p>Simplified calculation — no AMT, itemized deductions, or credits.</p>
-</div>
+<div class="sec-head hideable"><span>Total Income Tax</span><label class="hide-cb"><input type="checkbox" onchange="onSectionHide(this)">Hide</label></div>
 <div class="cc">
   <div class="cc-head"><div class="ct">Annual total income tax · segmented by income type · today's dollars</div>
     <button class="rescale-btn" onclick="rescaleChart('tax')">↕ Rescale</button></div>
   <div class="legend" id="taxLegend"></div>
   <div class="co"><div class="cw"><canvas id="taxChart"></canvas></div></div>
-  <p class="cn" id="taxChartNote"></p>
+</div>
+
+<!-- ═══ HOUSEHOLD EXPENSES ═══ -->
+<div class="sec-head hideable"><span>Household Expenses</span><label class="hide-cb"><input type="checkbox" onchange="onSectionHide(this)">Hide</label></div>
+<div class="cc">
+  <div class="cc-head"><div class="ct">Annual household expenses · segmented by expense type · today's dollars</div>
+    <button class="rescale-btn" onclick="rescaleChart('expense')">↕ Rescale</button></div>
+  <div class="legend" id="expenseLegend"></div>
+  <div class="co"><div class="cw"><canvas id="expenseChart"></canvas></div></div>
 </div>
 
 <!-- ═══ ASSET VALUE ═══ -->
-<div class="sec-head">Asset Value</div>
-<div class="sec-sub">Brokerage portfolios (excluding IDGTs), pre-tax IRA/401(k) balances, and Roth IRA balances, stacked by holder, in today's dollars. Each asset compounds at its configured growth rate (a brokerage portfolio is also drawn down by the dividends used and shares sold to pay household expenses, after household income), and drops out once its owner has passed (unless marked to continue to, or inherited by, the spouse). An IRA with its <em>IRA stretch</em> box checked instead stays until 10 years after the last passing. Portfolios flagged as an IDGT appear in their own chart below.</div>
+<div class="sec-head hideable"><span>Asset Value</span><label class="hide-cb"><input type="checkbox" onchange="onSectionHide(this)">Hide</label></div>
 <div class="cc">
   <div class="cc-head"><div class="ct">Asset value by holder · brokerage (excl. IDGT) + pre-tax IRA + Roth IRA · today's dollars</div>
     <button class="rescale-btn" onclick="rescaleChart('asset')">↕ Rescale</button></div>
@@ -415,6 +418,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 <script src="js/display/incomeChart.js"></script>
 <script src="js/display/tssChart.js"></script>
 <script src="js/display/taxChart.js"></script>
+<script src="js/display/expenseChart.js"></script>
 <script src="js/display/assetChart.js"></script>
 <script src="js/display/footer.js"></script>
 <script src="js/display/formulasPage.js"></script>

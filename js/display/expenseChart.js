@@ -1,0 +1,95 @@
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+// DISPLAY / HOUSEHOLD EXPENSES CHART — stacked expense components
+// (living, income tax, IRMAA surcharge, AUM fee), same style as the
+// Total Income Tax chart. Reads projection rows only (§4.6 row schema:
+// expLiving, expTax, expIrmaa, expAum, expTotal + the funding split).
+// ═══════════════════════════════════════════════════════════════
+const VZ_EXP = { living:'#3F7CAC', tax:'#C8600A', irmaa:'#D9A21B', aum:'#7B3FBE' };
+// Bottom → top stack order.
+const EXP_KEYS=['expLiving','expTax','expIrmaa','expAum'];
+const EXP_LABELS={expLiving:'Living expenses', expTax:'Income tax (tax drag)', expIrmaa:'IRMAA surcharge', expAum:'AUM fee'};
+const EXP_COLORS={expLiving:VZ_EXP.living, expTax:VZ_EXP.tax, expIrmaa:VZ_EXP.irmaa, expAum:VZ_EXP.aum};
+let expenseChart=null;
+function buildExpenseLegend(){
+  document.getElementById('expenseLegend').innerHTML =
+    EXP_KEYS.map(k=>`<span class="li"><span class="ls" style="background:${EXP_COLORS[k]}"></span>${EXP_LABELS[k]}</span>`).join('');
+}
+function buildExpenseChart(){
+  if(typeof Chart==='undefined'||!lastProjection) return;
+  const proj=lastProjection, rows=proj.rows;
+  if(!rows.length){ return; }
+  const labels=ageLabelRange(rows[0].age0,chartMaxAge(proj));
+  const ages=rows.map(r=>r.age0);
+  const aligned={};
+  EXP_KEYS.forEach(k=>{ aligned[k]=alignToAges(ages,rows.map(r=>r[k]||0),labels); });
+
+  if(chartYMax.expense==null){
+    let maxV=0;
+    for(let i=0;i<labels.length;i++){
+      let t=0; EXP_KEYS.forEach(k=>t+=aligned[k][i]||0);
+      maxV=Math.max(maxV,t);
+    }
+    chartYMax.expense=Math.ceil(Math.max(maxV,1)/5000)*5000+10000;
+  }
+  const Y_MAX=chartYMax.expense;
+
+  const rowByAge={}; rows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
+
+  const datasets=EXP_KEYS.map(k=>({
+    label:EXP_LABELS[k], data:aligned[k],
+    borderColor:EXP_COLORS[k], backgroundColor:EXP_COLORS[k]+'cc',
+    borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'exp', order:2
+  }));
+
+  // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.
+  const tooltipCallbacks={
+    title:i=>{ const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]]; return r?popupPersonAgeLines(proj,r):[]; },
+    label:ctx=>{
+      if(ctx.raw==null||ctx.raw===0) return null;
+      const r=rowByAge[labels[ctx.dataIndex]];
+      const pct=(r&&r.expTotal>0) ? ' ('+(ctx.raw/r.expTotal*100).toFixed(0)+'%)' : '';
+      return mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr'+pct);
+    },
+    footer:items=>{
+      const idx=items[0]?items[0].dataIndex:0;
+      const r=rowByAge[labels[idx]]; if(!r) return[];
+      const lines=['', mrow('Total expenses', fmt(r.expTotal)+'/yr')];
+      // How the year's expenses were funded: household income → dividends → asset sales.
+      lines.push(mrow('  paid by household income', fmt(r.expFromIncome)+'/yr'));
+      lines.push(mrow('  paid by dividends', fmt(r.expFromDiv)+'/yr'));
+      lines.push(mrow('  paid by asset sales', fmt(r.expFromSales)+'/yr'));
+      if(r.expUnfunded>1) lines.push(mrow('  unfunded shortfall', fmt(r.expUnfunded)+'/yr'));
+      if(showDetails){
+        lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
+        lines.push(mrow('Household cash income', fmt(r.cashIncome)+'/yr'));
+        lines.push(mrow('AGI', fmt(r.agi)+'/yr'));
+        if(r.aumBalance>0) lines.push(mrow('AUM balance (fee charged on)', fmt(r.aumBalance)));
+        if(r.expIrmaa>0) lines.push(mrow('IRMAA basis: prior-year AGI tier', fmt(r.irmaaSurcharge)+'/yr'));
+        lines.push(mrow('Tax↔LTCG iterations', String(r.taxIters)+(r.taxConverged?'':' (not converged)')));
+      }
+      return lines;
+    }
+  };
+
+  if(expenseChart){
+    updateChartInPlace(expenseChart, labels, datasets);
+    expenseChart.options.scales.y.max=Y_MAX;
+    expenseChart.options.plugins.tooltip.callbacks=justifyTip(tooltipCallbacks);
+    expenseChart.update();
+  } else {
+    expenseChart=new Chart(document.getElementById('expenseChart'),{type:'line',data:{labels,datasets},options:{
+      ...CHART_BASE,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
+      },
+      scales:{
+        x:ageXAxis(ageAxisLabel(proj)),
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Annual expenses (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
+      }
+    }});
+  }
+  buildExpenseLegend();
+}

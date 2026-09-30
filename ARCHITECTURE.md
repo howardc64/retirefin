@@ -62,7 +62,7 @@ js/
                 wage.js  socialSecurity.js  pension.js  rental.js
                 brokerage.js  ira.js  roth.js  incomeForms.js
   display/      chartHelpers.js  overlayPlugin.js
-                ssChart.js  incomeChart.js  tssChart.js  taxChart.js  assetChart.js  footer.js
+                ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  footer.js
                 formulasPage.js  notesPage.js  excelExport.js
   app.js
 misc/      Note4User.md        (user-facing notes; rendered to HTML by the Notes button, §6.10)
@@ -385,6 +385,7 @@ default or a label — all real computation happens in Compute (§4).
 | `cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight?)` | **The enable/hide header every income-source card uses** (§2's `enabled`/`hidden` convention). Renders an Enable checkbox (left, wraps `title`) and a Hide checkbox (right, labeled "Hide"), with `extraRight` (e.g. a brokerage portfolio's Remove button) placed between them. Every card in §5.4 calls this instead of hand-rolling its own header. |
 | `onEnableToggle(path, checked)` | Sets `enabled`, then `recompute()` — does **not** touch the card's collapsed state; enabling/disabling never changes what's on screen, only what's computed |
 | `onHideToggle(path, checked, itemEl)` | Sets `hidden`, then toggles that item's `.item-body`'s `open` class directly (no recompute — hiding is purely visual, so there's nothing to recompute) |
+| `onSectionHide(cb)` | Handler for the **Hide** checkbox on every chart section header (§6) and the Assumptions panel title (§5.3). Display-only, default off, **not** in `state` (a reload resets it): toggles `.sec-hidden` on every sibling after the header up to the next `.sec-head`, so only the header and its checkbox remain. Compute and charts keep updating while hidden; on un-hide it calls `resizeAllCharts()` (`chartHelpers.js`) so canvases re-fit. |
 | `agedItemCard(pid, key, title, item, checkboxPath)` | Shared card builder for the two income types that are just "amount + age range + change + survivor benefit": Pension and Rental. Calls `cardHeader` internally. |
 
 **Rule:** any new income-type field that needs an age range, an annual-change mode, or an
@@ -402,8 +403,7 @@ The Assumptions panel in `index.html` holds two household fields, in this order 
 
 Renders the speculative future-tax-threshold panel: a checkbox that, when on, reveals `niitStartYear`
 + `niitSingle`/`niitMarried` (today's $) fields feeding `state.futureTax` (§2), consumed by
-`computeNIIT` (§4.3). The Social Security Taxation Threshold field is a documented placeholder — not
-yet implemented in Compute.
+`computeNIIT` (§4.3).
 
 ### 5.4 Income-source cards
 One file per income type; `incomeForms.js` (§5.5) calls each in sequence. **Every card below has an
@@ -458,6 +458,8 @@ computes a number the projection doesn't already provide (chart-local formatting
 presentation is fine; new financial logic is not).
 
 ### 6.1 `chartHelpers.js` — shared conventions (read this before touching any chart file)
+
+**Section Hide:** every chart section header (Social Security start age, Annual Household Income, Social Security Tax, Total Income Tax, Household Expenses, Asset Value incl. the IDGT card) carries a **Hide** checkbox (`onSectionHide`, §5.1; default off). Also on the Assumptions panel (§5.3).
 | Export | Contract |
 |---|---|
 | `showDetails` / `toggleOverlayMode()` / `overlayMode` / `OV()` | The `show_details` flag and the light/dark dashed-reference-line toggle — both read live by every chart's tooltip/plugin, no rebuild needed to react to a toggle |
@@ -465,6 +467,7 @@ presentation is fine; new financial logic is not).
 | `CHART_BASE`, `ageXAxis`, `AXIS_COLOR`, `AXIS_TICKS`, `axisTitle` | Shared Chart.js base config — chart width = 2/3 page width, height = width, X axis = P0's age from current age to the younger person's age-100 |
 | `chartMaxAge()` | The locked X-axis upper bound described above |
 | `chartYMax` / `rescaleChart(key)` | Per-chart locked Y-max state and its manual "Rescale" reset |
+| `resizeAllCharts()` | Calls `resize()` on every live chart; used after a hidden section is shown again |
 | `updateChartInPlace(chart, labels, datasets)` | Mutates an existing Chart.js instance's data arrays in place (instead of replacing the chart) so points animate smoothly from their prior value instead of resetting to zero |
 
 ### 6.2 `overlayPlugin.js`
@@ -505,6 +508,16 @@ effective rate (red, `totalTax/agi`) and marginal rate (green). Y axis locked, %
 Tooltip: Effective Tax Rate, Marginal Tax Rate, **Total Tax** always shown; under `show_details`, also
 filing status, TI, standard deduction, every income component, provisional income, foreign tax credit,
 and NIIT detail if nonzero.
+
+### 6.6a `expenseChart.js` — Household Expenses
+Sits between the Total Income Tax and Asset Value sections in `index.html` (`#expenseChart`, `#expenseLegend`,
+`#expenseChartNote`, Rescale key `'expense'`). Reads rows' `expLiving`, `expTax`, `expIrmaa`, `expAum`, `expTotal`,
+plus the funding split `expFromIncome`, `expFromDiv`, `expFromSales`, `expUnfunded`. Styled like the tax chart: stacked
+filled bands, segments bottom→top: **living expenses, income tax (tax drag), IRMAA surcharge, AUM fee**, so the stack's
+height always equals `expTotal`. Single $ axis, Y locked (`chartYMax.expense`). Tooltip: one line per non-zero component
+with its $ and % of the total; footer shows total expenses and how they were funded (household income → dividends →
+asset sales, plus any unfunded shortfall); under `show_details`, also filing status, household cash income, AGI, AUM
+balance, the IRMAA surcharge and the tax↔LTCG iteration count.
 
 ### 6.7 `assetChart.js` — Asset value
 Reads rows' `portfoliosByPerson` (excluding `idgt` ones), `iraBalByPerson`, `rothBalByPerson`. One
@@ -588,7 +601,7 @@ explanation and the two workarounds instead of failing silently. The file also l
 | `recompute()` | `computeProjection()` → `renderCharts()` — the one place Compute and Display meet |
 | `recomputeDebounced` / `saveDebounced` | 80ms / 500ms debounced wrappers, for slider/typing inputs (checkboxes and add/remove buttons call the un-debounced versions directly) |
 | `destroyCharts()` | Tears down every Chart.js instance — called before a full state restore so no stale tooltip/plugin/hover state survives into a newly loaded plan |
-| `renderCharts()` | Calls every §6 chart builder, in this fixed order: SS controls/section, income, TSS, tax, asset, IDGT |
+| `renderCharts()` | Calls every §6 chart builder, in this fixed order: SS controls/section, income, TSS, tax, expenses, asset, IDGT |
 | `renderAll()` | Full re-render: household setup, passing sliders, inflation/SCGL fields, future-tax panel, income forms, footer, then `recompute()` — called on boot and on a full state restore |
 | *(boot)* | On `DOMContentLoaded`: load autosave if present, else `defaultState()`, then `renderAll()` |
 
@@ -605,7 +618,7 @@ explanation and the two workarounds instead of failing silently. The file also l
   input/pension → input/rental → input/brokerage → input/ira → input/roth → input/incomeForms →
   input/loadMenu →
   display/chartHelpers → display/overlayPlugin → display/ssChart → display/incomeChart →
-  display/tssChart → display/taxChart → display/assetChart → display/footer →
+  display/tssChart → display/taxChart → display/expenseChart → display/assetChart → display/footer →
   display/formulasPage → display/notesPage → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
   that reads from it. Function *calls* deferred to a later event (a click, `DOMContentLoaded`) don't
