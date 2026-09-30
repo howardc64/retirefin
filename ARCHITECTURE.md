@@ -54,6 +54,10 @@ developer with "update the code to match." The section headers double as a table
 
 ```
 index.html
+css/
+  styles.css    (all page styling; linked from index.html)
+tests/
+  check.js  snapshot.js  compare.js  baseline.json  README.md   (Node regression harness; not loaded by the app)
 js/
   core/         constants.js  helpers.js  state.js
   compute/      socialSecurityCalc.js  rmd.js  tax.js  dates.js  ageRange.js
@@ -173,7 +177,7 @@ that changes.
 **Purpose:** owns `state` (§2) end to end — defaults, save/restore, autosave, dot-path mutation.
 | Export | Contract |
 |---|---|
-| `defaultState()`, `defaultPerson(idx)`, `defaultBrokeragePortfolio(balance,n)`, `defaultChange`, `defaultAgeRange`, `defaultIncomeItem`, `defaultAgeRangedItem` | Canonical default shapes (§2). **If you add a field to the schema, add its default here.** |
+| `defaultState()`, `defaultPerson(idx)`, `defaultBrokeragePortfolio(balance,n)`, `defaultChange`, `defaultAgeRange`, `defaultAgeRangedItem` | Canonical default shapes (§2). **If you add a field to the schema, add its default here.** |
 | `pfBasisEntered(b)`, `pfTracksBasis(b)` | Cost-basis predicates (§4.6): a cost basis was entered (`basisPct` is a number; `null`/blank is *not* the same as `0`); and whether basis is tracked — now true for every portfolio, since household expenses can force a sale from any of them |
 | `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has). Migration: if a loaded file has no `living`, it is set to the sum of the old enabled portfolios' `living` withdrawals |
 | `state` | The live, mutable object every other file reads/writes |
@@ -466,8 +470,11 @@ presentation is fine; new financial logic is not).
 | `mrow`, `tipLines`, `tipPad`, `justifyTip`, `TIP_STYLE` | Tooltip layout: label left-justified, value right-justified |
 | `CHART_BASE`, `ageXAxis`, `AXIS_COLOR`, `AXIS_TICKS`, `axisTitle` | Shared Chart.js base config — chart width = 2/3 page width, height = width, X axis = P0's age from current age to the younger person's age-100 |
 | `chartMaxAge()` | The locked X-axis upper bound described above |
-| `chartYMax` / `rescaleChart(key)` | Per-chart locked Y-max state and its manual "Rescale" reset |
-| `resizeAllCharts()` | Calls `resize()` on every live chart; used after a hidden section is shown again |
+| `charts` / `allCharts()` | **Chart registry**: one live Chart.js instance per key (`ss`, `income`, `tss`, `tax`, `expense`, `asset`, `idgt`), `null` until first drawn. Chart files never declare their own chart variable; destroy/resize walk the registry, so adding a chart means adding a key here, not editing hand-written lists |
+| `upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, createOptions, refresh})` | The one create-or-update step every chart's builder ends with: the first call builds the chart from `createOptions()`; later calls update it via `updateChartInPlace`, set `scales.y.max`, apply the optional `refresh(options)` (per-render option changes, e.g. the income overlay), wrap `tooltip` in `justifyTip`, and `update()` |
+| `chartYMax` / `lockedYMax(key, compute)` / `resetChartYMax()` / `rescaleChart(key)` | Per-chart locked Y-max. `lockedYMax` computes it once and then holds it; `rescaleChart` (the Rescale button) clears one key and recomputes; `resetChartYMax()` clears **all** keys and is called on Reset to defaults and on file load |
+| `legendItem(text, color, style?)` | One legend entry (`<span class="li">` + swatch). `style` overrides the default solid-color swatch (dashed IRMAA key, dashed SS start-age line) |
+| `resizeAllCharts()` / `destroyAllCharts()` | `resize()` / `destroy()` every live chart in the registry; `destroyAllCharts()` also nulls each entry. Resize is used after a hidden section is shown again |
 | `updateChartInPlace(chart, labels, datasets)` | Mutates an existing Chart.js instance's data arrays in place (instead of replacing the chart) so points animate smoothly from their prior value instead of resetting to zero |
 
 ### 6.2 `overlayPlugin.js`
@@ -511,7 +518,7 @@ and NIIT detail if nonzero.
 
 ### 6.6a `expenseChart.js` — Household Expenses
 Sits between the Total Income Tax and Asset Value sections in `index.html` (`#expenseChart`, `#expenseLegend`,
-`#expenseChartNote`, Rescale key `'expense'`). Reads rows' `expLiving`, `expTax`, `expIrmaa`, `expAum`, `expTotal`,
+Rescale key `'expense'`). Reads rows' `expLiving`, `expTax`, `expIrmaa`, `expAum`, `expTotal`,
 plus the funding split `expFromIncome`, `expFromDiv`, `expFromSales`, `expUnfunded`. Styled like the tax chart: stacked
 filled bands, segments bottom→top: **living expenses, income tax (tax drag), IRMAA surcharge, AUM fee**, so the stack's
 height always equals `expTotal`. Single $ axis, Y locked (`chartYMax.expense`). Tooltip: one line per non-zero component
@@ -538,8 +545,8 @@ tooltip adds "IRAs held by heirs — year n of 10". In stretch years an account 
 **Cost basis (§4.6):** under `show_details` only, portfolios add *Dividends used for expenses*,
 *Dividends reinvested*, *Sold to cover shortfall*, *Cost basis* and *Unrealized gain
 ($ and % of value)* lines to the tooltip on both charts, plus *Basis stepped up at death* in the year of a
-step-up. Below each chart's note, an **"Unrealized gain at end of plan"** line (created by `setGainNote()`;
-hidden when no portfolio on that chart is tracked) reports the final row's unrealized gain vs. value across
+step-up. Under each chart, an **"Unrealized gain at end of plan"** line (`#assetChartGain` / `#idgtChartGain` in
+`index.html`, filled by `setGainNote()`; empty, and hidden by `.cn:empty`, when no portfolio on that chart is tracked) reports the final row's unrealized gain vs. value across
 that chart's tracked portfolios — with a per-portfolio split when there are several — and a one-line
 reminder of the tax treatment: non-IDGT gets a step-up at death, IDGT keeps carryover basis.
 
@@ -600,12 +607,13 @@ explanation and the two workarounds instead of failing silently. The file also l
 |---|---|
 | `recompute()` | `computeProjection()` → `renderCharts()` — the one place Compute and Display meet |
 | `recomputeDebounced` / `saveDebounced` | 80ms / 500ms debounced wrappers, for slider/typing inputs (checkboxes and add/remove buttons call the un-debounced versions directly) |
-| `destroyCharts()` | Tears down every Chart.js instance — called before a full state restore so no stale tooltip/plugin/hover state survives into a newly loaded plan |
+| `destroyCharts()` | `destroyAllCharts()` (§6.1) plus clearing `lastProjection` — tears down every Chart.js instance — called before a full state restore so no stale tooltip/plugin/hover state survives into a newly loaded plan |
 | `renderCharts()` | Calls every §6 chart builder, in this fixed order: SS controls/section, income, TSS, tax, expenses, asset, IDGT |
 | `renderAll()` | Full re-render: household setup, passing sliders, inflation/SCGL fields, future-tax panel, income forms, footer, then `recompute()` — called on boot and on a full state restore |
 | *(boot)* | On `DOMContentLoaded`: load autosave if present, else `defaultState()`, then `renderAll()` |
 
 ### 7.2 `index.html`
+- Page markup only: styling lives in `css/styles.css` (linked in `<head>`), behavior in `js/`.
 - Layout: independent-scrolling input column (left, one pane per person) and output column (right,
   the charts) — see §1 for the overall shape. The topbar holds, in order: **Save to file**, **Load file ▾**
   (dropdown, §5.6), **Reset to defaults**, **Formulas** (§6.9), **Notes** (§6.10), **Export to Excel**
@@ -657,7 +665,7 @@ These apply everywhere, not to one file — listed once here instead of repeated
 - **Locked scales + Rescale.** Every chart's Y axis (and the SS/income charts' X axis) is locked so
   moving a slider doesn't make the chart jump; a per-chart "Rescale" control clears that lock so the
   next recompute re-fits it.
-- **Smooth animation.** Every chart update goes through `updateChartInPlace()` (§6.1) rather than
+- **Smooth animation.** Every chart update goes through `upsertLineChart()` / `updateChartInPlace()` (§6.1) rather than
   replacing the Chart.js instance, so points animate from their previous value.
 
 ---

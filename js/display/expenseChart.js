@@ -10,10 +10,9 @@ const VZ_EXP = { living:'#3F7CAC', tax:'#C8600A', irmaa:'#D9A21B', aum:'#7B3FBE'
 const EXP_KEYS=['expLiving','expTax','expIrmaa','expAum'];
 const EXP_LABELS={expLiving:'Living expenses', expTax:'Income tax (tax drag)', expIrmaa:'IRMAA surcharge', expAum:'AUM fee'};
 const EXP_COLORS={expLiving:VZ_EXP.living, expTax:VZ_EXP.tax, expIrmaa:VZ_EXP.irmaa, expAum:VZ_EXP.aum};
-let expenseChart=null;
 function buildExpenseLegend(){
   document.getElementById('expenseLegend').innerHTML =
-    EXP_KEYS.map(k=>`<span class="li"><span class="ls" style="background:${EXP_COLORS[k]}"></span>${EXP_LABELS[k]}</span>`).join('');
+    EXP_KEYS.map(k=>legendItem(EXP_LABELS[k], EXP_COLORS[k])).join('');
 }
 function buildExpenseChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -24,15 +23,14 @@ function buildExpenseChart(){
   const aligned={};
   EXP_KEYS.forEach(k=>{ aligned[k]=alignToAges(ages,rows.map(r=>r[k]||0),labels); });
 
-  if(chartYMax.expense==null){
+  const Y_MAX=lockedYMax('expense', ()=>{
     let maxV=0;
     for(let i=0;i<labels.length;i++){
       let t=0; EXP_KEYS.forEach(k=>t+=aligned[k][i]||0);
       maxV=Math.max(maxV,t);
     }
-    chartYMax.expense=Math.ceil(Math.max(maxV,1)/5000)*5000+10000;
-  }
-  const Y_MAX=chartYMax.expense;
+    return Math.ceil(Math.max(maxV,1)/5000)*5000+10000;
+  });
 
   const rowByAge={}; rows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
 
@@ -72,13 +70,8 @@ function buildExpenseChart(){
     }
   };
 
-  if(expenseChart){
-    updateChartInPlace(expenseChart, labels, datasets);
-    expenseChart.options.scales.y.max=Y_MAX;
-    expenseChart.options.plugins.tooltip.callbacks=justifyTip(tooltipCallbacks);
-    expenseChart.update();
-  } else {
-    expenseChart=new Chart(document.getElementById('expenseChart'),{type:'line',data:{labels,datasets},options:{
+  upsertLineChart('expense',{canvasId:'expenseChart', labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
+    createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
       plugins:{
@@ -89,7 +82,6 @@ function buildExpenseChart(){
         x:ageXAxis(ageAxisLabel(proj)),
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Annual expenses (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
       }
-    }});
-  }
+    })});
   buildExpenseLegend();
 }

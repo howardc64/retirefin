@@ -5,7 +5,6 @@
 // ═══════════════════════════════════════════════════════════════
 const VZ_SS_AGES=[62,64,66,68,70];
 const VZ_SS_COLORS={62:'#E24B4A',63:'#D95A31',64:'#D06A18',65:'#C2820C',66:'#B59A00',67:'#729C2D',68:'#2E9E5A',69:'#1E8658',70:'#0F6E56'};
-let ssChart=null;
 function renderSSControls(){
   const married=state.filingStatus==='married';
   const idxP0=married?olderPersonIndex():0;
@@ -65,10 +64,10 @@ function buildSSSection(){
       vzScenario:sc
     };
   });
-  if(chartYMax.ss==null){
+  const Y_MAX=lockedYMax('ss', ()=>{
     const maxV=Math.max(1,...scenarios.map(s=>s.totalHousehold));
-    chartYMax.ss=Math.ceil(maxV/50000)*50000+50000;
-  }
+    return Math.ceil(maxV/50000)*50000+50000;
+  });
   // Tooltip per §6.2: for each hovered claiming-age line, show that person's
   // (and spouse's, if married) monthly SS at that age, the cumulative
   // household total to date, and the real annual ROI vs. the earliest
@@ -114,29 +113,23 @@ function buildSSSection(){
       return lines;
     }
   };
-  if(ssChart){
-    updateChartInPlace(ssChart, labels, datasets);
-    ssChart.options.scales.y.max=chartYMax.ss;
-    ssChart.options.plugins.tooltip.callbacks=justifyTip(ssTooltipCallbacks);
-    ssChart.update();
-  } else {
-    ssChart=new Chart(document.getElementById('ssChart'),{type:'line',data:{labels,datasets},options:{
+  upsertLineChart('ss',{canvasId:'ssChart', labels, datasets, yMax:Y_MAX, tooltip:ssTooltipCallbacks,
+    createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'nearest',intersect:true},
       plugins:{legend:{display:false},tooltip:{enabled:true,...TIP_STYLE,filter:(item,index)=>index===0,callbacks:justifyTip(ssTooltipCallbacks)}},
       scales:{
         x:ageXAxis(ageAxisLabel(lastProjection)),
-        y:{min:0,max:chartYMax.ss,title:axisTitle("Cumulative household SS (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        y:{min:0,max:Y_MAX,title:axisTitle("Cumulative household SS (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
-    }});
-  }
+    })});
   document.getElementById('ssLegend').innerHTML=scenarios.map(sc=>{
     const isStartAge=sc.age===selectedAge;
     const color=VZ_SS_COLORS[sc.age]||'#0F6E56';
     const swatchStyle=isStartAge
       ? `background:repeating-linear-gradient(to right,${color} 0 4px,transparent 4px 7px);height:3px`
       : `background:${color};height:${sc.age===70?4:2}px`;
-    return `<span class="li"><span class="ls" style="${swatchStyle}"></span>Age ${sc.age}${isStartAge?' — selected start age':sc.age===62?' (earliest)':sc.age===70?' (max)':''}</span>`;
+    return legendItem(`Age ${sc.age}${isStartAge?' — selected start age':sc.age===62?' (earliest)':sc.age===70?' (max)':''}`, null, swatchStyle);
   }).join('');
 
   // metrics

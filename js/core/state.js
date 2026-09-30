@@ -10,9 +10,6 @@ function defaultChange(mode,value){return{mode,value:value||0};}
 function defaultAgeRange(startMode,startVal,endMode,endVal){
   return{startMode,startVal:startVal||0,endMode,endVal:endVal||0};
 }
-function defaultIncomeItem(amount, changeMode, changeVal){
-  return{ enabled:false, hidden:true, amount:amount||0, change:defaultChange(changeMode,changeVal), bene:false };
-}
 function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal, endMode, endVal){
   return{
     enabled:false, hidden:true, amount:amount||0,
@@ -192,7 +189,7 @@ function applyDefaultHiddenFromEnabled(s){
 function resetState(){
   if(!confirm('Reset all inputs to defaults? This cannot be undone.')) return;
   state=applyDefaultHiddenFromEnabled(defaultState());
-  if(typeof chartYMax!=='undefined'){ chartYMax.ss=null; chartYMax.income=null; chartYMax.tss=null; chartYMax.tax=null; chartYMax.asset=null; chartYMax.idgt=null; }
+  resetChartYMax();
   renderAll();
   autosave();
   flashMsg('Reset to defaults.');
@@ -234,7 +231,7 @@ function applyLoadedFileText(text){
   state=defaultState();        // reset before restoring, per spec
   state=hydrateState(parsed);  // then apply the restored file on top of that clean default
   applyDefaultHiddenFromEnabled(state); // collapse anything the loaded file left disabled
-  if(typeof chartYMax!=='undefined'){ chartYMax.ss=null; chartYMax.income=null; chartYMax.tss=null; chartYMax.tax=null; chartYMax.asset=null; chartYMax.idgt=null; }
+  resetChartYMax();
   renderAll();
   autosave();
   flashMsg('Loaded from file.');

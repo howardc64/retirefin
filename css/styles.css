@@ -1,0 +1,190 @@
+:root{
+  --bg:#f7f5f0;--surface:#fff;--surface2:#f0ede6;
+  --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.18);
+  --text:#1a1814;--text-muted:#6b6760;--text-faint:#a09d98;
+  --teal:#0f6e56;--teal-light:#e1f5ee;--teal-text:#085041;
+  --accent:#0f6e56;--radius:10px;--red:#c0392b;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:26px 40px 20px;}
+header h1{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;margin-bottom:4px;}
+header p{font-size:13px;color:var(--text-muted);font-weight:300;}
+.topbar{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center;}
+.btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:12px;font-weight:500;padding:6px 14px;color:var(--text);font-family:inherit;}
+.btn:hover{background:var(--border);}
+.dropdown{position:relative;display:inline-block;}
+.dropdown-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:1000;min-width:260px;max-height:60vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.15);padding:4px 0;}
+.dropdown-menu.open{display:block;}
+.dropdown-menu button{display:block;width:100%;text-align:left;background:none;border:none;padding:7px 14px;font-size:12.5px;font-family:inherit;color:var(--text);cursor:pointer;}
+.dropdown-menu button:hover{background:var(--border);}
+.dropdown-menu .dd-head{padding:6px 14px 2px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);}
+.dropdown-menu .dd-note{padding:6px 14px;font-size:11.5px;color:var(--text-muted);line-height:1.4;}
+.dropdown-menu hr{border:none;border-top:1px solid var(--border);margin:4px 0;}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-primary:hover{background:var(--teal-text);}
+.btn-danger{color:var(--red);}
+.savemsg{font-size:11px;color:var(--teal-text);font-weight:500;}
+main{max-width:1600px;margin:0 auto;padding:28px 24px 70px;}
+.sec-head{font-family:'DM Serif Display',serif;font-size:20px;font-weight:400;margin:40px 0 16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.sec-sub{font-size:12px;color:var(--text-muted);margin:-10px 0 18px;line-height:1.6;}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;}
+.panel-title{font-size:11px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;}
+
+.setup-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:11px;color:var(--text-muted);font-weight:500;}
+.field input[type=text],.field input[type=number],.field select{
+  font-family:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--border-strong);
+  border-radius:6px;background:var(--bg);color:var(--text);
+}
+.field input:focus,.field select:focus{outline:2px solid var(--teal);outline-offset:1px;}
+.radiorow{display:flex;gap:16px;align-items:center;}
+.radiorow label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400;cursor:pointer;}
+
+.slider-row{display:grid;grid-template-columns:220px 1fr 80px;align-items:center;gap:12px;padding:7px 0;}
+.slider-row .sl{font-size:13px;color:var(--text-muted);}
+.slider-row .sl strong{color:var(--text);font-weight:500;}
+input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border-strong);border-radius:2px;outline:none;cursor:pointer;width:100%;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.2);}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid white;}
+.sv{font-size:13px;font-weight:500;text-align:right;color:var(--text);}
+
+.income-grid{display:grid;gap:16px;grid-template-columns:1fr;align-items:start;min-width:0;}
+.income-grid.two-col{grid-template-columns:repeat(2,minmax(0,1fr));}
+.person-col{background:var(--surface2);border-radius:8px;padding:14px 16px;min-width:0;}
+.income-grid.two-col .person-col{display:grid;grid-template-rows:subgrid;grid-row:1 / -1;align-content:start;}
+.person-col h3{font-family:'DM Serif Display',serif;font-weight:400;font-size:16px;margin-bottom:10px;color:var(--teal-text);align-self:start;}
+.people-panes{display:grid;gap:16px;grid-template-columns:1fr;min-width:0;}
+.people-panes.two-col{grid-template-columns:repeat(2,minmax(0,1fr));}
+.people-panes .person-col .setup-grid{grid-template-columns:1fr 1fr;gap:10px;}
+.item{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:10px 12px;margin-bottom:10px;min-width:0;}
+.item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
+.item-head label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;cursor:pointer;}
+.item-head-right{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+.item-head .hide-toggle{font-size:11px;font-weight:400;color:var(--text-muted);gap:5px;white-space:nowrap;}
+.item-body{display:none;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:8px;min-width:0;}
+.item-body.open{display:grid;}
+.item-body .full{grid-column:1/-1;}
+.item-body .field label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;}
+.item-note{grid-column:1/-1;font-size:10.5px;color:var(--text-faint);line-height:1.5;}
+/* Brokerage portfolio cards sit two levels deep (married two-col layout > item-body > portfolio
+   card), so a rigid 1fr/1fr grid squeezed every field to ~50px and clipped inputs/labels.
+   auto-fit+minmax lets fields collapse to one column whenever the available width can't fit two. */
+.portfolio-card{background:var(--bg);}
+.portfolio-fields{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
+/* The list of portfolio cards must stack vertically (one per row) — there isn't room to fit two
+   full cards side by side once nested inside a person column, and forcing 2 columns squeezed
+   each card's border so it no longer enclosed its own fields. */
+.portfolio-list{grid-template-columns:1fr;gap:10px;}
+.arow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0;}
+.arow select{flex:1 1 auto;min-width:0;}
+.arow input[type=number]{width:70px;flex:0 0 70px;}
+/* Prevent grid/flex children from refusing to shrink below their content's intrinsic size —
+   this is what was clipping fields and cutting off note text at narrow column widths. */
+.field,.setup-grid>*,.item-body>*,.slider-row,.slider-row>*{min-width:0;}
+.field input[type=text],.field input[type=number],.field select{width:100%;min-width:0;}
+/* §4.0 — any number entry that can hold a $ value (including as just one of several unit
+   options, e.g. fee drag or LTCG which toggle between % and $) gets room for 12 digits. */
+.field input[type=number].money{min-width:150px;}
+.arow input[type=number].money{width:auto;min-width:150px;flex:1 1 150px;}
+
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{padding:8px 12px;text-align:left;font-size:10px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;}
+thead th.r{text-align:right;}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text-muted);}
+tbody td.r{text-align:right;font-variant-numeric:tabular-nums;}
+tbody tr:last-child td{border-bottom:none;}
+
+.tnote{background:#fff8e1;border:1px solid rgba(200,150,0,.25);border-left:3px solid #e6a817;border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:#4a3800;line-height:1.7;margin:10px 0;}
+
+footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint);border-top:1px solid var(--border);background:var(--surface);line-height:1.8;}
+
+#detailPanel{display:none;}
+@media print{
+  body.printing-detail > header, body.printing-detail > main > *:not(#detailWrap), body.printing-detail > footer{display:none !important;}
+  body.printing-detail #detailPanel{display:block !important;}
+  body.printing-detail{background:#fff;}
+}
+
+/* These collapse based on the *column's own rendered width* (container query), not the
+   viewport — the input column is only ~35% of page width, so a viewport breakpoint alone
+   let two-column layouts overflow and clip their own content well before 700px viewports.
+   Falls back gracefully in browsers without @container support (columns just stay 1-col-ish
+   via minmax(0,1fr) above, no clipping either way). */
+@container (max-width:560px){
+  .slider-row{grid-template-columns:1fr;gap:4px;}
+  .sv{text-align:left;}
+  .income-grid.two-col{grid-template-columns:1fr;}
+  .income-grid.two-col .person-col{grid-row:auto;grid-template-rows:auto;}
+}
+
+@container (max-width:480px){
+  .people-panes.two-col{grid-template-columns:1fr;}
+}
+@media (max-width:700px){
+  .slider-row{grid-template-columns:1fr;gap:4px;}
+  .sv{text-align:left;}
+  .income-grid.two-col{grid-template-columns:1fr;}
+  .income-grid.two-col .person-col{grid-row:auto;grid-template-rows:auto;}
+  .people-panes.two-col{grid-template-columns:1fr;}
+}
+
+/* ── Hide checkbox on chart sections and the Assumptions panel (display-only; default off) ── */
+.hideable{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.hide-cb{display:flex;align-items:center;gap:5px;font-family:'DM Sans',system-ui,sans-serif;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-muted);cursor:pointer;flex-shrink:0;}
+.sec-hidden{display:none!important;}
+.sec-head.hideable.is-hidden{margin-bottom:16px;}
+/* ── Charts / visualization sections ── */
+.metric-grid{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
+.metric{flex:1 1 170px;max-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;min-width:0;}
+.metric-label{font-size:10.5px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.metric-value{font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:2px;}
+.metric-sub{font-size:11px;color:var(--text-muted);}
+.metric-hl{border-color:rgba(15,110,86,.3);background:var(--teal-light);}
+.metric-hl .metric-label,.metric-hl .metric-value{color:var(--teal-text);}
+.cc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+.cc-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;}
+.ct{font-size:13px;font-weight:500;color:var(--text);text-align:center;flex:1;}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;font-size:11px;color:var(--text-muted);justify-content:center;}
+.li{display:flex;align-items:center;gap:5px;}
+.ls{width:22px;height:10px;border-radius:3px;flex-shrink:0;}
+.co{display:flex;justify-content:center;width:100%;}
+.cw{position:relative;width:66.667%;max-width:800px;min-width:0;}
+.cw canvas{display:block;}
+.cn{font-size:11px;color:var(--text-faint);margin-top:12px;line-height:1.5;text-align:center;}
+.cn:empty{display:none;}
+@container (max-width:520px){ .cw{width:100%;} }
+.ic{background:var(--teal-light);border:1px solid rgba(15,110,86,.15);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
+.ic h3{font-family:'DM Serif Display',serif;font-size:16px;font-weight:400;margin-bottom:10px;color:var(--teal-text);}
+.ic p{font-size:13px;color:#2a4a3e;line-height:1.65;margin-bottom:8px;}
+.ic p:last-child{margin-bottom:0;}
+.callout{background:white;border-left:3px solid var(--teal);border-radius:0 6px 6px 0;padding:10px 14px;margin:12px 0;font-size:12px;color:#1a3a30;line-height:1.7;}
+.tb{font-size:11px;font-weight:500;padding:2px 8px;border-radius:12px;}
+.tb-ex{background:#e1f5ee;color:#085041;}.tb-50{background:#fff3cd;color:#856404;}.tb-85{background:#fde8d8;color:#7c3a00;}
+.best td{background:#e8f7f2!important;color:var(--text);}
+.best td:first-child{font-weight:500;color:var(--teal-text);}
+.ov-toggle{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:11px;font-weight:500;padding:4px 12px;color:var(--text-muted);font-family:inherit;}
+.rescale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:10.5px;font-weight:500;padding:3px 10px;color:var(--text-muted);font-family:inherit;}
+@media (max-width:700px){ .cw{width:100%;} }
+
+/* ── Two-pane layout: input column(s) left, chart column right ── */
+.layout{display:grid;grid-template-columns:minmax(360px,0.95fr) minmax(460px,1.5fr);gap:30px;align-items:start;}
+.input-col,.chart-col{
+  min-width:0;position:sticky;top:16px;
+  max-height:calc(100vh - 32px);overflow-y:auto;overflow-x:hidden;
+  padding:2px 14px 24px 2px;
+  scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;
+  container-type:inline-size;
+}
+.input-col{margin-left:-14px;padding-left:14px;}
+.chart-col{margin-right:-14px;}
+.input-col::-webkit-scrollbar,.chart-col::-webkit-scrollbar{width:8px;}
+.input-col::-webkit-scrollbar-track,.chart-col::-webkit-scrollbar-track{background:transparent;}
+.input-col::-webkit-scrollbar-thumb,.chart-col::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px;}
+.input-col .sec-head:first-child,.chart-col .sec-head:first-child{margin-top:0;}
+@media (max-width:960px){
+  .layout{grid-template-columns:1fr;gap:0;}
+  .input-col,.chart-col{position:static;max-height:none;overflow-y:visible;overflow-x:visible;padding:0;margin-left:0;margin-right:0;}
+}

@@ -8,7 +8,6 @@ const VZ = {
   qdiv:'#2E86AB', odivNQ:'#1A5276', ltcg:'#6C3483',
   ssP0:'#0F6E56', ssOther:'#3DB08A'
 };
-let incomeChart=null;
 const INC_KEYS=['pension','wageTotal','rothConv','iraTotal','rental','qdiv','odivNQ','ltcg','ssP0','ssOther'];
 const INC_LABELS={pension:'Pension',wageTotal:'Wage',rothConv:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',rental:'Rental income',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
 const INC_COLORS={pension:VZ.pen,wageTotal:VZ.wg,rothConv:VZ.iraW,iraTotal:VZ.rmd,rental:VZ.rent,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
@@ -32,8 +31,8 @@ function buildIncomeLegend(){
   const ov=OV();
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
   document.getElementById('incomeLegend').innerHTML =
-    keys.map(k=>`<span class="li"><span class="ls" style="background:${INC_COLORS[k]}"></span>${INC_LABELS[k]}</span>`).join('') +
-    `<span class="li"><span class="ls" style="border-top:2px dashed ${ov.irmaa[0]};background:transparent;height:2px;margin-top:4px"></span>IRMAA</span>`;
+    keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
+    legendItem('IRMAA', null, `border-top:2px dashed ${ov.irmaa[0]};background:transparent;height:2px;margin-top:4px`);
 }
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -58,16 +57,15 @@ function buildIncomeChart(){
   });
   const aligned={}; keys.forEach(k=>{ aligned[k]=alignToAges(ages, seriesByKey[k], labels); });
 
-  if(chartYMax.income==null){
+  const Y_MAX=lockedYMax('income', ()=>{
     let maxT=0;
     for(let i=0;i<labels.length;i++){
       let t=0, any=false;
       keys.forEach(k=>{ const v=aligned[k][i]; if(v!=null){ t+=v; any=true; } });
       if(any) maxT=Math.max(maxT,t);
     }
-    chartYMax.income = maxT>150000 ? Math.ceil(maxT/10000)*10000+15000 : 150000;
-  }
-  const Y_MAX=chartYMax.income;
+    return maxT>150000 ? Math.ceil(maxT/10000)*10000+15000 : 150000;
+  });
 
   // filing-status split (for the MFJ→single boundary on the chart)
   let swIdx=labels.length;
@@ -132,14 +130,9 @@ function buildIncomeChart(){
     }
   };
 
-  if(incomeChart){
-    updateChartInPlace(incomeChart, labels, datasets);
-    incomeChart.options.scales.y.max=Y_MAX;
-    incomeChart.options.plugins.incomeOverlay={irmaaMFJ,irmaaSgl,switchIdx:swIdx};
-    incomeChart.options.plugins.tooltip.callbacks=justifyTip(tooltipCallbacks);
-    incomeChart.update();
-  } else {
-    incomeChart=new Chart(document.getElementById('incomeChart'),{type:'line',data:{labels,datasets},options:{
+  upsertLineChart('income',{canvasId:'incomeChart', labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
+    refresh:o=>{ o.plugins.incomeOverlay={irmaaMFJ,irmaaSgl,switchIdx:swIdx}; },
+    createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
       plugins:{
@@ -151,8 +144,7 @@ function buildIncomeChart(){
         x:ageXAxis(ageAxisLabel(proj)),
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Annual income (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
       }
-    }});
-  }
+    })});
   buildIncomeLegend();
 }
 

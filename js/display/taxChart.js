@@ -5,19 +5,14 @@
 // ═══════════════════════════════════════════════════════════════
 const VZ_TAX = { ord:'#C8600A', qdiv0:'#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',
                  ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#B0163E', effRate:'#E8291C', marginalRate:'#1FA92C' };
-let taxChart=null;
+const TAX_LEGEND=[
+  ['ord','Ordinary income tax'], ['qdiv0','QDIV 0%'], ['qdiv15','QDIV 15%'], ['qdiv20','QDIV 20%'],
+  ['ltcg0','LTCG 0%'], ['ltcg15','LTCG 15%'], ['ltcg20','LTCG 20%'],
+  ['niit','NIIT 3.8% (+ on top of QDIV/LTCG)'],
+  ['effRate','Effective tax rate (right axis, dashed)'], ['marginalRate','Marginal tax rate (right axis, dashed)']
+];
 function buildTaxLegend(){
-  document.getElementById('taxLegend').innerHTML =
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.ord}"></span>Ordinary income tax</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.qdiv0}"></span>QDIV 0%</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.qdiv15}"></span>QDIV 15%</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.qdiv20}"></span>QDIV 20%</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.ltcg0}"></span>LTCG 0%</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.ltcg15}"></span>LTCG 15%</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.ltcg20}"></span>LTCG 20%</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.niit}"></span>NIIT 3.8% (+ on top of QDIV/LTCG)</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.effRate}"></span>Effective tax rate (right axis, dashed)</span>` +
-    `<span class="li"><span class="ls" style="background:${VZ_TAX.marginalRate}"></span>Marginal tax rate (right axis, dashed)</span>`;
+  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.map(([k,label])=>legendItem(label, VZ_TAX[k])).join('');
 }
 function buildTaxChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -55,15 +50,14 @@ function buildTaxChart(){
   const marginalArr=rows.map(r=>(r.marginalRate||0)*100);
   const alignedMarginal=alignToAges(ages,marginalArr,labels);
 
-  if(chartYMax.tax==null){
+  const Y_MAX=lockedYMax('tax', ()=>{
     let maxV=0;
     for(let i=0;i<labels.length;i++){
       let t=alignedOrd[i]||0; alignedQ.forEach(a=>t+=a[i]||0); alignedL.forEach(a=>t+=a[i]||0); t+=alignedNiit[i]||0;
       maxV=Math.max(maxV,t);
     }
-    chartYMax.tax=Math.ceil(Math.max(maxV,1)/2000)*2000+4000;
-  }
-  const Y_MAX=chartYMax.tax;
+    return Math.ceil(Math.max(maxV,1)/2000)*2000+4000;
+  });
 
   const rowByAge={}; rows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
   let swIdx=labels.length;
@@ -129,13 +123,8 @@ function buildTaxChart(){
     }
   };
 
-  if(taxChart){
-    updateChartInPlace(taxChart, labels, datasets);
-    taxChart.options.scales.y.max=Y_MAX;
-    taxChart.options.plugins.tooltip.callbacks=justifyTip(tooltipCallbacks);
-    taxChart.update();
-  } else {
-    taxChart=new Chart(document.getElementById('taxChart'),{type:'line',data:{labels,datasets},options:{
+  upsertLineChart('tax',{canvasId:'taxChart', labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
+    createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
       plugins:{
@@ -148,8 +137,7 @@ function buildTaxChart(){
         // §9.4: effective/marginal tax-rate lines share their own right-hand % scale, independent of the $ stack.
         y1:{position:'right',min:0,max:100,title:axisTitle('Tax rate (effective / marginal)'),ticks:{...AXIS_TICKS,callback:v=>v+'%'},grid:{display:false}}
       }
-    }});
-  }
+    })});
   buildTaxLegend();
 }
 

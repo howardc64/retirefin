@@ -30,8 +30,8 @@ function toggleOverlayMode(){
   overlayMode = overlayMode==='light'?'dark':'light';
   const lbl=document.getElementById('overlayModeLabel'); if(lbl) lbl.textContent = overlayMode==='light'?'Light':'Dark';
   buildIncomeLegend(); buildTaxLegend();
-  if(incomeChart) incomeChart.update();
-  if(taxChart) taxChart.update();
+  if(charts.income) charts.income.update();
+  if(charts.tax) charts.tax.update();
 }
 // ── Tooltip layout (spec §5: label left-justified, data right-justified) ──
 // mrow() only tags a line as "label | value" with a separator; justifyTip() then pads EVERY
@@ -112,9 +112,24 @@ function ageLabelRange(fromAge,toAge){
   return labels;
 }
 
-// Manual rescale: clears the "locked" chart max so the next recompute re-fits it.
-const chartYMax={ss:null, income:null, tss:null, tax:null, expense:null, asset:null, idgt:null};
+// ── Chart registry ──
+// One live Chart.js instance per key (null until first drawn). Every chart file reads/writes
+// `charts.<key>` through upsertLineChart(); destroy/resize below walk the registry, so adding a
+// chart never means editing a hand-written list of chart variables.
+const charts={ss:null, income:null, tss:null, tax:null, expense:null, asset:null, idgt:null};
+function allCharts(){ return Object.values(charts).filter(Boolean); }
+
+// Y-axis maximum per chart. It is computed once and then held ("locked") so the scale doesn't
+// jump while sliders move; Rescale — or loading/resetting a plan — clears it so the next render re-fits.
+const chartYMax=Object.fromEntries(Object.keys(charts).map(k=>[k,null]));
+function lockedYMax(key, compute){ if(chartYMax[key]==null) chartYMax[key]=compute(); return chartYMax[key]; }
+function resetChartYMax(){ Object.keys(chartYMax).forEach(k=>{ chartYMax[k]=null; }); }
 function rescaleChart(which){ chartYMax[which]=null; recompute(); }
+
+// Legend swatch + label. `style` overrides the default solid-color swatch (e.g. the dashed IRMAA key).
+function legendItem(text, color, style){
+  return `<span class="li"><span class="ls" style="${style||('background:'+color)}"></span>${text}</span>`;
+}
 
 // Update an existing Chart.js chart's labels/datasets by mutating the same
 // array/object references in place, rather than assigning brand-new arrays.
@@ -150,9 +165,36 @@ function updateChartInPlace(chart, labels, datasets){
   }
 }
 
+// Draw or refresh one line chart — the create-or-update step every chart file used to repeat.
+//   key             registry key in `charts`
+//   canvasId        <canvas> to draw into on first creation
+//   labels/datasets this render's data
+//   yMax            locked Y-axis max (see lockedYMax)
+//   tooltip         raw tooltip callbacks; wrapped in justifyTip() here
+//   createOptions   () => full Chart.js options, used only when the chart is first created
+//   refresh         optional (options) => void, applies per-render option changes to an existing chart
+function upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, createOptions, refresh}){
+  const chart=charts[key];
+  if(chart){
+    updateChartInPlace(chart, labels, datasets);
+    chart.options.scales.y.max=yMax;
+    if(refresh) refresh(chart.options);
+    chart.options.plugins.tooltip.callbacks=justifyTip(tooltip);
+    chart.update();
+  } else {
+    charts[key]=new Chart(document.getElementById(canvasId),{type:'line',data:{labels,datasets},options:createOptions()});
+  }
+  return charts[key];
+}
+
 // Re-fit every chart after a hidden section is shown again (a canvas measured at display:none has no size).
 function resizeAllCharts(){
-  [ssChart,incomeChart,tssChart,taxChart,expenseChart,assetCharts.asset,assetCharts.idgt].forEach(ch=>{
-    try{ if(ch) ch.resize(); }catch(e){}
-  });
+  allCharts().forEach(ch=>{ try{ ch.resize(); }catch(e){} });
+}
+
+// A file restore is a hard data boundary: destroy every Chart.js instance so no tooltip/plugin closure,
+// hover state, dataset or canvas pixels from the previous plan survive into the newly loaded one.
+function destroyAllCharts(){
+  allCharts().forEach(ch=>{ try{ ch.destroy(); }catch(e){} });
+  Object.keys(charts).forEach(k=>{ charts[k]=null; });
 }

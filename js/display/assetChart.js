@@ -3,21 +3,13 @@
 // DISPLAY / ASSET VALUE CHARTS — brokerage/IRA/Roth balances, and
 // a separate IDGT-only chart if any IDGT portfolios exist (spec §10).
 // ═══════════════════════════════════════════════════════════════
-const assetCharts={asset:null, idgt:null};
 const ASSET_COLORS=['#0f6e56','#2E86AB','#8E44AD','#D06A18','#C0392B','#3DB08A','#7B5EA7','#E85D9A','#1A5276','#B5891D'];
 
-// "Embedded gain at end of plan" line (spec §4.6 cost basis, §6.7): a second line under a chart's note. It is
-// created on first use next to the note element (index.html doesn't need a matching element) and
-// hidden whenever there's nothing to say (no portfolio on this chart has cost basis tracked).
-function setGainNote(cfg, noteEl, text){
-  if(!noteEl) return;
-  const id=cfg.noteId+'Gain';
-  let el=document.getElementById(id);
-  if(!el){
-    el=document.createElement('div'); el.id=id; el.className=noteEl.className; el.style.marginTop='6px';
-    noteEl.parentNode.insertBefore(el, noteEl.nextSibling);
-  }
-  el.textContent=text||''; el.style.display=text?'':'none';
+// "Unrealized gain at end of plan" line (spec §4.6 cost basis, §6.7): one line under each asset chart, held in a
+// <p class="cn"> in index.html (hidden while empty) and blank whenever no portfolio on the chart tracks cost basis.
+function setGainNote(cfg, text){
+  const el=document.getElementById(cfg.gainId);
+  if(el) el.textContent=text||'';
 }
 
 // One builder for both asset charts. `cfg` picks which series belong on the chart
@@ -25,7 +17,6 @@ function setGainNote(cfg, noteEl, text){
 function buildAssetChartFor(cfg){
   if(typeof Chart==='undefined'||!lastProjection) return;
   const proj=lastProjection, rows=proj.rows;
-  const noteEl=document.getElementById(cfg.noteId);
   const legendEl=document.getElementById(cfg.legendId);
   const card=cfg.cardId?document.getElementById(cfg.cardId):null;
 
@@ -46,14 +37,14 @@ function buildAssetChartFor(cfg){
     });
   }
 
-  const clear=(msg)=>{
-    if(assetCharts[cfg.key]){ try{ assetCharts[cfg.key].destroy(); }catch(e){} assetCharts[cfg.key]=null; }
+  const clear=()=>{
+    if(charts[cfg.key]){ try{ charts[cfg.key].destroy(); }catch(e){} charts[cfg.key]=null; }
     legendEl.innerHTML='';
-    setGainNote(cfg, noteEl, '');
+    setGainNote(cfg, '');
   };
   if(card) card.style.display = series.length ? '' : 'none';
-  if(!series.length){ clear(cfg.emptyMsg); return; }
-  if(!rows.length){ clear(''); return; }
+  if(!series.length){ clear(); return; }
+  if(!rows.length){ clear(); return; }
 
   // IRA stretch: on the main chart only, the 10 years after the household's last passing carry just the
   // pre-tax / Roth IRA bands (proj.stretch, compute/projection.js). The axis is extended if those years
@@ -81,16 +72,15 @@ function buildAssetChartFor(cfg){
   }));
   const aligned=seriesValues.map(vals=>alignToAges(ages, vals, labels));
 
-  if(chartYMax[cfg.key]==null){
+  const Y_MAX=lockedYMax(cfg.key, ()=>{
     let maxT=0;
     for(let i=0;i<labels.length;i++){
       let t=0, any=false;
       aligned.forEach(a=>{ const v=a[i]; if(v!=null){ t+=v; any=true; } });
       if(any) maxT=Math.max(maxT,t);
     }
-    chartYMax[cfg.key] = Math.max(50000, Math.ceil(maxT/10000)*10000+10000);
-  }
-  const Y_MAX=chartYMax[cfg.key];
+    return Math.max(50000, Math.ceil(maxT/10000)*10000+10000);
+  });
 
   const seriesLabel=(s,si)=>{
     const personName=displayPersonName(proj.people[s.personIdx], s.personIdx);
@@ -153,14 +143,8 @@ function buildAssetChartFor(cfg){
     }
   };
 
-  let chart=assetCharts[cfg.key];
-  if(chart){
-    updateChartInPlace(chart, labels, datasets);
-    chart.options.scales.y.max=Y_MAX;
-    chart.options.plugins.tooltip.callbacks=justifyTip(tooltipCallbacks);
-    chart.update();
-  } else {
-    assetCharts[cfg.key]=new Chart(document.getElementById(cfg.canvasId),{type:'line',data:{labels,datasets},options:{
+  upsertLineChart(cfg.key,{canvasId:cfg.canvasId, labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
+    createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
       plugins:{
@@ -171,10 +155,9 @@ function buildAssetChartFor(cfg){
         x:ageXAxis(ageAxisLabel(proj)),
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle(cfg.yTitle),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
-    }});
-  }
+    })});
   legendEl.innerHTML = series.map((s,si)=>
-    `<span class="li"><span class="ls" style="background:${ASSET_COLORS[si%ASSET_COLORS.length]}"></span>${escHtml(seriesLabel(s,si))}</span>`
+    legendItem(escHtml(seriesLabel(s,si)), ASSET_COLORS[si%ASSET_COLORS.length])
   ).join('');
 
   // Embedded (unrealized) gain in the plan's final year, across this chart's tracked portfolios.
@@ -193,23 +176,19 @@ function buildAssetChartFor(cfg){
         ? ' IDGT assets keep their original (carryover) cost basis at death, so this gain generally stays taxable to whoever later sells.'
         : ' Non-IDGT portfolios generally receive a step-up in cost basis at death, so heirs would not owe tax on this gain.');
   }
-  setGainNote(cfg, noteEl, gainText);
+  setGainNote(cfg, gainText);
 }
 
 function buildAssetChart(){
   buildAssetChartFor({
-    key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', noteId:'assetChartNote',
+    key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', gainId:'assetChartGain',
     yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
-    emptyMsg:'Add a non-IDGT brokerage portfolio, or enable a pre-tax IRA/401(k) or Roth IRA, to see this chart.',
-    note:`Each band is one brokerage portfolio (IDGTs excluded), pre-tax IRA/401(k) balance, or Roth IRA balance, compounding at its own configured growth rate, in today's dollars. Household expenses (living expenses, IRMAA surcharge, AUM fee, income tax) are paid from household income first, then the dividends, then the asset sales of the portfolios with Pay expenses checked, so a brokerage band is only drawn down by the dividends used and shares sold. A brokerage band drops to zero once its owner passes, unless "Continues to spouse" is checked; an inherited pre-tax or Roth IRA continues under the surviving spouse until they pass. An IRA with its "IRA stretch" box checked is not dropped when its owner passes; the band continues, held by heirs, until ${STRETCH_YEARS} years after the last passing, still compounding at its growth rate with no withdrawals or RMDs modeled and no tax on heirs; only those IRA bands are stacked in those years (brokerage bands end at the last passing). A Roth IRA also grows from any Annual Roth conversion configured on the matching pre-tax IRA. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 function buildIdgtChart(){
   buildAssetChartFor({
-    key:'idgt', idgt:true, cardId:'idgtCard', canvasId:'idgtChart', legendId:'idgtLegend', noteId:'idgtChartNote',
+    key:'idgt', idgt:true, cardId:'idgtCard', canvasId:'idgtChart', legendId:'idgtLegend', gainId:'idgtChartGain',
     yTitle:"IDGT value (today's $)", totalLabel:'Total IDGT value',
-    emptyMsg:'',
-    note:`Each band is one brokerage portfolio flagged as an IDGT, compounding at its own configured growth rate, in today's dollars, drawn down only if its Pay expenses box is checked, in which case its dividends, then its sales, help pay household expenses (living costs, IRMAA, AUM fee, income tax) like any other portfolio. Dividend income from IDGT portfolios is still included in household income and tax. A band drops to zero once its owner passes, unless "Continues to spouse" is checked. Y-axis locked — use Rescale if the stack runs off the top.`
   });
 }
 
