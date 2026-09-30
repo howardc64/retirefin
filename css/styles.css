@@ -131,7 +131,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
   .people-panes.two-col{grid-template-columns:1fr;}
 }
 
-/* ── Hide checkbox on chart sections and the Assumptions panel (display-only; default off) ── */
+/* ── Hide checkbox on chart sections and the Assumptions panel (display-only; kept in state.ui.hiddenSections, default checked) ── */
 .hideable{display:flex;justify-content:space-between;align-items:center;gap:10px;}
 .hide-cb{display:flex;align-items:center;gap:5px;font-family:'DM Sans',system-ui,sans-serif;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-muted);cursor:pointer;flex-shrink:0;}
 .sec-hidden{display:none!important;}

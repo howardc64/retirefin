@@ -30,7 +30,9 @@ function renderIncomeForms(){
   const incomeEl = document.getElementById('perPersonIncome');
   incomeEl.className = 'income-grid' + (married ? ' two-col' : '');
   incomeEl.style.gridTemplateRows = married ? `repeat(${rowCount}, auto)` : '';
-  incomeEl.innerHTML=html;
+  // autocomplete="off": stops a browser's form-state restore (reload / back) from putting a stale checkbox or value on top of the
+  // state-derived one — e.g. a Hide box that is checked while its card is open.
+  incomeEl.innerHTML=html.replace(/<input /g,'<input autocomplete="off" ');
 }
 
 function onSSStartedToggle(i,checked){ state.people[i].ss.started=checked; renderIncomeForms(); recompute(); saveDebounced(); }

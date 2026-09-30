@@ -98,6 +98,9 @@ state = {
     niitStartYear: number,
     niitSingle: number,           // today's $
     niitMarried: number           // today's $
+  },
+  ui: {                           // display-only flags that are nevertheless saved, autosaved, restored and reset with the plan
+    hiddenSections: { assumptions, ss, income, tss, tax, expenses, assets: boolean }  // the section **Hide** checkboxes (§5.1, §6.1). true = checked + collapsed. Default: all true (`DEFAULT_SECTION_HIDDEN`, `core/state.js`). A save with no `ui.hiddenSections` (written before this existed) loads with every section shown
   }
 }
 
@@ -179,14 +182,15 @@ that changes.
 |---|---|
 | `defaultState()`, `defaultPerson(idx)`, `defaultBrokeragePortfolio(balance,n)`, `defaultChange`, `defaultAgeRange`, `defaultAgeRangedItem` | Canonical default shapes (§2). **If you add a field to the schema, add its default here.** |
 | `pfBasisEntered(b)`, `pfTracksBasis(b)` | Cost-basis predicates (§4.6): a cost basis was entered (`basisPct` is a number; `null`/blank is *not* the same as `0`); and whether basis is tracked — now true for every portfolio, since household expenses can force a sale from any of them |
-| `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has). Migration: if a loaded file has no `living`, it is set to the sum of the old enabled portfolios' `living` withdrawals |
+| `SECTION_HIDE_KEYS`, `DEFAULT_SECTION_HIDDEN`, `defaultHiddenSections(hidden?)` | The keys of `state.ui.hiddenSections` (must match each `data-hide-key` in `index.html`) and their default (`true` = a fresh session and **Reset to defaults** start with every section checked + collapsed; flip the constant to change that) |
+| `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has). Migration: if a loaded file has no `living`, it is set to the sum of the old enabled portfolios' `living` withdrawals. Hide migration (`fillLegacyHide`): a card with **no** `hidden` flag gets `!enabled`, and a file with no `ui.hiddenSections` shows every section — a `hidden` value that *is* in the file is never overridden |
 | `state` | The live, mutable object every other file reads/writes |
 | `autosave()` / `loadAutosave()` | Silent per-browser `localStorage` save/restore, so a reload doesn't lose work |
 | `resetState()` | Confirms, then resets `state` to defaults (with `applyDefaultHiddenFromEnabled`) and re-renders |
 | `saveToFile()` | Downloads `state` as `retirement-plan.json` (File System Access API where available) |
 | `loadFromFile()` | The **Choose file from local directory…** menu entry's action (§5.6). Uses `showOpenFilePicker` (with a stable `id: 'retirementPlannerLoad'`, so browsers that support it remember the last-used folder across sessions) when available; otherwise clicks the hidden `<input type="file" id="importFile">`. **Limitation (browser security, not fixable here):** no web API lets a page force its *first-ever* file dialog to open in a chosen folder such as `Samples/` — the Load file menu (§5.6) lists the shipped `Samples/` folder instead; after the user opens a file from it once, supporting browsers remember it. |
-| `applyLoadedFileText(text)` | Shared by both load paths: parse JSON → **destroy every chart → reset to defaults → hydrate the loaded file on top → `applyDefaultHiddenFromEnabled`** — always in that order, so no stale state or chart instance survives a restore |
-| `applyDefaultHiddenFromEnabled(s)` | Sets `hidden = !enabled` on every income item and brokerage portfolio (§8 "Default coupling"). Called by load and reset — deliberately **not** by autosave-restore, so manual Hide/Show survives a page reload |
+| `applyLoadedFileText(text)` | Shared by both load paths: parse JSON → **destroy every chart → reset to defaults → hydrate the loaded file on top** — always in that order, so no stale state or chart instance survives a restore. Every Hide flag (per card and `state.ui.hiddenSections`) comes back exactly as saved |
+| `applyDefaultHiddenFromEnabled(s)` | Sets `hidden = !enabled` on every income item and brokerage portfolio (§8 "Default coupling"). Called by **Reset to defaults only** — never by load or autosave-restore, which keep the saved `hidden` values |
 | `setPath(path, value)` | Dot-path set into `state`, e.g. `setPath('people.0.wage.amount', 5000)` — every input control's `onchange` goes through this (via `onFieldInput`/`onNumberInput` in `controls.js`) |
 
 **Rule:** this is the *only* file allowed to declare what a default value is. Every Input file reads
@@ -389,7 +393,8 @@ default or a label — all real computation happens in Compute (§4).
 | `cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight?)` | **The enable/hide header every income-source card uses** (§2's `enabled`/`hidden` convention). Renders an Enable checkbox (left, wraps `title`) and a Hide checkbox (right, labeled "Hide"), with `extraRight` (e.g. a brokerage portfolio's Remove button) placed between them. Every card in §5.4 calls this instead of hand-rolling its own header. |
 | `onEnableToggle(path, checked)` | Sets `enabled`, then `recompute()` — does **not** touch the card's collapsed state; enabling/disabling never changes what's on screen, only what's computed |
 | `onHideToggle(path, checked, itemEl)` | Sets `hidden`, then toggles that item's `.item-body`'s `open` class directly (no recompute — hiding is purely visual, so there's nothing to recompute) |
-| `onSectionHide(cb)` | Handler for the **Hide** checkbox on every chart section header (§6) and the Assumptions panel title (§5.3). Display-only, default off, **not** in `state` (a reload resets it): toggles `.sec-hidden` on every sibling after the header up to the next `.sec-head`, so only the header and its checkbox remain. Compute and charts keep updating while hidden; on un-hide it calls `resizeAllCharts()` (`chartHelpers.js`) so canvases re-fit. |
+| `onSectionHide(cb)` | Handler for the **Hide** checkbox on every chart section header (§6) and the Assumptions panel title (§5.3). Writes `state.ui.hiddenSections[cb.dataset.hideKey]` (so it is saved/restored/reset with the plan, default all checked), then `applySectionHide()` toggles `.sec-hidden` on every sibling after the header up to the next `.sec-head`, so only the header and its checkbox remain. Compute and charts keep updating while hidden; on un-hide it calls `resizeAllCharts()` (`chartHelpers.js`) so canvases re-fit. |
+| `syncSectionHide()` / `expandAllSections()` | `syncSectionHide()` sets every section Hide checkbox **and** its collapsed/expanded section from `state.ui.hiddenSections` — the only thing that decides what the boxes show, so "checked" and "hidden" can't disagree (a browser's form-state restore on reload used to leave a box checked over a visible section; the static boxes and every generated input also carry `autocomplete="off"`). `expandAllSections()` un-collapses DOM-only. `renderAll()` runs `expandAllSections()` → `recompute()` → `syncSectionHide()`, so charts are built in visible containers and then collapsed |
 | `agedItemCard(pid, key, title, item, checkboxPath)` | Shared card builder for the two income types that are just "amount + age range + change + survivor benefit": Pension and Rental. Calls `cardHeader` internally. |
 
 **Rule:** any new income-type field that needs an age range, an annual-change mode, or an
@@ -463,7 +468,7 @@ presentation is fine; new financial logic is not).
 
 ### 6.1 `chartHelpers.js` — shared conventions (read this before touching any chart file)
 
-**Section Hide:** every chart section header (Social Security start age, Annual Household Income, Social Security Tax, Total Income Tax, Household Expenses, Asset Value incl. the IDGT card) carries a **Hide** checkbox (`onSectionHide`, §5.1; default off). Also on the Assumptions panel (§5.3).
+**Section Hide:** every chart section header (Social Security start age, Annual Household Income, Social Security Tax, Total Income Tax, Household Expenses, Asset Value incl. the IDGT card) carries a **Hide** checkbox (`onSectionHide`, §5.1; kept in `state.ui.hiddenSections`, so saved/restored/reset with the plan; default checked). Also on the Assumptions panel (§5.3).
 | Export | Contract |
 |---|---|
 | `showDetails` / `toggleOverlayMode()` / `overlayMode` / `OV()` | The `show_details` flag and the light/dark dashed-reference-line toggle — both read live by every chart's tooltip/plugin, no rebuild needed to react to a toggle |
@@ -654,12 +659,15 @@ These apply everywhere, not to one file — listed once here instead of repeated
   (§6) only ever check `enabled`; nothing there ever reads `hidden`. Input (§5) only ever uses `hidden`
   to decide whether a card body is open; it never uses `hidden` to skip rendering a field's value into
   its input, since a hidden card's data must remain editable.
-  **Default coupling:** at the moments a plan is *freshly established* — first-ever boot with no
-  autosave, **Reset to defaults**, or **Load file** — `hidden` is set to `!enabled` for every
-  item (`applyDefaultHiddenFromEnabled()` in `core/state.js`, §3.3), overriding whatever `hidden` value
-  a loaded file carried, so the screen starts showing only what's turned on. Manual Hide/Show toggles
-  made *during* a session persist through ordinary autosave-restore on reload; only load/reset re-derives
-  them. A brand-new brokerage portfolio (via **+ Add**) starts enabled and visible.
+  **Default coupling:** a *fresh default* plan — first-ever boot with no autosave, or **Reset to defaults** —
+  starts with `hidden = !enabled` on every item (`defaultState()` / `applyDefaultHiddenFromEnabled()` in
+  `core/state.js`, §3.3), so the screen shows only what's turned on, and every section Hide checked.
+  **A saved plan is different:** **Load file** and autosave-restore keep every Hide flag exactly as it was
+  saved (per card, and `state.ui.hiddenSections` per section) — they are never re-derived from `enabled`.
+  Only a legacy file that has no `hidden` flag falls back to `!enabled` (§3.3, `fillLegacyHide`).
+  A brand-new brokerage portfolio (via **+ Add**) starts enabled and visible.
+  **Single source of truth:** every Hide checkbox and the card/section it collapses are derived from `state`;
+  nothing reads the checkbox's own DOM state back.
 - **`show_details`.** A single global flag (`chartHelpers.js`) every chart's tooltip reads live —
   toggling it needs no chart rebuild, just re-hovering.
 - **Locked scales + Rescale.** Every chart's Y axis (and the SS/income charts' X axis) is locked so

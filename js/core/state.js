@@ -56,6 +56,15 @@ function defaultPerson(idx){
     roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false, aum:false}
   };
 }
+// Section Hide checkboxes (the 6 chart sections + the Assumptions panel). They are part of `state` (`state.ui.hiddenSections`)
+// so they are saved to file, autosaved, restored on load and put back to these defaults on Reset — the DOM (checkbox + collapsed
+// section) is always derived from this object (controls.js: syncSectionHide). Keys match `data-hide-key` in index.html.
+// DEFAULT_SECTION_HIDDEN is what a fresh session / Reset to defaults starts with: true = every section starts checked + collapsed.
+const SECTION_HIDE_KEYS=['assumptions','ss','income','tss','tax','expenses','assets'];
+const DEFAULT_SECTION_HIDDEN=true;
+function defaultHiddenSections(hidden){
+  const o={}; SECTION_HIDE_KEYS.forEach(k=>{ o[k]=(hidden===undefined?DEFAULT_SECTION_HIDDEN:!!hidden); }); return o;
+}
 function defaultState(){
   return{
     filingStatus:'married',
@@ -65,8 +74,25 @@ function defaultState(){
     living:0,   // household living expenses per year, today's $ (funded income → dividends → asset sales)
     scgl:0,
     aumFee:{mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
-    futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ}
+    futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
+    ui:{hiddenSections:defaultHiddenSections()}   // display-only, but saved/restored/reset with the plan (see above)
   };
+}
+// Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
+// only if it was not enabled), and a save with no `ui.hiddenSections` shows every section, as it did when it was written.
+// Only *missing* values are filled — a `hidden` value that is present in the file is always kept.
+function fillLegacyHide(loaded){
+  if(!loaded || typeof loaded!=='object') return;
+  if(Array.isArray(loaded.people)) loaded.people.forEach(p=>{
+    if(!p || typeof p!=='object') return;
+    ['wage','ss','pension','rental','ira','roth'].forEach(k=>{
+      const it=p[k];
+      if(it && typeof it==='object' && it.hidden===undefined) it.hidden = !(it.enabled===undefined ? k==='ss' : !!it.enabled);
+    });
+    if(Array.isArray(p.brokerage)) p.brokerage.forEach(b=>{
+      if(b && typeof b==='object' && b.hidden===undefined) b.hidden = (b.enabled===false);
+    });
+  });
 }
 // Fills in any fields missing from a loaded/imported state (e.g. an older save
 // file from before a field was added) using defaults, without touching values
@@ -99,7 +125,9 @@ function hydrateState(loaded){
     }
     return out;
   }
+  fillLegacyHide(loaded);
   const out=merge(loaded, base);
+  if(loaded && !(loaded.ui && loaded.ui.hiddenSections)) out.ui={hiddenSections:defaultHiddenSections(false)};
   // Older saves had a per-portfolio "Withdrawal" (`living`) and "tax drag %" — both are gone. Carry the
   // withdrawals over as the household living expenses so an old plan keeps roughly the same spending.
   if(loaded && loaded.living===undefined && Array.isArray(loaded.people)){
@@ -173,10 +201,9 @@ function flashMsg(text){
   m.textContent=text;
   setTimeout(()=>{ if(m.textContent===text) m.textContent=''; },3000);
 }
-// Every disabled income-source card collapses by default whenever a file is loaded or the app is
-// reset — a loaded file's own `hidden` values are intentionally overridden here so a freshly opened
-// plan always starts tidy (only what's actually enabled is expanded), while manual Hide/Show toggles
-// made *during* a session (and preserved by ordinary autosave-restore on reload) are left alone.
+// Reset to defaults starts every disabled income-source card collapsed (Hide checked) and every enabled one
+// shown. This is applied ONLY to a fresh default state (Reset) — never to a loaded file or an autosave,
+// whose own saved `hidden` values (per card and, in `state.ui`, per section) are restored exactly as saved.
 function applyDefaultHiddenFromEnabled(s){
   (s.people||[]).forEach(p=>{
     ['wage','ss','pension','rental','ira','roth'].forEach(key=>{
@@ -229,8 +256,7 @@ function applyLoadedFileText(text){
   const parsed=JSON.parse(text); // throws on malformed JSON — caller decides how to report it
   destroyCharts();             // discard every visual/data closure from the old plan
   state=defaultState();        // reset before restoring, per spec
-  state=hydrateState(parsed);  // then apply the restored file on top of that clean default
-  applyDefaultHiddenFromEnabled(state); // collapse anything the loaded file left disabled
+  state=hydrateState(parsed);  // then apply the restored file on top of that clean default (its Hide flags are kept as saved)
   resetChartYMax();
   renderAll();
   autosave();

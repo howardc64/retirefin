@@ -40,7 +40,9 @@ function renderAll(){
   renderFutureTaxPanel();
   renderIncomeForms();
   renderFooter();
+  expandAllSections();   // build the charts in visible containers …
   recompute();
+  syncSectionHide();     // … then put every section Hide checkbox/collapse into the state held in state.ui
 }
 
 window.addEventListener('DOMContentLoaded', function(){

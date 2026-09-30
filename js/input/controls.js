@@ -104,12 +104,38 @@ function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel){
 }
 
 // ── Section Hide checkbox (chart sections + Assumptions panel) ──
-// Display-only, default off, not saved in `state`: ticking Hide collapses everything below the header (up to the next
-// .sec-head) so only the header and its checkbox remain. Compute and charts keep updating while hidden.
-function onSectionHide(cb){
-  const head=cb.closest('.sec-head, .panel-title'); if(!head) return;
-  head.classList.toggle('is-hidden',cb.checked);
+// Display-only, but part of `state` (`state.ui.hiddenSections[key]`, key = the checkbox's `data-hide-key`), so it is saved to
+// file / autosave, restored on load and reset to the default (core/state.js) on Reset. Ticking Hide collapses everything below
+// the header (up to the next .sec-head) so only the header and its checkbox remain. Compute and charts keep updating while hidden.
+// The checkbox and the collapsed/expanded section are ALWAYS derived from state (syncSectionHide) — never from what the browser
+// happens to have restored into the checkbox — so "checked" and "hidden" cannot disagree.
+function sectionHeadOf(cb){ return cb.closest('.sec-head, .panel-title'); }
+function applySectionHide(head, hidden){
+  head.classList.toggle('is-hidden',hidden);
   for(let el=head.nextElementSibling; el && !el.classList.contains('sec-head'); el=el.nextElementSibling)
-    el.classList.toggle('sec-hidden',cb.checked);
+    el.classList.toggle('sec-hidden',hidden);
+}
+function onSectionHide(cb){
+  const head=sectionHeadOf(cb), key=cb.dataset.hideKey; if(!head||!key) return;
+  if(!state.ui) state.ui={hiddenSections:defaultHiddenSections()};
+  state.ui.hiddenSections[key]=cb.checked;
+  applySectionHide(head,cb.checked);
   if(!cb.checked && typeof resizeAllCharts==='function') resizeAllCharts();
+  saveDebounced();
+}
+// Expand every section without touching state or the checkboxes. renderAll() uses this so charts are (re)built while their
+// containers are visible (a chart built inside a display:none container has no size), then calls syncSectionHide().
+function expandAllSections(){
+  document.querySelectorAll('.hide-cb input[data-hide-key]').forEach(cb=>{ const h=sectionHeadOf(cb); if(h) applySectionHide(h,false); });
+}
+// Put every section Hide checkbox and its collapsed/expanded section into the state held in `state.ui.hiddenSections`.
+function syncSectionHide(){
+  const hs=(state.ui&&state.ui.hiddenSections)||defaultHiddenSections();
+  document.querySelectorAll('.hide-cb input[data-hide-key]').forEach(cb=>{
+    const head=sectionHeadOf(cb); if(!head) return;
+    const hidden=!!hs[cb.dataset.hideKey];
+    cb.checked=hidden;
+    applySectionHide(head,hidden);
+  });
+  if(typeof resizeAllCharts==='function') resizeAllCharts();
 }

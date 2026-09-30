@@ -24,7 +24,7 @@
       },
       "ss": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "pia": 3200,
         "fra": 67,
         "started": false,
@@ -32,7 +32,7 @@
       },
       "pension": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "amount": 0,
         "ar": {
           "startMode": "now",
@@ -170,7 +170,7 @@
       },
       "ss": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "pia": 2500,
         "fra": 67,
         "started": false,
@@ -257,5 +257,16 @@
     "niitStartYear": 2036,
     "niitSingle": 200000,
     "niitMarried": 250000
+  },
+  "ui": {
+    "hiddenSections": {
+      "assumptions": false,
+      "ss": true,
+      "income": false,
+      "tss": true,
+      "tax": false,
+      "expenses": false,
+      "assets": false
+    }
   }
 }
