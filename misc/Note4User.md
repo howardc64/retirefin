@@ -11,6 +11,7 @@
 * **Social Security:** Start age and torpedo analysis
 * **Suspended Long Term Capital Gains Tracking**
 * **Married and Single/Widower Status**
+* **Chatbot:** AI to analyze and converse about the plan. Require inserting API key into app when running. No security to keep API key private (will remain on your device) Plan data is sent to the AI model in the cloud of course.
 
 ## Lacking and Incomplete Features
 

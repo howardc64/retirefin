@@ -67,7 +67,7 @@ js/
                 brokerage.js  ira.js  roth.js  incomeForms.js
   display/      chartHelpers.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  footer.js
-                formulasPage.js  notesPage.js  excelExport.js
+                formulasPage.js  notesPage.js  excelExport.js  chat.js
   app.js
 misc/      Note4User.md        (user-facing notes; rendered to HTML by the Notes button, §6.10)
 Samples/   *.json  manifest.json (example saved plans; each .json is one entry in the Load file menu, §5.6)
@@ -602,6 +602,36 @@ Read-only: reads `lastProjection` (§7.1), never writes into `state`. If
 Pages, any local static server); Chrome blocks it under `file://`. On failure the new tab shows an
 explanation and the two workarounds instead of failing silently. The file also lives at a fixed path
 (`misc/Note4User.md`), so it must ship alongside `index.html`.
+
+### 6.12 `chat.js` — "Ask about this plan" chat box
+A floating **💬 Ask about this plan** button (bottom-right, markup `#chatDock` in `index.html`, hidden in print) opens a
+chat panel. Each message goes straight from the browser to the chosen provider's API (`fetch`, streamed — there is no
+backend) together with a system prompt that holds a **text snapshot of the current plan**, so the model can discuss the
+user's own numbers. Read-only: it reads `state` and `lastProjection` (§7.1), never writes `state` or any chart, and
+nothing from it is added to the saved plan file.
+
+**Providers** (`CHAT_PROVIDERS`): **Anthropic Claude** (`x-api-key` + `anthropic-dangerous-direct-browser-access`, paid key)
+and **Google Gemini** (`streamGenerateContent?alt=sse` on `generativelanguage.googleapis.com`, `x-goog-api-key` header —
+never in the URL; the free AI Studio tier covers Flash / Flash-Lite models only, roughly 10–15 requests/min). The Model box
+is free text with per-provider suggestions (`models`), because vendors rename and retire model ids often (e.g. Gemini
+`-preview` ids) — when a provider returns "model not found", type the current id. Adding a provider = an entry in
+`CHAT_PROVIDERS` + a branch in `chatBuildRequest` and `chatParseEvent`.
+
+| Export | Contract |
+|---|---|
+| `buildChatSnapshot(includeNames)` | Household assumptions (JSON), each person's **enabled** income sources (JSON, `hidden`/`id` stripped; disabled ones only named), then one **CSV row per projection year** (year, ages, filing, income by type, AGI, taxable SS, marginal %, total tax, IRMAA, expense components, unfunded expenses, brokerage / IDGT / IRA / Roth balances — 27 columns, whole dollars, today's $) plus the IRA-stretch tail. Built fresh on **every send**, so answers reflect the inputs as they are now |
+| `buildChatSystemPrompt(includeNames)` | Instructions (ground answers in the snapshot, explain rather than recompute, say which input to change for "what if", concise, not financial advice) + a few model facts + the snapshot. Anthropic: one system block with `cache_control: ephemeral`; Gemini: `systemInstruction` |
+| `chatBuildRequest(prov,model,key,system,history)` / `chatParseEvent(prov,j)` / `chatReadStream(res,prov,onText)` | Provider-specific request and SSE-event shapes; the reader handles CRLF separators and events split across chunks, ignores Gemini `thought` parts, and normalises the stop reason to `end` / `length` / `blocked:<why>` |
+| `sendChat()` / `stopChat()` | Streams the reply into the last bubble; **Stop** keeps the partial text; a failed turn (HTTP error, network, blocked/empty reply) is dropped and the question restored to the input. Errors get plain-language messages (`chatFriendlyError`: key rejected, model not found, free-tier quota). History is in memory only (last 20 messages, always starting on a user turn; Gemini maps `assistant` → `model`) |
+| `chatMarkdown(text)` | Tiny renderer (paragraphs, lists, bold, code, simple tables). **Everything is HTML-escaped first** — model output is never inserted as raw HTML |
+| `chatGetKey(prov)` / `chatSetKey(prov,key,remember)` / `chatLoadPrefs` / `chatSavePrefs` | One API key **per provider** (`CHAT_KEY_KEYS`) in `sessionStorage` (forgotten when the tab closes) or `localStorage` if **Remember** is ticked; prefs `{provider, models:{…}, includeNames, remember}` in `localStorage` under `CHAT_PREFS_KEY` (prefs saved before Gemini support migrate). **Never in `state`**, so never in a plan file or autosave |
+
+**Privacy rules (don't weaken):** the panel says every message sends the plan to the selected provider; for Gemini it also
+states that on Google's free tier prompts/replies may be used to improve Google's products (paid tier: not) — that text is
+`CHAT_PROVIDERS.gemini.privacy`; **Preview exactly what is sent** shows the full system prompt; names are withheld
+("Person 1/2", portfolio names generic) and birth year/month are never sent (only current age) unless **Send names** is
+ticked. **Adding a projection field the model should see** = add a column in `buildChatSnapshot` (header, the row array,
+and the "Columns:" line) — the model only knows what the snapshot contains.
 
 ---
 

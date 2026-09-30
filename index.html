@@ -177,6 +177,44 @@
 </main>
 <footer id="assumptionsFooter"></footer>
 
+<!-- ═══ CHAT: ask an LLM about this plan (display/chat.js). Read-only; key + settings live outside `state`. ═══ -->
+<div id="chatDock">
+  <button type="button" id="chatToggle" class="chat-fab" onclick="toggleChat()" aria-expanded="false" aria-controls="chatPanel">💬 Ask about this plan</button>
+  <div id="chatPanel" class="chat-panel" role="dialog" aria-label="Ask about this plan">
+    <div class="chat-head">
+      <strong>Ask about this plan</strong>
+      <span class="chat-head-btns">
+        <button type="button" class="chat-icon" onclick="toggleChatSettings()" title="Settings" aria-label="Settings">⚙</button>
+        <button type="button" class="chat-icon" onclick="clearChat()" title="Clear conversation" aria-label="Clear conversation">🗑</button>
+        <button type="button" class="chat-icon" onclick="toggleChat(false)" title="Close" aria-label="Close">✕</button>
+      </span>
+    </div>
+    <div id="chatSettings" class="chat-settings">
+      <label>Provider <select id="chatProvider" autocomplete="off" onchange="onChatProviderChange()"></select></label>
+      <label><span id="chatKeyLabel">API key</span>
+        <input type="password" id="chatKey" autocomplete="off" spellcheck="false" onchange="onChatSettingsChange()">
+      </label>
+      <div id="chatKeyHint" class="chat-hint"></div>
+      <label class="chat-check"><input type="checkbox" id="chatRemember" autocomplete="off" onchange="onChatSettingsChange()"> Remember the key on this device (otherwise it is forgotten when the tab closes)</label>
+      <label>Model (pick a suggestion or type any model id)
+        <input type="text" id="chatModel" list="chatModelList" autocomplete="off" spellcheck="false" onchange="onChatSettingsChange()">
+        <datalist id="chatModelList"></datalist>
+      </label>
+      <label class="chat-check"><input type="checkbox" id="chatNames" autocomplete="off" onchange="onChatSettingsChange()"> Send names (otherwise the model sees “Person 1 / Person 2”)</label>
+      <div class="chat-privacy" id="chatPrivacy"><span></span><a href="#" onclick="chatForgetKey();return false">Remove saved key</a></div>
+      <details id="chatPreviewWrap"><summary>Preview exactly what is sent</summary><pre id="chatPreview"></pre></details>
+    </div>
+    <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+    <div id="chatStatus" class="chat-status"></div>
+    <div class="chat-input-row">
+      <textarea id="chatInput" rows="2" placeholder="Ask about your income, taxes, expenses or assets…" onkeydown="onChatKeydown(event)"></textarea>
+      <button type="button" id="chatSend" class="btn btn-primary" onclick="sendChat()">Send</button>
+      <button type="button" id="chatStop" class="btn" style="display:none" onclick="stopChat()">Stop</button>
+    </div>
+  </div>
+</div>
+
+
 <div id="detailPanel">
   <div id="detailWrap"></div>
 </div>
@@ -234,6 +272,7 @@
 <script src="js/display/formulasPage.js"></script>
 <script src="js/display/notesPage.js"></script>
 <script src="js/display/excelExport.js"></script>
+<script src="js/display/chat.js"></script>
 
 <!-- app wiring / entry point -->
 <script src="js/app.js"></script>
