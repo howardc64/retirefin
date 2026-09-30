@@ -100,7 +100,7 @@ function buildTaxChart(){
       if(showDetails){
         lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
         lines.push(mrow('Taxable income (TI)', fmt(r.ordTI)+'/yr'));
-        lines.push(mrow('Standard deduction', '('+fmt(r.std)+')'));
+        lines.push(mrow(r.usedItemized?'Itemized deduction (LTC)':'Standard deduction', '('+fmt(r.std)+')'));
         // All income components rolling up to AGI (§9.4: "AGI = all non-SS income + TSS").
         lines.push(mrow('  Wages', fmt(r.wageTotal)+'/yr'));
         lines.push(mrow('  Pension', fmt(r.pension)+'/yr'));

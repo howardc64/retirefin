@@ -184,9 +184,23 @@ ${fpEq(`Marginal rate = ${fpFr('Tax(ordinary income + $100) − Tax(ordinary inc
 ${fpEq(
   `Ordinary income = wages + pension + rental + IRA RMD + pre-tax IRA withdraw + (ODIV − QDIV)`,
   `AGI = ordinary income + taxable SS + QDIV + LTCG<sub>net of SCGL</sub>`,
-  `TI = AGI − standard deduction`
+  `TI = AGI − max(standard deduction, itemized deductions)`
 )}
-${fpWhere('The standard deduction is the married or single amount, based on that year\'s filing status.')}
+${fpWhere('The standard deduction is the married or single amount, based on that year\'s filing status; itemized deductions are the Long Term Care cost above 7.5% of AGI, and whichever is larger is used.')}
+<p><strong>Long Term Care (LTC).</strong> Each person's LTC starts when they reach their own LTC start age (and is skipped if they pass before it); their LTC cost (entered in today's $) is an extra household expense for each year they are alive after that, paid by the same funding order as other expenses (household income, then dividends, then asset sales):</p>
+${fpEq(`LTC expense = Σ LTC cost<sub>person</sub> &ensp;(each person started and alive)`)}
+${fpPw('Living expenses',[
+  ['Living expenses','before any LTC has started'],
+  ['1st LTC living expenses','after the 1st LTC start'],
+  ['2nd LTC living expenses','after the 2nd LTC start']
+])}
+${fpWhere('Living expenses switch to the 1st LTC amount once the first person\'s LTC has started, and to the 2nd LTC amount once the second person\'s has started.')}
+<p>The LTC cost is also the itemized deduction, limited by the 7.5% of AGI floor and compared with the standard deduction each year:</p>
+${fpEq(
+  `Itemized = max( 0, LTC expense − 7.5% × AGI )`,
+  `Deduction = max( standard deduction, Itemized )`
+)}
+${fpWhere('AGI includes realized LTCG, which depends on the asset sales that pay the year\'s expenses and tax, so the deduction and the tax are solved together by iteration.')}
 <p>Ordinary tax on TI comes from the bracket table above; QDIV and LTCG are taxed separately at their own bracket rates, stacked on top of ordinary TI.</p>
 
 <p><strong>Suspended Capital-Gain Loss (SCGL).</strong> Available SCGL shields realized LTCG dollar-for-dollar, before tax, each year until the pool is exhausted — only the amount left over is taxed:</p>
@@ -216,8 +230,8 @@ ${fpEq(
 )}
 
 <p><strong>Household expense funding waterfall.</strong> The household's expenses are:</p>
-${fpEq(`Expenses = living expenses + IRMAA surcharge + AUM fee + income tax`)}
-${fpWhere('Living expenses is a flat today\'s-dollar amount. The IRMAA surcharge and income tax (tax drag, the year\'s Total Tax) are always household expenses. The AUM fee is charged on the portfolios whose AUM box is checked (below); the whole AUM fee is a household expense like the rest, so it is paid only by the portfolios with <em>Pay expenses</em> checked.')}
+${fpEq(`Expenses = living expenses + LTC expense + IRMAA surcharge + AUM fee + income tax`)}
+${fpWhere('Living expenses is a flat today\'s-dollar amount (it switches to the 1st / 2nd LTC living expenses as each LTC starts). The LTC expense is the sum of the LTC costs (today\'s $) of each person whose LTC has started and who is still living; it is paid like every other expense. The IRMAA surcharge and income tax (tax drag, the year\'s Total Tax) are always household expenses. The AUM fee is charged on the portfolios whose AUM box is checked (below); the whole AUM fee is a household expense like the rest, so it is paid only by the portfolios with <em>Pay expenses</em> checked.')}
 <p>They are paid in this order: (1) household income (wages, Social Security, pension, rental, IRA RMDs); (2) the dividends (ODIV) of the portfolios with <em>Pay expenses</em> checked, shared pro rata, with any dividend not needed reinvested; (3) selling those portfolios\' assets, shared pro rata to balance, for what is left. A portfolio without <em>Pay expenses</em> (the default) contributes neither dividends nor sales to household expenses and reinvests all its dividends. An IDGT follows the same rule.</p>
 ${fpEq(
   `Paid by income = min( Expenses, household income )`,
@@ -237,7 +251,7 @@ ${fpEq(
 <p><strong>Tax ↔ LTCG circularity.</strong> Income tax is an expense, so selling shares to pay it realizes more LTCG, which raises the tax. The model solves this by fixed-point iteration each year: start from last year's tax, run the waterfall, recompute the tax, and repeat until the tax moves by less than half a cent (at most 30 rounds; typically 6–8):</p>
 ${fpEq(
   `T<sub>0</sub> = prior-year Total Tax`,
-  `T<sub>n+1</sub> = Tax( LTCG( Waterfall( living + IRMAA + AUM fee + T<sub>n</sub> ) ) )`,
+  `T<sub>n+1</sub> = Tax( LTCG( Waterfall( living + LTC + IRMAA + AUM fee + T<sub>n</sub> ) ) )`,
   `stop when |T<sub>n+1</sub> − T<sub>n</sub>| &lt; $0.005`
 )}
 <p>Each extra dollar of tax creates well under a dollar of new tax (only the gain share of a sale is LTCG, taxed at no more than about 24% with NIIT), so the map is a contraction and always converges. The Suspended Capital-Gain Loss (SCGL) pool is drawn down once, after the iteration settles.</p>
@@ -255,9 +269,9 @@ ${fpEq(
 <p>A fixed fee is entered in today\'s dollars for year 0 and held flat in nominal terms, so it shrinks in today\'s dollars as inflation compounds. The fee is split across the AUM accounts pro rata to balance, but it is one household expense: it is paid through the waterfall above, by the portfolios with <em>Pay expenses</em> checked — not by the account it is charged on unless that account also pays expenses.</p>
 
 <p><strong>IRMAA as an expense</strong> (always a household expense):</p>
-${fpEq(`IRMAA<sub>household</sub> = surcharge( tier reached by prior-year AGI ) × N<sub>65+</sub>`)}
-${fpWhere('N<sub>65+</sub> is the number of living people age 65 or older, and the tier uses this year\'s filing status. Year 0 is $0.')}
-<p>The prior-year AGI avoids a circularity (this year's AGI depends on LTCG, which depends on asset sales, which fund this surcharge) and mirrors IRMAA's look-back. The tier table is indexed, so it is used in today's dollars as-is. It is charged once per household and paid through the same income → dividends → sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</p>
+${fpEq(`IRMAA<sub>household</sub> = surcharge( tier reached by AGI<sub>year − 2</sub> ) × N<sub>65+</sub>`)}
+${fpWhere('N<sub>65+</sub> is the number of living people age 65 or older, and the tier uses this year\'s filing status. Years 0 and 1 are $0 because the model has no AGI from before the projection starts.')}
+<p>Using the AGI from two years earlier mirrors IRMAA's real 2-year look-back, and it also avoids a circularity (this year's AGI depends on LTCG, which depends on asset sales, which fund this surcharge). The tier table is indexed, so it is used in today's dollars as-is. It is charged once per household and paid through the same income → dividends → sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</p>
 
 <p><strong>Annual balance change.</strong></p>
 ${fpEq(

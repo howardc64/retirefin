@@ -37,6 +37,7 @@ function onFilingChange(){
 // Updates the read-only "current age" field and the passing-age slider bounds
 // in place, without re-rendering the inputs the person may still be typing in.
 function refreshAgeDependentUI(){
+  setTimeout(refreshPairBounds,0);
   const married=state.filingStatus==='married';
   const n=married?2:1;
   for(let i=0;i<n;i++){
@@ -108,6 +109,7 @@ function renderPassingSliders(){
 function onPassingInput(key,val){
   state.passing[key]=+val;
   document.getElementById('passVal_'+key).textContent=val;
+  refreshPairBounds();
   recomputeDebounced();
   saveDebounced();
 }
@@ -131,5 +133,7 @@ function relabel(){
     if(setupHdr) setupHdr.textContent=name;
     const incomeHdr=document.getElementById('personIncomeHeader_'+i);
     if(incomeHdr) incomeHdr.textContent=state.people[i].name;
+    const ltcHdr=document.getElementById('ltcName_'+i);
+    if(ltcHdr) ltcHdr.textContent=name;
   }
 }

@@ -139,3 +139,47 @@ function syncSectionHide(){
   });
   if(typeof resizeAllCharts==='function') resizeAllCharts();
 }
+
+// ── Paired slider + value input (the two always track each other) ──
+// `bounds` = {kind:'person',i} | {kind:'ltc'} | {kind:'ira',i} marks a range whose min/max are recomputed from state
+// (refreshPairBounds) whenever ages, passing ages or the IRA balance change.
+function pairHtml(id, path, min, max, step, value, bounds, moneyCls){
+  const b=bounds?` data-bkind="${bounds.kind}" data-bi="${bounds.i==null?0:bounds.i}"`:'';
+  return `<div class="pair">
+    <input type="range" id="${id}_r" min="${min}" max="${max}" step="${step}" value="${value}"${b} oninput="onPair('${id}','${path}',this.value,this)">
+    <input type="number" id="${id}_n" class="${moneyCls?'money':''}" min="${min}" step="${step}" value="${value}" oninput="onPair('${id}','${path}',this.value,this)">
+  </div>`;
+}
+function onPair(id, path, val, src){
+  const v=val===''?0:+val;
+  const r=document.getElementById(id+'_r'), n=document.getElementById(id+'_n');
+  if(src!==r && r) r.value=v;
+  if(src!==n && n) n.value=v;
+  setPath(path, v); saveDebounced();
+  if(src===r){ window.liveDrag=true; recompute(); window.liveDrag=false; } else recomputeDebounced();
+}
+function setPair(id, v){
+  const r=document.getElementById(id+'_r'), n=document.getElementById(id+'_n');
+  if(r) r.value=v; if(n) n.value=v;
+}
+function personAgeBounds(i){
+  const p=state.people[i]; if(!p) return [0,100];
+  const min=Math.ceil(currentAge(p)), max=Math.max(min, Math.round(Number(state.passing[p.id])||min));
+  return [min,max];
+}
+function pairBounds(el){
+  const kind=el.dataset.bkind, i=+el.dataset.bi;
+  if(kind==='person') return personAgeBounds(i);
+  if(kind==='ira') return [0, 4*Math.max(0, Number(state.people[i].ira.balance)||0)];
+  return null;
+}
+function refreshPairBounds(){
+  document.querySelectorAll('input[type=range][data-bkind]').forEach(el=>{
+    const b=pairBounds(el); if(!b) return;
+    el.min=b[0]; el.max=b[1];
+    const n=document.getElementById(el.id.replace(/_r$/,'_n'));
+    if(n) n.min=b[0];
+    if(n && +n.value>=0 && +el.value!==+n.value && el.dataset.bkind!=='ira') el.value=n.value;
+    if(el.dataset.bkind==='ira' && n) el.value=n.value;
+  });
+}

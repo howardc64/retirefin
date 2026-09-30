@@ -69,6 +69,7 @@ function computeProjection(){
     const g=realGrowth(p.ira.growth,inflation);
     const rothOk=!!(p.roth&&p.roth.enabled);
     const convAmt=rothOk?Math.max(0,Number(p.ira.conv)||0):0;
+    const convStartAge=Math.max(curAges[i], Number(p.ira.convStart)||0);
     for(let k=0;k<=yearsToProject;k++){
       const ownerAge=curAges[i]+k;
       const ownerAlive=ownerAge<passAges[i];
@@ -107,7 +108,7 @@ function computeProjection(){
 
       if(ownerAge>=ownerEndAge){
         iraW[i][k]=0;
-        const conv=Math.min(convAmt,bal);
+        const conv=ownerAge>=convStartAge?Math.min(convAmt,bal):0;
         iraConv[i][k]=conv;
         bal=Math.max(0,bal-conv)*(1+g);
         iraBal[i][k]=bal;
@@ -121,7 +122,7 @@ function computeProjection(){
       }else{
         iraW[i][k]=0;
       }
-      const conv=Math.min(convAmt,bal);
+      const conv=ownerAge>=convStartAge?Math.min(convAmt,bal):0;
       iraConv[i][k]=conv;
       bal=Math.max(0,bal-conv)*(1+g);
       iraBal[i][k]=bal;
@@ -303,11 +304,12 @@ function computeProjection(){
     const pfVals=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>brokerageValues(b,i,k,pfBalNow[i][bi])));
 
     // Household IRMAA surcharge for this year (today's $; the tier tables are indexed, so they aren't deflated):
-    // the tier reached by the PRIOR year's AGI (a one-year lag: this year's AGI depends on this
-    // year's LTCG, which depends on asset sales, which fund this surcharge — so using it would be circular;
-    // it also mirrors IRMAA's real-world look-back to earlier income) × the number of living people age 65+.
-    // Year 0 has no prior year, so it is $0. Filing status is this year's.
-    const priorAGI = (k>0 && rows[k-1]) ? (rows[k-1].agi||0) : 0;
+    // the tier reached by the AGI from TWO years earlier (IRMAA's real look-back: the premium for year Y is set from the
+    // tax return for year Y−2; it also means this year's AGI — which depends on this year's LTCG, which depends on asset
+    // sales, which fund this surcharge — is never needed, so there is no circularity) × the number of living people age 65+.
+    // Years 0 and 1 have no projected AGI two years back (the model has no pre-projection history), so they are $0.
+    // Filing status is this year's.
+    const priorAGI = (k>=2 && rows[k-2]) ? (rows[k-2].agi||0) : 0;
     const irmaaEnrolled = people.reduce((n,p,i)=>n+((alive[i]&&ages[i]>=65)?1:0),0);
     const irmaaFiling = married && alive[0] && alive[1] ? 'married' : 'single';
     const irmaaTier = (irmaaFiling==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>priorAGI>=t.magi);
@@ -384,12 +386,25 @@ function computeProjection(){
     const nonSSOrdinary = wageTotal+pension+rental+iraTotal+rothConvTotal+odivNQ;
     const{taxableSS,provisional}=computeTaxableSS(nonSSOrdinary, totalSS, filing, ssThresholdFactor);
     const std = filing==='married'?STD_MFJ:STD_SGL;
+    // Long Term Care: from the LTC start age (older person's age) the LTC cost is an extra expense and the household
+    // living expense switches to the post-LTC amount. Both are today's $ (flat in real terms = inflating in future $).
+    // Per person: triggered once that person (alive at the start) reaches their own LTC start age; the cost runs while they are alive.
+    // The household living expense becomes the 1st-LTC amount once the first LTC has started, and the 2nd-LTC amount once the second has.
+    const ltc=state.ltc||{};
+    let expLtc=0, ltcStarted=0; const ltcCostByPerson=people.map(()=>0);
+    if(ltc.enabled) people.forEach((p,i)=>{
+      const L=(ltc.people&&ltc.people[i])||{}, sAge=Number(L.startAge)||0;
+      if(!(sAge<passAges[i]) || ages[i]<sAge) return;
+      ltcStarted++;
+      if(alive[i]){ ltcCostByPerson[i]=Math.max(0,Number(L.cost)||0); expLtc+=ltcCostByPerson[i]; }
+    });
+    const ltcLiving=ltcStarted>=2?Math.max(0,Number(ltc.living2)||0):(ltcStarted===1?Math.max(0,Number(ltc.living1!=null?ltc.living1:state.living)||0):null);
+    const ltcActive=ltcLiving!==null;
+    // Itemized deduction = LTC cost above the 7.5%-of-AGI floor; AGI includes realized LTCG, so it is computed inside taxOn() below.
     const ordBrk = filing==='married'?MFJ_ORD:SGL_ORD;
     const qBrk = filing==='married'?MFJ_QDIV:SGL_QDIV;
     const ordIncome = nonSSOrdinary+taxableSS;
-    const ordTI = Math.max(0, ordIncome-std);
-    const ordTax = calcOrdTax(ordTI, ordBrk);
-    const expLiving=Math.max(0,Number(state.living)||0);
+    const expLiving=Math.max(0,Number(ltcActive?ltcLiving:state.living)||0);
     const expIrmaa=irmaaSurcharge;
     // The whole AUM fee is a household expense (paid by the pay-expenses portfolios via the waterfall).
     const expAum=aumFee;
@@ -397,7 +412,7 @@ function computeProjection(){
     // One pass of the funding waterfall for a given income-tax expense `taxExp`. Resets and refills every pool
     // portfolio's divUsed / sold / ltcg and returns the funding split.
     function runWaterfall(taxExp){
-      const expTotal=expLiving+expIrmaa+expAum+taxExp;
+      const expTotal=expLiving+expLtc+expIrmaa+expAum+taxExp;
       poolPf.forEach(x=>{ x.divUsed=0; x.sold=0; x.ltcg=0; });
       const expFromIncome=Math.min(expTotal,cashIncome);
       let expNeed=expTotal-expFromIncome;
@@ -430,8 +445,14 @@ function computeProjection(){
       const scglUsed=Math.min(scglRemaining,Math.max(0,ltcgGross));
       const ltcg=Math.max(0,ltcgGross-scglUsed); // net-of-SCGL LTCG — what's actually taxed/displayed
       const qualIncome=qdiv+ltcg;
-      const qualTax=calcQualTax(ordTI, qualIncome, qBrk);
       const agi=nonSSOrdinary+taxableSS+qdiv+ltcg;
+      const agiFloor=0.075*Math.max(0,agi);
+      const itemized=Math.max(0, expLtc-agiFloor);
+      const usedItemized=itemized>std;
+      const ded=Math.max(std,itemized);
+      const ordTI=Math.max(0, ordIncome-ded);
+      const ordTax=calcOrdTax(ordTI, ordBrk);
+      const qualTax=calcQualTax(ordTI, qualIncome, qBrk);
       const incomeTax=ordTax+qualTax; // ordinary + qualified only — the SST hypothetical below mirrors this basis
       // §9.4 NIIT: 3.8% of the lesser of net investment income (ODIV−QDIV + QDIV + LTCG) or MAGI (~AGI)
       // over the un-indexed threshold. Added on top of ordinary + qualified tax for Total Tax (TT).
@@ -439,7 +460,7 @@ function computeProjection(){
       const niit=computeNIIT(niiIncome, agi, filing, ssThresholdFactor, state.futureTax, THIS_YEAR+k);
       // §9.4: foreign tax credit offsets the ordinary+qualified tax (not NIIT), floored at 0.
       const totalTax=Math.max(0, incomeTax-foreignTaxCredit)+niit;
-      return {scglUsed, ltcg, qualIncome, qualTax, agi, incomeTax, niiIncome, niit, totalTax};
+      return {scglUsed, ltcg, qualIncome, qualTax, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, ordTI, ordTax};
     }
 
     // ── Tax ↔ LTCG fixed-point iteration ──
@@ -456,7 +477,7 @@ function computeProjection(){
     // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
     const expTax=taxIn;
     const {expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded}=wf;
-    const {scglUsed, ltcg, qualIncome, qualTax, agi, incomeTax, niiIncome, niit, totalTax}=tx;
+    const {scglUsed, ltcg, qualIncome, qualTax, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, ordTI, ordTax}=tx;
     const ltcgGross=wf.ltcgGross;
     scglRemaining=Math.max(0,scglRemaining-scglUsed);
     // Per-person gross LTCG, then prorate the SCGL shield across people/portfolios so the per-person breakdown
@@ -464,7 +485,7 @@ function computeProjection(){
     const ltcgByPersonGross=people.map((p,i)=>{ let t=0; pfx[i].forEach(x=>{ if(x) t+=x.ltcg; }); return t; });
     const shieldFrac = ltcgGross>0 ? scglUsed/ltcgGross : 0;
     const ltcgByPerson = ltcgByPersonGross.map(v=>v*(1-shieldFrac));
-    const {sst,marginalRate} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, incomeTax, ssThresholdFactor);
+    const {sst,marginalRate} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor);
 
     // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
@@ -509,11 +530,11 @@ function computeProjection(){
       odiv, qdiv, odivNQ, ltcg, ltcgGross, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
       iraByPerson, iraTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, embeddedGain, embeddedGainIdgt,
-      nonSSOrdinary, taxableSS, provisional, ordIncome, std, ordTI, ordTax, qualIncome, qualTax,
+      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, stdDeduction:std, ltcStarted, ltcCostByPerson, agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
       niiIncome, niit,
       irmaaSurcharge,
-      expLiving, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, cashIncome, taxIters, taxConverged,
+      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, cashIncome, taxIters, taxConverged,
       totalTax, agi
     });
   }

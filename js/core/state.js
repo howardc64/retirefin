@@ -52,7 +52,7 @@ function defaultPerson(idx){
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     rental:  defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
     brokerage:[],
-    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, stretch:false, aum:false},
+    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, convStart:0, stretch:false, aum:false},
     roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false, aum:false}
   };
 }
@@ -73,6 +73,7 @@ function defaultState(){
     passing:{p1:85,p2:90},
     living:0,   // household living expenses per year, today's $ (funded income → dividends → asset sales)
     scgl:0,
+    ltc:{enabled:false, people:[{startAge:85,cost:100000},{startAge:85,cost:100000}], living1:null, living2:0},   // Long Term Care: per person start age (own age) and cost; household living expenses from the 1st / 2nd LTC start (today's $)
     aumFee:{mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
     ui:{hiddenSections:defaultHiddenSections()}   // display-only, but saved/restored/reset with the plan (see above)
@@ -143,6 +144,19 @@ function hydrateState(loaded){
     const pct=all.find(b=>b.fee.mode!=='fixed');
     if(pct) out.aumFee={mode:'pct', value:Number(pct.fee.value)||0};
     else if(all.length) out.aumFee={mode:'fixed', value:all.reduce((t,b)=>t+(Number(b.fee.value)||0),0)};
+  }
+  if(loaded && loaded.ltc && out.ltc && out.ltc.people && out.ltc.people[0]){
+    if(loaded.ltc.startAge!==undefined && !Array.isArray(loaded.ltc.people)){
+      out.ltc.people[0]={startAge:Number(loaded.ltc.startAge)||85, cost:Number(loaded.ltc.cost)||0};
+      out.ltc.living1=Number(loaded.ltc.living)||0;
+    }else if(loaded.ltc.living1===undefined && Array.isArray(loaded.ltc.people)){
+      // Older per-person living expenses: the earlier-starting person's becomes the 1st LTC amount, the later's the 2nd.
+      const lp=loaded.ltc.people, ppl=out.people||[];
+      const sk=i=>(Number(lp[i]&&lp[i].startAge)||0)-(ppl[i]?currentAge(ppl[i]):0);
+      const order=(lp.length>1&&sk(1)<sk(0))?[1,0]:[0,1];
+      out.ltc.living1=Number(lp[order[0]]&&lp[order[0]].living)||0;
+      out.ltc.living2=Number(lp[order[1]]&&lp[order[1]].living)||0;
+    }
   }
   if(Array.isArray(out.people)) out.people.forEach(p=>{
     if(!Array.isArray(p.brokerage)) p.brokerage=[];

@@ -49,3 +49,36 @@ function onAumFeeMode(mode){
   setPath('aumFee.value', 0);   // units change (% vs $), so start fresh
   renderAumFee(); recompute(); saveDebounced();
 }
+
+// Long Term Care (Assumptions panel): per person start age (own age) + cost + new living expenses once LTC starts.
+function renderLtcPanel(){
+  const l=state.ltc||{}, n=state.filingStatus==='married'?2:1;
+  let html=`<div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4">
+    <input type="checkbox" style="flex:0 0 auto" ${l.enabled?'checked':''} onclick="onLtcToggle(this.checked)"> Long Term Care (LTC)</label></div>`;
+  if(l.enabled){
+    for(let i=0;i<n;i++){
+      const L=l.people[i], b=personAgeBounds(i), nm=escHtml(state.people[i].name||('Person '+(i+1)));
+      html+=`${n>1?`<div class="field full"><label><strong id="ltcName_${i}">${nm}</strong></label></div>`:''}
+      <div class="field full"><label>LTC start age</label>
+        ${pairHtml('ltcStart_'+i,'ltc.people.'+i+'.startAge',b[0],b[1],1,Math.min(b[1],Math.max(b[0],Number(L.startAge)||b[0])),{kind:'person',i})}</div>
+      <div class="field full"><label>LTC cost ($/yr, today's $)</label>
+        <input type="number" class="money" min="0" step="1000" value="${L.cost||0}" oninput="onNumberInput('ltc.people.${i}.cost', this.value)"></div>`;
+    }
+    html+=`<div class="field full"><label>${n>1?'1st LTC living expenses':'LTC living expenses'} ($/yr, today's $)</label>
+      <input type="number" class="money" id="ltcLiving1" min="0" step="1000" value="${l.living1!=null?l.living1:(state.living||0)}" oninput="onNumberInput('ltc.living1', this.value)"></div>`;
+    if(n>1) html+=`<div class="field full"><label>2nd LTC living expenses ($/yr, today's $)</label>
+      <input type="number" class="money" min="0" step="1000" value="${l.living2||0}" oninput="onNumberInput('ltc.living2', this.value)"></div>`;
+  }
+  document.getElementById('ltcPanel').innerHTML=html;
+}
+function onLtcToggle(checked){
+  setPath('ltc.enabled', checked);
+  renderLtcPanel(); recompute(); saveDebounced();
+}
+
+// Living expenses input: while the 1st LTC living expenses has not been set by the user it follows this value.
+function onLivingInput(val){
+  onNumberInput('living', val);
+  const el=document.getElementById('ltcLiving1');
+  if(el && state.ltc && state.ltc.living1==null) el.value=state.living||0;
+}

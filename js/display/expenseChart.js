@@ -5,11 +5,11 @@
 // Total Income Tax chart. Reads projection rows only (§4.6 row schema:
 // expLiving, expTax, expIrmaa, expAum, expTotal + the funding split).
 // ═══════════════════════════════════════════════════════════════
-const VZ_EXP = { living:'#3F7CAC', tax:'#C8600A', irmaa:'#D9A21B', aum:'#7B3FBE' };
+const VZ_EXP = { living:'#3F7CAC', tax:'#C8600A', irmaa:'#D9A21B', aum:'#7B3FBE', ltc:'#B5384B' };
 // Bottom → top stack order.
-const EXP_KEYS=['expLiving','expTax','expIrmaa','expAum'];
-const EXP_LABELS={expLiving:'Living expenses', expTax:'Income tax (tax drag)', expIrmaa:'IRMAA surcharge', expAum:'AUM fee'};
-const EXP_COLORS={expLiving:VZ_EXP.living, expTax:VZ_EXP.tax, expIrmaa:VZ_EXP.irmaa, expAum:VZ_EXP.aum};
+const EXP_KEYS=['expLiving','expLtc','expTax','expIrmaa','expAum'];
+const EXP_LABELS={expLiving:'Living expenses', expLtc:'Long Term Care', expTax:'Income tax (tax drag)', expIrmaa:'IRMAA surcharge', expAum:'AUM fee'};
+const EXP_COLORS={expLiving:VZ_EXP.living, expLtc:VZ_EXP.ltc, expTax:VZ_EXP.tax, expIrmaa:VZ_EXP.irmaa, expAum:VZ_EXP.aum};
 function buildExpenseLegend(){
   document.getElementById('expenseLegend').innerHTML =
     EXP_KEYS.map(k=>legendItem(EXP_LABELS[k], EXP_COLORS[k])).join('');
@@ -63,7 +63,7 @@ function buildExpenseChart(){
         lines.push(mrow('Household cash income', fmt(r.cashIncome)+'/yr'));
         lines.push(mrow('AGI', fmt(r.agi)+'/yr'));
         if(r.aumBalance>0) lines.push(mrow('AUM balance (fee charged on)', fmt(r.aumBalance)));
-        if(r.expIrmaa>0) lines.push(mrow('IRMAA basis: prior-year AGI tier', fmt(r.irmaaSurcharge)+'/yr'));
+        if(r.expIrmaa>0) lines.push(mrow('IRMAA basis: AGI tier from 2 years earlier', fmt(r.irmaaSurcharge)+'/yr'));
         lines.push(mrow('Tax↔LTCG iterations', String(r.taxIters)+(r.taxConverged?'':' (not converged)')));
       }
       return lines;

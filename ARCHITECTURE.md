@@ -92,6 +92,12 @@ state = {
   passing: { p1: number, p2: number },  // passing age per person id
   living: number,                 // household living expenses per year, today's $ (flat in real terms); funded income → dividends → asset sales (§4.6)
   scgl: number,                   // Suspended Capital-Gain Loss pool, today's $
+  ltc: {                          // Long Term Care (§4.6, Assumptions panel §5.3). Off by default
+    enabled: boolean,
+    people: [{startAge, cost}, {startAge, cost}],  // per person: the person's OWN age at which their LTC starts (default 85) and the LTC cost $/yr, today's $ (default 100000). people[1] is unused when single
+    living1: number | null,       // household living expenses, today's $, once the 1st LTC has started (null = never set: follows `living`)
+    living2: number               // household living expenses, today's $, once the 2nd person's LTC has also started (default 0)
+  },
   aumFee: { mode: 'pct'|'fixed', value: number },  // AUM fee: 'pct' = % of the AUM balance (sum of balances of portfolios with `aum` checked); 'fixed' = $/yr in today's $ (flat nominal, so it shrinks with inflation). Household-level; UI is below SCGL in the Assumptions panel (§5.3)
   futureTax: {
     enabled: boolean,
@@ -113,7 +119,7 @@ Person = {
   pension: { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
   rental:  { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
   brokerage: [BrokeragePortfolio, ...],   // 0 or more
-  ira:  { enabled, hidden, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number, stretch: boolean, aum: boolean },
+  ira:  { enabled, hidden, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number /* annual Roth conversion, today's $ */, convStart: number /* age the conversions begin; 0 (default) = now. Effective start = max(current age, convStart) */, stretch: boolean, aum: boolean },
   roth: { enabled, hidden, balance, growth: Change, bene: boolean, stretch: boolean, aum: boolean }   // aum (default false): this account's start-of-year balance counts toward the AUM balance (§4.6)
 }
 
@@ -183,7 +189,7 @@ that changes.
 | `defaultState()`, `defaultPerson(idx)`, `defaultBrokeragePortfolio(balance,n)`, `defaultChange`, `defaultAgeRange`, `defaultAgeRangedItem` | Canonical default shapes (§2). **If you add a field to the schema, add its default here.** |
 | `pfBasisEntered(b)`, `pfTracksBasis(b)` | Cost-basis predicates (§4.6): a cost basis was entered (`basisPct` is a number; `null`/blank is *not* the same as `0`); and whether basis is tracked — now true for every portfolio, since household expenses can force a sale from any of them |
 | `SECTION_HIDE_KEYS`, `DEFAULT_SECTION_HIDDEN`, `defaultHiddenSections(hidden?)` | The keys of `state.ui.hiddenSections` (must match each `data-hide-key` in `index.html`) and their default (`true` = a fresh session and **Reset to defaults** start with every section checked + collapsed; flip the constant to change that) |
-| `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has). Migration: if a loaded file has no `living`, it is set to the sum of the old enabled portfolios' `living` withdrawals. Hide migration (`fillLegacyHide`): a card with **no** `hidden` flag gets `!enabled`, and a file with no `ui.hiddenSections` shows every section — a `hidden` value that *is* in the file is never overridden |
+| `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has). Migration: if a loaded file has no `living`, it is set to the sum of the old enabled portfolios' `living` withdrawals. Hide migration (`fillLegacyHide`): a card with **no** `hidden` flag gets `!enabled`, and a file with no `ui.hiddenSections` shows every section — a `hidden` value that *is* in the file is never overridden. LTC migration: an old single-person `ltc {startAge, cost, living}` becomes `people[0]` + `living1`; an old per-person `ltc.people[i].living` becomes `living1` (the earlier-starting person's) and `living2` (the later's). A file with no `ltc` or no `ira.convStart` just gets the defaults |
 | `state` | The live, mutable object every other file reads/writes |
 | `autosave()` / `loadAutosave()` | Silent per-browser `localStorage` save/restore, so a reload doesn't lose work |
 | `resetState()` | Confirms, then resets `state` to defaults (with `applyDefaultHiddenFromEnabled`) and re-renders |
@@ -269,14 +275,17 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
    steps 5a–12 are iterated to convergence. The ordinary side of the return (steps 8–9, ordinary tax) does not depend on LTCG and is computed once, before the loop.
 6. Pre-tax IRA: RMD (or voluntary early withdrawal) via `rmdDivisor`, plus a separate **Roth
    conversion withdrawal** (`rothConvByPerson`/`rothConvTotal`) — a real withdrawal on top of the RMD,
-   taxed exactly like the RMD, continuing until the balance hits $0. Requires the matching Roth IRA
+   taxed exactly like the RMD, continuing until the balance hits $0. Begins at the later of the owner's current age
+   and `ira.convStart` ("Conversion start age"); before that age the conversion is $0 (RMDs are unaffected). Requires the matching Roth IRA
    to be enabled. On the owner's death, conversions stop; RMDs continue to a surviving spouse if the
    IRA is marked to continue.
 7. Roth IRA: grows tax-free, receiving that year's conversion amount (if any) from step 6.
 8. Ordinary income = wages + pension + rental + IRA RMD + **Roth conversion (pre-tax IRA withdraw)**
    + (ODIV − QDIV).
 9. Taxable Social Security via `computeTaxableSS`; filing status for the year is `'single'` the
-   moment either spouse has died.
+   moment either spouse has died. **Deduction** = `max(standard deduction, itemized)` where itemized =
+   `max(0, LTC expense − 7.5% × AGI)` (see *Long Term Care* below); ordinary taxable income = `max(0, ordinary income − deduction)`.
+   AGI includes realized LTCG, so the deduction is computed inside `taxOn()` and is solved with the tax.
 10. AGI = ordinary income + taxable SS + QDIV + LTCG (net of SCGL, see next point).
 11. LTCG net of SCGL: available `scgl` shields realized LTCG dollar-for-dollar (pool depletes across
     years); only the net amount is taxed/displayed.
@@ -288,8 +297,15 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 14. Roll every brokerage balance forward: `+growth −(dividends used for expenses + shares sold)`, from the step-5a
    waterfall. Foreign tax credit doesn't touch the balance. Every portfolio also rolls its cost basis forward (below).
 
+**Long Term Care (LTC)** (`state.ltc`, off by default; Assumptions panel §5.3). Each row, for each person `i` (only if `ltc.enabled`):
+- **Started** if their LTC start age is *before* their passing age (`startAge < passing`, so an LTC that would begin after they pass never happens) **and** their age this year ≥ `startAge`. Once started it stays started for the rest of the projection, even after that person passes (`ltcStarted` counts started people, 0–2).
+- **Cost:** a started person who is still **alive** adds `max(0, cost)` (today's $, flat in real terms) to `expLtc`; the row keeps each person's amount in `ltcCostByPerson`. The cost stops the year they pass.
+- **Living expenses switch:** `expLiving` = `state.living` until anyone's LTC starts; `ltc.living1` (or `state.living` if `living1` is `null`) once exactly one person has started; `ltc.living2` once both have. A single-person household only ever uses `living1`.
+- **LTC is a household expense**, added to the expense pool (see *Expense funding*) and paid income → dividends → asset sales like everything else.
+- **Itemized deduction:** the LTC cost is also the only itemized deduction modelled: `itemized = max(0, expLtc − 7.5% × AGI)` (`agiFloor` = 7.5% × AGI). `usedItemized` is true when `itemized` exceeds the standard deduction; the deduction actually applied is `max(standard, itemized)`. Because AGI depends on LTCG, this sits inside the tax↔LTCG iteration.
+
 **IRMAA as an expense** (always a household expense — there is no per-portfolio checkbox):
-- **Household surcharge** = `irmaaSurcharge` = surcharge of the IRMAA tier (`IRMAA_MFJ`/`IRMAA_SGL`, this year's filing status) reached by the **prior year's AGI** × the number of living people age ≥ 65. Year 0 is `$0`. The one-year lag mirrors IRMAA's real look-back. Tier tables are indexed, so no deflation. The row reports it as `irmaaSurcharge` and it is included in `expIrmaa`.
+- **Household surcharge** = `irmaaSurcharge` = surcharge of the IRMAA tier (`IRMAA_MFJ`/`IRMAA_SGL`, this year's filing status) reached by the **AGI from two years earlier** (`rows[k−2].agi`) × the number of living people age ≥ 65. Years 0 and 1 are `$0`, because the model has no AGI from before the projection starts. The 2-year lag is IRMAA's real look-back (the premium for year Y is set from the Y−2 return); the tier uses *this* year's filing status. Tier tables are indexed, so no deflation. The row reports it as `irmaaSurcharge` and it is included in `expIrmaa`.
 - **Payment:** part of the household expense pool below, so it is paid income → dividends → sales like everything else, by portfolios with Pay expenses checked.
 
 **AUM fee** (household assumption `state.aumFee`; per-portfolio `aum` box):
@@ -298,7 +314,7 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 - **Allocation:** split across the checked accounts pro rata to balance. Each account's share is informational (`feeDrag` on a portfolio row): the **whole fee is one household expense** (`expAum = aumFee`) paid by the pool, i.e. only by portfolios with **Pay expenses** checked — not by the account it is charged on unless that account also pays expenses. No portfolio, IDGT included, pays a fee share on its own account.
 
 **Expense funding** (household-level; replaces the old per-portfolio withdrawal / tax-drag / own-money waterfall):
-- **Expenses** = `state.living` (flat in today's $) + **the year's income tax (`totalTax`, "tax drag")** + the **IRMAA surcharge** + the **AUM fee** (charged on the AUM-checked portfolios and IRAs, above). Income tax is an expense again, at household level (there is no per-portfolio *tax drag %* input);
+- **Expenses** = `expLiving` (`state.living`, flat in today's $, or the post-LTC living amount once LTC has started) + **`expLtc`** (Long Term Care cost, above) + **the year's income tax (`totalTax`, "tax drag")** + the **IRMAA surcharge** + the **AUM fee** (charged on the AUM-checked portfolios and IRAs, above). Income tax is an expense again, at household level (there is no per-portfolio *tax drag %* input);
   it is charged to the household pool only. Because it depends on this year's LTCG, it is solved by iteration (below), not lagged.
 - **Funding order** (portfolio sources are only the in-range portfolios with **Pay expenses** checked — default off, IDGT or not; an unchecked portfolio reinvests all its dividends and is never sold for expenses, and if none is checked the shortfall shows as `expUnfunded`): (1) **household cash income** = wages + Social Security + pension + rental + IRA RMDs (the
   Roth-conversion amount is excluded — it moves to the Roth, it isn't spendable; it is gross, since the tax it triggers is itself one of the expenses), then
@@ -311,12 +327,12 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 
 **Tax ↔ LTCG iteration** (per year; constants `TAX_TOL = 0.005`, `TAX_MAX_ITERS = 30` in `projection.js`). Tax → expenses → asset sales → LTCG → tax
 is circular. `runWaterfall(taxExp)` runs the funding waterfall for a given tax expense and returns the funding split and gross LTCG;
-`taxOn(ltcgGross)` returns the year's tax (SCGL applied without consuming the pool, qualified tax, AGI, NIIT, FTC, `totalTax`). The solver:
+`taxOn(ltcgGross)` returns the year's tax (SCGL applied without consuming the pool, AGI, the LTC itemized-vs-standard deduction, ordinary and qualified tax, NIIT, FTC, `totalTax`). The solver:
 `T₀` = prior year's `totalTax` (0 in year 0); `Tₙ₊₁ = taxOn(runWaterfall(Tₙ).ltcgGross).totalTax`; stop when `|Tₙ₊₁ − Tₙ| < TAX_TOL`.
 Each extra tax dollar produces well under a dollar of new tax (only the gain share of a sale is LTCG, taxed ≤ ~24% with NIIT), so the map is a
 contraction and converges in ~6–8 rounds. After it settles, the SCGL pool is drawn down **once**, and SST/marginal rate are computed from the converged
 LTCG. `expTax` is the tax that was funded; `totalTax` is the tax it produces (equal within `TAX_TOL`). `taxIters` / `taxConverged` report the solve.
-The IRMAA surcharge keeps its prior-year-AGI lag — that is IRMAA's real look-back, not a circularity workaround.
+The IRMAA surcharge uses the AGI from two years earlier — that is IRMAA's real look-back, and it also keeps IRMAA out of the circularity.
 
 **Cost basis & unrealized gain** (every portfolio; average-cost method, all in today's $):
 - **Start:** `basis` = `basisPct / 100 × balance`, clamped to `[0, balance]`; a blank basis starts at `basis = balance`
@@ -349,16 +365,17 @@ The IRMAA surcharge keeps its prior-year-AGI lag — that is IRMAA's real look-b
 | `portfoliosByPerson` | Per-portfolio detail: `{id, name, balance, idgt, aum, feeDrag, ltcg, growthPct, netGrowthPct, tracked, basis, unrealizedGain, steppedUp, divUsed, divReinvested, sold}` — the last seven are the cost-basis / expense-waterfall fields (§4.6): `basis`/`unrealizedGain` are `null` when `tracked` is false; `steppedUp` is true only in the year the death step-up applied; `divUsed`/`divReinvested`/`sold` are this portfolio's share of the household waterfall (dividends used, dividends reinvested, shares sold), so `divUsed + sold` is what this portfolio paid toward expenses (household income pays the rest) |
 | `embeddedGain`, `embeddedGainIdgt` | Household unrealized gain across tracked portfolios, non-IDGT / IDGT (start of year, after any step-up) |
 | `nonSSOrdinary`, `taxableSS`, `provisional` | Ordinary income ex-SS; taxable SS; provisional income |
-| `ordIncome`, `std`, `ordTI`, `ordTax` | AGI components → ordinary taxable income → ordinary tax |
+| `ordIncome`, `std`, `stdDeduction`, `ordTI`, `ordTax` | Ordinary income (incl. taxable SS) → deduction → ordinary taxable income → ordinary tax. **`std` is the deduction actually applied** (the larger of standard and itemized); `stdDeduction` is always the standard-deduction amount for the filing status |
+| `ltcStarted`, `ltcCostByPerson`, `agiFloor`, `itemized`, `usedItemized` | LTC (§4.6): how many people's LTC has started (0–2); each person's LTC cost this year (0 if not started or passed); 7.5% × AGI; the itemized deduction `max(0, expLtc − agiFloor)`; whether it beat the standard deduction |
 | `qualIncome`, `qualTax` | QDIV+LTCG and its tax |
 | `sst`, `marginalRate` | Social Security tax and true marginal rate (torpedo effect) |
 | `niiIncome`, `niit` | Net investment income and NIIT |
 | `aumBalanceIra` | The part of `aumBalance` that comes from AUM-checked IRAs / Roth IRAs |
-| `expLiving`, `expIrmaa`, `expAum`, `expTax`, `expTotal` | Household living expenses; IRMAA surcharge; the AUM fee (all of it — a household expense); income tax paid as an expense (tax drag); their sum |
+| `expLiving`, `expLtc`, `expIrmaa`, `expAum`, `expTax`, `expTotal` | Household living expenses (the post-LTC amount once LTC has started); Long Term Care cost; IRMAA surcharge; the AUM fee (all of it — a household expense); income tax paid as an expense (tax drag); their sum |
 | `aumBalance`, `aumFee` | AUM balance (start of year) and the total AUM fee charged this year (equals `expAum`) |
 | `taxIters`, `taxConverged` | Rounds the tax↔LTCG iteration took (≥1) and whether it met `TAX_TOL` |
 | `cashIncome`, `expFromIncome`, `expFromDiv`, `expFromSales`, `expUnfunded` | The expense-funding waterfall (§4.6): household cash income available (wage+SS+pension+rental+RMD), and the expense amount paid by income, by dividends, by asset sales, and left unfunded (`expTotal = expFromIncome + expFromDiv + expFromSales + expUnfunded`) |
-| `irmaaSurcharge` | Household IRMAA surcharge for the year (prior-year-AGI tier × enrolled people 65+) ; always charged as a household expense (`expIrmaa`) |
+| `irmaaSurcharge` | Household IRMAA surcharge for the year (tier of the AGI from two years earlier × enrolled people 65+; $0 in years 0 and 1) ; always charged as a household expense (`expIrmaa`) |
 | `totalTax` | Final Total Tax: `max(0, ordTax+qualTax−foreignTaxCredit) + niit` |
 | `agi` | Adjusted gross income |
 
@@ -395,6 +412,8 @@ default or a label — all real computation happens in Compute (§4).
 | `onHideToggle(path, checked, itemEl)` | Sets `hidden`, then toggles that item's `.item-body`'s `open` class directly (no recompute — hiding is purely visual, so there's nothing to recompute) |
 | `onSectionHide(cb)` | Handler for the **Hide** checkbox on every chart section header (§6) and the Assumptions panel title (§5.3). Writes `state.ui.hiddenSections[cb.dataset.hideKey]` (so it is saved/restored/reset with the plan, default all checked), then `applySectionHide()` toggles `.sec-hidden` on every sibling after the header up to the next `.sec-head`, so only the header and its checkbox remain. Compute and charts keep updating while hidden; on un-hide it calls `resizeAllCharts()` (`chartHelpers.js`) so canvases re-fit. |
 | `syncSectionHide()` / `expandAllSections()` | `syncSectionHide()` sets every section Hide checkbox **and** its collapsed/expanded section from `state.ui.hiddenSections` — the only thing that decides what the boxes show, so "checked" and "hidden" can't disagree (a browser's form-state restore on reload used to leave a box checked over a visible section; the static boxes and every generated input also carry `autocomplete="off"`). `expandAllSections()` un-collapses DOM-only. `renderAll()` runs `expandAllSections()` → `recompute()` → `syncSectionHide()`, so charts are built in visible containers and then collapsed |
+| `pairHtml(id, path, min, max, step, value, bounds?, moneyCls?)` / `onPair(id, path, val, src)` / `setPair(id, v)` | **Paired slider + number input** that always track each other (ids `<id>_r` range, `<id>_n` number), writing `path` via `setPath`. Dragging the slider sets `window.liveDrag` for that recompute so charts redraw without animation (§6.1); typing uses the debounced recompute. Used for the IRA **Annual Roth conversion** and **Conversion start age** (§5.4) and the LTC start ages (§5.3) |
+| `personAgeBounds(i)` / `pairBounds(el)` / `refreshPairBounds()` | Dynamic slider limits. A range tagged `bounds={kind:'person',i}` runs from the person's current age (rounded up) to their passing age; `{kind:'ira',i}` runs 0 → 4 × that person's IRA balance. `refreshPairBounds()` re-applies them to every tagged slider; it is called when birth date, passing age or (for the IRA range) balance change |
 | `agedItemCard(pid, key, title, item, checkboxPath)` | Shared card builder for the two income types that are just "amount + age range + change + survivor benefit": Pension and Rental. Calls `cardHeader` internally. |
 
 **Rule:** any new income-type field that needs an age range, an annual-change mode, or an
@@ -404,11 +423,13 @@ enable/hide header uses these — don't hand-roll a new version of any of them. 
 ### 5.2 `household.js`
 Renders: filing status radios, per-person name/birth year/birth month, read-only current-age display,
 passing-age sliders (30–100, default 85/90), inflation slider (default 3%). `relabel()` pushes a name
-change into every place a person's name appears without a full re-render (so typing doesn't lose
-focus).
+change into every place a person's name appears (including the LTC panel headers) without a full re-render (so typing doesn't lose
+focus). Birth year / month are applied only when they are a real value (year 1920–this year, month 1–12) — partial keystrokes such as "196" are ignored, and `onBirthCommit` restores the last valid value if the field is left invalid. `refreshAgeDependentUI()` updates the read-only age, raises any passing-age slider below the person's current age, and calls `refreshPairBounds()` (§5.1).
 
 ### 5.3 `assumptions.js` (+ the Assumptions panel in `index.html`)
-The Assumptions panel in `index.html` holds two household fields, in this order below the passing-age sliders: **Living expenses** (`state.living`, `#livingInput`, $/yr in today's $, `onNumberInput('living', …)`) directly **above** the **SCGL** input (`state.scgl`), followed **below SCGL** by the **AUM fee** (`state.aumFee`): a mode select (`#aumFeeMode`: **% AUM balance** / **Fixed $ / yr**, `onAumFeeMode` resets the value because the units change) and a value input (`#aumFeeValue`, `onNumberInput('aumFee.value', …)`); `renderAumFee()` (in `assumptions.js`) writes both from `state`. AUM balance = sum of the balances of portfolios with their **AUM** box checked (§4.6). `renderAll()` writes both from `state`.
+The Assumptions panel in `index.html` holds two household fields, in this order below the passing-age sliders: **Living expenses** (`state.living`, `#livingInput`, $/yr in today's $, `onNumberInput('living', …)`) directly **above** the **SCGL** input (`state.scgl`), followed **below SCGL** by the **AUM fee** (`state.aumFee`): a mode select (`#aumFeeMode`: **% AUM balance** / **Fixed $ / yr**, `onAumFeeMode` resets the value because the units change) and a value input (`#aumFeeValue`, `onNumberInput('aumFee.value', …)`); `renderAumFee()` (in `assumptions.js`) writes both from `state`. AUM balance = sum of the balances of portfolios with their **AUM** box checked (§4.6). `renderAll()` writes both from `state`. The panel title reads "Assumptions — drag to adjust". Typing in Living expenses goes through `onLivingInput`, which also updates the **1st LTC living expenses** box while `ltc.living1` is still `null` (i.e. the user has not set it).
+
+**Long Term Care panel** (`#ltcPanel`, between the AUM fee note and the future-tax panel; `renderLtcPanel()` / `onLtcToggle()`): an **LTC** checkbox (`state.ltc.enabled`). When on it shows, per person (one block when single; the person's name is the block header and is kept live by `relabel()`): **LTC start age** (paired slider/number, `pairHtml`, range = current age → passing age, written to `ltc.people.i.startAge`) and **LTC cost** ($/yr, today's $, `ltc.people.i.cost`). Below those: **1st LTC living expenses** (`ltc.living1`; labelled just "LTC living expenses" when single) and, when married, **2nd LTC living expenses** (`ltc.living2`). Compute rules are in §4.6.
 
 Renders the speculative future-tax-threshold panel: a checkbox that, when on, reveals `niitStartYear`
 + `niitSingle`/`niitMarried` (today's $) fields feeding `state.futureTax` (§2), consumed by
@@ -426,8 +447,8 @@ for the whole "Brokerage portfolio income" card.
 | `socialSecurity.js` | Social Security | Already-started flag (else FRA, default 67), PIA, claim-age slider (62–70, default = FRA or started age) |
 | `pension.js` | Pension | `agedItemCard` — amount, age range, change (the fixed option is worded **Fixed $ (no COLA)** here via `renderChangeRow`'s `fixedLabel`; elsewhere **Fixed $ (no growth)**), survivor benefit |
 | `rental.js` | Rental income | `agedItemCard` — same shape as Pension |
-| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, **age range (start/end) directly below the name**, **start balance**, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, independent of the AUM box and IDGT flag —, IDGT flag, **AUM checkbox** (counts this balance toward the AUM fee base), **Pay expenses checkbox** (`payExp`, default on; only checked portfolios' dividends and sales fund household expenses), **optional cost basis (% of start balance, 0–100; blank = no unrealized gain today)** right under the balance, there is **no** fee, IRMAA, tax drag or withdrawal field on the card (fee and IRMAA are household-level, §5.3) (living expenses are household-level, §5.3), and LTCG has **no input**: the panel just notes that expenses are paid household income → dividends → asset sales, and that sales realize gain from the cost basis —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
-| `ira.js` | Pre-tax IRA / 401(k) | Balance, **AUM checkbox** (`ira.aum`), age range (default start = RMD age), growth (default inflation+3%), survivor benefit, annual Roth conversion amount |
+| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, **age range (start/end) directly below the name**, **start balance**, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, independent of the AUM box and IDGT flag —, IDGT flag, **AUM checkbox** (counts this balance toward the AUM fee base), **Pay expenses checkbox** (`payExp`, default **off**; only checked portfolios' dividends and sales fund household expenses), **optional cost basis (% of start balance, 0–100; blank = no unrealized gain today)** right under the balance, there is **no** fee, IRMAA, tax drag or withdrawal field on the card (fee and IRMAA are household-level, §5.3) (living expenses are household-level, §5.3), and LTCG has **no input**: the panel just notes that expenses are paid household income → dividends → asset sales, and that sales realize gain from the cost basis —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
+| `ira.js` | Pre-tax IRA / 401(k) | Balance, **AUM checkbox** (`ira.aum`), age range (default start = RMD age), growth (default inflation+3%), survivor benefit, **IRA stretch** checkbox, **Annual Roth conversion** (paired slider + number, $/yr today's $, slider range 0 → 4 × balance; `onIraBalance` re-ranges it and clamps the value when the balance is lowered) and **Conversion start age** (paired slider + number, current age → passing age, `ira.convStart`; conversions begin at the later of this and the current age, §4.6) |
 | `roth.js` | Roth IRA | Balance, **AUM checkbox** (`roth.aum`), growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
 
 ### 5.5 `incomeForms.js`
@@ -476,8 +497,9 @@ presentation is fine; new financial logic is not).
 | `CHART_BASE`, `ageXAxis`, `AXIS_COLOR`, `AXIS_TICKS`, `axisTitle` | Shared Chart.js base config — chart width = 2/3 page width, height = width, X axis = P0's age from current age to the younger person's age-100 |
 | `chartMaxAge()` | The locked X-axis upper bound described above |
 | `charts` / `allCharts()` | **Chart registry**: one live Chart.js instance per key (`ss`, `income`, `tss`, `tax`, `expense`, `asset`, `idgt`), `null` until first drawn. Chart files never declare their own chart variable; destroy/resize walk the registry, so adding a chart means adding a key here, not editing hand-written lists |
-| `upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, createOptions, refresh})` | The one create-or-update step every chart's builder ends with: the first call builds the chart from `createOptions()`; later calls update it via `updateChartInPlace`, set `scales.y.max`, apply the optional `refresh(options)` (per-render option changes, e.g. the income overlay), wrap `tooltip` in `justifyTip`, and `update()` |
+| `upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, createOptions, refresh})` | The one create-or-update step every chart's builder ends with: the first call builds the chart from `createOptions()`; later calls update it via `updateChartInPlace`, set `scales.y.max`, apply the optional `refresh(options)` (per-render option changes, e.g. the income overlay), wrap `tooltip` in `justifyTip`, and `update()` — with animation suppressed (`update('none')`) while `window.liveDrag` is set, i.e. while a paired slider (§5.1) is being dragged, so charts follow the thumb without lag |
 | `chartYMax` / `lockedYMax(key, compute)` / `resetChartYMax()` / `rescaleChart(key)` | Per-chart locked Y-max. `lockedYMax` computes it once and then holds it; `rescaleChart` (the Rescale button) clears one key and recomputes; `resetChartYMax()` clears **all** keys and is called on Reset to defaults and on file load |
+| `popupPersonAgeLines(proj, r)` / `alignToAges(ages, values, labels)` / `ageLabelRange(fromAge, toAge)` | Shared tooltip title (each person's age in the row, or "-" once passed); aligning a series to the locked age labels (missing ages → `null`); building the integer age-label array for the X axis |
 | `legendItem(text, color, style?)` | One legend entry (`<span class="li">` + swatch). `style` overrides the default solid-color swatch (dashed IRMAA key, dashed SS start-age line) |
 | `resizeAllCharts()` / `destroyAllCharts()` | `resize()` / `destroy()` every live chart in the registry; `destroyAllCharts()` also nulls each entry. Resize is used after a hidden section is shown again |
 | `updateChartInPlace(chart, labels, datasets)` | Mutates an existing Chart.js instance's data arrays in place (instead of replacing the chart) so points animate smoothly from their prior value instead of resetting to zero |
@@ -518,14 +540,14 @@ NIIT — with **foreign tax credit netted out of the ordinary/QDIV/LTCG segments
 (a waterfall reduction), so the stack's total height always equals `totalTax`. Overlaid dashed lines:
 effective rate (red, `totalTax/agi`) and marginal rate (green). Y axis locked, % axis on the right.
 Tooltip: Effective Tax Rate, Marginal Tax Rate, **Total Tax** always shown; under `show_details`, also
-filing status, TI, standard deduction, every income component, provisional income, foreign tax credit,
+filing status, TI, the deduction applied (labelled **Itemized deduction (LTC)** in a year `usedItemized` is true, else **Standard deduction**; value `r.std`), every income component, provisional income, foreign tax credit,
 and NIIT detail if nonzero.
 
 ### 6.6a `expenseChart.js` — Household Expenses
 Sits between the Total Income Tax and Asset Value sections in `index.html` (`#expenseChart`, `#expenseLegend`,
-Rescale key `'expense'`). Reads rows' `expLiving`, `expTax`, `expIrmaa`, `expAum`, `expTotal`,
+Rescale key `'expense'`). Reads rows' `expLiving`, `expLtc`, `expTax`, `expIrmaa`, `expAum`, `expTotal`,
 plus the funding split `expFromIncome`, `expFromDiv`, `expFromSales`, `expUnfunded`. Styled like the tax chart: stacked
-filled bands, segments bottom→top: **living expenses, income tax (tax drag), IRMAA surcharge, AUM fee**, so the stack's
+filled bands, segments bottom→top: **living expenses, Long Term Care, income tax (tax drag), IRMAA surcharge, AUM fee**, so the stack's
 height always equals `expTotal`. Single $ axis, Y locked (`chartYMax.expense`). Tooltip: one line per non-zero component
 with its $ and % of the total; footer shows total expenses and how they were funded (household income → dividends →
 asset sales, plus any unfunded shortfall); under `show_details`, also filing status, household cash income, AGI, AUM
@@ -557,13 +579,13 @@ reminder of the tax treatment: non-IDGT gets a step-up at death, IDGT keeps carr
 
 ### 6.8 `footer.js`
 `renderFooter()` — one static line summarizing the app's simplifying tax/benefit assumptions, shown
-beneath the charts.
+beneath the charts. It states the 2026 tax basis (TCJA permanent under OBBBA), that the only itemized deduction modelled is Long Term Care cost above 7.5% of AGI, the NIIT threshold, the expense funding order and tax iteration, and the RMD table. **Keep it in step with Compute:** its IRMAA clause says the surcharge uses the AGI from two years earlier (2-year lookback), matching §4.6.
 
 ### 6.9 `formulasPage.js`
 `openFormulasPage()` — triggered by the **Formulas** button (§7.2), opens a new browser tab (via
 `window.open` + `document.write`, so it works the same under `file://` as on a hosted page) containing
 a standalone reference document: the acronym glossary, every current reference-data table, and every
-formula described in §4, written out in full for someone to check the app's math against by hand.
+formula described in §4 (including the Long Term Care expense, the living-expense switch and the LTC itemized-deduction vs standard-deduction rule), written out in full for someone to check the app's math against by hand.
 Equations are set as centered **display equations**, one per line, like a math textbook (helpers `fpEq`, `fpFr`
 for stacked fractions, `fpPw` for piecewise definitions, `fpWhere` for a small "where …" caption); prose sentences
 introduce each equation but never carry the math inline.
@@ -588,7 +610,7 @@ needs no code change — the next click shows the new text.
 plan's full projection as a `.xlsx` workbook via the SheetJS (`XLSX`) library (loaded from a pinned CDN
 `<script>` tag in `index.html`, same pattern as Chart.js). **Projection by year** is always the first sheet —
 one row per projected year, every field in the row schema (§4.6) a chart could plot (income sources, taxes,
-SST/NIIT/IRMAA, AGI, effective/marginal rate, IRA/Roth/brokerage balances). After it, **every enabled account
+SST/NIIT/IRMAA, AGI, effective/marginal rate, IRA/Roth/brokerage balances, plus the LTC cost per person, LTC-started count and LTC expense, and the deduction columns: standard deduction, 7.5% AGI floor, itemized deduction, deduction used). After it, **every enabled account
 gets its own sheet** (one row per year; `xlsxAccountSheets`), in person order: each enabled brokerage portfolio
 (`"<Person> - <Portfolio>"`, plus ` (IDGT)` when flagged — balance, growth %, drags, withdrawal, LTCG, cost
 basis / unrealized gain, expense-waterfall amounts), then that person's **Pre-tax IRA** (RMD, Roth-conversion
@@ -619,7 +641,7 @@ is free text with per-provider suggestions (`models`), because vendors rename an
 
 | Export | Contract |
 |---|---|
-| `buildChatSnapshot(includeNames)` | Household assumptions (JSON), each person's **enabled** income sources (JSON, `hidden`/`id` stripped; disabled ones only named), then one **CSV row per projection year** (year, ages, filing, income by type, AGI, taxable SS, marginal %, total tax, IRMAA, expense components, unfunded expenses, brokerage / IDGT / IRA / Roth balances — 27 columns, whole dollars, today's $) plus the IRA-stretch tail. Built fresh on **every send**, so answers reflect the inputs as they are now |
+| `buildChatSnapshot(includeNames)` | Household assumptions (JSON: filing status, inflation, living expenses, SCGL, AUM fee, passing ages, and the future-tax threshold when on — `longTermCare` — per-person start age and cost plus the post-1st / post-2nd-LTC living expenses — only when LTC is enabled, only as many people as the household has), each person's **enabled** income sources (JSON, `hidden`/`id` stripped; disabled ones only named), then one **CSV row per projection year** (year, ages, filing, income by type, AGI, taxable SS, marginal %, total tax, IRMAA, expense components incl. `exp_ltc`, unfunded expenses, brokerage / IDGT / IRA / Roth balances — 28 columns, whole dollars, today's $) plus the IRA-stretch tail. Built fresh on **every send**, so answers reflect the inputs as they are now |
 | `buildChatSystemPrompt(includeNames)` | Instructions (ground answers in the snapshot, explain rather than recompute, say which input to change for "what if", concise, not financial advice) + a few model facts + the snapshot. Anthropic: one system block with `cache_control: ephemeral`; Gemini: `systemInstruction` |
 | `chatBuildRequest(prov,model,key,system,history)` / `chatParseEvent(prov,j)` / `chatReadStream(res,prov,onText)` | Provider-specific request and SSE-event shapes; the reader handles CRLF separators and events split across chunks, ignores Gemini `thought` parts, and normalises the stop reason to `end` / `length` / `blocked:<why>` |
 | `sendChat()` / `stopChat()` | Streams the reply into the last bubble; **Stop** keeps the partial text; a failed turn (HTTP error, network, blocked/empty reply) is dropped and the question restored to the input. Errors get plain-language messages (`chatFriendlyError`: key rejected, model not found, free-tier quota). History is in memory only (last 20 messages, always starting on a user turn; Gemini maps `assistant` → `model`) |
@@ -644,7 +666,7 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
 | `recomputeDebounced` / `saveDebounced` | 80ms / 500ms debounced wrappers, for slider/typing inputs (checkboxes and add/remove buttons call the un-debounced versions directly) |
 | `destroyCharts()` | `destroyAllCharts()` (§6.1) plus clearing `lastProjection` — tears down every Chart.js instance — called before a full state restore so no stale tooltip/plugin/hover state survives into a newly loaded plan |
 | `renderCharts()` | Calls every §6 chart builder, in this fixed order: SS controls/section, income, TSS, tax, expenses, asset, IDGT |
-| `renderAll()` | Full re-render: household setup, passing sliders, inflation/SCGL fields, future-tax panel, income forms, footer, then `recompute()` — called on boot and on a full state restore |
+| `renderAll()` | Full re-render: household setup, passing sliders, inflation/living/SCGL fields, AUM fee, future-tax panel, LTC panel, income forms, footer, then `recompute()` — called on boot and on a full state restore |
 | *(boot)* | On `DOMContentLoaded`: load autosave if present, else `defaultState()`, then `renderAll()` |
 
 ### 7.2 `index.html`
@@ -662,7 +684,7 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
   input/loadMenu →
   display/chartHelpers → display/overlayPlugin → display/ssChart → display/incomeChart →
   display/tssChart → display/taxChart → display/expenseChart → display/assetChart → display/footer →
-  display/formulasPage → display/notesPage → app.js`
+  display/formulasPage → display/notesPage → display/excelExport → display/chat → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
   that reads from it. Function *calls* deferred to a later event (a click, `DOMContentLoaded`) don't
   need this — only code that runs immediately when the script loads (top-level `let`/`const`

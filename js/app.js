@@ -38,6 +38,7 @@ function renderAll(){
   document.getElementById('scglInput').value = state.scgl||0;
   renderAumFee();
   renderFutureTaxPanel();
+  renderLtcPanel();
   renderIncomeForms();
   renderFooter();
   expandAllSections();   // build the charts in visible containers …

@@ -3,13 +3,17 @@
 ## Features
 
 * **Todays’s $s:** All numbers in today’s $s for easy understanding
-* **Income, Expense and Portfolio/IRA Projection:** Income (Wage, Pension, Social Security) Portfolio (incl IDGTs), IRAs (Pre-tax, Roth)
-* **Portfolio Features:** Yield, Qualified Div, Foreign % and Tax Credits. Delayed Start (conversion of assets to equity investment portfolios in the future - ie work stock options, real estate etc.)
-* **IRA Features:** Roth Conversion, Stretched IRA
+* **Income, Portfolio/IRA, Expense, Tax Projection**
+* **Income:** Wage, Pension, Social Security
+* **Expense:** Simple living cost, LTC, IRMAA surcharge, Tax, AUM fees
+* **Tax Projection:** Rudimentary but include basics : (ordinary, ordinary/qualified div), LTCG, itemized deduction (for long term care costs), and foreign tax credit )
+* **Portfolio Features:** Yield, Qualified Div, Foreign % and Tax Credits. Delayed Start (conversion of assets to equity investment portfolios in the future - ie work stock options, real estate etc.), IDGTs
+* **IRA Features:** Pre-Tax, Roth, Roth Conversion (with delayed start), Stretched IRA
 * **On Passing Actions:** Forward asset to survivor, basis step-up, and residual unrealized gains
 * **AUM fees:** Fixed and AUM %
 * **Social Security:** Start age and torpedo analysis
 * **Suspended Long Term Capital Gains Tracking**
+* **Long Term Care:** Start age, costs, and living cost (not LTC cost) adjustments
 * **Married and Single/Widower Status**
 * **Chatbot:** AI to analyze and converse about the plan. Require inserting API key into app when running. No security to keep API key private (will remain on your device) Plan data is sent to the AI model in the cloud of course.
 

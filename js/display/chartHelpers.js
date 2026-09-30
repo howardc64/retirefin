@@ -180,7 +180,7 @@ function upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, create
     chart.options.scales.y.max=yMax;
     if(refresh) refresh(chart.options);
     chart.options.plugins.tooltip.callbacks=justifyTip(tooltip);
-    chart.update();
+    chart.update(window.liveDrag?'none':undefined);
   } else {
     charts[key]=new Chart(document.getElementById(canvasId),{type:'line',data:{labels,datasets},options:createOptions()});
   }

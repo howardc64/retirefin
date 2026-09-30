@@ -56,7 +56,7 @@
   <div id="passingSliders"></div>
   <div class="field full" style="margin-top:14px">
     <label>Living expenses (household, $/yr, today's $)</label>
-    <input type="number" class="money" id="livingInput" min="0" step="1000" value="0" oninput="onNumberInput('living', this.value)">
+    <input type="number" class="money" id="livingInput" min="0" step="1000" value="0" oninput="onLivingInput(this.value)">
   </div>
   <div class="field full" style="margin-top:14px">
     <label>Suspended Capital-Gain Loss carryforward (SCGL, today's $)</label>
@@ -73,6 +73,7 @@
     </div>
   </div>
   <div class="item-note">Advisory / management fee. <strong>AUM balance</strong> = the sum of the balances of every brokerage portfolio, pre-tax IRA and Roth IRA that has its <em>AUM</em> box checked (portfolios must also be enabled, inside their age range and funded). The fee is that balance × the percentage, or a fixed dollar amount per year (entered in today's $, held flat in nominal terms so it shrinks in today's $ with inflation). It is an expense paid like living expenses — household income, then dividends, then asset sales — and is charged on the AUM accounts pro rata to balance, but as an expense it is paid only by the portfolios with <em>Pay expenses</em> checked, not by the account it is charged on. The Medicare IRMAA surcharge is also always paid as a household expense, so it needs no setting here.</div>
+  <div id="ltcPanel" style="margin-top:14px"></div>
   <div id="futureTaxPanel" style="margin-top:14px"></div>
 </div>
 

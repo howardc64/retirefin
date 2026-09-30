@@ -95,6 +95,14 @@ function buildChatSnapshot(includeNames){
     plannedPassingAge: passing
   };
   if(state.futureTax && state.futureTax.enabled) hh.speculativeFutureNiitThreshold = chatStrip(state.futureTax);
+  // Long Term Care: start age + cost per person (only as many as the household has), and the living expenses that apply after
+  // the 1st / 2nd LTC start. living1 falls back to the household living expenses when never set (as in projection.js).
+  if(state.ltc && state.ltc.enabled){
+    const l = state.ltc;
+    const ltcPeople = {}; people.forEach((p,i)=>{ const L=(l.people&&l.people[i])||{}; ltcPeople[label(i)] = {startAge:L.startAge, costPerYear:L.cost}; });
+    hh.longTermCare = {people:ltcPeople, livingExpensesAfter1stLtcStart:(l.living1!=null?l.living1:(state.living||0))};
+    if(married) hh.longTermCare.livingExpensesAfter2ndLtcStart = l.living2||0;
+  }
   out.push(JSON.stringify(hh));
   out.push('');
   out.push('## People and income sources (only enabled sources are listed; a disabled source contributes nothing)');
@@ -109,8 +117,8 @@ function buildChatSnapshot(includeNames){
   });
   out.push('');
   out.push('## Computed projection (one row per year, from the app; values are annual unless a balance)');
-  out.push('Columns: year; ages (per person, "-" = deceased); filing; wages; ss (Social Security); pension; rental; ira_dist (IRA distributions/RMDs); roth_conv (Roth conversions); div (all dividends); qdiv (qualified dividends, included in div); ltcg (realized long-term gains, net of SCGL); agi; taxable_ss; marginal_pct (marginal rate on the next dollar of ordinary income, includes the Social Security tax torpedo); tax_total (all income tax incl. NIIT); irmaa (Medicare surcharge); exp_living, exp_tax, exp_irmaa, exp_aum, exp_total (household expenses); exp_unfunded (expenses no source could cover); bal_brokerage (excl. IDGT), bal_idgt, bal_ira, bal_roth (year balances).');
-  const head = 'year,ages,filing,wages,ss,pension,rental,ira_dist,roth_conv,div,qdiv,ltcg,agi,taxable_ss,marginal_pct,tax_total,irmaa,exp_living,exp_tax,exp_irmaa,exp_aum,exp_total,exp_unfunded,bal_brokerage,bal_idgt,bal_ira,bal_roth';
+  out.push('Columns: year; ages (per person, "-" = deceased); filing; wages; ss (Social Security); pension; rental; ira_dist (IRA distributions/RMDs); roth_conv (Roth conversions); div (all dividends); qdiv (qualified dividends, included in div); ltcg (realized long-term gains, net of SCGL); agi; taxable_ss; marginal_pct (marginal rate on the next dollar of ordinary income, includes the Social Security tax torpedo); tax_total (all income tax incl. NIIT); irmaa (Medicare surcharge); exp_living, exp_ltc, exp_tax, exp_irmaa, exp_aum, exp_total (household expenses); exp_unfunded (expenses no source could cover); bal_brokerage (excl. IDGT), bal_idgt, bal_ira, bal_roth (year balances).');
+  const head = 'year,ages,filing,wages,ss,pension,rental,ira_dist,roth_conv,div,qdiv,ltcg,agi,taxable_ss,marginal_pct,tax_total,irmaa,exp_living,exp_ltc,exp_tax,exp_irmaa,exp_aum,exp_total,exp_unfunded,bal_brokerage,bal_idgt,bal_ira,bal_roth';
   out.push(head);
   (proj.rows||[]).forEach(r=>{
     let brk=0, idgt=0;
@@ -123,7 +131,7 @@ function buildChatSnapshot(includeNames){
       chatRound(r.iraTotal), chatRound(r.rothConvTotal), chatRound(r.odiv), chatRound(r.qdiv), chatRound(r.ltcg),
       chatRound(r.agi), chatRound(r.taxableSS), (Number(r.marginalRate)*100||0).toFixed(1),
       chatRound(r.totalTax), chatRound(r.irmaaSurcharge),
-      chatRound(r.expLiving), chatRound(r.expTax), chatRound(r.expIrmaa), chatRound(r.expAum), chatRound(r.expTotal), chatRound(r.expUnfunded),
+      chatRound(r.expLiving), chatRound(r.expLtc), chatRound(r.expTax), chatRound(r.expIrmaa), chatRound(r.expAum), chatRound(r.expTotal), chatRound(r.expUnfunded),
       chatRound(brk), chatRound(idgt), chatRound(chatSum(r.iraBalByPerson)), chatRound(chatSum(r.rothBalByPerson))
     ].join(','));
   });
