@@ -1,40 +1,5 @@
 # NOTES
 
-## Features
-
-* **Todays’s $s:** All numbers in today’s $s for easy understanding
-* **Projection for Income, Portfolio/IRA, Expense, Tax**
-* **Income:** Wage, Pension, Social Security
-* **Expense:** Simple living cost, LTC, IRMAA surcharge, Tax, AUM fees
-* **Tax Projection:** Rudimentary but include basics : (ordinary, ordinary/qualified div), LTCG, itemized deduction (for long term care costs), and foreign tax credit )
-* **Portfolio Features:** Div yield, Qualified Div %, Tax Exempt yield, Foreign % and Tax Credits. Destination to invest income in excess of expenses. Delayed Start (conversion of assets to equity investment portfolios in the future - ie work stock options, real estate etc.), IDGTs
-* **IRA Features:** Pre-Tax, Roth, Roth Conversion (with delayed start), Stretched IRA
-* **On Passing Actions:** Forward asset to survivor, basis step-up, and residual unrealized gains
-* **AUM fees:** Fixed and AUM %
-* **Social Security:** Start age and torpedo analysis
-* **Suspended Long Term Capital Gains Tracking**
-* **Long Term Care:** Start age, costs, and living cost (not LTC cost) adjustments
-* **Married and Single/Widower Status**
-* **Chatbot:** AI to analyze and converse about the plan. Require inserting API key into app when running. No security to keep API key private (will remain on your device) Plan data is sent to the AI model in the cloud of course.
-
-## Lacking and Incomplete Features
-
-* **Simplistic Tax Calculation:** Tax Calculations are general of course. Projection does not calculate complete taxes
-* **No Annuities:** Not Implemented
-* **Excel Export Rudimentary:** Currently just table of #s output by the app. Plan to include cell calculation based on formulas. Waiting until app matures as formula based spreadsheet require AI/LLM to work much longer to build the application 2x (once each for HTML and EXCEL followed by correlation check and testing)
-
----
-
-## Expenses Planning
-
-* **Expenses Planning:** This program provide a single entry for living cost. Total expenses are living cost + income tax + IRMAA surcharge + AUM fees. Program will the following sequence of incomes to pay for expenses.
-  * household income (wages, social security, pension, rent) first
-  * portfolio (non IDGT) dividends. Left overs will be reinvested
-  * portfolio assets are then used to cover shortfalls (triggering LTCG)
-* **Portfolio Basis Tracking:** Automatic, Formula display ( click Formula button ) shows details
-  
----
-
 ## General Observations
 
 * **When to start Social Security:** Several key factors to consider
@@ -70,3 +35,15 @@
 * **IDGTs:** IDGTs usually have very little growth drag (just inflation) and compounds geometrically. For large IDGTs with grantor commonly paying IDGT taxes (“free” gifting that doesn’t count towards lifetime unified credit), the tax burn on grantor's assets can be significant in longer term future. Need to consider
   * grantor’s estate running out of $
   * step-up planning considerations (want to have enough unrealized gains in the estate to get step-up benefits) so flushing it all to pay IDGT taxes isn’t necessarily the most optimal.
+
+---
+
+## Higher Age Roth Conversion
+
+* **Several Consideration Factors:**
+  * If withdraw has very little taxation, then no need for conversion. Scenarios are
+    * If LTC cost starts, itemized deduction will eliminate pre-tax IRA withdraw taxation.
+    * If heir has lower income bracket, their withdraw cost maybe low. However, the withdraw pace with <= 10 years after passing. IRA beneficiary is changeable anytime so ideal tax efficiency is name the lower income bracket heirs for the pre-tax IRA
+  * If withdraw has high taxation, ideally complete roth convert before passing. Require guesstimate on timing of course.
+  * More aggressive Roth Conversion pacing may not be beneficial even for long term. Study overall asset value projection and 10 year after passing stretch to evaluate. Asset Chart include Asset withdraw costs to help evaluation.
+

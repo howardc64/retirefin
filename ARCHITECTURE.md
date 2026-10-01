@@ -475,6 +475,10 @@ for the whole "Brokerage portfolio income" card.
 | `ira.js` | Pre-tax IRA / 401(k) | Balance, **AUM checkbox** (`ira.aum`), age range (default start = RMD age), growth (default inflation+3%), survivor benefit, **IRA stretch** checkbox, **Annual Roth conversion** (paired slider + number, $/yr today's $, slider range 0 → balance, initial value 0; `onIraBalance` re-ranges it and clamps the value when the balance is lowered) and **Conversion start** (dropdown: **RMD start (age N)** default, Now, Custom age; the paired age slider shows only for Custom; conversions begin at the later of the chosen age and the current age, §4.6) |
 | `roth.js` | Roth IRA | Balance, **AUM checkbox** (`roth.aum`), growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
 
+### 5.4a `annuity.js` — Annuity card
+
+`buildAnnuityCard(pid,i,p,married)` renders one card per `person.annuities[]` entry (same Enable/Hide/Remove header as portfolios): name, `value`, optional `premium` (null = value), `growth` (annual-change spec, default custom 4% nominal), `feePct`, `ar` (payout Start–End, default custom 67 → passing), `payout` + `change` (hidden while the rider is on), `tax` (`'lifo'` default | `'exclusion'` | `'taxable'` | `'exempt'`, with `exemptPct`), Living Benefit Rider fields (`rider`, `riderBase` null = value, `riderRollup`, `riderStepUp`, `riderRate`, `riderFee`) and `bene`. Handlers (`addAnnuity`, `removeAnnuity`, `onAnnuityName`, `onAnnuityOptional`, `onAnnuitySelect`) live in `incomeForms.js`. The model is `simulateAnnuity` in `projection.js` (run once up front per annuity; independent of tax). Row outputs: `annuity` / `annuityTE` (+ `ByPerson`), `annuityBalance`, `annuitiesByPerson[i][ai]` = `{balance, base, payout, taxable, taxFree, insurerPaid, riderFee, taxableEmbedded, rider, nonQual, live}`. `cashIncome` gets taxable + tax-exempt payouts; taxable goes into `nonSSOrdinary` (non-qualified also into NII); tax-exempt joins provisional income, MAGI and the IRMAA look-back. The asset chart plots `balance` as an `'annuity'` series on the main chart, haircut by the ordinary-income devalue on `taxableEmbedded`.
+
 ### 5.5 `incomeForms.js`
 **Purpose:** orchestrates the person-column(s), calling each §5.4 builder in the same fixed order for
 every person-column, so the two-column grid (married) keeps every income type's row aligned via CSS
@@ -618,6 +622,8 @@ reminder of the tax treatment: non-IDGT gets a step-up at death, IDGT keeps carr
 beneath the charts. It states the 2026 tax basis (TCJA permanent under OBBBA), that the only itemized deduction modelled is Long Term Care cost above 7.5% of AGI, the NIIT threshold, the expense funding order and tax iteration, and the RMD table. **Keep it in step with Compute:** its IRMAA clause says the surcharge uses the AGI from two years earlier (2-year lookback), matching §4.6.
 
 ### 6.9 `formulasPage.js`
+
+(Includes an **Annuities** section — payout, rider, account-value roll-forward and payout tax-treatment formulas — and describes the Portfolio type and the Asset Value *withdraw cost* sliders.)
 `openFormulasPage()` — triggered by the **Formulas** button (§7.2), opens a new browser tab (via
 `window.open` + `document.write`, so it works the same under `file://` as on a hosted page) containing
 a standalone reference document: the acronym glossary, every current reference-data table, and every
@@ -643,6 +649,8 @@ blockquotes, rules, paragraphs — extend that function rather than adding a CDN
 Editing either `.md` file needs no code change — the next click shows the new text.
 
 ### 6.11 `excelExport.js`
+
+(Annuities: summary-sheet columns for taxable / tax-exempt payouts, insurer-paid amount, rider fees, account value and the taxable part embedded in it; plus one sheet per enabled annuity via `xlsxAnnuitySheet`.)
 `exportToExcel()` — the **📊 Export to Excel** button (topbar, right of **Notes**) downloads the current
 plan's full projection as a `.xlsx` workbook via the SheetJS (`XLSX`) library (loaded from a pinned CDN
 `<script>` tag in `index.html`, same pattern as Chart.js). **Projection by year** is always the first sheet —

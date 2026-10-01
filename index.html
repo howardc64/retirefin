@@ -145,7 +145,7 @@
 <!-- ═══ ASSET VALUE ═══ -->
 <div class="sec-head hideable"><span>Asset Value</span><label class="hide-cb"><input type="checkbox" data-hide-key="assets" autocomplete="off" onchange="onSectionHide(this)">Hide</label></div>
 <div class="cc">
-  <div class="cc-head"><div class="ct">Asset value by holder · brokerage (excl. IDGT) + pre-tax IRA + Roth IRA · today's dollars</div>
+  <div class="cc-head"><div class="ct">Asset value by holder · brokerage (excl. IDGT) + annuity + pre-tax IRA + Roth IRA · today's dollars</div>
     <button class="rescale-btn" onclick="rescaleChart('asset')">↕ Rescale</button></div>
   <div class="legend" id="assetLegend"></div>
   <div class="devalue-box">
@@ -153,10 +153,10 @@
       <div></div>
       <div class="devalue-h">Before the last passing</div>
       <div class="devalue-h">After the last passing</div>
-      <div class="sl"><strong>LTCG devalue</strong> (% of unrealized gain)</div>
+      <div class="sl"><strong>LTCG withdraw cost</strong> (% of unrealized gain)</div>
       <div class="dv-cell"><input type="range" id="ltcgDevalue" min="0" max="100" step="1" value="10" oninput="onDevalueInput('ltcgDevalue',this.value)"><div class="sv" id="ltcgDevalueLbl">10%</div></div>
       <div class="dv-cell"><input type="range" id="ltcgDevalue2" min="0" max="100" step="1" value="24" oninput="onDevalueInput('ltcgDevalue2',this.value)"><div class="sv" id="ltcgDevalue2Lbl">24%</div></div>
-      <div class="sl"><strong>Ordinary income devalue</strong> (% of pre-tax IRA)</div>
+      <div class="sl"><strong>Ordinary income withdraw cost</strong> (% of pre-tax IRA / taxable annuity value)</div>
       <div class="dv-cell"><input type="range" id="ordDevalue" min="0" max="100" step="1" value="10" oninput="onDevalueInput('ordDevalue',this.value)"><div class="sv" id="ordDevalueLbl">10%</div></div>
       <div class="dv-cell"><input type="range" id="ordDevalue2" min="0" max="100" step="1" value="40" oninput="onDevalueInput('ordDevalue2',this.value)"><div class="sv" id="ordDevalue2Lbl">40%</div></div>
     </div>
@@ -256,6 +256,7 @@
 <script src="js/input/pension.js"></script>
 <script src="js/input/rental.js"></script>
 <script src="js/input/brokerage.js"></script>
+<script src="js/input/annuity.js"></script>
 <script src="js/input/ira.js"></script>
 <script src="js/input/roth.js"></script>
 <script src="js/input/incomeForms.js"></script>

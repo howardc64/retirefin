@@ -21,7 +21,8 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
 // Brokerage portfolio (spec 4.3): value, age range, annual growth (default inflation + 4%),
 // survivor benefit, ODIV yield (default 1.5%), QDIV share of ODIV (default 70%), tax-exempt yield % (`teYield`, default 0: paid out of the
 // portfolio each year as tax-exempt income — untaxed, but part of household income), an IDGT flag, an AUM flag and a
-// `payExp` flag (default OFF): only portfolios with it checked contribute dividends and asset sales to the household
+// `type` ('living' default | 'idgt') drives the idgt/payExp/reinvest flags (living: payExp+reinvest on; idgt: all off).
+// `payExp` flag (derived): only portfolios with it checked contribute dividends and asset sales to the household
 // expenses — living costs, IRMAA, the AUM fee and income tax (IDGT or not). Saves that predate the field load with it on
 // for non-IDGT portfolios, as they behaved before.
 // `reinvest` flag (default OFF): household income left over after ALL expenses are paid is reinvested, pro rata to start-of-year
@@ -41,7 +42,20 @@ function defaultBrokeragePortfolio(balance, n){
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,payExp:false,reinvest:false,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
+}
+// Annuity (per person, any number): `value` = current account value (today's $), `premium` = cost basis / premium paid ($, blank = value,
+// i.e. no gain), `growth` = credited rate (an annual-change spec), `feePct` = annual contract fee (% of account value), `ar` = payout
+// Start–End age, `payout` + `change` = annual payout (today's $) and its annual change (used when the rider is off), `tax` = payout tax
+// treatment ('taxable' | 'lifo' | 'exclusion' | 'exempt'; see compute/projection.js simulateAnnuity) with `exemptPct` for 'exempt',
+// the Living Benefit Rider (`rider`, `riderBase` blank = account value, `riderRollup` % /yr, `riderStepUp`, `riderRate` payout %, `riderFee` % of base)
+// and `bene` (contract continues to the surviving spouse).
+function defaultAnnuity(n){
+  return {id:uid(), enabled:true, hidden:false, name:'', value:0, premium:null, growth:defaultChange('custom',4), feePct:0,
+          ar:defaultAgeRange('custom',67,'passing',0), payout:0, change:defaultChange('inflation'),
+          tax:'lifo', exemptPct:100,
+          rider:false, riderBase:null, riderRollup:5, riderStepUp:false, riderRate:5, riderFee:1,
+          bene:false};
 }
 // One rental property: `amount` = TAXABLE (net, after depreciation) rental income, today's $; `depreciation` = annual non-cash
 // depreciation, today's $ (added to household cash income but untaxed — see projection). Own age range / annual change / survivor flag.
@@ -59,6 +73,7 @@ function defaultPerson(idx){
     wage:{enabled:false, hidden:true, amount:0, ar:defaultAgeRange('now',0,'custom',65), change:defaultChange('inflation')},
     ss:{enabled:true, hidden:false, pia:0, fra:fraForBirthYear(by), started:false, claimAge:fraForBirthYear(by)},
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
+    annuities: [],   // any number of annuities (see defaultAnnuity); Add/Remove on the Annuity card
     rentals: [],   // any number of rental properties (see defaultRental); Add/Remove on the Rental income card
     brokerage:[],
     ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, convStartMode:'rmd', convStart:0, stretch:false, aum:false},   // convStartMode: 'rmd' (conversions begin at the IRA's Start / RMD age), 'now', or 'custom' (uses convStart)
@@ -183,6 +198,8 @@ function hydrateState(loaded){
       if(lr.enabled || Number(lr.amount)>0 || Number(lr.depreciation)>0) p.rentals=[Object.assign(defaultRental(1), lr, {id:uid(), name:'', hidden:!!lr.hidden, enabled:!!lr.enabled})];
     }
     p.rentals=p.rentals.map(r=>merge(r, defaultRental(0)));
+    if(!Array.isArray(p.annuities)) p.annuities=[];
+    p.annuities=p.annuities.map(a=>merge(a, defaultAnnuity(0)));
     // Older saves have no convStartMode: a plan that already converts keeps its old start (convStart>0 = that age, else now); one that
     // does not convert simply takes the new default (RMD start).
     const lpIra=loaded&&Array.isArray(loaded.people)&&loaded.people[pi]&&loaded.people[pi].ira;
@@ -200,6 +217,11 @@ function hydrateState(loaded){
         }
         // Saves that predate "Pay expenses" had every non-IDGT portfolio paying expenses: keep that behavior.
         if(b && b.payExp===undefined) b=Object.assign({}, b, {payExp: !b.idgt});
+        // Portfolio type (living expense & income | IDGT) replaces the Pay expenses / Reinvest / IDGT checkboxes.
+        if(b){
+          const t = b.type==='idgt' || (b.type===undefined && b.idgt) ? 'idgt' : 'living';
+          b=Object.assign({}, b, {type:t, idgt:t==='idgt', payExp:t!=='idgt', reinvest:t!=='idgt'});
+        }
         // Legacy fee-drag portfolios become AUM-checked (see the aumFee migration above).
         if(b && b.aum===undefined){
           const fv=Number(b.fee&&b.fee.value)||0;
@@ -253,6 +275,7 @@ function applyDefaultHiddenFromEnabled(s){
       if(p[key]) p[key].hidden = !p[key].enabled;
     });
     (p.rentals||[]).forEach(r=>{ r.hidden = !(r.enabled!==false); });
+    (p.annuities||[]).forEach(a=>{ a.hidden = !(a.enabled!==false); });
     (p.brokerage||[]).forEach(b=>{ b.hidden = !(b.enabled!==false); });
   });
   return s;

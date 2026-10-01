@@ -32,6 +32,15 @@ function xlsxColumns(proj){
     {head:'Social Security (SS) total', get:r=>r.totalSS},
     ...per('pensionByPerson','Pension'),
     {head:'Pension total', get:r=>r.pension},
+    ...per('annuityByPerson','Annuity payout (taxable)'),
+    {head:'Annuity payout total (taxable)', get:r=>r.annuity||0},
+    ...per('annuityTEByPerson','Annuity payout (tax-exempt)'),
+    {head:'Annuity payout total (tax-exempt, untaxed)', get:r=>r.annuityTE||0},
+    {head:'Annuity payout total (taxable + tax-exempt)', get:r=>(r.annuity||0)+(r.annuityTE||0)},
+    {head:'  of which paid by insurer (rider, account value exhausted)', get:r=>sumAnnuities(r,'insurerPaid')},
+    {head:'Annuity rider fees (taken from account value)', get:r=>sumAnnuities(r,'riderFee')},
+    {head:'Annuity account value total (SOY)', get:r=>r.annuityBalance||0},
+    {head:'  Taxable part embedded in annuity value (SOY)', get:r=>sumAnnuities(r,'taxableEmbedded')},
     ...per('rentalByPerson','Rental'),
     {head:'Rental total (taxable)', get:r=>r.rental},
     {head:'Rental depreciation (non-cash, untaxed)', get:r=>r.rentalDep||0},
@@ -59,7 +68,7 @@ function xlsxColumns(proj){
     {head:'AUM fee paid by household (non-IDGT)', get:r=>r.expAum||0},
     {head:'Income tax paid as expense (tax drag)', get:r=>r.expTax||0},
     {head:'Total household expenses', get:r=>r.expTotal||0},
-    {head:'Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+RMD)', get:r=>r.cashIncome||0},
+    {head:'Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+annuity+RMD)', get:r=>r.cashIncome||0},
     {head:'Expenses paid by household income', get:r=>r.expFromIncome||0},
     {head:'Expenses paid by dividends', get:r=>r.expFromDiv||0},
     {head:'Expenses paid by asset sales', get:r=>r.expFromSales||0},
@@ -95,6 +104,9 @@ function xlsxColumns(proj){
 }
 function round1(n){ return Math.round((n||0)*10)/10; }
 function pct(n){ return Math.round((n||0)*1000)/1000; } // stored as a fraction; formatted as % below
+function sumAnnuities(r,field){
+  let s=0; (r.annuitiesByPerson||[]).forEach(list=>list.forEach(e=>{ s+=(e[field]||0); })); return s;
+}
 function sumPortfolios(r,idgt,field){
   let s=0; r.portfoliosByPerson.forEach(list=>list.forEach(e=>{ if(!!e.idgt===idgt) s+=(e[field]||0); }));
   return s;
@@ -142,6 +154,15 @@ function xlsxRothSheet(proj, i){
   if(proj.people[i].roth.stretch) (proj.stretch||[]).forEach(r=>rows.push([THIS_YEAR+r.k, round1(r.ages[i]), 0, r.rothBalByPerson[i]||0, 'Yes']));
   return rows;
 }
+function xlsxAnnuitySheet(proj, i, ai){
+  const person=displayPersonName(proj.people[i], i);
+  const rows=[['Year',`${person} age`,'Account value (SOY)','Benefit base (SOY)','Payout total','  taxable','  tax-exempt','  paid by insurer (rider, after account value is gone)','Rider fee','Taxable embedded in value (SOY)']];
+  proj.rows.forEach(r=>{
+    const e=(r.annuitiesByPerson[i]||[])[ai]; if(!e||!e.live) return;
+    rows.push([THIS_YEAR+r.k, round1(r.ages[i]), e.balance, e.rider?e.base:'', e.payout, e.taxable, e.taxFree, e.insurerPaid, e.riderFee, e.taxableEmbedded]);
+  });
+  return rows;
+}
 // [{name, rows}] for every enabled portfolio / IRA / Roth IRA, in person order (portfolios, then IRA, then Roth).
 function xlsxAccountSheets(proj){
   const used=new Set(['projection by year']), out=[];
@@ -153,6 +174,10 @@ function xlsxAccountSheets(proj){
       const e=proj.rows.length&&proj.rows[0].portfoliosByPerson[i][bi];
       const nm=(e&&e.name)||('Portfolio '+(bi+1));
       add(`${person} - ${nm}${b.idgt?' (IDGT)':''}`, xlsxPortfolioSheet(proj,i,bi));
+    });
+    (p.annuities||[]).forEach((a,ai)=>{
+      if(a.enabled===false||!(Number(a.value)>0)) return;
+      add(`${person} - ${(a.name&&a.name.trim())||('Annuity '+(ai+1))} (annuity)`, xlsxAnnuitySheet(proj,i,ai));
     });
     if(p.ira&&p.ira.enabled) add(`${person} - Pre-tax IRA`, xlsxIraSheet(proj,i));
     if(p.roth&&p.roth.enabled) add(`${person} - Roth IRA`, xlsxRothSheet(proj,i));

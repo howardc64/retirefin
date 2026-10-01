@@ -24,7 +24,7 @@ function assetDevalue(){
 }
 
 // One builder for both asset charts. `cfg` picks which series belong on the chart
-// (main chart: non-IDGT brokerage + pre-tax IRAs; IDGT chart: IDGT brokerage only).
+// (main chart: non-IDGT brokerage + pre-tax IRAs + Roth + annuities; IDGT chart: IDGT brokerage only).
 function buildAssetChartFor(cfg){
   if(typeof Chart==='undefined'||!lastProjection) return;
   const proj=lastProjection, rows=proj.rows;
@@ -45,6 +45,10 @@ function buildAssetChartFor(cfg){
     proj.people.forEach((p,i)=>{
       if(p.ira && p.ira.enabled) series.push({type:'ira', personIdx:i, name:'Pre-tax IRA/401(k)'});
       if(p.roth && p.roth.enabled) series.push({type:'roth', personIdx:i, name:'Roth IRA'});
+      (p.annuities||[]).forEach((a,ai)=>{
+        if(!a||a.enabled===false||!(Number(a.value)>0)) return;
+        series.push({type:'annuity', personIdx:i, ai, name:(a.name&&a.name.trim())||('Annuity '+(ai+1))});
+      });
     });
   }
 
@@ -67,11 +71,16 @@ function buildAssetChartFor(cfg){
   const ages=allRows.map(r=>r.age0);
   const rowByAge={}; allRows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
   const dv=assetDevalue();
+  const annEntry=(s,r)=>{ const person=r.annuitiesByPerson&&r.annuitiesByPerson[s.personIdx]; return person&&person[s.ai]; };
   const entryOf=(s,r)=>{ const person=r.portfoliosByPerson&&r.portfoliosByPerson[s.personIdx]; return person&&person[s.bi]; };
   // Face (un-devalued) value of one series in one row. In stretch years, only accounts that carry on have a value —
   // non-IDGT brokerage, and IRAs whose \"IRA stretch\" box is checked (and still hold a balance); everything else is
   // null (not 0) so it draws no band, no line, and no sliver in the transition.
   const faceOf=(s,r)=>{
+    if(s.type==='annuity'){
+      if(r.stretchYear) return null;   // an annuity ends with the household's last passing (no stretch)
+      const e=annEntry(s,r); return e&&e.live?e.balance:0;
+    }
     if(r.stretchYear){
       if(s.type==='portfolio'){ const e=entryOf(s,r); return (e&&e.balance>0)?e.balance:null; }
       const acct=proj.people[s.personIdx][s.type];   // person.ira / person.roth
@@ -88,6 +97,7 @@ function buildAssetChartFor(cfg){
     const f=faceOf(s,r); if(f==null) return null;
     const d=dv[r.stretchYear?1:0];   // set 2 after the last passing, set 1 before
     if(s.type==='ira') return f*(1-d.ord);
+    if(s.type==='annuity'){ const e=annEntry(s,r); return f-((e&&e.taxableEmbedded)||0)*d.ord; }   // ordinary-income haircut on the taxable part of the contract
     if(s.type==='portfolio'){ const e=entryOf(s,r); return f-((e&&e.tracked)?(e.unrealizedGain||0):0)*d.ltcg; }
     return f;
   };
@@ -159,9 +169,25 @@ function buildAssetChartFor(cfg){
       if(ctx.datasetIndex>=series.length) return [mrow('  Cost basis (dashed line)', fmt(ctx.raw), W)];
       const lines=[mrow('  '+ctx.dataset.label, fmt(ctx.raw), W)];
       const s=series[ctx.datasetIndex], r=rowByAge[labels[ctx.dataIndex]];
-      // Show the face value whenever a devalue slider has changed what's plotted.
+      // Show the face value whenever a withdraw-cost slider has changed what's plotted.
       const face=r?faceOf(s,r):null;
-      if(face!=null && face-ctx.raw>=1) lines.push(mrow('      Face value before devalue', fmt(face), W));
+      if(face!=null && face-ctx.raw>=1) lines.push(mrow('      Face value before withdraw cost', fmt(face), W));
+      if(s && s.type==='annuity' && r){
+        const e=annEntry(s,r);
+        if(e && e.live){
+          if(e.rider) lines.push(mrow('      Benefit base (rider)', fmt(e.base||0), W));
+          if(e.payout>0){
+            lines.push(mrow('      Payout this year', fmt(e.payout)+'/yr', W));
+            if(showDetails){
+              lines.push(mrow('        taxable', fmt(e.taxable||0), W));
+              lines.push(mrow('        tax-exempt', fmt(e.taxFree||0), W));
+              if(e.insurerPaid>0) lines.push(mrow('        paid by insurer (rider)', fmt(e.insurerPaid), W));
+            }
+          }
+          if(showDetails && e.riderFee>0) lines.push(mrow('      Rider fee', fmt(e.riderFee), W));
+          if(showDetails) lines.push(mrow('      Taxable embedded in value', fmt(e.taxableEmbedded||0), W));
+        }
+      }
       if(s && s.type==='portfolio' && r){
         const e=(r.portfoliosByPerson[s.personIdx]||[])[s.bi];
         if(e){
@@ -231,12 +257,12 @@ function buildAssetChartFor(cfg){
   // Say what the sliders did to the bands, so a reader never mistakes a devalued band for face value.
   const pct=x=>Math.round(x*100)+'%';
   const devParts=[];
-  const hasIra=!cfg.idgt && series.some(s=>s.type==='ira');
-  const setTxt=d=>{ const t=[]; if(hasPf && d.ltcg>0) t.push(pct(d.ltcg)+' of unrealized gain (brokerage)'); if(hasIra && d.ord>0) t.push(pct(d.ord)+' of pre-tax IRA'); return t.join(' and '); };
+  const hasIra=!cfg.idgt && series.some(s=>s.type==='ira'||s.type==='annuity');
+  const setTxt=d=>{ const t=[]; if(hasPf && d.ltcg>0) t.push(pct(d.ltcg)+' of unrealized gain (brokerage)'); if(hasIra && d.ord>0) t.push(pct(d.ord)+' of pre-tax IRA / taxable annuity value'); return t.join(' and '); };
   const t1=setTxt(dv[0]), t2=stretch.length?setTxt(dv[1]):'';
   if(t1) devParts.push('before the last passing, bands are reduced by '+t1);
   if(t2) devParts.push('after it (heirs), by '+t2);
-  if(devParts.length) gainText=(gainText?gainText+' ':'')+'Devalue: '+devParts.join('; ')+'.';
+  if(devParts.length) gainText=(gainText?gainText+' ':'')+'Withdraw cost: '+devParts.join('; ')+'.';
   setGainNote(cfg, gainText);
 }
 

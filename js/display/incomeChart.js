@@ -4,16 +4,16 @@
 // with IRMAA-tier overlay (spec §8.3).
 // ═══════════════════════════════════════════════════════════════
 const VZ = {
-  pen:'#D06A18', wg:'#7B5EA7', iraW:'#C79A3E', rmd:'#E85D9A', rent:'#A0522D', rentDep:'#D2A488', te:'#2A9D8F',
+  pen:'#D06A18', ann:'#B8860B', annTE:'#8FBC8F', wg:'#7B5EA7', iraW:'#C79A3E', rmd:'#E85D9A', rent:'#A0522D', rentDep:'#D2A488', te:'#2A9D8F',
   qdiv:'#2E86AB', odivNQ:'#1A5276', ltcg:'#6C3483',
   ssP0:'#0F6E56', ssOther:'#3DB08A'
 };
-const INC_KEYS=['pension','wageTotal','rothConv','iraTotal','rental','rentDep','te','qdiv','odivNQ','ltcg','ssP0','ssOther'];
-const INC_LABELS={pension:'Pension',wageTotal:'Wage',rothConv:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',rental:'Rental income',rentDep:'Rental depreciation (non-cash, untaxed)',te:'Tax-exempt income (untaxed)',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
-const INC_COLORS={pension:VZ.pen,wageTotal:VZ.wg,rothConv:VZ.iraW,iraTotal:VZ.rmd,rental:VZ.rent,rentDep:VZ.rentDep,te:VZ.te,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
+const INC_KEYS=['pension','annuity','annuityTE','wageTotal','rothConv','iraTotal','rental','rentDep','te','qdiv','odivNQ','ltcg','ssP0','ssOther'];
+const INC_LABELS={pension:'Pension',annuity:'Annuity payout (taxable)',annuityTE:'Annuity payout (tax-exempt, untaxed)',wageTotal:'Wage',rothConv:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',rental:'Rental income',rentDep:'Rental depreciation (non-cash, untaxed)',te:'Tax-exempt income (untaxed)',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
+const INC_COLORS={pension:VZ.pen,annuity:VZ.ann,annuityTE:VZ.annTE,wageTotal:VZ.wg,rothConv:VZ.iraW,iraTotal:VZ.rmd,rental:VZ.rent,rentDep:VZ.rentDep,te:VZ.te,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
 // Maps a stacked income key to the per-person breakdown array on each projection row,
 // so the tooltip can attribute the amount to whichever person(s) it belongs to.
-const INC_BYPERSON_FIELD={pension:'pensionByPerson',wageTotal:'wageByPerson',rothConv:'rothConvByPerson',iraTotal:'iraByPerson',rental:'rentalByPerson',rentDep:'rentalDepByPerson',te:'teByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
+const INC_BYPERSON_FIELD={pension:'pensionByPerson',annuity:'annuityByPerson',annuityTE:'annuityTEByPerson',wageTotal:'wageByPerson',rothConv:'rothConvByPerson',iraTotal:'iraByPerson',rental:'rentalByPerson',rentDep:'rentalDepByPerson',te:'teByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
 // Single source of truth for the SS dataset labels, since they're read both
 // when building the stacked datasets (buildIncomeChart) and the legend HTML
 // (buildIncomeLegend). Must be refreshed before dataset construction on every
@@ -47,7 +47,7 @@ function buildIncomeChart(){
   keys.forEach(k=>seriesByKey[k]=[]);
   const ages=rows.map(r=>r.age0);
   rows.forEach(r=>{
-    seriesByKey.pension.push(r.pension); seriesByKey.wageTotal.push(r.wageTotal);
+    seriesByKey.pension.push(r.pension); seriesByKey.annuity.push(r.annuity||0); seriesByKey.annuityTE.push(r.annuityTE||0); seriesByKey.wageTotal.push(r.wageTotal);
     seriesByKey.rothConv.push(r.rothConvTotal);
     seriesByKey.iraTotal.push(r.iraTotal); seriesByKey.rental.push(r.rental); seriesByKey.rentDep.push(r.rentalDep||0); seriesByKey.te.push(r.teIncome||0);
     seriesByKey.qdiv.push(r.qdiv); seriesByKey.ltcg.push(r.ltcg);
@@ -111,7 +111,7 @@ function buildIncomeChart(){
       if(showDetails){
         lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
         lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
-        if(r.teIncome>0) lines.push(mrow('MAGI (AGI + tax-exempt income)',fmt(r.magi)+'/yr'));
+        if(r.teIncome>0||r.annuityTE>0) lines.push(mrow('MAGI (AGI + tax-exempt income)',fmt(r.magi)+'/yr'));
         // Household expense funding (income → dividends → asset sales), when there are any expenses.
         if(r.expTotal>0){
           lines.push(mrow('Household expenses',fmt(r.expTotal)+'/yr'));

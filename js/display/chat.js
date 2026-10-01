@@ -113,13 +113,14 @@ function buildChatSnapshot(includeNames){
     const pf = (Array.isArray(p.brokerage)?p.brokerage:[]).filter(b=>b.enabled!==false).map(b=>{
       const c=chatStrip(b); if(!includeNames) c.name='Portfolio'; return c;
     });
+    const ann=(Array.isArray(p.annuities)?p.annuities:[]).filter(a=>a.enabled!==false).map(a=>{ const c=chatStrip(a); if(!includeNames) c.name='Annuity'; return c; });
     out.push(`${label(i)} (current age ${currentAge(p).toFixed(1)}):`);
-    out.push(JSON.stringify({enabled, rentalProperties:rentalProps, brokeragePortfolios:pf, notEnabled:disabled}));
+    out.push(JSON.stringify({enabled, rentalProperties:rentalProps, brokeragePortfolios:pf, annuities:ann, notEnabled:disabled}));
   });
   out.push('');
   out.push('## Computed projection (one row per year, from the app; values are annual unless a balance)');
-  out.push('Columns: year; ages (per person, "-" = deceased); filing; wages; ss (Social Security); pension; rental (taxable rental income); rental_dep (non-cash rental depreciation, added to cash income, untaxed); tax_exempt (tax-exempt portfolio income, untaxed, part of household income); ira_dist (IRA distributions/RMDs); roth_conv (Roth conversions); div (all dividends); qdiv (qualified dividends, included in div); ltcg (realized long-term gains, net of SCGL); agi; magi (AGI + tax-exempt income, used for IRMAA); taxable_ss; senior_ded (enhanced senior deduction, Schedule 1-A, tax years 2025–2028); marginal_pct (marginal rate on the next dollar of ordinary income, includes the Social Security tax torpedo); tax_total (all income tax incl. NIIT); irmaa (Medicare surcharge); exp_living, exp_ltc, exp_tax, exp_irmaa, exp_aum, exp_total (household expenses); exp_unfunded (expenses no source could cover); excess_reinvested (household income left after all expenses, reinvested into portfolios with "Reinvest excess income" checked); bal_brokerage (excl. IDGT), bal_idgt, bal_ira, bal_roth (year balances).');
-  const head = 'year,ages,filing,wages,ss,pension,rental,rental_dep,tax_exempt,ira_dist,roth_conv,div,qdiv,ltcg,agi,magi,taxable_ss,senior_ded,marginal_pct,tax_total,irmaa,exp_living,exp_ltc,exp_tax,exp_irmaa,exp_aum,exp_total,exp_unfunded,excess_reinvested,bal_brokerage,bal_idgt,bal_ira,bal_roth';
+  out.push('Columns: year; ages (per person, "-" = deceased); filing; wages; ss (Social Security); pension; rental (taxable rental income); rental_dep (non-cash rental depreciation, added to cash income, untaxed); annuity_taxable / annuity_tax_exempt (annuity payouts: taxable part is ordinary income, tax-exempt part is untaxed; both are household income); tax_exempt (tax-exempt portfolio income, untaxed, part of household income); ira_dist (IRA distributions/RMDs); roth_conv (Roth conversions); div (all dividends); qdiv (qualified dividends, included in div); ltcg (realized long-term gains, net of SCGL); agi; magi (AGI + tax-exempt income, used for IRMAA); taxable_ss; senior_ded (enhanced senior deduction, Schedule 1-A, tax years 2025–2028); marginal_pct (marginal rate on the next dollar of ordinary income, includes the Social Security tax torpedo); tax_total (all income tax incl. NIIT); irmaa (Medicare surcharge); exp_living, exp_ltc, exp_tax, exp_irmaa, exp_aum, exp_total (household expenses); exp_unfunded (expenses no source could cover); excess_reinvested (household income left after all expenses, reinvested into portfolios with "Reinvest excess income" checked); bal_brokerage (excl. IDGT), bal_idgt, bal_ira, bal_roth (year balances).');
+  const head = 'year,ages,filing,wages,ss,pension,rental,rental_dep,tax_exempt,annuity_taxable,annuity_tax_exempt,ira_dist,roth_conv,div,qdiv,ltcg,agi,magi,taxable_ss,senior_ded,marginal_pct,tax_total,irmaa,exp_living,exp_ltc,exp_tax,exp_irmaa,exp_aum,exp_total,exp_unfunded,excess_reinvested,bal_brokerage,bal_idgt,bal_ira,bal_roth,bal_annuity';
   out.push(head);
   (proj.rows||[]).forEach(r=>{
     let brk=0, idgt=0;
@@ -128,12 +129,12 @@ function buildChatSnapshot(includeNames){
       THIS_YEAR+r.k,
       (r.ages||[]).map((a,i)=>(r.alive&&r.alive[i]===false)?'-':Math.floor(a)).join('/'),
       r.filing,
-      chatRound(r.wageTotal), chatRound(r.totalSS), chatRound(r.pension), chatRound(r.rental), chatRound(r.rentalDep), chatRound(r.teIncome),
+      chatRound(r.wageTotal), chatRound(r.totalSS), chatRound(r.pension), chatRound(r.rental), chatRound(r.rentalDep), chatRound(r.teIncome), chatRound(r.annuity), chatRound(r.annuityTE),
       chatRound(r.iraTotal), chatRound(r.rothConvTotal), chatRound(r.odiv), chatRound(r.qdiv), chatRound(r.ltcg),
       chatRound(r.agi), chatRound(r.magi), chatRound(r.taxableSS), chatRound(r.seniorDeduction), (Number(r.marginalRate)*100||0).toFixed(1),
       chatRound(r.totalTax), chatRound(r.irmaaSurcharge),
       chatRound(r.expLiving), chatRound(r.expLtc), chatRound(r.expTax), chatRound(r.expIrmaa), chatRound(r.expAum), chatRound(r.expTotal), chatRound(r.expUnfunded), chatRound(r.excessReinvested),
-      chatRound(brk), chatRound(idgt), chatRound(chatSum(r.iraBalByPerson)), chatRound(chatSum(r.rothBalByPerson))
+      chatRound(brk), chatRound(idgt), chatRound(chatSum(r.iraBalByPerson)), chatRound(chatSum(r.rothBalByPerson)), chatRound(r.annuityBalance)
     ].join(','));
   });
   if(proj.stretch && proj.stretch.length && proj.people.some(p=>(p.ira.enabled&&p.ira.stretch)||(p.roth&&p.roth.enabled&&p.roth.stretch))){

@@ -62,6 +62,7 @@
           "qdivPct": 70,
           "teYield": 0,
           "aum": false,
+          "type": "living",
           "payExp": true,
           "reinvest": true,
           "basisPct": 50,

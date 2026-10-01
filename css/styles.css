@@ -72,12 +72,12 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 /* Brokerage portfolio and rental cards sit two levels deep (married two-col layout > item-body > portfolio
    card), so a rigid 1fr/1fr grid squeezed every field to ~50px and clipped inputs/labels.
    auto-fit+minmax lets fields collapse to one column whenever the available width can't fit two. */
-.portfolio-card,.rental-card{background:var(--bg);}
-.portfolio-fields,.rental-fields{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
+.portfolio-card,.rental-card,.annuity-card{background:var(--bg);}
+.portfolio-fields,.rental-fields,.annuity-fields{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
 /* The list of portfolio cards must stack vertically (one per row) — there isn't room to fit two
    full cards side by side once nested inside a person column, and forcing 2 columns squeezed
    each card's border so it no longer enclosed its own fields. */
-.portfolio-list,.rental-list{grid-template-columns:1fr;gap:10px;}   /* rental cards use the same nested-card layout as portfolios */
+.portfolio-list,.rental-list,.annuity-list{grid-template-columns:1fr;gap:10px;}   /* rental cards use the same nested-card layout as portfolios */
 .arow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0;}
 .arow select{flex:1 1 auto;min-width:0;}
 .arow input[type=number]{width:70px;flex:0 0 70px;}

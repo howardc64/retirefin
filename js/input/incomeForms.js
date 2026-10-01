@@ -11,7 +11,7 @@ function renderIncomeForms(){
   // SS, pension, rental, ODIV, QDIV, LTCG, IRA), so both columns
   // always have the same row count; this lets the two-column grid below use
   // CSS subgrid to keep every income type's top edge aligned across people.
-  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*brokerage*/ + 1 /*ira*/ + 1 /*roth*/;
+  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*annuity*/ + 1 /*brokerage*/ + 1 /*ira*/ + 1 /*roth*/;
 
   let html='';
   for(let i=0;i<n;i++){
@@ -23,6 +23,7 @@ function renderIncomeForms(){
     html+=buildPensionCard(pid, p);
     html+=buildRentalCard(pid, p);
     html+=buildBrokerageCard(pid, i, p, married);
+    html+=buildAnnuityCard(pid, i, p, married);
     html+=buildIraCard(pid, p, married);
     html+=buildRothCard(pid, p, married);
     html+='</div>';
@@ -49,6 +50,16 @@ function onBasisInput(pid,bi,val){
   recomputeDebounced(); saveDebounced();
 }
 function onBeneToggle(path,checked){ setPath(path,checked); recompute(); saveDebounced(); }
+function applyPortfolioType(b, type){
+  b.type = type==='idgt' ? 'idgt' : 'living';
+  b.idgt = b.type==='idgt';
+  b.payExp = !b.idgt;
+  b.reinvest = !b.idgt;
+}
+function onPortfolioType(i,bi,type){
+  applyPortfolioType(state.people[i].brokerage[bi], type);
+  renderIncomeForms(); recompute(); saveDebounced();
+}
 function onPortfolioName(pid,bi,val,inputEl){
   setPath(pid+'.brokerage.'+bi+'.name', val);
   // Update the card title in place (a full re-render would drop input focus), then refresh the charts.
@@ -76,6 +87,28 @@ function addBrokerage(i){
   state.people[i].brokerage.push(defaultBrokeragePortfolio(0, state.people[i].brokerage.length+1));
   renderIncomeForms(); recompute(); saveDebounced();
 }
+function addAnnuity(i){
+  if(!Array.isArray(state.people[i].annuities)) state.people[i].annuities=[];
+  state.people[i].annuities.push(defaultAnnuity(state.people[i].annuities.length+1));
+  renderIncomeForms(); recompute(); saveDebounced();
+}
+function removeAnnuity(i,ai){
+  state.people[i].annuities.splice(ai,1);
+  renderIncomeForms(); recompute(); saveDebounced();
+}
+function onAnnuityName(pid,ai,val,inputEl){
+  setPath(pid+'.annuities.'+ai+'.name', val);
+  const title=inputEl.closest('.annuity-card').querySelector('.an-title');
+  if(title) title.textContent=val.trim()||('Annuity '+(ai+1));
+  recomputeDebounced(); saveDebounced();
+}
+// Optional dollar inputs (premium paid, rider benefit base): blank is stored as null, which is different from 0.
+function onAnnuityOptional(path,val){
+  setPath(path, val===''||val==null?null:Math.max(0,+val||0));
+  recomputeDebounced(); saveDebounced();
+}
+// Selects that change which fields are shown (tax treatment) or toggle the rider re-render the cards.
+function onAnnuitySelect(path,val){ setPath(path,val); renderIncomeForms(); recompute(); saveDebounced(); }
 function removeBrokerage(i,bi){
   state.people[i].brokerage.splice(bi,1);
   renderIncomeForms(); recompute(); saveDebounced();

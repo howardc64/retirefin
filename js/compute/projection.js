@@ -167,6 +167,89 @@ function computeProjection(){
     }
   });
 
+  // ── Annuities (per person, any number) ──
+  // Simulated up front, year by year, in today's $ — an annuity's path does not depend on the tax calculation, so it is
+  // computed once here and the projection loop below just reads it. Per year (start-of-year account value V, benefit base B):
+  //   • Payout (inside the Start–End age range): with the Living Benefit Rider, the guaranteed amount = payout rate × benefit
+  //     base at the first payout year, level in nominal $ (so it shrinks in today's $); it is taken from the account value
+  //     first and, once that is gone, paid by the insurer for as long as the range lasts. Without the rider it is the entered
+  //     amount (grown by its annual change), capped at what the account holds.
+  //   • Rider fee = fee % × benefit base, taken from the account value. The benefit base rolls up (nominal %) until payouts
+  //     start, optionally stepping up to the account value (anniversary step-up); afterwards it is fixed in nominal $.
+  //   • V(next) = (V − withdrawal − rider fee) × (1 + credited growth) × (1 − contract fee %).
+  // Tax treatment of the payout (nominal $ bookkeeping, results converted back to today's $):
+  //   taxable   — qualified / IRA annuity: 100% ordinary income.
+  //   lifo      — non-qualified deferred: withdrawals come out gain first (taxable), then return of premium (tax-free);
+  //               amounts paid by the insurer after the account value is gone are fully taxable.
+  //   exclusion — non-qualified annuitized: tax-free share = premium ÷ expected total payout (to the owner's passing age),
+  //               until the premium is recovered, then fully taxable.
+  //   exempt    — a fixed % of every payout is tax-exempt (e.g. a Roth or tax-free contract).
+  function simulateAnnuity(a, i){
+    const none={on:false, yr:[]};
+    if(!a||a.enabled===false) return none;
+    const V0=Math.max(0,Number(a.value)||0);
+    if(!(V0>0)) return none;
+    const hasPrem=a.premium!=null&&a.premium!==''&&Number.isFinite(Number(a.premium));
+    const prem0=Math.max(0, hasPrem?Number(a.premium):V0);
+    const g=realGrowth(a.growth,inflation), fee=clamp(Number(a.feePct)||0,0,100)/100, netF=(1+g)*(1-fee);
+    const rider=!!a.rider;
+    const hasBase=a.riderBase!=null&&a.riderBase!==''&&Number.isFinite(Number(a.riderBase));
+    let B=rider?(hasBase?Math.max(0,Number(a.riderBase)):V0):0;
+    const rollup=(Number(a.riderRollup)||0)/100, rate=(Number(a.riderRate)||0)/100, rFee=(Number(a.riderFee)||0)/100;
+    const cola=realGrowth(a.change,inflation), reqAmt=Math.max(0,Number(a.payout)||0);
+    let V=V0, kStart=null, gpReal0=0;
+    const yr=[];
+    for(let k=0;k<=yearsToProject;k++){
+      const ownerAge=curAges[i]+k, ownerAlive=ownerAge<passAges[i];
+      const spouseAlive=married&&people.length===2&&(curAges[1-i]+k<passAges[1-i]);
+      if(!(ownerAlive||(a.bene&&spouseAlive))) break;   // the contract ends with its owner unless it continues to the spouse
+      const [sA,eA]=resolveAgeRange(a.ar,people[i]);
+      const rangeAge=ownerAlive?ownerAge:passAges[i]-1;
+      const inWindow=rangeAge>=sA&&rangeAge<eA;
+      let payout=0, fromV=0, insurer=0;
+      if(inWindow){
+        if(rider){
+          if(kStart===null){ kStart=k; gpReal0=rate*B; }
+          payout=gpReal0/Math.pow(1+inflation,k-kStart);
+          fromV=Math.min(V,payout); insurer=payout-fromV;
+        }else if(V>0){
+          payout=Math.min(reqAmt*Math.pow(1+cola,k), V); fromV=payout;
+        }
+      }
+      const riderFeeAmt=rider?Math.min(Math.max(0,V-fromV), rFee*B):0;
+      const Vend=Math.max(0,V-fromV-riderFeeAmt)*netF;
+      yr[k]={bal:V, base:B, payout, fromV, insurer, riderFee:riderFeeAmt, started:kStart!==null&&kStart<=k};
+      if(rider){
+        if(kStart!==null) B=B/(1+inflation);
+        else{ B=B*(1+rollup)/(1+inflation); if(a.riderStepUp) B=Math.max(B,Vend); }
+      }
+      V=Vend;
+    }
+    // Tax split of each payout.
+    const mode=a.tax||'lifo', exPct=clamp(Number(a.exemptPct!=null?a.exemptPct:100)||0,0,100)/100;
+    let premRem=prem0, expTotalNom=0;
+    yr.forEach((y,k)=>{ expTotalNom+=y.payout*Math.pow(1+inflation,k); });
+    const ER=expTotalNom>0?Math.min(1,prem0/expTotalNom):0;
+    yr.forEach((y,k)=>{
+      const nk=Math.pow(1+inflation,k), payNom=y.payout*nk, vNom=y.bal*nk;
+      let taxNom=payNom, freeNom=0, embedded=y.bal;
+      if(mode==='exempt'){ freeNom=payNom*exPct; taxNom=payNom-freeNom; embedded=y.bal*(1-exPct); }
+      else if(mode==='exclusion'){
+        embedded=Math.max(0,vNom-premRem)/nk;
+        freeNom=Math.min(ER*payNom, premRem); premRem-=freeNom; taxNom=payNom-freeNom;
+      }else if(mode==='lifo'){
+        const gain=Math.max(0,vNom-premRem), fromVNom=y.fromV*nk, insNom=y.insurer*nk;
+        const taxFromV=Math.min(fromVNom,gain), ret=fromVNom-taxFromV;
+        embedded=gain/nk; premRem=Math.max(0,premRem-ret);
+        freeNom=ret; taxNom=taxFromV+insNom;
+      }
+      y.taxable=taxNom/nk; y.taxFree=freeNom/nk; y.taxableEmbedded=embedded;
+      y.nonQual=(mode==='lifo'||mode==='exclusion');
+    });
+    return {on:true, yr, rider, mode};
+  }
+  const annuityRun=people.map((p,i)=>(p.annuities||[]).map(a=>simulateAnnuity(a,i)));
+
   // ── Pension / rental: always per-person ──
   // `depreciation` = true returns the item's annual depreciation instead of its income amount (same on/off rules and age range).
   function personAgedItemActive(item, ownerIdx, k, depreciation){
@@ -263,6 +346,21 @@ function computeProjection(){
     const rentalDepByPerson = people.map((p,i)=>(p.rentals||[]).reduce((a,r)=>a+personAgedItemActive(r,i,k,true),0));
     const rentalDep = rentalDepByPerson.reduce((a,b)=>a+b,0);
 
+    // Annuity payouts this year (see simulateAnnuity). The taxable part is ordinary income; the tax-exempt part is untaxed but is
+    // household cash income and, like other tax-exempt income, counts toward provisional income (SS taxation) and MAGI (IRMAA).
+    // Non-qualified taxable payouts are also net investment income (NIIT).
+    const annuitiesByPerson=people.map((p,i)=>(p.annuities||[]).map((a,ai)=>{
+      const run=annuityRun[i][ai], y=run&&run.on?run.yr[k]:null;
+      const nm=(a&&a.name&&a.name.trim())||('Annuity '+(ai+1));
+      if(!y) return {id:a&&a.id, name:nm, balance:0, base:0, payout:0, taxable:0, taxFree:0, insurerPaid:0, riderFee:0, taxableEmbedded:0, rider:!!(a&&a.rider), nonQual:false, live:false};
+      return {id:a.id, name:nm, balance:y.bal, base:y.base, payout:y.payout, taxable:y.taxable, taxFree:y.taxFree, insurerPaid:y.insurer, riderFee:y.riderFee, taxableEmbedded:y.taxableEmbedded, rider:run.rider, nonQual:y.nonQual, live:true};
+    }));
+    const annuityByPerson=annuitiesByPerson.map(l=>sumArr(l.map(e=>e.taxable)));
+    const annuityTEByPerson=annuitiesByPerson.map(l=>sumArr(l.map(e=>e.taxFree)));
+    const annuity=sumArr(annuityByPerson), annuityTE=sumArr(annuityTEByPerson);
+    const annuityNII=sumArr(annuitiesByPerson.map(l=>sumArr(l.map(e=>e.nonQual?e.taxable:0))));
+    const annuityBalance=sumArr(annuitiesByPerson.map(l=>sumArr(l.map(e=>e.balance))));
+
     // Brokerage portfolio income — each portfolio produces ODIV and QDIV (and a foreign tax credit).
     // Realized LTCG is NOT computed here: it comes from the household expense waterfall below (asset sales).
     // `active` = the portfolio is inside its age range (or continuing to a surviving spouse); an inactive
@@ -327,7 +425,7 @@ function computeProjection(){
     // Years 0 and 1 have no projected AGI two years back (the model has no pre-projection history), so they are $0.
     // Filing status is this year's.
     // IRMAA's MAGI = AGI + tax-exempt interest, so the tax-exempt income of that year counts toward the tier.
-    const priorAGI = (k>=2 && rows[k-2]) ? ((rows[k-2].agi||0)+(rows[k-2].teIncome||0)) : 0;
+    const priorAGI = (k>=2 && rows[k-2]) ? ((rows[k-2].agi||0)+(rows[k-2].teIncome||0)+(rows[k-2].annuityTE||0)) : 0;
     const irmaaEnrolled = people.reduce((n,p,i)=>n+((alive[i]&&ages[i]>=65)?1:0),0);
     const irmaaFiling = married && alive[0] && alive[1] ? 'married' : 'single';
     const irmaaTier = (irmaaFiling==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>priorAGI>=t.magi);
@@ -363,7 +461,7 @@ function computeProjection(){
       return a+Math.min(v.te||0, avail);
     },0));
     const teIncome=teByPerson.reduce((a,b)=>a+b,0);
-    const cashIncome = sumArr(wageByPerson)+totalSS+pension+rental+rentalDep+teIncome+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
+    const cashIncome = sumArr(wageByPerson)+totalSS+pension+rental+rentalDep+teIncome+annuity+annuityTE+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
     // Per-portfolio working entries. Only live, funded portfolios have one.
     const pfx=people.map(()=>[]);
     const poolPf=[];   // portfolios inside their age range with "Pay expenses" checked — the only sources for household expenses
@@ -410,7 +508,7 @@ function computeProjection(){
     // depend on LTCG — provisional income includes QDIV and LTCG — so it is computed inside taxOn() below.)
     const filing = married && alive[0] && alive[1] ? 'married' : 'single';
     const ssThresholdFactor = Math.pow(1+inflation,-k); // un-indexed SS-tax thresholds, in today's $
-    const nonSSOrdinary = wageTotal+pension+rental+iraTotal+rothConvTotal+odivNQ;
+    const nonSSOrdinary = wageTotal+pension+rental+annuity+iraTotal+rothConvTotal+odivNQ;
     const std = filing==='married'?STD_MFJ:STD_SGL;
     // Long Term Care: from the LTC start age (older person's age) the LTC cost is an extra expense and the household
     // living expense switches to the post-LTC amount. Both are today's $ (flat in real terms = inflating in future $).
@@ -478,7 +576,7 @@ function computeProjection(){
       const qualIncome=qdiv+ltcg;
       // Provisional income = ALL non-SS income in AGI (ordinary, QDIV, net LTCG) + tax-exempt income + 50% of SS, so taxable SS
       // moves with the realized LTCG and is solved inside the same tax ↔ LTCG iteration.
-      const {taxableSS,provisional}=computeTaxableSS(nonSSOrdinary+qdiv+ltcg+teIncome, totalSS, filing, ssThresholdFactor);
+      const {taxableSS,provisional}=computeTaxableSS(nonSSOrdinary+qdiv+ltcg+teIncome+annuityTE, totalSS, filing, ssThresholdFactor);
       const ordIncome=nonSSOrdinary+taxableSS;
       const agi=nonSSOrdinary+taxableSS+qdiv+ltcg;
       const agiFloor=0.075*Math.max(0,agi);
@@ -492,7 +590,7 @@ function computeProjection(){
       const incomeTax=ordTax+qualTax; // ordinary + qualified only — the SST hypothetical below mirrors this basis
       // §9.4 NIIT: 3.8% of the lesser of net investment income (ODIV−QDIV + QDIV + LTCG) or MAGI (~AGI)
       // over the un-indexed threshold. Added on top of ordinary + qualified tax for Total Tax (TT).
-      const niiIncome=odivNQ+qdiv+ltcg;
+      const niiIncome=odivNQ+qdiv+ltcg+annuityNII;
       const niit=computeNIIT(niiIncome, agi, filing, ssThresholdFactor, state.futureTax, THIS_YEAR+k);
       // §9.4: foreign tax credit offsets the ordinary+qualified tax (not NIIT), floored at 0.
       const totalTax=Math.max(0, incomeTax-foreignTaxCredit)+niit;
@@ -530,7 +628,7 @@ function computeProjection(){
     const ltcgByPersonGross=people.map((p,i)=>{ let t=0; pfx[i].forEach(x=>{ if(x) t+=x.ltcg; }); return t; });
     const shieldFrac = ltcgGross>0 ? scglUsed/ltcgGross : 0;
     const ltcgByPerson = ltcgByPersonGross.map(v=>v*(1-shieldFrac));
-    const {sst,marginalRate} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor, seniorOf, teIncome);
+    const {sst,marginalRate} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor, seniorOf, teIncome+annuityTE);
 
     // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
@@ -572,7 +670,7 @@ function computeProjection(){
     rows.push({
       k, age0: idxP0!=null? ages[idxP0]:ages[0],
       ages, alive, filing,
-      wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson, rentalDep, rentalDepByPerson, teIncome, teByPerson,
+      wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson, rentalDep, rentalDepByPerson, teIncome, teByPerson, annuity, annuityTE, annuityByPerson, annuityTEByPerson, annuitiesByPerson, annuityBalance,
       odiv, qdiv, odivNQ, ltcg, ltcgGross, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
       iraByPerson, iraTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, embeddedGain, embeddedGainIdgt,
@@ -581,7 +679,7 @@ function computeProjection(){
       niiIncome, niit,
       irmaaSurcharge,
       expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
-      totalTax, agi, magi:agi+teIncome
+      totalTax, agi, magi:agi+teIncome+annuityTE
     });
   }
   // ── Legacy "stretch": the 10 years after the household's last passing (STRETCH_YEARS). Two things carry on, with no

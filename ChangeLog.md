@@ -273,4 +273,4 @@
     - Checked with a jsdom harness (clicks, projection with each item on/off, old-save load); not run in a real browser.
 
 80. **Hide on LTC / speculative model now works like every other card.** Their input fields used to exist only while Enable was ticked; they are now always rendered and the Hide checkbox alone shows or collapses them (Enable only decides whether the values are used). Both default to hidden on a new plan; older saves open them only if they were enabled. `onEnableToggle` no longer re-renders those panels.
-
+81. Annuity card (per person, any number): account value, premium, credited growth, contract fee, payout age range/amount, payout tax treatment (non-qualified LIFO, exclusion ratio, qualified, tax-exempt %), Living Benefit Rider (benefit base roll-up/step-up, guaranteed payout, rider fee, insurer-paid after account value is gone). Payouts feed income, tax, MAGI/IRMAA and expenses; annuity value is a band on the Asset Value chart. Also in the Income chart, Excel export and chat context.

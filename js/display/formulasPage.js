@@ -69,7 +69,7 @@ function buildFormulasHtml(){
     ['NIIT','Net Investment Income Tax'], ['NII','Net Investment Income'],
     ['TE','Tax-Exempt income (e.g. municipal-bond interest: untaxed, but part of household income, provisional income and IRMAA MAGI)'], ['ODIV','Ordinary (non-qualified) Dividends'], ['QDIV','Qualified Dividends'],
     ['LTCG','Long-Term Capital Gains'], ['SCGL','Suspended Capital-Gain Loss (carryforward)'],
-    ['IDGT','Intentionally Defective Grantor Trust'], ['FTC','Foreign Tax Credit'],
+    ['IDGT','Intentionally Defective Grantor Trust'], ['GLWB','Guaranteed Lifetime Withdrawal Benefit (the annuity Living Benefit Rider)'], ['LIFO','Last-in, first-out: annuity gain is treated as withdrawn (and taxed) before premium'], ['FTC','Foreign Tax Credit'],
     ['IRMAA','Income-Related Monthly Adjustment Amount (Medicare Part B/D surcharge)']
   ].map(([a,f])=>`<tr><td class="fp-acr">${a}</td><td>${f}</td></tr>`).join('');
 
@@ -187,7 +187,7 @@ ${fpWhere('Each re-run recomputes provisional income (which includes QDIV, LTCG 
 <h3>Total Tax (TT)</h3>
 <p>Income is built up in stages:</p>
 ${fpEq(
-  `Ordinary income = wages + pension + rental + IRA RMD + pre-tax IRA withdraw + (ODIV − QDIV)`,
+  `Ordinary income = wages + pension + rental + taxable annuity payouts + IRA RMD + pre-tax IRA withdraw + (ODIV − QDIV)`,
   `AGI = ordinary income + taxable SS + QDIV + LTCG<sub>net of SCGL</sub>`,
   `TI = AGI − max(standard deduction, itemized deductions) − enhanced senior deduction`
 )}
@@ -256,8 +256,8 @@ ${fpWhere('Growth is total return, so, like dividends, the tax-exempt income is 
 
 <p><strong>Household expense funding waterfall.</strong> The household's expenses are:</p>
 ${fpEq(`Expenses = living expenses + LTC expense + IRMAA surcharge + AUM fee + income tax`)}
-${fpWhere('Living expenses is a flat today\'s-dollar amount (it switches to the 1st / 2nd LTC living expenses as each LTC starts). The LTC expense is the sum of the LTC costs (today\'s $) of each person whose LTC has started and who is still living; it is paid like every other expense. The IRMAA surcharge and income tax (tax drag, the year\'s Total Tax) are always household expenses. The AUM fee is charged on the portfolios whose AUM box is checked (below); the whole AUM fee is a household expense like the rest, so it is paid only by the portfolios with <em>Pay expenses</em> checked.')}
-<p>They are paid in this order: (1) household income (wages, Social Security, pension, rental and its depreciation add-back, tax-exempt income, IRA RMDs); (2) the dividends (ODIV) of the portfolios with <em>Pay expenses</em> checked, shared pro rata, with any dividend not needed reinvested; (3) selling those portfolios\' assets, shared pro rata to balance, for what is left. A portfolio without <em>Pay expenses</em> (the default) contributes neither dividends nor sales to household expenses and reinvests all its dividends. An IDGT follows the same rule.</p>
+${fpWhere('Living expenses is a flat today\'s-dollar amount (it switches to the 1st / 2nd LTC living expenses as each LTC starts). The LTC expense is the sum of the LTC costs (today\'s $) of each person whose LTC has started and who is still living; it is paid like every other expense. The IRMAA surcharge and income tax (tax drag, the year\'s Total Tax) are always household expenses. The AUM fee is charged on the portfolios whose AUM box is checked (below); the whole AUM fee is a household expense like the rest, so it is paid only by <em>Living expense &amp; income</em> portfolios.')}
+<p>They are paid in this order: (1) household income (wages, Social Security, pension, rental and its depreciation add-back, tax-exempt income, annuity payouts, IRA RMDs); (2) the dividends (ODIV) of the <em>Living expense &amp; income</em> portfolios, shared pro rata, with any dividend not needed reinvested; (3) selling those portfolios\' assets, shared pro rata to balance, for what is left. Each brokerage portfolio has a <em>Portfolio type</em>: <em>Living expense &amp; income</em> (the default) pays household expenses and receives excess income; an <em>IDGT</em> contributes neither dividends nor sales to household expenses, receives no excess income and reinvests all its dividends.</p>
 ${fpEq(
   `Paid by income = min( Expenses, household income )`,
   `Paid by dividends = min( ΣODIV, Expenses − Paid by income )`,
@@ -265,10 +265,10 @@ ${fpEq(
   `Reinvested = max( 0, ODIV − dividends used )`
 )}
 
-<p><strong>Reinvest excess income.</strong> When household income alone covers every expense, the part left over is <em>excess income</em>. It is reinvested at year-end into the portfolios that have <em>Reinvest excess income</em> checked (default unchecked) and are inside their age range, shared pro rata to their start-of-year balances. Because excess exists only when income covered all expenses, it never occurs in a year when dividends were used or shares sold. Only household cash income counts (wages, Social Security, pension, rental with its depreciation add-back, tax-exempt income, IRA RMDs); the Roth-conversion amount is excluded because it moves to the Roth IRA. It is computed after the tax and expense calculation settles, so it does not change that year\'s tax. If no portfolio has the box checked, the excess simply leaves the model.</p>
+<p><strong>Reinvest excess income.</strong> When household income alone covers every expense, the part left over is <em>excess income</em>. It is reinvested at year-end into the <em>Living expense &amp; income</em> portfolios that are inside their age range, shared pro rata to their start-of-year balances. Because excess exists only when income covered all expenses, it never occurs in a year when dividends were used or shares sold. Only household cash income counts (wages, Social Security, pension, rental with its depreciation add-back, tax-exempt income, annuity payouts, IRA RMDs); the Roth-conversion amount is excluded because it moves to the Roth IRA. It is computed after the tax and expense calculation settles, so it does not change that year\'s tax. If there is no such portfolio, the excess simply leaves the model.</p>
 ${fpEq(
   `Excess income = max( 0, household income − Expenses )`,
-  `Reinvested into portfolio <em>j</em> = Excess income × ${fpFr('balance<sub><em>j</em></sub>','Σ balance of the checked portfolios')}`,
+  `Reinvested into portfolio <em>j</em> = Excess income × ${fpFr('balance<sub><em>j</em></sub>','Σ balance of the Living expense &amp; income portfolios')}`,
   `balance<sub>next</sub> = balance × ( 1 + real growth ) − dividends used − Sold − Tax-exempt income + Reinvested into portfolio`
 )}
 ${fpWhere('Reinvested dividends and reinvested excess income are both after-tax money put in, so both add cost basis (see the roll-forward below). The money goes in at year-end, so it starts earning growth the following year, the same timing as the asset sales it mirrors.')}
@@ -292,13 +292,14 @@ ${fpEq(
 <p><strong>Cost basis roll-forward.</strong> Each year:</p>
 ${fpEq(`basis<sub>next</sub> = ${fpFr('basis − Sold × (1 − <em>f</em>) + Reinvested dividends + Reinvested excess income','1 + inflation')}`)}
 <p>Sales remove basis in proportion to cost share, reinvested dividends and reinvested excess income add basis, and basis erodes with inflation because it is a fixed nominal amount. When the owner passes and the portfolio continues to a surviving spouse, a non-IDGT portfolio's basis steps up to its value (gain becomes $0); an IDGT keeps its original basis. The balance itself is unaffected, since growth is total return. The asset charts report the unrealized gain remaining at the end of the plan.</p>
-<p><strong>Asset Value chart devalue (display only).</strong> Two slider pairs shrink the plotted bands toward an after-tax value; they never change the projection. The first pair (defaults 10% LTCG, 10% ordinary) applies to the years up to the last passing, the second pair (defaults 24% / 40%) to the 10 stretch years after it:</p>
+<p><strong>Asset Value chart withdraw cost (display only).</strong> Two slider pairs shrink the plotted bands toward an after-tax value; they never change the projection. The first pair (defaults 10% LTCG, 10% ordinary) applies to the years up to the last passing, the second pair (defaults 24% / 40%) to the 10 stretch years after it:</p>
 ${fpEq(
-  `brokerage band = balance − LTCG devalue % × unrealized gain`,
-  `pre-tax IRA band = balance × ( 1 − ordinary income devalue % )`,
-  `Roth IRA band = balance   (never devalued)`
+  `brokerage band = balance − LTCG withdraw cost % × unrealized gain`,
+  `pre-tax IRA band = balance × ( 1 − ordinary income withdraw cost % )`,
+  `annuity band = balance − ordinary income withdraw cost % × taxable part of the balance`,
+  `Roth IRA band = balance   (no withdraw cost)`
 )}
-<p>Because the devalue removes a share of the gain but leaves basis untouched, a 100% LTCG devalue puts the top of the brokerage band exactly at cost basis. The dashed cost-basis line is therefore drawn only in years where the applicable LTCG devalue is 0%; at any LTCG devalue above 0% the line is removed (and so is its legend key).</p>
+<p>Because the withdraw cost removes a share of the gain but leaves basis untouched, a 100% LTCG withdraw cost puts the top of the brokerage band exactly at cost basis. The dashed cost-basis line is therefore drawn only in years where the applicable LTCG withdraw cost is 0%; at any LTCG withdraw cost above 0% the line is removed (and so is its legend key).</p>
 
 <p><strong>AUM fee.</strong> The AUM balance is the sum of the start-of-year balances of every enabled, funded brokerage portfolio inside its age range whose AUM box is checked, plus every pre-tax IRA and Roth IRA whose AUM box is checked (while held by the household — not while held by heirs under IRA stretch). The fee is a percentage of it, or a fixed dollar amount:</p>
 ${fpEq(
@@ -321,6 +322,33 @@ ${fpEq(
   `Δ balance = growth − ( dividends used + shares sold )`
 )}
 <p>Household income pays expenses first, so a portfolio is only drawn down when income falls short. A portfolio outside its age range just compounds: it pays no dividends and is not sold.</p>
+
+<h3>Annuities</h3>
+<p>Each person can hold any number of annuities (Add / Remove on the Annuity card). An annuity is simulated year by year in today\'s dollars, independently of the tax calculation. Let <em>V</em> be the start-of-year account value and <em>B</em> the rider benefit base. The account value is the amount plotted on the Asset Value chart.</p>
+<p><strong>Payout.</strong> Inside the Start–End age range (a contract that continues to a surviving spouse is judged at the owner\'s last living age):</p>
+${fpEq(
+  `Without the rider: Payout = min( entered amount × ( 1 + annual change )<sup>k</sup>, V )`,
+  `With the rider: Guaranteed payout = payout rate % × B<sub>first payout year</sub>, level in nominal $`,
+  `Withdrawn from the account = min( V, Payout ) &emsp; Paid by the insurer = Payout − Withdrawn`
+)}
+${fpWhere('The guaranteed payout is fixed in nominal dollars, so in today\'s dollars it shrinks by inflation each year after the first payout year. It is taken from the account value first; once the account is exhausted the insurer keeps paying it through the End age. Without the rider, payouts stop when the account is empty. With the rider on, the entered payout amount is not used.')}
+<p><strong>Account value and Living Benefit Rider.</strong></p>
+${fpEq(
+  `Rider fee = rider fee % × B &emsp;(taken from the account value)`,
+  `V<sub>next</sub> = ( V − Withdrawn − Rider fee ) × ( 1 + real credited growth ) × ( 1 − contract fee % )`,
+  `B<sub>next</sub> = B × ( 1 + roll-up % ) ÷ ( 1 + inflation ) before payouts start  (then max( B, V<sub>next</sub> ) if annual step-up is checked)`,
+  `B<sub>next</sub> = B ÷ ( 1 + inflation ) once payouts have started (fixed nominal amount)`
+)}
+${fpWhere('The benefit base is a notional amount used only to set the guaranteed payout and the rider fee; it is not part of the account value and is not charted as an asset. The benefit base defaults to the account value when left blank.')}
+<p><strong>Tax treatment of each payout</strong> (premium = the premium / cost basis entered, blank = account value; bookkeeping is done in nominal dollars and converted back):</p>
+${fpEq(
+  `Qualified: Taxable = Payout`,
+  `Non-qualified, withdrawals (LIFO): Taxable = min( Withdrawn, max( 0, V − premium remaining ) ) + Paid by insurer; Tax-free = the rest of Withdrawn (premium returned)`,
+  `Non-qualified, annuitized: Exclusion ratio = min( 1, premium ÷ expected total payout ); Tax-free = min( ratio × Payout, premium remaining )`,
+  `Tax-exempt: Tax-free = Payout × tax-exempt %`
+)}
+${fpWhere('Expected total payout is the sum of the projected payouts, in nominal dollars, up to the owner\'s passing age. Once the premium is fully recovered, the exclusion-ratio treatment makes every further payout fully taxable.')}
+<p>The taxable part is ordinary income (it enters AGI and the Ordinary income line above); for non-qualified treatments it is also net investment income for NIIT. The tax-free part is untaxed and never in AGI, but, like tax-exempt portfolio income, it counts toward provisional income (Social Security taxation) and MAGI (IRMAA). Both parts are household cash income, so they pay expenses first in the waterfall above. An annuity ends when its owner passes unless it continues to the spouse; annuities have no step-up and no stretch.</p>
 
 <h3>Today's-Dollar Convention</h3>
 <p>Every figure in this app — inputs, intermediate values, and every chart — is expressed in today's dollars. An "Annual change" of <em>Fixed $ (no growth)</em> (worded <em>Fixed $ (no COLA)</em> on the Pension card) actually erodes in real terms by the inflation rate each year; <em>Tracks inflation</em> means 0% real growth; <em>Inflation ± X%</em> and <em>Custom annual %</em> both express a real (today's-dollar) growth rate directly.</p>
