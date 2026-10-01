@@ -107,6 +107,7 @@ state = {
   },
   ui: {                           // display-only flags that are nevertheless saved, autosaved, restored and reset with the plan
     hiddenSections: { assumptions, ss, income, tss, tax, expenses, assets: boolean }  // the section **Hide** checkboxes (§5.1, §6.1). true = checked + collapsed. Default: all true (`DEFAULT_SECTION_HIDDEN`, `core/state.js`). A save with no `ui.hiddenSections` (written before this existed) loads with every section shown
+    ltcgDevalue, ordDevalue, ltcgDevalue2, ordDevalue2: number  // the Asset Value chart's two slider pairs, % 0–100 (defaults 10 / 10 / 24 / 40; `DEFAULT_*DEVALUE*`, `core/state.js`). Pair 1 = years up to the last passing, pair 2 (`…2`) = the 10 stretch years after it (heirs' anticipated brackets). Display-only haircuts (§6.7); saved, restored and reset with the plan
   }
 }
 
@@ -117,9 +118,9 @@ Person = {
   wage:    { enabled, hidden, amount, ar: AgeRange, change: Change },
   ss:      { enabled, hidden, pia, fra, started: boolean, claimAge },
   pension: { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
-  rental:  { enabled, hidden, amount, ar: AgeRange, change: Change, bene: boolean },
+  rentals: [ { id, enabled, hidden, name, amount /* TAXABLE (net of depreciation) rental income, today's $ */, depreciation: number /* annual non-cash depreciation, today's $; fixed nominal, so it shrinks by inflation */, ar: AgeRange, change: Change, bene: boolean } ],   // any number per person (Add/Remove); older saves' single `rental` object becomes rentals[0] in hydrateState (only if it was enabled or had an amount/depreciation)
   brokerage: [BrokeragePortfolio, ...],   // 0 or more
-  ira:  { enabled, hidden, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number /* annual Roth conversion, today's $ */, convStart: number /* age the conversions begin; 0 (default) = now. Effective start = max(current age, convStart) */, stretch: boolean, aum: boolean },
+  ira:  { enabled, hidden, balance, growth: Change, ar: AgeRange, bene: boolean, conv: number /* annual Roth conversion, today's $ */, convStartMode: 'rmd'|'now'|'custom' /* default 'rmd': conversions begin at the IRA's own Start age (RMD start); 'custom' uses convStart */, convStart: number /* age used only when convStartMode is 'custom' */, stretch: boolean, aum: boolean },
   roth: { enabled, hidden, balance, growth: Change, bene: boolean, stretch: boolean, aum: boolean }   // aum (default false): this account's start-of-year balance counts toward the AUM balance (§4.6)
 }
 
@@ -133,6 +134,8 @@ BrokeragePortfolio = {
   ar: AgeRange, bene: boolean, idgt: boolean,
   enabled: boolean,          // default true — whether this portfolio is used for compute/display
   hidden: boolean,           // default false — whether its card is collapsed on screen (§5.1)
+  teYield: number,           // default 0 (%): tax-exempt income paid out of the portfolio each year = start balance × teYield — untaxed, but part of `cashIncome` (§4.6); lowers the balance by the same amount
+  reinvest: boolean,         // default FALSE — "Reinvest excess income": household income left after ALL expenses are paid is added (pro rata to start-of-year balance) to the in-range portfolios with this checked (§4.6). Older saves load as false via the `defaultBrokeragePortfolio` merge
   payExp: boolean,           // default FALSE — "Pay expenses": only portfolios with this checked (IDGT or not) contribute dividends and asset sales to household expenses (§4.6). Saves that predate the field load as true for non-IDGT portfolios (their old behavior)
   aum: boolean,              // default false — this portfolio's balance counts toward the AUM balance the household AUM fee (`state.aumFee`) is charged on. Older saves' per-portfolio `expense`/`fee`/`irmaa` are dropped by `hydrateState` (a portfolio that had a fee on becomes `aum: true`; the household `aumFee` takes the first % fee found, or the sum of fixed fees)
   basisPct: number | null,   // cost basis as a % of the start balance (0–100). null/blank = not entered. Older saves' dollar `basis` is converted to a % in `hydrateState`. Every portfolio is tracked (§4.6); a blank basis means no unrealized gain today. Realized LTCG has no input: it is always derived from basis (§4.6). Older saves' `ltcg`/`ltcgMode`, per-portfolio `taxDrag` and `living` withdrawal are dropped on load (the withdrawals are summed into `state.living` by `hydrateState`)
@@ -189,7 +192,7 @@ that changes.
 | `defaultState()`, `defaultPerson(idx)`, `defaultBrokeragePortfolio(balance,n)`, `defaultChange`, `defaultAgeRange`, `defaultAgeRangedItem` | Canonical default shapes (§2). **If you add a field to the schema, add its default here.** |
 | `pfBasisEntered(b)`, `pfTracksBasis(b)` | Cost-basis predicates (§4.6): a cost basis was entered (`basisPct` is a number; `null`/blank is *not* the same as `0`); and whether basis is tracked — now true for every portfolio, since household expenses can force a sale from any of them |
 | `SECTION_HIDE_KEYS`, `DEFAULT_SECTION_HIDDEN`, `defaultHiddenSections(hidden?)` | The keys of `state.ui.hiddenSections` (must match each `data-hide-key` in `index.html`) and their default (`true` = a fresh session and **Reset to defaults** start with every section checked + collapsed; flip the constant to change that) |
-| `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has). Migration: if a loaded file has no `living`, it is set to the sum of the old enabled portfolios' `living` withdrawals. Hide migration (`fillLegacyHide`): a card with **no** `hidden` flag gets `!enabled`, and a file with no `ui.hiddenSections` shows every section — a `hidden` value that *is* in the file is never overridden. LTC migration: an old single-person `ltc {startAge, cost, living}` becomes `people[0]` + `living1`; an old per-person `ltc.people[i].living` becomes `living1` (the earlier-starting person's) and `living2` (the later's). A file with no `ltc` or no `ira.convStart` just gets the defaults |
+| `hydrateState(loaded)` | Deep-merges a loaded/imported object onto `defaultState()`: missing fields get defaults, unknown/stale fields are dropped, arrays keep every entry (not just as many as the default has). Migration: if a loaded file has no `living`, it is set to the sum of the old enabled portfolios' `living` withdrawals. Hide migration (`fillLegacyHide`): a card with **no** `hidden` flag gets `!enabled`, and a file with no `ui.hiddenSections` shows every section — a `hidden` value that *is* in the file is never overridden. LTC migration: an old single-person `ltc {startAge, cost, living}` becomes `people[0]` + `living1`; an old per-person `ltc.people[i].living` becomes `living1` (the earlier-starting person's) and `living2` (the later's). A file with no `ltc` just gets the defaults. Conversion-start migration: a save with no `ira.convStartMode` that already converts (`conv`>0) keeps its old behaviour (`convStart`>0 → `custom`, else `now`); one that does not convert takes the new default `rmd` |
 | `state` | The live, mutable object every other file reads/writes |
 | `autosave()` / `loadAutosave()` | Silent per-browser `localStorage` save/restore, so a reload doesn't lose work |
 | `resetState()` | Confirms, then resets `state` to defaults (with `applyDefaultHiddenFromEnabled`) and re-renders |
@@ -249,7 +252,7 @@ Total Tax there, not folded into any of these functions.
 
 ### 4.6 `projection.js`
 **Purpose:** the core year-by-year model. `computeProjection()` takes no arguments (reads `state`
-directly) and returns `{ rows, stretch, people, idxP0, married }` (`stretch`: the post-passing IRA years, see §6.7). **This is the contract every Display file
+directly) and returns `{ rows, stretch, people, idxP0, married }` (`stretch`: the 10 post-passing legacy years — non-IDGT brokerage and stretch-flagged IRAs — see §6.7). **This is the contract every Display file
 consumes — nothing in `js/display/` should recompute anything listed in the row schema below.**
 
 **`realGrowth(change, inflation)`** — converts a `Change` spec (§2) into a real (today's-$) annual
@@ -261,7 +264,7 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 2. Wages, per person, gated by their age range.
 3. Social Security per person: own benefit (with early/delayed factor) or spousal benefit if higher,
    gated by claim age; on a spouse's death, the survivor gets the larger of the two amounts (SSSBR).
-4. Pension / rental, per person, via the shared `personAgedItemActive()` — respects survivor-benefit
+4. Pension / rentals (summed over every rental property), per person, via the shared `personAgedItemActive()` — respects survivor-benefit
    continuation using the *deceased's last living year's* age range, so a `passing`-mode end age
    doesn't cut a survivor benefit off immediately.
 5. Brokerage portfolios, per portfolio: ODIV, QDIV and **foreign tax credit** (`balance × foreignPct × ftcPct`) —
@@ -276,16 +279,25 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 6. Pre-tax IRA: RMD (or voluntary early withdrawal) via `rmdDivisor`, plus a separate **Roth
    conversion withdrawal** (`rothConvByPerson`/`rothConvTotal`) — a real withdrawal on top of the RMD,
    taxed exactly like the RMD, continuing until the balance hits $0. Begins at the later of the owner's current age
-   and `ira.convStart` ("Conversion start age"); before that age the conversion is $0 (RMDs are unaffected). Requires the matching Roth IRA
+   and the conversion start (`ira.convStartMode`: `rmd` (default) = the IRA `ar` Start age as resolved by `resolveAgeRange`, `now`, or `custom` = `ira.convStart`; effective start = max(current age, that age)); before that age the conversion is $0 (RMDs are unaffected). Requires the matching Roth IRA
    to be enabled. On the owner's death, conversions stop; RMDs continue to a surviving spouse if the
    IRA is marked to continue.
 7. Roth IRA: grows tax-free, receiving that year's conversion amount (if any) from step 6.
-8. Ordinary income = wages + pension + rental + IRA RMD + **Roth conversion (pre-tax IRA withdraw)**
+8. Rental depreciation (`rentalDep`, `rentalDepByPerson`): `Σ personAgedItemActive(r,i,k,true)` over `p.rentals` = `depreciation/(1+inflation)^k`, same on/off, age-range and survivor rules as rental income. It is a non-cash expense already inside the entered taxable rental amount, so it is **added to `cashIncome`** (funds expenses, feeds excess-income reinvestment) and **never taxed** (not in `nonSSOrdinary`/AGI).
+   Ordinary income = wages + pension + rental (taxable) + IRA RMD + **Roth conversion (pre-tax IRA withdraw)**
    + (ODIV − QDIV).
-9. Taxable Social Security via `computeTaxableSS`; filing status for the year is `'single'` the
+9. Taxable Social Security via `computeTaxableSS(nonSSOrdinary + qdiv + ltcg + teIncome, …)` **inside `taxOn()`** (provisional income = all non-SS AGI items, so it depends on the realized LTCG and is solved in the tax ↔ LTCG iteration; `taxOn` returns `taxableSS`, `provisional`, `ordIncome`) — tax-exempt income is untaxed but counts toward provisional income (and is passed to `computeSSTAndMarginal` as `teIncome` for its marginal-rate bump); filing status for the year is `'single'` the
    moment either spouse has died. **Deduction** = `max(standard deduction, itemized)` where itemized =
    `max(0, LTC expense − 7.5% × AGI)` (see *Long Term Care* below); ordinary taxable income = `max(0, ordinary income − deduction)`.
    AGI includes realized LTCG, so the deduction is computed inside `taxOn()` and is solved with the tax.
+   **Enhanced senior deduction** (Schedule 1-A Part V, IRC §151(d)(5)(C); constants `SENIOR_*` in `core/constants.js`, `computeSeniorDeduction` in `compute/tax.js`):
+   tax years 2025–2028 only; each living person with `birthYear + 65 ≤ tax year` (65 by year-end; the 2025 case is "born before 1/2/1961") counts (`seniorEligible`).
+   Per person `max(0, 6000 − 6% × max(0, MAGI − threshold))`, threshold $75,000 single / $150,000 MFJ (by that year's filing status), MAGI ≈ AGI; each eligible
+   person gets the same reduced amount (Schedule 1-A lines 35–36, so it reaches $0 at $250k MFJ). The $6,000 and thresholds are un-indexed, so they are scaled by
+   `ssThresholdFactor` (1/(1+inflation)^k). It is taken **on top of** the standard/itemized deduction: `ordTI = max(0, ordIncome − deduction − seniorDed)`; it does not reduce AGI.
+   `taxOn()` returns `seniorDed`; the row carries `seniorDeduction` (and `std` stays the standard/itemized amount). `computeSSTAndMarginal` receives `seniorFn(agi)` so the no-SS
+   hypothetical and the marginal-rate bump use the deduction that AGI earns (the marginal rate therefore includes the 6%-per-person phase-out). Not modelled: the age-65+ additional
+   standard deduction, SSN/filing-status conditions (married = joint only), foreign-income MAGI add-backs, and a Jan 1 birthday exactly 65 years earlier (only year and month are known).
 10. AGI = ordinary income + taxable SS + QDIV + LTCG (net of SCGL, see next point).
 11. LTCG net of SCGL: available `scgl` shields realized LTCG dollar-for-dollar (pool depletes across
     years); only the net amount is taxed/displayed.
@@ -305,7 +317,7 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 - **Itemized deduction:** the LTC cost is also the only itemized deduction modelled: `itemized = max(0, expLtc − 7.5% × AGI)` (`agiFloor` = 7.5% × AGI). `usedItemized` is true when `itemized` exceeds the standard deduction; the deduction actually applied is `max(standard, itemized)`. Because AGI depends on LTCG, this sits inside the tax↔LTCG iteration.
 
 **IRMAA as an expense** (always a household expense — there is no per-portfolio checkbox):
-- **Household surcharge** = `irmaaSurcharge` = surcharge of the IRMAA tier (`IRMAA_MFJ`/`IRMAA_SGL`, this year's filing status) reached by the **AGI from two years earlier** (`rows[k−2].agi`) × the number of living people age ≥ 65. Years 0 and 1 are `$0`, because the model has no AGI from before the projection starts. The 2-year lag is IRMAA's real look-back (the premium for year Y is set from the Y−2 return); the tier uses *this* year's filing status. Tier tables are indexed, so no deflation. The row reports it as `irmaaSurcharge` and it is included in `expIrmaa`.
+- **Household surcharge** = `irmaaSurcharge` = surcharge of the IRMAA tier (`IRMAA_MFJ`/`IRMAA_SGL`, this year's filing status) reached by the **MAGI from two years earlier** (`rows[k−2].agi + rows[k−2].teIncome`; MAGI = AGI + tax-exempt income, also stored as `magi` on each row) × the number of living people age ≥ 65. Years 0 and 1 are `$0`, because the model has no AGI from before the projection starts. The 2-year lag is IRMAA's real look-back (the premium for year Y is set from the Y−2 return); the tier uses *this* year's filing status. Tier tables are indexed, so no deflation. The row reports it as `irmaaSurcharge` and it is included in `expIrmaa`.
 - **Payment:** part of the household expense pool below, so it is paid income → dividends → sales like everything else, by portfolios with Pay expenses checked.
 
 **AUM fee** (household assumption `state.aumFee`; per-portfolio `aum` box):
@@ -321,6 +333,12 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
   (2) **portfolio dividends** (ODIV of the non-IDGT in-range portfolios), shared pro rata to each portfolio's ODIV — any dividend not
   needed is **reinvested** (adds basis), then (3) **asset sales**, shared pro rata to balance (a portfolio that runs out
   hands the remainder to the others). Anything still unpaid is reported as `expUnfunded`.
+- **Reinvest excess income** (`brokerage[].reinvest`, default off): `excessIncome = max(0, cashIncome − expTotal)`, computed in `computeProjection` right after the tax ↔ LTCG
+  iteration converges (so it never feeds back into that year's tax). It is only > 0 when household income covered every expense, so no dividends were used and nothing sold that year.
+  It is split pro rata to start-of-year balance across the live, in-range portfolios with `reinvest` checked (IDGT or not; `x.excessIn`), and added at year-end:
+  `bal_next = bal×(1+g) − divUsed − sold + excessIn`, `basis_next = (basis − sold×(1−f) + reinvested dividends + excessIn)/(1+inflation)`. With no eligible portfolio the excess
+  leaves the model (`excessReinvested = 0`). Row fields: `excessIncome`, `excessReinvested`; per-portfolio entry: `excessReinvested`, `reinvest`. Shown in the asset-chart tooltip (Show details),
+  the expense-chart popup (when > $1), the Excel export (main sheet + portfolio sheets) and the chat data (`excess_reinvested`). Stretch years do not model it.
 - **IDGT:** follows the same rule as any portfolio — it pays household expenses only if its own **Pay expenses** box is checked (off by default); otherwise it reinvests all its dividends and is never sold for expenses. It keeps carryover basis (no step-up) and its own chart.
 - **Realized LTCG** = amount sold × the portfolio's gain fraction `f`, for every portfolio (IDGT on its own sales), feeding
   SCGL → qualified income → AGI → NIIT as before.
@@ -332,7 +350,7 @@ is circular. `runWaterfall(taxExp)` runs the funding waterfall for a given tax e
 Each extra tax dollar produces well under a dollar of new tax (only the gain share of a sale is LTCG, taxed ≤ ~24% with NIIT), so the map is a
 contraction and converges in ~6–8 rounds. After it settles, the SCGL pool is drawn down **once**, and SST/marginal rate are computed from the converged
 LTCG. `expTax` is the tax that was funded; `totalTax` is the tax it produces (equal within `TAX_TOL`). `taxIters` / `taxConverged` report the solve.
-The IRMAA surcharge uses the AGI from two years earlier — that is IRMAA's real look-back, and it also keeps IRMAA out of the circularity.
+The IRMAA surcharge uses the MAGI (AGI + tax-exempt income) from two years earlier — that is IRMAA's real look-back, and it also keeps IRMAA out of the circularity.
 
 **Cost basis & unrealized gain** (every portfolio; average-cost method, all in today's $):
 - **Start:** `basis` = `basisPct / 100 × balance`, clamped to `[0, balance]`; a blank basis starts at `basis = balance`
@@ -356,7 +374,10 @@ The IRMAA surcharge uses the AGI from two years earlier — that is IRMAA's real
 | `filing` | `'married'` or `'single'` for this year |
 | `wageByPerson`, `wageTotal` | Wage income |
 | `ssByPerson`, `totalSS` | Social Security income |
-| `pension`, `pensionByPerson`, `rental`, `rentalByPerson` | Pension/rental income |
+| `pension`, `pensionByPerson`, `rental`, `rentalByPerson` | Pension/rental income (rental = taxable amount) |
+| `rentalDep`, `rentalDepByPerson` | Rental depreciation: non-cash, in `cashIncome`, untaxed |
+| `teIncome`, `teByPerson`, `magi` | Tax-exempt income from portfolios' `teYield`: untaxed (not in AGI, taxable income or the senior-deduction MAGI), in `cashIncome`, added to provisional income (taxable SS) and to `magi = agi + teIncome` (IRMAA); per-portfolio entry has `taxExempt` |
+| `seniorDeduction`, `seniorEligible` | Enhanced senior deduction applied this year (Schedule 1-A) and how many living people were eligible |
 | `odiv`, `qdiv`, `odivNQ`, `odivByPerson`, `qdivByPerson`, `odivNQByPerson` | Dividend income (total, qualified, non-qualified) |
 | `ltcg`, `ltcgGross`, `ltcgByPerson`, `scglUsed`, `scglRemaining` | Realized LTCG net/gross of SCGL, and the SCGL pool's state |
 | `ftcByPerson`, `foreignTaxCredit` | Foreign tax credit per person and household total |
@@ -375,7 +396,7 @@ The IRMAA surcharge uses the AGI from two years earlier — that is IRMAA's real
 | `aumBalance`, `aumFee` | AUM balance (start of year) and the total AUM fee charged this year (equals `expAum`) |
 | `taxIters`, `taxConverged` | Rounds the tax↔LTCG iteration took (≥1) and whether it met `TAX_TOL` |
 | `cashIncome`, `expFromIncome`, `expFromDiv`, `expFromSales`, `expUnfunded` | The expense-funding waterfall (§4.6): household cash income available (wage+SS+pension+rental+RMD), and the expense amount paid by income, by dividends, by asset sales, and left unfunded (`expTotal = expFromIncome + expFromDiv + expFromSales + expUnfunded`) |
-| `irmaaSurcharge` | Household IRMAA surcharge for the year (tier of the AGI from two years earlier × enrolled people 65+; $0 in years 0 and 1) ; always charged as a household expense (`expIrmaa`) |
+| `irmaaSurcharge` | Household IRMAA surcharge for the year (tier of the MAGI from two years earlier × enrolled people 65+; $0 in years 0 and 1) ; always charged as a household expense (`expIrmaa`) |
 | `totalTax` | Final Total Tax: `max(0, ordTax+qualTax−foreignTaxCredit) + niit` |
 | `agi` | Adjusted gross income |
 
@@ -446,9 +467,9 @@ for the whole "Brokerage portfolio income" card.
 | `wage.js` | Wage | Age range (default end 65), annual change |
 | `socialSecurity.js` | Social Security | Already-started flag (else FRA, default 67), PIA, claim-age slider (62–70, default = FRA or started age) |
 | `pension.js` | Pension | `agedItemCard` — amount, age range, change (the fixed option is worded **Fixed $ (no COLA)** here via `renderChangeRow`'s `fixedLabel`; elsewhere **Fixed $ (no growth)**), survivor benefit |
-| `rental.js` | Rental income | `agedItemCard` — same shape as Pension |
-| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, **age range (start/end) directly below the name**, **start balance**, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, independent of the AUM box and IDGT flag —, IDGT flag, **AUM checkbox** (counts this balance toward the AUM fee base), **Pay expenses checkbox** (`payExp`, default **off**; only checked portfolios' dividends and sales fund household expenses), **optional cost basis (% of start balance, 0–100; blank = no unrealized gain today)** right under the balance, there is **no** fee, IRMAA, tax drag or withdrawal field on the card (fee and IRMAA are household-level, §5.3) (living expenses are household-level, §5.3), and LTCG has **no input**: the panel just notes that expenses are paid household income → dividends → asset sales, and that sales realize gain from the cost basis —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
-| `ira.js` | Pre-tax IRA / 401(k) | Balance, **AUM checkbox** (`ira.aum`), age range (default start = RMD age), growth (default inflation+3%), survivor benefit, **IRA stretch** checkbox, **Annual Roth conversion** (paired slider + number, $/yr today's $, slider range 0 → 4 × balance; `onIraBalance` re-ranges it and clamps the value when the balance is lowered) and **Conversion start age** (paired slider + number, current age → passing age, `ira.convStart`; conversions begin at the later of this and the current age, §4.6) |
+| `rental.js` | Rental income | One card with **＋ Add**; each rental property is a sub-card (name, taxable amount, annual depreciation, age range, annual change, survivor flag, Enable / Hide / **Remove**), like brokerage portfolios; `addRental` / `removeRental` / `onRentalName` in `incomeForms.js` |
+| `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, **age range (start/end) directly below the name**, **start balance**, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, independent of the AUM box and IDGT flag —, IDGT flag, **AUM checkbox** (counts this balance toward the AUM fee base), **Pay expenses checkbox** (`payExp`, default **off**; only checked portfolios' dividends and sales fund household expenses), **Reinvest excess income checkbox** (`reinvest`, default **off**; receives leftover household income after all expenses, §4.6), **optional cost basis (% of start balance, 0–100; blank = no unrealized gain today)** right under the balance, there is **no** fee, IRMAA, tax drag or withdrawal field on the card (fee and IRMAA are household-level, §5.3) (living expenses are household-level, §5.3), and LTCG has **no input**: the panel just notes that expenses are paid household income → dividends → asset sales, and that sales realize gain from the cost basis —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
+| `ira.js` | Pre-tax IRA / 401(k) | Balance, **AUM checkbox** (`ira.aum`), age range (default start = RMD age), growth (default inflation+3%), survivor benefit, **IRA stretch** checkbox, **Annual Roth conversion** (paired slider + number, $/yr today's $, slider range 0 → balance, initial value 0; `onIraBalance` re-ranges it and clamps the value when the balance is lowered) and **Conversion start** (dropdown: **RMD start (age N)** default, Now, Custom age; the paired age slider shows only for Custom; conversions begin at the later of the chosen age and the current age, §4.6) |
 | `roth.js` | Roth IRA | Balance, **AUM checkbox** (`roth.aum`), growth (default inflation+3%), survivor benefit — no withdrawal fields; only grows, fed by the linked IRA's conversion |
 
 ### 5.5 `incomeForms.js`
@@ -519,7 +540,7 @@ intersect. The per-person age lines (title) and the per-person / total monthly S
 
 ### 6.4 `incomeChart.js` — Annual household income
 Reads rows' `pension`, `wageTotal`, `rothConvTotal`, `iraTotal`, `rental`, `qdiv`, `odivNQ`, `ltcg`,
-`ssByPerson` fields. Stack order (bottom→top): **pension, wage, pre-tax IRA withdraw, IRA RMD, rental,
+`ssByPerson` fields. Stack order (bottom→top): **pension, wage, pre-tax IRA withdraw, IRA RMD, rental, rental depreciation (non-cash, untaxed; `rentalDep`), tax-exempt income (`teIncome`),
 QDIV, ODIV−QDIV, LTCG, SS(P0), SS(other)**. IRMAA-tier dashed overlay via `overlayPlugin.js`, labeled
 "IRMAA Tier #". Y axis locked at $150k default, auto-raises. Tooltip: total income + SCGL remaining always (SCGL is a fixed **today's-$** pool consumed by today's-$ LTCG, so the figure shown is in today's $);
 filing status + AGI under `show_details`, plus (when there are expenses) the household expense funding split: total expenses (incl. income tax), paid by household income, by dividends, by asset sales, and any unfunded shortfall.
@@ -562,12 +583,24 @@ chart (only if any IDGT portfolio exists) for IDGT balances alone. Tooltip: age,
 = the account ends as before. Checked = the account is *not* dropped when its owner passes unless a surviving spouse inherits it
 (`bene`, unchanged): it is held by heirs — no RMDs/withdrawals/conversions, still compounding at its own real growth rate — through
 the last projection row, and then `computeProjection()`'s extra `stretch` array carries it `STRETCH_YEARS` (10) more years
-(`{k, stretchYear, age0, ages, alive:[false…], iraBalByPerson, rothBalByPerson}`; `[]` when no checked account has a balance). Heir
+(`{k, stretchYear, age0, ages, alive:[false…], iraBalByPerson, rothBalByPerson, portfoliosByPerson}`; `[]` when nothing carries on). Heir
 taxes are not modeled. The pseudo-rows are deliberately *not* in `rows`, so the income/tax/SS charts and the Excel summary never see
-them. The **main** asset chart (not the IDGT chart) appends them: only stretched IRA bands continue, brokerage bands (null there)
-stop, the x-axis is extended past the shared axis end if needed (the one age-axis chart not locked to `chartMaxAge`), and the
+them. The **main** asset chart (not the IDGT chart) appends them: stretched IRA bands and every non-IDGT brokerage portfolio still holding a balance in the last row continue (IDGT bands end at the last row), the x-axis is extended past the shared axis end if needed (the one age-axis chart not locked to `chartMaxAge`), and the
 tooltip adds "IRAs held by heirs — year n of 10". In stretch years an account that isn't stretched is `null` (not 0), so it draws no line or band; and there is **no gap** at the last passing: a stretched band's line and fill run continuously from the last real year into the first stretch year (the connecting segment is drawn, sloping down over that one year from "everything" to "stretched IRAs only"), while accounts that do not continue end at the last real year. The Excel IRA / Roth sheets append the same years, flagged "After last passing
 (heirs)", only for accounts with the box checked.
+
+**Brokerage stretch.** In the 10 stretch years each surviving non-IDGT portfolio (`portfoliosByPerson[i][bi]`, `null` when it doesn't continue)
+compounds at its own real growth rate from the last row's balance, with no expenses or withdrawals modeled. Stretch year 1 is the balance at the
+passing itself, where basis **steps up to value** (spec §4.6, `steppedUp: true`); from there basis erodes by inflation (`/(1+inflation)` a year) while
+value grows, so the unrealized gain in these years is only growth since the passing. A portfolio whose owner died earlier without `bene` is already
+gone at the last row and does not appear. The step-up is why the LTCG-devalued band (below) rises and the basis line jumps up at the passing.
+
+**Cost-basis line (both charts).** When the chart has any portfolio, an extra dataset **"Brokerage cost basis"** (dashed, dark, `order:0` so it draws on
+top, own `stack:'basis'` so it plots at its own value instead of on top of the bands) is the summed `basis` of that chart's portfolios (a portfolio that
+doesn't track basis counts at full value). Because brokerage bands are first in the stack, the gap between the line and the top of the brokerage bands is
+the unrealized gain. The line itself is never devalued, but it is **removed wherever the applicable LTCG devalue is > 0%** (`basisOf` returns null for that row; pair 2 for stretch rows, pair 1 otherwise) — any LTCG devalue moves the band toward 100% basis, so the line would no longer mark the top of the gain. If every row is devalued the dataset and its legend key are omitted (`showBasis`). Legend has a dashed key; tooltip shows "Cost basis (dashed line)".
+
+**Devalue sliders (two pairs).** Four sliders above the main chart (`#ltcgDevalue`, `#ordDevalue` = *before the last passing*; `#ltcgDevalue2`, `#ordDevalue2` = *after the last passing, heirs' anticipated brackets*; handlers `onDevalueInput` / `syncDevalueSliders` in `input/controls.js`, values in `state.ui`) shrink what the bands show toward after-tax value via `assetDevalue()`, which returns `[pair1, pair2]`; a row uses pair 2 when `r.stretchYear` is set, pair 1 otherwise. **LTCG devalue %** (default 10 before the last passing, 24 after) removes that % of each brokerage portfolio's *unrealized gain* (`unrealizedGain`, never basis); **Ordinary income devalue %** (default 10 before the last passing, 40 after) removes that % of the pre-tax IRA balance; Roth is unchanged. The LTCG sliders apply to the IDGT chart too (carryover basis, so its gain stays taxable; it has no stretch years, so only pair 1 acts there); the ordinary sliders have nothing to act on there. A drag redraws only the two asset charts (no recompute). The Y axis is locked from *face* values so the scale does not move with the sliders. When a band is devalued its tooltip adds "Face value before devalue", and the note under the chart states the percentages applied (the "after" clause only when there are stretch years).
 
 **Cost basis (§4.6):** under `show_details` only, portfolios add *Dividends used for expenses*,
 *Dividends reinvested*, *Sold to cover shortfall*, *Cost basis* and *Unrealized gain

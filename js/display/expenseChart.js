@@ -58,6 +58,7 @@ function buildExpenseChart(){
       lines.push(mrow('  paid by dividends', fmt(r.expFromDiv)+'/yr'));
       lines.push(mrow('  paid by asset sales', fmt(r.expFromSales)+'/yr'));
       if(r.expUnfunded>1) lines.push(mrow('  unfunded shortfall', fmt(r.expUnfunded)+'/yr'));
+      if(r.excessReinvested>1) lines.push(mrow('Excess income reinvested', fmt(r.excessReinvested)+'/yr'));
       if(showDetails){
         lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
         lines.push(mrow('Household cash income', fmt(r.cashIncome)+'/yr'));

@@ -69,7 +69,10 @@ function computeProjection(){
     const g=realGrowth(p.ira.growth,inflation);
     const rothOk=!!(p.roth&&p.roth.enabled);
     const convAmt=rothOk?Math.max(0,Number(p.ira.conv)||0):0;
-    const convStartAge=Math.max(curAges[i], Number(p.ira.convStart)||0);
+    // Conversion start: 'rmd' (default) = the IRA's own Start age (the RMD start), 'now' = today, 'custom' = ira.convStart.
+    // Never earlier than the owner's current age.
+    const cMode=p.ira.convStartMode||'rmd';
+    const convStartAge=Math.max(curAges[i], cMode==='custom'?(Number(p.ira.convStart)||0):(cMode==='now'?0:startAge));
     for(let k=0;k<=yearsToProject;k++){
       const ownerAge=curAges[i]+k;
       const ownerAlive=ownerAge<passAges[i];
@@ -165,7 +168,8 @@ function computeProjection(){
   });
 
   // ── Pension / rental: always per-person ──
-  function personAgedItemActive(item, ownerIdx, k){
+  // `depreciation` = true returns the item's annual depreciation instead of its income amount (same on/off rules and age range).
+  function personAgedItemActive(item, ownerIdx, k, depreciation){
     if(!item.enabled) return 0;
     const owner=people[ownerIdx];
     const age=curAges[ownerIdx]+k;
@@ -183,6 +187,11 @@ function computeProjection(){
     // survivor benefit isn't cut off by an end age of "passing" (= the owner's own passing age).
     const rangeAge = ownerAlive ? age : passAges[ownerIdx]-1;
     if(rangeAge<sA||rangeAge>=eA) return 0;
+    if(depreciation){
+      // Straight-line depreciation is a fixed nominal dollar amount, so in today's $ it shrinks by inflation each year
+      // (same convention as the fixed-$ AUM fee). Entered in today's $ for year 0.
+      return Math.max(0,Number(item.depreciation)||0)/Math.pow(1+inflation,k);
+    }
     const g=realGrowth(item.change, inflation);
     return item.amount*Math.pow(1+g,k);
   }
@@ -246,14 +255,19 @@ function computeProjection(){
     const pensionByPerson = people.map((p,i)=>personAgedItemActive(p.pension,i,k));
     const pension = pensionByPerson.reduce((a,b)=>a+b,0);
 
-    const rentalByPerson = people.map((p,i)=>personAgedItemActive(p.rental,i,k));
+    // Rental properties: any number per person; each has its own on/off, age range, annual change and survivor flag.
+    const rentalByPerson = people.map((p,i)=>(p.rentals||[]).reduce((a,r)=>a+personAgedItemActive(r,i,k),0));
     const rental = rentalByPerson.reduce((a,b)=>a+b,0);
+    // Rental depreciation: a non-cash expense already deducted in the entered (taxable) rental income, so it is added back to the
+    // household's cash income stream but is never taxed (it is not part of `nonSSOrdinary` / AGI).
+    const rentalDepByPerson = people.map((p,i)=>(p.rentals||[]).reduce((a,r)=>a+personAgedItemActive(r,i,k,true),0));
+    const rentalDep = rentalDepByPerson.reduce((a,b)=>a+b,0);
 
     // Brokerage portfolio income — each portfolio produces ODIV and QDIV (and a foreign tax credit).
     // Realized LTCG is NOT computed here: it comes from the household expense waterfall below (asset sales).
     // `active` = the portfolio is inside its age range (or continuing to a surviving spouse); an inactive
     // portfolio just compounds — it produces no dividends and is not touched to fund expenses.
-    const NOPF={odiv:0,qdiv:0,ftc:0,active:false};
+    const NOPF={odiv:0,qdiv:0,ftc:0,te:0,active:false};
     function brokerageValues(portfolio, ownerIdx, k, bal){
       if(!portfolio||!portfolio.enabled||!(bal>0)) return NOPF;
 
@@ -281,7 +295,10 @@ function computeProjection(){
       // Foreign tax credit (spec §4.4, §9.4): always active, independent of the AUM box
       // and the IDGT flag. Subtracted from the household's Total Tax, not added to income.
       const ftc = bal*clamp(Number(portfolio.foreignPct)||0,0,100)/100*clamp(Number(portfolio.ftcPct)||0,0,100)/100;
-      return {odiv,qdiv,ftc,active:true};
+      // Tax-exempt income (e.g. municipal-bond interest): a yield on the start-of-year balance, paid out of the portfolio's total
+      // return to the household. It is untaxed (never in AGI) but counts as household cash income (see cashIncome below).
+      const te=Math.max(0,bal*(Number(portfolio.teYield)||0)/100);
+      return {odiv,qdiv,ftc,te,active:true};
     }
     // Start-of-year balance for every portfolio. A portfolio stops existing once its owner has
     // passed unless it is marked to continue to a surviving spouse.
@@ -304,12 +321,13 @@ function computeProjection(){
     const pfVals=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>brokerageValues(b,i,k,pfBalNow[i][bi])));
 
     // Household IRMAA surcharge for this year (today's $; the tier tables are indexed, so they aren't deflated):
-    // the tier reached by the AGI from TWO years earlier (IRMAA's real look-back: the premium for year Y is set from the
+    // the tier reached by the MAGI (AGI + tax-exempt income) from TWO years earlier (IRMAA's real look-back: the premium for year Y is set from the
     // tax return for year Y−2; it also means this year's AGI — which depends on this year's LTCG, which depends on asset
     // sales, which fund this surcharge — is never needed, so there is no circularity) × the number of living people age 65+.
     // Years 0 and 1 have no projected AGI two years back (the model has no pre-projection history), so they are $0.
     // Filing status is this year's.
-    const priorAGI = (k>=2 && rows[k-2]) ? (rows[k-2].agi||0) : 0;
+    // IRMAA's MAGI = AGI + tax-exempt interest, so the tax-exempt income of that year counts toward the tier.
+    const priorAGI = (k>=2 && rows[k-2]) ? ((rows[k-2].agi||0)+(rows[k-2].teIncome||0)) : 0;
     const irmaaEnrolled = people.reduce((n,p,i)=>n+((alive[i]&&ages[i]>=65)?1:0),0);
     const irmaaFiling = married && alive[0] && alive[1] ? 'married' : 'single';
     const irmaaTier = (irmaaFiling==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>priorAGI>=t.magi);
@@ -334,10 +352,18 @@ function computeProjection(){
     // LTCG = amount sold × the portfolio's unrealized-gain fraction).
     // Circularity: tax ← LTCG ← asset sales ← expenses ← tax. It is resolved by fixed-point iteration (see the
     // solver below): guess the tax, run the waterfall, recompute the tax, repeat until it stops changing.
-    // Household cash income: wages, Social Security, pension, rental and IRA RMDs. The Roth-conversion
+    // Household cash income: wages, Social Security, pension, rental (+ its depreciation add-back), tax-exempt income and IRA RMDs. The Roth-conversion
     // amount is excluded (it moves to the Roth IRA, it isn't spendable). Gross — the tax it triggers is itself
     // one of the expenses it pays for.
-    const cashIncome = sumArr(wageByPerson)+totalSS+pension+rental+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
+    // Tax-exempt income per person (portfolio `teYield` × start-of-year balance, capped at what the portfolio can pay out). It is
+    // untaxed — never in AGI — but is household cash income, so it pays expenses and any excess can be reinvested.
+    const teByPerson=people.map((p,i)=>(p.brokerage||[]).reduce((a,b,bi)=>{
+      const v=pfVals[i][bi]; if(!v.active||pfState[i][bi].dead) return a;
+      const avail=Math.max(0,pfBalNow[i][bi]*(1+realGrowth(b.growth,inflation)));
+      return a+Math.min(v.te||0, avail);
+    },0));
+    const teIncome=teByPerson.reduce((a,b)=>a+b,0);
+    const cashIncome = sumArr(wageByPerson)+totalSS+pension+rental+rentalDep+teIncome+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
     // Per-portfolio working entries. Only live, funded portfolios have one.
     const pfx=people.map(()=>[]);
     const poolPf=[];   // portfolios inside their age range with "Pay expenses" checked — the only sources for household expenses
@@ -348,8 +374,8 @@ function computeProjection(){
       const g=realGrowth(b.growth,inflation), avail=Math.max(0,bal*(1+g));
       const feeShare=aumBalance>0?aumFee*aumBase[i][bi]/aumBalance:0;   // this portfolio's share of the AUM fee
       const feeD=feeShare;   // informational: the AUM fee charged on this balance (paid by the pool, not by this portfolio)
-      const x={active:v.active, idgt:!!b.idgt, payExp:!!b.payExp, feeShare, bal, g, avail, feeD, odiv:v.odiv,
-               f:st.tracked?pfGainFraction(bal,st.basis):0, divUsed:0, sold:0, ltcg:0};
+      const x={active:v.active, idgt:!!b.idgt, payExp:!!b.payExp, reinvest:!!b.reinvest, feeShare, bal, g, avail, feeD, odiv:v.odiv, te:Math.min(v.te||0, avail),
+               f:st.tracked?pfGainFraction(bal,st.basis):0, divUsed:0, sold:0, ltcg:0, excessIn:0};
       pfx[i][bi]=x;
       // Only portfolios with "Pay expenses" checked contribute dividends and asset sales to household expenses.
       if(x.active && x.payExp) poolPf.push(x);
@@ -380,11 +406,11 @@ function computeProjection(){
     const iraTotal=iraByPerson.reduce((a,b)=>a+b,0);
     const rothConvTotal=rothConvByPerson.reduce((a,b)=>a+b,0);
 
-    // Ordinary side of the return — independent of LTCG, so computed once, outside the iteration.
+    // Ordinary side of the return that does not depend on LTCG, computed once outside the iteration. (Taxable Social Security does
+    // depend on LTCG — provisional income includes QDIV and LTCG — so it is computed inside taxOn() below.)
     const filing = married && alive[0] && alive[1] ? 'married' : 'single';
     const ssThresholdFactor = Math.pow(1+inflation,-k); // un-indexed SS-tax thresholds, in today's $
     const nonSSOrdinary = wageTotal+pension+rental+iraTotal+rothConvTotal+odivNQ;
-    const{taxableSS,provisional}=computeTaxableSS(nonSSOrdinary, totalSS, filing, ssThresholdFactor);
     const std = filing==='married'?STD_MFJ:STD_SGL;
     // Long Term Care: from the LTC start age (older person's age) the LTC cost is an extra expense and the household
     // living expense switches to the post-LTC amount. Both are today's $ (flat in real terms = inflating in future $).
@@ -401,9 +427,14 @@ function computeProjection(){
     const ltcLiving=ltcStarted>=2?Math.max(0,Number(ltc.living2)||0):(ltcStarted===1?Math.max(0,Number(ltc.living1!=null?ltc.living1:state.living)||0):null);
     const ltcActive=ltcLiving!==null;
     // Itemized deduction = LTC cost above the 7.5%-of-AGI floor; AGI includes realized LTCG, so it is computed inside taxOn() below.
+    // Enhanced deduction for seniors (Schedule 1-A Part V): each living person who is 65 by the end of this tax year (birth year
+    // + 65 ≤ year; the model tracks birth year and month only, so a Jan 1 birthday exactly 65 years earlier is not picked up),
+    // for tax years 2025–2028 only. The amount depends on AGI, so it is evaluated inside taxOn() and in the SST/marginal helper.
+    const taxYear=THIS_YEAR+k;
+    const seniorN=(taxYear>=SENIOR_FIRST_YEAR&&taxYear<=SENIOR_LAST_YEAR)?people.reduce((n,p,i)=>n+((alive[i]&&(Number(p.birthYear)||0)+65<=taxYear)?1:0),0):0;
+    const seniorOf=agiX=>computeSeniorDeduction(seniorN, agiX, filing, ssThresholdFactor);
     const ordBrk = filing==='married'?MFJ_ORD:SGL_ORD;
     const qBrk = filing==='married'?MFJ_QDIV:SGL_QDIV;
-    const ordIncome = nonSSOrdinary+taxableSS;
     const expLiving=Math.max(0,Number(ltcActive?ltcLiving:state.living)||0);
     const expIrmaa=irmaaSurcharge;
     // The whole AUM fee is a household expense (paid by the pay-expenses portfolios via the waterfall).
@@ -445,12 +476,17 @@ function computeProjection(){
       const scglUsed=Math.min(scglRemaining,Math.max(0,ltcgGross));
       const ltcg=Math.max(0,ltcgGross-scglUsed); // net-of-SCGL LTCG — what's actually taxed/displayed
       const qualIncome=qdiv+ltcg;
+      // Provisional income = ALL non-SS income in AGI (ordinary, QDIV, net LTCG) + tax-exempt income + 50% of SS, so taxable SS
+      // moves with the realized LTCG and is solved inside the same tax ↔ LTCG iteration.
+      const {taxableSS,provisional}=computeTaxableSS(nonSSOrdinary+qdiv+ltcg+teIncome, totalSS, filing, ssThresholdFactor);
+      const ordIncome=nonSSOrdinary+taxableSS;
       const agi=nonSSOrdinary+taxableSS+qdiv+ltcg;
       const agiFloor=0.075*Math.max(0,agi);
       const itemized=Math.max(0, expLtc-agiFloor);
       const usedItemized=itemized>std;
       const ded=Math.max(std,itemized);
-      const ordTI=Math.max(0, ordIncome-ded);
+      const seniorDed=seniorOf(agi);   // on top of the standard/itemized deduction; does not reduce AGI
+      const ordTI=Math.max(0, ordIncome-ded-seniorDed);
       const ordTax=calcOrdTax(ordTI, ordBrk);
       const qualTax=calcQualTax(ordTI, qualIncome, qBrk);
       const incomeTax=ordTax+qualTax; // ordinary + qualified only — the SST hypothetical below mirrors this basis
@@ -460,7 +496,7 @@ function computeProjection(){
       const niit=computeNIIT(niiIncome, agi, filing, ssThresholdFactor, state.futureTax, THIS_YEAR+k);
       // §9.4: foreign tax credit offsets the ordinary+qualified tax (not NIIT), floored at 0.
       const totalTax=Math.max(0, incomeTax-foreignTaxCredit)+niit;
-      return {scglUsed, ltcg, qualIncome, qualTax, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, ordTI, ordTax};
+      return {scglUsed, ltcg, qualIncome, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax};
     }
 
     // ── Tax ↔ LTCG fixed-point iteration ──
@@ -477,15 +513,24 @@ function computeProjection(){
     // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
     const expTax=taxIn;
     const {expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded}=wf;
-    const {scglUsed, ltcg, qualIncome, qualTax, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, ordTI, ordTax}=tx;
+    const {scglUsed, ltcg, qualIncome, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax}=tx;
     const ltcgGross=wf.ltcgGross;
     scglRemaining=Math.max(0,scglRemaining-scglUsed);
+    // Excess income: household cash income left after ALL expenses (living, LTC, IRMAA, AUM fee and this year's tax) are paid.
+    // It is only positive when income alone covered every expense, so no dividends were used and no shares sold that year.
+    // It is reinvested at year-end into the live, in-range portfolios with \"Reinvest excess income\" checked, shared pro rata to
+    // start-of-year balance. With no such portfolio the excess simply leaves the model (as before this option existed).
+    const excessIncome=Math.max(0, cashIncome-expTotal);
+    const reinvPf=[]; pfx.forEach(list=>list.forEach(x=>{ if(x&&x.active&&x.reinvest) reinvPf.push(x); }));
+    const reinvBase=reinvPf.reduce((a,x)=>a+x.bal,0);
+    if(excessIncome>0&&reinvBase>0) reinvPf.forEach(x=>{ x.excessIn=excessIncome*x.bal/reinvBase; });
+    const excessReinvested=reinvBase>0?excessIncome:0;
     // Per-person gross LTCG, then prorate the SCGL shield across people/portfolios so the per-person breakdown
     // (used by the income chart's tooltip) still sums to the net total above.
     const ltcgByPersonGross=people.map((p,i)=>{ let t=0; pfx[i].forEach(x=>{ if(x) t+=x.ltcg; }); return t; });
     const shieldFrac = ltcgGross>0 ? scglUsed/ltcgGross : 0;
     const ltcgByPerson = ltcgByPersonGross.map(v=>v*(1-shieldFrac));
-    const {sst,marginalRate} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor);
+    const {sst,marginalRate} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor, seniorOf, teIncome);
 
     // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
@@ -494,7 +539,7 @@ function computeProjection(){
         id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, aum:!!b.aum, payExp:!!b.payExp, feeDrag:0, ltcg:0,
         // Cost-basis tracking (spec §4.6, cost basis) — start-of-year values, after any step-up this year.
         tracked, basis:tracked?st.basis:null, unrealizedGain:tracked?Math.max(0,bal-st.basis):null, steppedUp:tracked&&!!st.steppedNow,
-        divUsed:0, divReinvested:0, sold:0   // expense waterfall (filled in the roll-forward below): dividends used, dividends reinvested, shares sold
+        divUsed:0, divReinvested:0, sold:0, excessReinvested:0, taxExempt:0, reinvest:!!b.reinvest   // expense waterfall (filled in the roll-forward below): dividends used, dividends reinvested, shares sold
       };
     }));
     // Household embedded (unrealized) gain across tracked portfolios, split by whether basis steps up at death.
@@ -510,12 +555,13 @@ function computeProjection(){
     people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
       const st=pfState[i][bi], bal=pfBalNow[i][bi], x=pfx[i][bi];
       if(st.dead||!(bal>0)||!x){ st.bal=0; st.basis=0; return; }
-      st.bal=Math.max(0, x.avail-x.divUsed-x.sold);
+      st.bal=Math.max(0, x.avail-x.divUsed-x.sold-x.te+x.excessIn);   // tax-exempt income is paid out to the household   // excess income is added at year-end, like the sales come out
       const reinvested=Math.max(0,x.odiv-x.divUsed);
-      if(st.tracked) st.basis=clamp((st.basis-x.sold*(1-x.f)+reinvested)/(1+inflation), 0, st.bal);
+      // Reinvested dividends and reinvested excess income are after-tax money put in, so both add cost basis.
+      if(st.tracked) st.basis=clamp((st.basis-x.sold*(1-x.f)+reinvested+x.excessIn)/(1+inflation), 0, st.bal);
       const entry=portfoliosByPerson[i][bi];
       entry.feeDrag=x.feeD; entry.growthPct=x.g*100;
-      entry.divUsed=x.divUsed; entry.divReinvested=reinvested; entry.sold=x.sold;
+      entry.divUsed=x.divUsed; entry.divReinvested=reinvested; entry.sold=x.sold; entry.excessReinvested=x.excessIn; entry.taxExempt=x.te;
       entry.ltcg=x.ltcg;   // the exact (pre-SCGL) gain realized and taxed this year
       // Net growth after expenses paid from this portfolio (dividends used + shares sold) — actual balance change.
       entry.netGrowthPct = ((st.bal/bal)-1)*100;
@@ -526,36 +572,49 @@ function computeProjection(){
     rows.push({
       k, age0: idxP0!=null? ages[idxP0]:ages[0],
       ages, alive, filing,
-      wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson,
+      wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson, rentalDep, rentalDepByPerson, teIncome, teByPerson,
       odiv, qdiv, odivNQ, ltcg, ltcgGross, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
       iraByPerson, iraTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, embeddedGain, embeddedGainIdgt,
-      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, stdDeduction:std, ltcStarted, ltcCostByPerson, agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
+      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, ltcStarted, ltcCostByPerson, agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
       niiIncome, niit,
       irmaaSurcharge,
-      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, cashIncome, taxIters, taxConverged,
-      totalTax, agi
+      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
+      totalTax, agi, magi:agi+teIncome
     });
   }
-  // ── IRA "stretch": after the household's last passing, any pre-tax / Roth IRA that has its own
-  // "IRA stretch" checkbox on (`ira.stretch` / `roth.stretch`) and still holds a balance keeps compounding
-  // for STRETCH_YEARS more years (heirs' 10-year window). No RMDs or withdrawals are
-  // modeled in these years (heirs' own taxes are out of scope), and only IRAs are carried — brokerage
-  // balances end at the last passing as before. These are NOT projection rows (income/tax charts and the
-  // Excel summary never see them); they're returned separately as `stretch` for the asset chart / export.
+  // ── Legacy "stretch": the 10 years after the household's last passing (STRETCH_YEARS). Two things carry on, with no
+  // expenses, withdrawals or RMDs modeled (heirs' own taxes are out of scope):
+  //   • every non-IDGT brokerage portfolio still holding a balance in the last row keeps compounding at its own real
+  //     growth rate, with its basis stepped up to value at the passing (spec §4.6) and then eroding by inflation, so
+  //     the unrealized gain in these years is only growth since the passing. IDGT portfolios are outside the estate
+  //     and stop at the last row, as before.
+  //   • any pre-tax / Roth IRA with its own "IRA stretch" checkbox on (`ira.stretch` / `roth.stretch`) and a balance.
+  // These are NOT projection rows (income/tax charts and the Excel summary never see them); they're returned
+  // separately as `stretch` for the asset chart / export. Stretch year 1 is the balance at the passing itself.
   const stretch=[];
   if(rows.length){
     const last=rows[rows.length-1];
     const gIra=people.map(p=>realGrowth(p.ira.growth,inflation));
     const gRoth=people.map(p=>p.roth&&p.roth.growth?realGrowth(p.roth.growth,inflation):0);
+    const gPf=people.map(p=>(p.brokerage||[]).map(b=>realGrowth(b.growth,inflation)));
     let any=false;
     for(let n=1;n<=STRETCH_YEARS;n++){
       const k=last.k+n, ages=curAges.map(a=>a+k);
       const iraBalByPerson=people.map((p,i)=>{ const b=(last.iraBalByPerson[i]||0); return (p.ira.enabled&&p.ira.stretch&&b>0)?b*Math.pow(1+gIra[i],n):0; });
       const rothBalByPerson=people.map((p,i)=>{ const b=(last.rothBalByPerson[i]||0); return (p.roth&&p.roth.enabled&&p.roth.stretch&&b>0)?b*Math.pow(1+gRoth[i],n):0; });
+      // null = this portfolio does not continue (IDGT, disabled, or already gone at the last row).
+      const portfoliosByPerson=(last.portfoliosByPerson||[]).map((list,i)=>list.map((e,bi)=>{
+        if(!e||e.idgt||!(e.balance>0)) return null;
+        const g=gPf[i][bi], balance=e.balance*Math.pow(1+g,n), basis=e.balance*(1+g)/Math.pow(1+inflation,n-1);
+        any=true;
+        return {id:e.id, name:e.name, balance, idgt:false, aum:false, payExp:false, feeDrag:0, ltcg:0, tracked:true,
+                basis:Math.min(basis,balance), unrealizedGain:Math.max(0,balance-basis), steppedUp:n===1,
+                divUsed:0, divReinvested:0, sold:0, growthPct:g*100, netGrowthPct:g*100};
+      }));
       if(iraBalByPerson.some(v=>v>0)||rothBalByPerson.some(v=>v>0)) any=true;
-      stretch.push({k, stretchYear:n, age0:ages[idxP0], ages, alive:ages.map(()=>false), iraBalByPerson, rothBalByPerson});
+      stretch.push({k, stretchYear:n, age0:ages[idxP0], ages, alive:ages.map(()=>false), iraBalByPerson, rothBalByPerson, portfoliosByPerson});
     }
     if(!any) stretch.length=0;
   }

@@ -55,18 +55,32 @@ function computeTaxableSS(nonSS,totalSS,filing,f=1){
 // income, including the compounding effect — an extra dollar of income can
 // push more SS into taxability, which is itself taxed, so this can run
 // above the statutory bracket rate.
-function computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, actualTotalTax, f=1){
-  const ordTInoSS = Math.max(0, nonSSOrdinary-std);
+// `teIncome` (optional) is tax-exempt income: it is not taxed, but it raises provisional income, so it is added in the SS-taxability bump (as are QDIV and LTCG).
+// `seniorFn(agi)` (optional) is the enhanced senior deduction as a function of AGI, so the no-SS hypothetical and the marginal-rate
+// bump use the deduction that AGI would really earn (it phases out at 6% per eligible person, which shows up in the marginal rate).
+function computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, actualTotalTax, f=1, seniorFn=null, teIncome=0){
+  const ordTInoSS = Math.max(0, nonSSOrdinary-std-(seniorFn?seniorFn(nonSSOrdinary+qdiv+ltcg):0));
   const ordTaxNoSS = calcOrdTax(ordTInoSS, ordBrk);
   const qualTaxNoSS = calcQualTax(ordTInoSS, qdiv+ltcg, qBrk);
   const sst = Math.max(0, actualTotalTax - (ordTaxNoSS+qualTaxNoSS));
 
   const bump=100; // $100 numerical-derivative step, normalized back to a per-$1 rate
-  const {taxableSS:taxSS2}=computeTaxableSS(nonSSOrdinary+bump, totalSS, filing, f);
-  const ordTI2=Math.max(0, nonSSOrdinary+bump+taxSS2-std);
+  const {taxableSS:taxSS2}=computeTaxableSS(nonSSOrdinary+bump+qdiv+ltcg+teIncome, totalSS, filing, f);   // QDIV, LTCG and tax-exempt interest all count toward provisional income
+  const ordTI2=Math.max(0, nonSSOrdinary+bump+taxSS2-std-(seniorFn?seniorFn(nonSSOrdinary+bump+taxSS2+qdiv+ltcg):0));
   const tax2=calcOrdTax(ordTI2, ordBrk)+calcQualTax(ordTI2, qdiv+ltcg, qBrk);
   const marginalRate=Math.max(0,(tax2-actualTotalTax)/bump);
   return {sst, marginalRate};
+}
+// Enhanced deduction for seniors (Schedule 1-A Part V, lines 31–37). Per eligible individual it is
+//   max( 0, $6,000 − 6% × max( 0, MAGI − $75,000 ($150,000 joint) ) ),
+// and each eligible person on the return gets that same reduced amount (so two eligible spouses get twice it, and it reaches $0
+// at MAGI $250,000 joint). MAGI ≈ AGI. The dollar amounts are fixed by statute (not indexed), so like the SS thresholds they are
+// scaled by `f` = 1/(1+inflation)^k to stay in today's $. It does not reduce AGI; it reduces taxable income only.
+function computeSeniorDeduction(nEligible, magi, filing, f=1){
+  if(!(nEligible>0)) return 0;
+  const thresh=(filing==='married'?SENIOR_THRESH_MFJ:SENIOR_THRESH_SGL)*f;
+  const each=Math.max(0, SENIOR_DED*f - SENIOR_RATE*Math.max(0, magi-thresh));
+  return nEligible*each;
 }
 // §9.4 NIIT: 3.8% of the lesser of net investment income or MAGI over the threshold.
 function computeNIIT(nii, magi, filing, f=1, futureTax, year){

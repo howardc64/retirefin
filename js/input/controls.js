@@ -88,7 +88,7 @@ function cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight){
 }
 
 // Reusable "simple" card for an income item with age range + annual change (pension/rental style)
-function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel){
+function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel, extraFieldsHtml){
   const married = state.filingStatus==='married';
   return `<div class="item">
       ${cardHeader(title, checkboxPath+'.enabled', item.enabled, checkboxPath+'.hidden', !!item.hidden)}
@@ -96,6 +96,7 @@ function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel){
         <div class="field"><label>Annual amount (today's $)</label>
           <input type="number" class="money" min="0" step="500" value="${item.amount}" oninput="onNumberInput('${checkboxPath}.amount', this.value)"></div>
         <div></div>
+        ${extraFieldsHtml||''}
         ${renderAgeRangeRow(checkboxPath+'.ar', item.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
         ${renderChangeRow(checkboxPath+'.change', item.change, 0, fixedLabel)}
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${item.bene?'checked':''} onchange="onBeneToggle('${checkboxPath}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
@@ -170,7 +171,7 @@ function personAgeBounds(i){
 function pairBounds(el){
   const kind=el.dataset.bkind, i=+el.dataset.bi;
   if(kind==='person') return personAgeBounds(i);
-  if(kind==='ira') return [0, 4*Math.max(0, Number(state.people[i].ira.balance)||0)];
+  if(kind==='ira') return [0, Math.max(0, Number(state.people[i].ira.balance)||0)];
   return null;
 }
 function refreshPairBounds(){
@@ -181,5 +182,25 @@ function refreshPairBounds(){
     if(n) n.min=b[0];
     if(n && +n.value>=0 && +el.value!==+n.value && el.dataset.bkind!=='ira') el.value=n.value;
     if(el.dataset.bkind==='ira' && n) el.value=n.value;
+  });
+}
+
+// ── Asset Value chart "devalue" sliders (state.ui.ltcgDevalue / ordDevalue, % 0–100) ──
+// Display-only haircuts, but saved with the plan. Only the two asset charts depend on them, so a drag redraws just those
+// (no projection recompute).
+function onDevalueInput(key,val){
+  if(!state.ui) state.ui={hiddenSections:defaultHiddenSections()};
+  state.ui[key]=+val;
+  const lbl=document.getElementById(key+'Lbl'); if(lbl) lbl.textContent=(+val)+'%';
+  window.liveDrag=true; buildAssetChart(); buildIdgtChart(); window.liveDrag=false;
+  saveDebounced();
+}
+// Put both sliders and their labels into the state held in `state.ui` (renderAll, after load/reset).
+function syncDevalueSliders(){
+  const ui=state.ui||{};
+  [['ltcgDevalue',DEFAULT_LTCG_DEVALUE],['ordDevalue',DEFAULT_ORD_DEVALUE],['ltcgDevalue2',DEFAULT_LTCG_DEVALUE2],['ordDevalue2',DEFAULT_ORD_DEVALUE2]].forEach(([key,dflt])=>{
+    const v=Number.isFinite(Number(ui[key]))&&ui[key]!=null?Number(ui[key]):dflt;
+    const el=document.getElementById(key), lbl=document.getElementById(key+'Lbl');
+    if(el) el.value=v; if(lbl) lbl.textContent=v+'%';
   });
 }

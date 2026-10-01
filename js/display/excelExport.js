@@ -33,7 +33,10 @@ function xlsxColumns(proj){
     ...per('pensionByPerson','Pension'),
     {head:'Pension total', get:r=>r.pension},
     ...per('rentalByPerson','Rental'),
-    {head:'Rental total', get:r=>r.rental},
+    {head:'Rental total (taxable)', get:r=>r.rental},
+    {head:'Rental depreciation (non-cash, untaxed)', get:r=>r.rentalDep||0},
+    ...per('teByPerson','Tax-exempt income'),
+    {head:'Tax-exempt income total (untaxed)', get:r=>r.teIncome||0},
     ...per('rothConvByPerson','Pre-tax IRA withdraw'),
     {head:'Pre-tax IRA withdraw total', get:r=>r.rothConvTotal},
     ...per('iraByPerson','IRA RMD'),
@@ -56,11 +59,13 @@ function xlsxColumns(proj){
     {head:'AUM fee paid by household (non-IDGT)', get:r=>r.expAum||0},
     {head:'Income tax paid as expense (tax drag)', get:r=>r.expTax||0},
     {head:'Total household expenses', get:r=>r.expTotal||0},
-    {head:'Household cash income (wage+SS+pension+rental+RMD)', get:r=>r.cashIncome||0},
+    {head:'Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+RMD)', get:r=>r.cashIncome||0},
     {head:'Expenses paid by household income', get:r=>r.expFromIncome||0},
     {head:'Expenses paid by dividends', get:r=>r.expFromDiv||0},
     {head:'Expenses paid by asset sales', get:r=>r.expFromSales||0},
     {head:'Expenses unfunded', get:r=>r.expUnfunded||0},
+    {head:'Excess income (after all expenses)', get:r=>r.excessIncome||0},
+    {head:'Excess income reinvested', get:r=>r.excessReinvested||0},
     ...per('iraBalByPerson','Pre-tax IRA balance (EOY)'),
     ...per('rothBalByPerson','Roth IRA balance (EOY)'),
     {head:'Brokerage balance, non-IDGT (SOY)', get:r=>sumPortfolios(r,false,'balance')},
@@ -70,10 +75,12 @@ function xlsxColumns(proj){
     {head:'Taxable Social Security (SS)', get:r=>r.taxableSS},
     {head:'Provisional income', get:r=>r.provisional},
     {head:'Adjusted gross income (AGI)', get:r=>r.agi},
+    {head:'MAGI for IRMAA (AGI + tax-exempt income)', get:r=>r.magi},
     {head:'Standard deduction', get:r=>r.stdDeduction},
     {head:'7.5% AGI floor', get:r=>r.agiFloor||0},
     {head:'Itemized deductions (LTC cost above 7.5% AGI floor)', get:r=>r.itemized||0},
     {head:'Deduction used (standard or itemized)', get:r=>r.std},
+    {head:'Enhanced senior deduction (Schedule 1-A)', get:r=>r.seniorDeduction||0},
     {head:'Ordinary taxable income', get:r=>r.ordTI},
     {head:'Ordinary tax', get:r=>r.ordTax},
     {head:'Qualified tax (QDIV+LTCG)', get:r=>r.qualTax},
@@ -111,13 +118,13 @@ function xlsxSheetName(base, used){
 
 function xlsxPortfolioSheet(proj, i, bi){
   const person=displayPersonName(proj.people[i], i);
-  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','AUM fee share','Realized LTCG','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Dividends used for expenses','Dividends reinvested','Shares sold']];
+  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','AUM fee share','Realized LTCG','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Dividends used for expenses','Dividends reinvested','Shares sold','Excess income reinvested','Tax-exempt income paid']];
   proj.rows.forEach(r=>{
     const e=r.portfoliosByPerson[i][bi]; if(!e) return;
     rows.push([THIS_YEAR+r.k, round1(r.ages[i]), e.balance, round1(e.growthPct), round1(e.netGrowthPct!=null?e.netGrowthPct:e.growthPct),
       e.feeDrag, e.ltcg,
       e.tracked?e.basis:'', e.tracked?e.unrealizedGain:'', e.steppedUp?'Yes':'',
-      e.divUsed, e.divReinvested, e.sold]);
+      e.divUsed, e.divReinvested, e.sold, e.excessReinvested||0, e.taxExempt||0]);
   });
   return rows;
 }

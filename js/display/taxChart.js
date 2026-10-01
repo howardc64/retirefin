@@ -101,6 +101,7 @@ function buildTaxChart(){
         lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
         lines.push(mrow('Taxable income (TI)', fmt(r.ordTI)+'/yr'));
         lines.push(mrow(r.usedItemized?'Itemized deduction (LTC)':'Standard deduction', '('+fmt(r.std)+')'));
+        if(r.seniorDeduction>0) lines.push(mrow('Enhanced senior deduction (Schedule 1-A)', '('+fmt(r.seniorDeduction)+')'));
         // All income components rolling up to AGI (§9.4: "AGI = all non-SS income + TSS").
         lines.push(mrow('  Wages', fmt(r.wageTotal)+'/yr'));
         lines.push(mrow('  Pension', fmt(r.pension)+'/yr'));

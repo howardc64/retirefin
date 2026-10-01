@@ -3,11 +3,11 @@
 ## Features
 
 * **Todays’s $s:** All numbers in today’s $s for easy understanding
-* **Income, Portfolio/IRA, Expense, Tax Projection**
+* **Projection for Income, Portfolio/IRA, Expense, Tax**
 * **Income:** Wage, Pension, Social Security
 * **Expense:** Simple living cost, LTC, IRMAA surcharge, Tax, AUM fees
 * **Tax Projection:** Rudimentary but include basics : (ordinary, ordinary/qualified div), LTCG, itemized deduction (for long term care costs), and foreign tax credit )
-* **Portfolio Features:** Yield, Qualified Div, Foreign % and Tax Credits. Delayed Start (conversion of assets to equity investment portfolios in the future - ie work stock options, real estate etc.), IDGTs
+* **Portfolio Features:** Div yield, Qualified Div %, Tax Exempt yield, Foreign % and Tax Credits. Destination to invest income in excess of expenses. Delayed Start (conversion of assets to equity investment portfolios in the future - ie work stock options, real estate etc.), IDGTs
 * **IRA Features:** Pre-Tax, Roth, Roth Conversion (with delayed start), Stretched IRA
 * **On Passing Actions:** Forward asset to survivor, basis step-up, and residual unrealized gains
 * **AUM fees:** Fixed and AUM %
@@ -20,7 +20,6 @@
 ## Lacking and Incomplete Features
 
 * **Simplistic Tax Calculation:** Tax Calculations are general of course. Projection does not calculate complete taxes
-* **No Tax Exempts:** Not Implemented
 * **No Annuities:** Not Implemented
 * **Excel Export Rudimentary:** Currently just table of #s output by the app. Plan to include cell calculation based on formulas. Waiting until app matures as formula based spreadsheet require AI/LLM to work much longer to build the application 2x (once each for HTML and EXCEL followed by correlation check and testing)
 

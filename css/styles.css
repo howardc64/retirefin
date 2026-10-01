@@ -69,15 +69,15 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .item-body .full{grid-column:1/-1;}
 .item-body .field label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;}
 .item-note{grid-column:1/-1;font-size:10.5px;color:var(--text-faint);line-height:1.5;}
-/* Brokerage portfolio cards sit two levels deep (married two-col layout > item-body > portfolio
+/* Brokerage portfolio and rental cards sit two levels deep (married two-col layout > item-body > portfolio
    card), so a rigid 1fr/1fr grid squeezed every field to ~50px and clipped inputs/labels.
    auto-fit+minmax lets fields collapse to one column whenever the available width can't fit two. */
-.portfolio-card{background:var(--bg);}
-.portfolio-fields{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
+.portfolio-card,.rental-card{background:var(--bg);}
+.portfolio-fields,.rental-fields{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
 /* The list of portfolio cards must stack vertically (one per row) — there isn't room to fit two
    full cards side by side once nested inside a person column, and forcing 2 columns squeezed
    each card's border so it no longer enclosed its own fields. */
-.portfolio-list{grid-template-columns:1fr;gap:10px;}
+.portfolio-list,.rental-list{grid-template-columns:1fr;gap:10px;}   /* rental cards use the same nested-card layout as portfolios */
 .arow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0;}
 .arow select{flex:1 1 auto;min-width:0;}
 .arow input[type=number]{width:70px;flex:0 0 70px;}
@@ -228,3 +228,9 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .pair{display:flex;gap:10px;align-items:center;min-width:0;}
 .pair input[type=range]{flex:1 1 auto;min-width:0;}
 .pair input[type=number]{flex:0 0 120px;width:120px;}
+
+/* Asset Value chart: LTCG / ordinary-income devalue sliders */
+.devalue-box{margin:0 0 10px;padding:4px 10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);}
+.devalue-box .slider-row{padding:4px 0;}
+.devalue-box .item-note{margin-top:2px;}
+.devalue-h{font-size:11px;font-weight:600;color:var(--text-muted);margin:6px 0 0;text-transform:uppercase;letter-spacing:.03em;}

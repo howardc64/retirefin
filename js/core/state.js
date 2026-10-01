@@ -19,10 +19,13 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
   };
 }
 // Brokerage portfolio (spec 4.3): value, age range, annual growth (default inflation + 4%),
-// survivor benefit, ODIV yield (default 1.5%), QDIV share of ODIV (default 70%), an IDGT flag, an AUM flag and a
+// survivor benefit, ODIV yield (default 1.5%), QDIV share of ODIV (default 70%), tax-exempt yield % (`teYield`, default 0: paid out of the
+// portfolio each year as tax-exempt income — untaxed, but part of household income), an IDGT flag, an AUM flag and a
 // `payExp` flag (default OFF): only portfolios with it checked contribute dividends and asset sales to the household
 // expenses — living costs, IRMAA, the AUM fee and income tax (IDGT or not). Saves that predate the field load with it on
 // for non-IDGT portfolios, as they behaved before.
+// `reinvest` flag (default OFF): household income left over after ALL expenses are paid is reinvested, pro rata to start-of-year
+// balance, into the portfolios with it checked (added to balance and to cost basis at year-end). Older saves load with it off.
 // `aum` (default off): the portfolio's balance counts toward the AUM balance the household AUM fee is charged on
 // (`state.aumFee`, Assumptions panel). The fee, the household IRMAA surcharge, living expenses and income tax are all
 // funded by household income first, then portfolio dividends, then asset sales (which realize LTCG).
@@ -38,7 +41,13 @@ function defaultBrokeragePortfolio(balance, n){
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,aum:false,payExp:false,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,payExp:false,reinvest:false,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
+}
+// One rental property: `amount` = TAXABLE (net, after depreciation) rental income, today's $; `depreciation` = annual non-cash
+// depreciation, today's $ (added to household cash income but untaxed — see projection). Own age range / annual change / survivor flag.
+// Older saves held a single `person.rental`; hydrateState turns it into the first entry of `rentals`.
+function defaultRental(n){
+  return Object.assign(defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0), {id:uid(), enabled:true, hidden:false, name:'', depreciation:0});
 }
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
@@ -50,9 +59,9 @@ function defaultPerson(idx){
     wage:{enabled:false, hidden:true, amount:0, ar:defaultAgeRange('now',0,'custom',65), change:defaultChange('inflation')},
     ss:{enabled:true, hidden:false, pia:0, fra:fraForBirthYear(by), started:false, claimAge:fraForBirthYear(by)},
     pension: defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
-    rental:  defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0),
+    rentals: [],   // any number of rental properties (see defaultRental); Add/Remove on the Rental income card
     brokerage:[],
-    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, convStart:0, stretch:false, aum:false},
+    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, convStartMode:'rmd', convStart:0, stretch:false, aum:false},   // convStartMode: 'rmd' (conversions begin at the IRA's Start / RMD age), 'now', or 'custom' (uses convStart)
     roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false, aum:false}
   };
 }
@@ -62,6 +71,10 @@ function defaultPerson(idx){
 // DEFAULT_SECTION_HIDDEN is what a fresh session / Reset to defaults starts with: true = every section starts checked + collapsed.
 const SECTION_HIDE_KEYS=['assumptions','ss','income','tss','tax','expenses','assets'];
 const DEFAULT_SECTION_HIDDEN=true;
+// Asset Value chart "devalue" sliders (display only): % knocked off the unrealized-gain part of brokerage value (LTCG) and off pre-tax IRA value (ordinary income).
+const DEFAULT_LTCG_DEVALUE=10, DEFAULT_ORD_DEVALUE=10;
+// Second set: applies only to the years after the last passing (heirs' anticipated brackets); its defaults (24 / 40) are independent of the first set's.
+const DEFAULT_LTCG_DEVALUE2=24, DEFAULT_ORD_DEVALUE2=40;
 function defaultHiddenSections(hidden){
   const o={}; SECTION_HIDE_KEYS.forEach(k=>{ o[k]=(hidden===undefined?DEFAULT_SECTION_HIDDEN:!!hidden); }); return o;
 }
@@ -76,7 +89,7 @@ function defaultState(){
     ltc:{enabled:false, people:[{startAge:85,cost:100000},{startAge:85,cost:100000}], living1:null, living2:0},   // Long Term Care: per person start age (own age) and cost; household living expenses from the 1st / 2nd LTC start (today's $)
     aumFee:{mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{hiddenSections:defaultHiddenSections()}   // display-only, but saved/restored/reset with the plan (see above)
+    ui:{hiddenSections:defaultHiddenSections(), ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
@@ -128,7 +141,7 @@ function hydrateState(loaded){
   }
   fillLegacyHide(loaded);
   const out=merge(loaded, base);
-  if(loaded && !(loaded.ui && loaded.ui.hiddenSections)) out.ui={hiddenSections:defaultHiddenSections(false)};
+  if(loaded && !(loaded.ui && loaded.ui.hiddenSections)) out.ui={...out.ui, hiddenSections:defaultHiddenSections(false)};
   // Older saves had a per-portfolio "Withdrawal" (`living`) and "tax drag %" — both are gone. Carry the
   // withdrawals over as the household living expenses so an old plan keeps roughly the same spending.
   if(loaded && loaded.living===undefined && Array.isArray(loaded.people)){
@@ -158,8 +171,22 @@ function hydrateState(loaded){
       out.ltc.living2=Number(lp[order[1]]&&lp[order[1]].living)||0;
     }
   }
-  if(Array.isArray(out.people)) out.people.forEach(p=>{
+  if(Array.isArray(out.people)) out.people.forEach((p,pi)=>{
     if(!Array.isArray(p.brokerage)) p.brokerage=[];
+    // Rentals: older saves had one `rental` object per person — it becomes the first rental property (if it was in use).
+    const lp0=loaded&&Array.isArray(loaded.people)?loaded.people[pi]:null;
+    if(!Array.isArray(p.rentals)) p.rentals=[];
+    if(lp0 && lp0.rentals===undefined && lp0.rental && typeof lp0.rental==='object'){
+      const lr=lp0.rental;
+      if(lr.enabled || Number(lr.amount)>0 || Number(lr.depreciation)>0) p.rentals=[Object.assign(defaultRental(1), lr, {id:uid(), name:'', hidden:!!lr.hidden, enabled:!!lr.enabled})];
+    }
+    p.rentals=p.rentals.map(r=>merge(r, defaultRental(0)));
+    // Older saves have no convStartMode: a plan that already converts keeps its old start (convStart>0 = that age, else now); one that
+    // does not convert simply takes the new default (RMD start).
+    const lpIra=loaded&&Array.isArray(loaded.people)&&loaded.people[pi]&&loaded.people[pi].ira;
+    if(p.ira && lpIra && lpIra.convStartMode===undefined) { if(Number(p.ira.conv)>0) p.ira.convStartMode=(Number(p.ira.convStart)>0?'custom':'now'); }
+    // The Roth-conversion slider runs 0 → the pre-tax IRA balance (a conversion can't exceed what is there): trim older saves.
+    if(p.ira && Number(p.ira.conv)>Math.max(0,Number(p.ira.balance)||0)) p.ira.conv=Math.max(0,Number(p.ira.balance)||0);
     // Fill any missing fields (older saves) from a default portfolio, then drop untouched blank
     // ones (zero balance and still the auto-generated name) that older versions created on start.
     p.brokerage=p.brokerage
@@ -220,9 +247,10 @@ function flashMsg(text){
 // whose own saved `hidden` values (per card and, in `state.ui`, per section) are restored exactly as saved.
 function applyDefaultHiddenFromEnabled(s){
   (s.people||[]).forEach(p=>{
-    ['wage','ss','pension','rental','ira','roth'].forEach(key=>{
+    ['wage','ss','pension','ira','roth'].forEach(key=>{
       if(p[key]) p[key].hidden = !p[key].enabled;
     });
+    (p.rentals||[]).forEach(r=>{ r.hidden = !(r.enabled!==false); });
     (p.brokerage||[]).forEach(b=>{ b.hidden = !(b.enabled!==false); });
   });
   return s;

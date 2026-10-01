@@ -160,6 +160,31 @@
   <div class="cc-head"><div class="ct">Asset value by holder · brokerage (excl. IDGT) + pre-tax IRA + Roth IRA · today's dollars</div>
     <button class="rescale-btn" onclick="rescaleChart('asset')">↕ Rescale</button></div>
   <div class="legend" id="assetLegend"></div>
+  <div class="devalue-box">
+    <div class="devalue-h">Before the last passing</div>
+    <div class="slider-row">
+      <div class="sl"><strong>LTCG devalue</strong> (% of unrealized gain)</div>
+      <input type="range" id="ltcgDevalue" min="0" max="100" step="1" value="10" oninput="onDevalueInput('ltcgDevalue',this.value)">
+      <div class="sv" id="ltcgDevalueLbl">10%</div>
+    </div>
+    <div class="slider-row">
+      <div class="sl"><strong>Ordinary income devalue</strong> (% of pre-tax IRA)</div>
+      <input type="range" id="ordDevalue" min="0" max="100" step="1" value="10" oninput="onDevalueInput('ordDevalue',this.value)">
+      <div class="sv" id="ordDevalueLbl">10%</div>
+    </div>
+    <div class="devalue-h">After the last passing (heirs' anticipated tax brackets)</div>
+    <div class="slider-row">
+      <div class="sl"><strong>LTCG devalue</strong> (% of unrealized gain)</div>
+      <input type="range" id="ltcgDevalue2" min="0" max="100" step="1" value="24" oninput="onDevalueInput('ltcgDevalue2',this.value)">
+      <div class="sv" id="ltcgDevalue2Lbl">24%</div>
+    </div>
+    <div class="slider-row">
+      <div class="sl"><strong>Ordinary income devalue</strong> (% of pre-tax IRA)</div>
+      <input type="range" id="ordDevalue2" min="0" max="100" step="1" value="40" oninput="onDevalueInput('ordDevalue2',this.value)">
+      <div class="sv" id="ordDevalue2Lbl">40%</div>
+    </div>
+    <div class="item-note">Shows what the bands are roughly worth after tax. LTCG devalue removes that % of each brokerage portfolio's unrealized gain (the dashed cost-basis line is drawn only where the LTCG devalue is 0%, since any LTCG devalue moves the band toward 100% basis); ordinary income devalue removes that % of the pre-tax IRA; Roth is not reduced. The first pair applies to the years up to the last passing, the second pair to the 10 years after it. The LTCG sliders also apply to the IDGT chart below.</div>
+  </div>
   <div class="co"><div class="cw"><canvas id="assetChart"></canvas></div></div>
   <p class="cn" id="assetChartGain"></p>
 </div>

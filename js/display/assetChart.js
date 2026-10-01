@@ -12,6 +12,17 @@ function setGainNote(cfg, text){
   if(el) el.textContent=text||'';
 }
 
+// The two "devalue" sliders (state.ui, saved with the plan): a haircut on the embedded tax cost of each asset, so a band shows
+// roughly what it is worth after tax. LTCG devalue removes that % of a brokerage portfolio's UNREALIZED GAIN (basis is never
+// touched); ordinary-income devalue removes that % of a pre-tax IRA's value. Roth is left alone. Returns fractions 0–1.
+function assetDevalue(){
+  const u=(typeof state!=='undefined'&&state&&state.ui)||{};
+  const f=(v,d)=>{ const n=Number(v); return Math.min(100,Math.max(0,Number.isFinite(n)&&v!=null&&v!==''?n:d))/100; };
+  // [0] = years up to the last passing, [1] = the stretch years after it (heirs' anticipated brackets).
+  return [{ltcg:f(u.ltcgDevalue,DEFAULT_LTCG_DEVALUE), ord:f(u.ordDevalue,DEFAULT_ORD_DEVALUE)},
+          {ltcg:f(u.ltcgDevalue2,DEFAULT_LTCG_DEVALUE2), ord:f(u.ordDevalue2,DEFAULT_ORD_DEVALUE2)}];
+}
+
 // One builder for both asset charts. `cfg` picks which series belong on the chart
 // (main chart: non-IDGT brokerage + pre-tax IRAs; IDGT chart: IDGT brokerage only).
 function buildAssetChartFor(cfg){
@@ -55,28 +66,56 @@ function buildAssetChartFor(cfg){
   const labels=ageLabelRange(rows[0].age0,endAge);
   const ages=allRows.map(r=>r.age0);
   const rowByAge={}; allRows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
-  const seriesValues=series.map(s=>allRows.map(r=>{
-    // In stretch years, only IRAs whose "IRA stretch" box is checked (and still hold a balance) have a value;
-    // everything else is null (not 0) so it draws no band, no line, and no sliver in the transition.
+  const dv=assetDevalue();
+  const entryOf=(s,r)=>{ const person=r.portfoliosByPerson&&r.portfoliosByPerson[s.personIdx]; return person&&person[s.bi]; };
+  // Face (un-devalued) value of one series in one row. In stretch years, only accounts that carry on have a value —
+  // non-IDGT brokerage, and IRAs whose \"IRA stretch\" box is checked (and still hold a balance); everything else is
+  // null (not 0) so it draws no band, no line, and no sliver in the transition.
+  const faceOf=(s,r)=>{
     if(r.stretchYear){
-      if(s.type==='portfolio') return null;
+      if(s.type==='portfolio'){ const e=entryOf(s,r); return (e&&e.balance>0)?e.balance:null; }
       const acct=proj.people[s.personIdx][s.type];   // person.ira / person.roth
       const v=(s.type==='ira'?r.iraBalByPerson:r.rothBalByPerson)[s.personIdx]||0;
       return (acct&&acct.stretch&&v>0)?v:null;
     }
     if(s.type==='ira') return (r.iraBalByPerson&&r.iraBalByPerson[s.personIdx])||0;
     if(s.type==='roth') return (r.rothBalByPerson&&r.rothBalByPerson[s.personIdx])||0;
-    const person=r.portfoliosByPerson[s.personIdx];
-    const entry=person&&person[s.bi];
-    return entry?entry.balance:0;
-  }));
-  const aligned=seriesValues.map(vals=>alignToAges(ages, vals, labels));
+    const e=entryOf(s,r);
+    return e?e.balance:0;
+  };
+  // Plotted value = face value less the devalue haircut that applies to that kind of asset.
+  const valueOf=(s,r)=>{
+    const f=faceOf(s,r); if(f==null) return null;
+    const d=dv[r.stretchYear?1:0];   // set 2 after the last passing, set 1 before
+    if(s.type==='ira') return f*(1-d.ord);
+    if(s.type==='portfolio'){ const e=entryOf(s,r); return f-((e&&e.tracked)?(e.unrealizedGain||0):0)*d.ltcg; }
+    return f;
+  };
+  // Dashed line: total cost basis of this chart's portfolios (a portfolio that doesn't track basis counts at full value =
+  // no gain). It is NOT devalued, so the gap between it and the top of the brokerage bands is the unrealized gain.
+  // It is drawn only in rows where the applicable LTCG devalue is 0%: any LTCG devalue pulls the band toward 100% basis
+  // (at 100% the band's top IS the basis), so the line would no longer mark the top of the unrealized gain.
+  const hasPf=series.some(s=>s.type==='portfolio');
+  const basisOf=r=>{
+    if(dv[r.stretchYear?1:0].ltcg>0) return null;
+    let t=0, any=false;
+    series.forEach(s=>{
+      if(s.type!=='portfolio') return;
+      const e=entryOf(s,r); if(!e||!(e.balance>0)) return;
+      t+=e.tracked?(e.basis||0):e.balance; any=true;
+    });
+    return any?t:null;
+  };
+  const aligned=series.map(s=>alignToAges(ages, allRows.map(r=>valueOf(s,r)), labels));
+  const alignedFace=series.map(s=>alignToAges(ages, allRows.map(r=>faceOf(s,r)), labels));
+  const alignedBasis=hasPf?alignToAges(ages, allRows.map(basisOf), labels):null;
+  const showBasis=!!alignedBasis && alignedBasis.some(v=>v!=null);   // no line (and no legend key) when every row is LTCG-devalued
 
   const Y_MAX=lockedYMax(cfg.key, ()=>{
     let maxT=0;
     for(let i=0;i<labels.length;i++){
       let t=0, any=false;
-      aligned.forEach(a=>{ const v=a[i]; if(v!=null){ t+=v; any=true; } });
+      alignedFace.forEach(a=>{ const v=a[i]; if(v!=null){ t+=v; any=true; } });   // face values, so the locked scale holds as the devalue sliders move
       if(any) maxT=Math.max(maxT,t);
     }
     return Math.max(50000, Math.ceil(maxT/10000)*10000+10000);
@@ -87,15 +126,21 @@ function buildAssetChartFor(cfg){
     return proj.married ? `${personName} — ${s.name}` : s.name;
   };
   // No gap at the last passing: a stretched band's line and fill run straight on from the last real year into the
-  // first stretch year. Accounts that don't continue (brokerage, unchecked IRAs) are null in the stretch years, so
+  // first stretch year. Accounts that don't continue (IDGT, unchecked IRAs) are null in the stretch years, so
   // they simply end at the last real year and never reach into it.
   const datasets=series.map((s,si)=>{
     const color=ASSET_COLORS[si%ASSET_COLORS.length];
     return {
       label:seriesLabel(s,si), data:aligned[si],
       borderColor:color, backgroundColor:color+'bb',
-      borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'pf'
+      borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'pf', order:1
     };
+  });
+  // Dashed cost-basis line, in its own stack group so it plots at its own value rather than on top of the bands; order 0 = drawn on top.
+  if(showBasis) datasets.push({
+    label:'Brokerage cost basis', data:alignedBasis,
+    borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:2.5, borderDash:[8,5],
+    pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'basis', order:0
   });
 
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.
@@ -104,14 +149,19 @@ function buildAssetChartFor(cfg){
       const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]];
       if(!r) return [];
       const lines=popupPersonAgeLines(proj,r);
-      if(r.stretchYear) lines.push(mrow('IRAs held by heirs', 'year '+r.stretchYear+' of '+STRETCH_YEARS+' after last passing'));
+      if(r.stretchYear) lines.push(mrow('Assets held by heirs', 'year '+r.stretchYear+' of '+STRETCH_YEARS+' after last passing'));
       return lines;
     },
     // Per portfolio: value, net growth after the expenses paid from it, and (Show details) the expense-funding breakdown.
     label:ctx=>{
       if(ctx.raw==null||ctx.raw<1) return null;
-      const W=46, lines=[mrow('  '+ctx.dataset.label, fmt(ctx.raw), W)];
+      const W=46;
+      if(ctx.datasetIndex>=series.length) return [mrow('  Cost basis (dashed line)', fmt(ctx.raw), W)];
+      const lines=[mrow('  '+ctx.dataset.label, fmt(ctx.raw), W)];
       const s=series[ctx.datasetIndex], r=rowByAge[labels[ctx.dataIndex]];
+      // Show the face value whenever a devalue slider has changed what's plotted.
+      const face=r?faceOf(s,r):null;
+      if(face!=null && face-ctx.raw>=1) lines.push(mrow('      Face value before devalue', fmt(face), W));
       if(s && s.type==='portfolio' && r){
         const e=(r.portfoliosByPerson[s.personIdx]||[])[s.bi];
         if(e){
@@ -133,6 +183,8 @@ function buildAssetChartFor(cfg){
             lines.push(mrow('      Dividends used for expenses', fmt(e.divUsed||0), W));
             lines.push(mrow('      Dividends reinvested', fmt(e.divReinvested||0), W));
             lines.push(mrow('      Sold to cover shortfall', fmt(e.sold||0), W));
+            if(e.reinvest) lines.push(mrow('      Excess income reinvested', fmt(e.excessReinvested||0), W));
+            if(e.taxExempt>0) lines.push(mrow('      Tax-exempt income paid out', fmt(e.taxExempt), W));
             lines.push(mrow('      Cost basis', fmt(e.basis||0), W));
             lines.push(mrow('      Unrealized gain', fmt(e.unrealizedGain||0)+' ('+gainPct.toFixed(0)+'% of value)', W));
             if(e.steppedUp) lines.push(mrow('      Basis stepped up at death', 'reset to value', W));
@@ -158,7 +210,7 @@ function buildAssetChartFor(cfg){
     })});
   legendEl.innerHTML = series.map((s,si)=>
     legendItem(escHtml(seriesLabel(s,si)), ASSET_COLORS[si%ASSET_COLORS.length])
-  ).join('');
+  ).join('') + (showBasis ? legendItem('Cost basis (dashed) — brokerage above it is unrealized gain', null, 'border-top:2px dashed #1f1f1f;background:transparent;height:2px;margin-top:4px') : '');
 
   // Embedded (unrealized) gain in the plan's final year, across this chart's tracked portfolios.
   const last=rows[rows.length-1], tracked=[];
@@ -176,6 +228,15 @@ function buildAssetChartFor(cfg){
         ? ' IDGT assets keep their original (carryover) cost basis at death, so this gain generally stays taxable to whoever later sells.'
         : ' Non-IDGT portfolios generally receive a step-up in cost basis at death, so heirs would not owe tax on this gain.');
   }
+  // Say what the sliders did to the bands, so a reader never mistakes a devalued band for face value.
+  const pct=x=>Math.round(x*100)+'%';
+  const devParts=[];
+  const hasIra=!cfg.idgt && series.some(s=>s.type==='ira');
+  const setTxt=d=>{ const t=[]; if(hasPf && d.ltcg>0) t.push(pct(d.ltcg)+' of unrealized gain (brokerage)'); if(hasIra && d.ord>0) t.push(pct(d.ord)+' of pre-tax IRA'); return t.join(' and '); };
+  const t1=setTxt(dv[0]), t2=stretch.length?setTxt(dv[1]):'';
+  if(t1) devParts.push('before the last passing, bands are reduced by '+t1);
+  if(t2) devParts.push('after it (heirs), by '+t2);
+  if(devParts.length) gainText=(gainText?gainText+' ':'')+'Devalue: '+devParts.join('; ')+'.';
   setGainNote(cfg, gainText);
 }
 

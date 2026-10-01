@@ -4,16 +4,16 @@
 // with IRMAA-tier overlay (spec §8.3).
 // ═══════════════════════════════════════════════════════════════
 const VZ = {
-  pen:'#D06A18', wg:'#7B5EA7', iraW:'#C79A3E', rmd:'#E85D9A', rent:'#A0522D',
+  pen:'#D06A18', wg:'#7B5EA7', iraW:'#C79A3E', rmd:'#E85D9A', rent:'#A0522D', rentDep:'#D2A488', te:'#2A9D8F',
   qdiv:'#2E86AB', odivNQ:'#1A5276', ltcg:'#6C3483',
   ssP0:'#0F6E56', ssOther:'#3DB08A'
 };
-const INC_KEYS=['pension','wageTotal','rothConv','iraTotal','rental','qdiv','odivNQ','ltcg','ssP0','ssOther'];
-const INC_LABELS={pension:'Pension',wageTotal:'Wage',rothConv:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',rental:'Rental income',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
-const INC_COLORS={pension:VZ.pen,wageTotal:VZ.wg,rothConv:VZ.iraW,iraTotal:VZ.rmd,rental:VZ.rent,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
+const INC_KEYS=['pension','wageTotal','rothConv','iraTotal','rental','rentDep','te','qdiv','odivNQ','ltcg','ssP0','ssOther'];
+const INC_LABELS={pension:'Pension',wageTotal:'Wage',rothConv:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',rental:'Rental income',rentDep:'Rental depreciation (non-cash, untaxed)',te:'Tax-exempt income (untaxed)',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
+const INC_COLORS={pension:VZ.pen,wageTotal:VZ.wg,rothConv:VZ.iraW,iraTotal:VZ.rmd,rental:VZ.rent,rentDep:VZ.rentDep,te:VZ.te,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
 // Maps a stacked income key to the per-person breakdown array on each projection row,
 // so the tooltip can attribute the amount to whichever person(s) it belongs to.
-const INC_BYPERSON_FIELD={pension:'pensionByPerson',wageTotal:'wageByPerson',rothConv:'rothConvByPerson',iraTotal:'iraByPerson',rental:'rentalByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
+const INC_BYPERSON_FIELD={pension:'pensionByPerson',wageTotal:'wageByPerson',rothConv:'rothConvByPerson',iraTotal:'iraByPerson',rental:'rentalByPerson',rentDep:'rentalDepByPerson',te:'teByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
 // Single source of truth for the SS dataset labels, since they're read both
 // when building the stacked datasets (buildIncomeChart) and the legend HTML
 // (buildIncomeLegend). Must be refreshed before dataset construction on every
@@ -49,7 +49,7 @@ function buildIncomeChart(){
   rows.forEach(r=>{
     seriesByKey.pension.push(r.pension); seriesByKey.wageTotal.push(r.wageTotal);
     seriesByKey.rothConv.push(r.rothConvTotal);
-    seriesByKey.iraTotal.push(r.iraTotal); seriesByKey.rental.push(r.rental);
+    seriesByKey.iraTotal.push(r.iraTotal); seriesByKey.rental.push(r.rental); seriesByKey.rentDep.push(r.rentalDep||0); seriesByKey.te.push(r.teIncome||0);
     seriesByKey.qdiv.push(r.qdiv); seriesByKey.ltcg.push(r.ltcg);
     seriesByKey.odivNQ.push(r.odivNQ);
     seriesByKey.ssP0.push(r.ssByPerson[idxP0]||0);
@@ -111,6 +111,7 @@ function buildIncomeChart(){
       if(showDetails){
         lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
         lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
+        if(r.teIncome>0) lines.push(mrow('MAGI (AGI + tax-exempt income)',fmt(r.magi)+'/yr'));
         // Household expense funding (income → dividends → asset sales), when there are any expenses.
         if(r.expTotal>0){
           lines.push(mrow('Household expenses',fmt(r.expTotal)+'/yr'));
@@ -124,7 +125,7 @@ function buildIncomeChart(){
         }
       }
       r.iraBalByPerson.forEach((bal,i)=>{ if(bal>1)lines.push(mrow(displayPersonName(proj.people[i],i)+" IRA bal.", fmt(bal))); });
-      const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>r.agi>=t.magi);
+      const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>(r.magi!=null?r.magi:r.agi)>=t.magi);
       if(irmaaT) lines.push(`⚠ IRMAA: +${fmt(irmaaT.surch)}/yr`);
       return lines;
     }

@@ -8,6 +8,10 @@
 const MFJ_ORD=[{lim:24800,r:.10},{lim:100800,r:.12},{lim:211400,r:.22},{lim:403550,r:.24},{lim:512450,r:.32},{lim:768700,r:.35},{lim:Infinity,r:.37}];
 const SGL_ORD=[{lim:12400,r:.10},{lim:50400,r:.12},{lim:105700,r:.22},{lim:201775,r:.24},{lim:256225,r:.32},{lim:640600,r:.35},{lim:Infinity,r:.37}];
 const STD_MFJ=32200, STD_SGL=16100;
+// Enhanced deduction for seniors (Schedule 1-A Part V; IRC §151(d)(5)(C), added by the One Big Beautiful Bill Act): $6,000 per
+// eligible individual (age 65 by year-end — for 2025 that means born before 1/2/1961), reduced by 6% of MAGI over $75,000
+// ($150,000 joint), tax years 2025–2028 only. Fixed dollar amounts, not indexed. Taken on top of the standard/itemized deduction.
+const SENIOR_DED=6000, SENIOR_THRESH_SGL=75000, SENIOR_THRESH_MFJ=150000, SENIOR_RATE=0.06, SENIOR_FIRST_YEAR=2025, SENIOR_LAST_YEAR=2028;
 // Qualified dividend / LTCG brackets: IRS Rev. Proc. 2025-32 (tax year 2026).
 const MFJ_QDIV=[{lim:98900,r:0},{lim:613700,r:.15},{lim:Infinity,r:.20}];
 const SGL_QDIV=[{lim:49450,r:0},{lim:545500,r:.15},{lim:Infinity,r:.20}];

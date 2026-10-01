@@ -56,6 +56,21 @@ function onPortfolioName(pid,bi,val,inputEl){
   if(title) title.textContent=val.trim()||('Portfolio '+(bi+1));
   recomputeDebounced(); saveDebounced();
 }
+function onRentalName(pid,ri,val,inputEl){
+  setPath(pid+'.rentals.'+ri+'.name', val);
+  const title=inputEl.closest('.rental-card').querySelector('.rt-title');
+  if(title) title.textContent=val.trim()||('Rental '+(ri+1));
+  recomputeDebounced(); saveDebounced();
+}
+function addRental(i){
+  if(!Array.isArray(state.people[i].rentals)) state.people[i].rentals=[];
+  state.people[i].rentals.push(defaultRental(state.people[i].rentals.length+1));
+  renderIncomeForms(); recompute(); saveDebounced();
+}
+function removeRental(i,ri){
+  state.people[i].rentals.splice(ri,1);
+  renderIncomeForms(); recompute(); saveDebounced();
+}
 function addBrokerage(i){
   if(!Array.isArray(state.people[i].brokerage)) state.people[i].brokerage=[];
   state.people[i].brokerage.push(defaultBrokeragePortfolio(0, state.people[i].brokerage.length+1));
