@@ -90,8 +90,8 @@ function buildChatSnapshot(includeNames){
     filingStatus: state.filingStatus,
     inflationPct: Math.round(state.inflation*10000)/100,
     livingExpensesPerYear: state.living||0,
-    scgl: state.scgl||0,
-    aumFee: state.aumFee,
+    scgl: state.scglEnabled===false?0:(state.scgl||0),
+    aumFee: (state.aumFee&&state.aumFee.enabled===false)?{mode:state.aumFee.mode,value:0}:state.aumFee,
     plannedPassingAge: passing
   };
   if(state.futureTax && state.futureTax.enabled) hh.speculativeFutureNiitThreshold = chatStrip(state.futureTax);

@@ -62,6 +62,8 @@ function toggleItem(headerEl){
 // enabling/disabling never changes whether the card's body is visible.
 function onEnableToggle(path, checked){
   setPath(path, checked);
+  // SCGL / AUM fee inputs are greyed while their Enable box is off.
+  if(path==='scglEnabled'||path==='aumFee.enabled') syncAssumpEnable();
   recompute(); saveDebounced();
 }
 // Hide = purely a display-space convenience: collapses the card body without touching whether
@@ -85,6 +87,15 @@ function cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight){
         <label class="hide-toggle" title="Collapse this card to save space — data is still used for compute and display if Enabled"><input type="checkbox" ${hidden?'checked':''} onclick="onHideToggle('${hidePath}', this.checked, this.closest('.item'))"> Hide</label>
       </div>
     </div>`;
+}
+
+// Card for one Assumptions-panel item (SCGL, AUM fee, LTC, speculative model): the same Enable (left) / Hide (right) header
+// as the income cards. `key` selects the Hide flag in state.ui.assumpHide; 
+function assumpCard(key, title, enablePath, enabled, bodyHtml){
+  if(!state.ui) state.ui={hiddenSections:defaultHiddenSections()};
+  if(!state.ui.assumpHide) state.ui.assumpHide={};
+  const hidden=!!state.ui.assumpHide[key];
+  return `<div class="item" style="margin-bottom:0">${cardHeader(title, enablePath, enabled, 'ui.assumpHide.'+key, hidden)}${bodyHtml?`<div class="item-body ${hidden?'':'open'}">${bodyHtml}</div>`:''}</div>`;
 }
 
 // Reusable "simple" card for an income item with age range + annual change (pension/rental style)

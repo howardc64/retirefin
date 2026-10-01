@@ -63,7 +63,7 @@
           "teYield": 0,
           "aum": false,
           "payExp": true,
-          "reinvest": false,
+          "reinvest": true,
           "basisPct": 50,
           "ar": {
             "startMode": "now",
@@ -198,6 +198,7 @@
   },
   "living": 90000,
   "scgl": 0,
+  "scglEnabled": false,
   "ltc": {
     "enabled": false,
     "people": [
@@ -214,6 +215,7 @@
     "living2": 0
   },
   "aumFee": {
+    "enabled": false,
     "mode": "pct",
     "value": 0
   },
@@ -232,6 +234,12 @@
       "tax": false,
       "expenses": false,
       "assets": false
+    },
+    "assumpHide": {
+      "scgl": true,
+      "aum": true,
+      "ltc": true,
+      "future": true
     },
     "ltcgDevalue": 0,
     "ordDevalue": 0,

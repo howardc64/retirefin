@@ -35,8 +35,8 @@ function renderAll(){
   document.getElementById('inflationRate').value = Math.round(state.inflation*400)/4;
   document.getElementById('inflationValLbl').textContent=(state.inflation*100).toFixed(2)+'%';
   document.getElementById('livingInput').value = state.living||0;
-  document.getElementById('scglInput').value = state.scgl||0;
   syncDevalueSliders();
+  renderScglPanel();
   renderAumFee();
   renderFutureTaxPanel();
   renderLtcPanel();

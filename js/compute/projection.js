@@ -218,7 +218,7 @@ function computeProjection(){
   // A household-level pool (today's $) that shields realized LTCG from tax, dollar-for-dollar,
   // until it's exhausted. Tracked as a running balance across years, consumed before growth/
   // inflation considerations apply (it's a fixed today's-$ pool, not itself inflation-adjusted).
-  let scglRemaining=Math.max(0,Number(state.scgl)||0);
+  let scglRemaining=state.scglEnabled===false?0:Math.max(0,Number(state.scgl)||0);   // unchecked Enable → no SCGL
 
   const sumArr=a=>a.reduce((x,y)=>x+y,0);
   const rows=[];
@@ -339,7 +339,7 @@ function computeProjection(){
     // The charge is split across the checked accounts pro rata to balance (for display); the whole fee is a household expense
     // paid by the pool below — i.e. only by portfolios with "Pay expenses" checked.
     const aumMode=(state.aumFee&&state.aumFee.mode==='fixed')?'fixed':'pct';
-    const aumVal=Math.max(0,Number(state.aumFee&&state.aumFee.value)||0);
+    const aumVal=(state.aumFee&&state.aumFee.enabled===false)?0:Math.max(0,Number(state.aumFee&&state.aumFee.value)||0);   // unchecked Enable → no fee
     const aumBase=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>(b&&b.aum&&pfVals[i][bi].active&&!pfState[i][bi].dead&&pfBalNow[i][bi]>0)?pfBalNow[i][bi]:0));
     // IRAs (pre-tax and Roth) with their AUM box checked add their start-of-year balances to the AUM balance.
     const aumBalanceIra=people.reduce((a,p,i)=>a+(iraAum[i][k]||0)+(rothAum[i][k]||0),0);

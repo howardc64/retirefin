@@ -67,9 +67,10 @@ js/
                 brokerage.js  ira.js  roth.js  incomeForms.js
   display/      chartHelpers.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  footer.js
-                formulasPage.js  notesPage.js  excelExport.js  chat.js
+                formulasPage.js  mdPage.js  notesPage.js  usagePage.js  excelExport.js  chat.js
   app.js
-misc/      Note4User.md        (user-facing notes; rendered to HTML by the Notes button, §6.10)
+misc/      Usage.md            (how to use the app; rendered to HTML by the Usage button, §6.10)
+           Note4User.md        (user-facing notes; rendered to HTML by the Notes button, §6.10)
 Samples/   *.json  manifest.json (example saved plans; each .json is one entry in the Load file menu, §5.6)
 ```
 
@@ -448,6 +449,8 @@ change into every place a person's name appears (including the LTC panel headers
 focus). Birth year / month are applied only when they are a real value (year 1920–this year, month 1–12) — partial keystrokes such as "196" are ignored, and `onBirthCommit` restores the last valid value if the field is left invalid. `refreshAgeDependentUI()` updates the read-only age, raises any passing-age slider below the person's current age, and calls `refreshPairBounds()` (§5.1).
 
 ### 5.3 `assumptions.js` (+ the Assumptions panel in `index.html`)
+**Enable / Hide cards.** SCGL (`#scglPanel`, `renderScglPanel`), AUM fee (`#aumPanel`, `renderAumFee`), LTC (`#ltcPanel`, `renderLtcPanel`) and the speculative model (`#futureTaxPanel`, `renderFutureTaxPanel`) are each rendered with `assumpCard(key, title, enablePath, enabled, bodyHtml)` (`controls.js`): the income-card header with **Enable** on the left (`state.scglEnabled`, `state.aumFee.enabled`, `state.ltc.enabled`, `state.futureTax.enabled`) and **Hide** on the right (`state.ui.assumpHide[key]`, key = `scgl|aum|ltc|future`, saved/restored/reset with the plan). Enable off means the projection ignores the item (SCGL pool 0, AUM fee 0; LTC/future already gated) while the typed values are kept; `syncAssumpEnable()` greys the SCGL/AUM inputs. All four bodies are always rendered — Hide alone shows/collapses them, Enable never does (LTC and speculative default to hidden; an old save without `assumpHide` opens them only if enabled). Missing enable flags in old saves default to enabled.
+
 The Assumptions panel in `index.html` holds two household fields, in this order below the passing-age sliders: **Living expenses** (`state.living`, `#livingInput`, $/yr in today's $, `onNumberInput('living', …)`) directly **above** the **SCGL** input (`state.scgl`), followed **below SCGL** by the **AUM fee** (`state.aumFee`): a mode select (`#aumFeeMode`: **% AUM balance** / **Fixed $ / yr**, `onAumFeeMode` resets the value because the units change) and a value input (`#aumFeeValue`, `onNumberInput('aumFee.value', …)`); `renderAumFee()` (in `assumptions.js`) writes both from `state`. AUM balance = sum of the balances of portfolios with their **AUM** box checked (§4.6). `renderAll()` writes both from `state`. The panel title reads "Assumptions — drag to adjust". Typing in Living expenses goes through `onLivingInput`, which also updates the **1st LTC living expenses** box while `ltc.living1` is still `null` (i.e. the user has not set it).
 
 **Long Term Care panel** (`#ltcPanel`, between the AUM fee note and the future-tax panel; `renderLtcPanel()` / `onLtcToggle()`): an **LTC** checkbox (`state.ltc.enabled`). When on it shows, per person (one block when single; the person's name is the block header and is kept live by `relabel()`): **LTC start age** (paired slider/number, `pairHtml`, range = current age → passing age, written to `ltc.people.i.startAge`) and **LTC cost** ($/yr, today's $, `ltc.people.i.cost`). Below those: **1st LTC living expenses** (`ltc.living1`; labelled just "LTC living expenses" when single) and, when married, **2nd LTC living expenses** (`ltc.living2`). Compute rules are in §4.6.
@@ -600,7 +603,7 @@ top, own `stack:'basis'` so it plots at its own value instead of on top of the b
 doesn't track basis counts at full value). Because brokerage bands are first in the stack, the gap between the line and the top of the brokerage bands is
 the unrealized gain. The line itself is never devalued, but it is **removed wherever the applicable LTCG devalue is > 0%** (`basisOf` returns null for that row; pair 2 for stretch rows, pair 1 otherwise) — any LTCG devalue moves the band toward 100% basis, so the line would no longer mark the top of the gain. If every row is devalued the dataset and its legend key are omitted (`showBasis`). Legend has a dashed key; tooltip shows "Cost basis (dashed line)".
 
-**Devalue sliders (two pairs).** Four sliders above the main chart (`#ltcgDevalue`, `#ordDevalue` = *before the last passing*; `#ltcgDevalue2`, `#ordDevalue2` = *after the last passing, heirs' anticipated brackets*; handlers `onDevalueInput` / `syncDevalueSliders` in `input/controls.js`, values in `state.ui`) shrink what the bands show toward after-tax value via `assetDevalue()`, which returns `[pair1, pair2]`; a row uses pair 2 when `r.stretchYear` is set, pair 1 otherwise. **LTCG devalue %** (default 10 before the last passing, 24 after) removes that % of each brokerage portfolio's *unrealized gain* (`unrealizedGain`, never basis); **Ordinary income devalue %** (default 10 before the last passing, 40 after) removes that % of the pre-tax IRA balance; Roth is unchanged. The LTCG sliders apply to the IDGT chart too (carryover basis, so its gain stays taxable; it has no stretch years, so only pair 1 acts there); the ordinary sliders have nothing to act on there. A drag redraws only the two asset charts (no recompute). The Y axis is locked from *face* values so the scale does not move with the sliders. When a band is devalued its tooltip adds "Face value before devalue", and the note under the chart states the percentages applied (the "after" clause only when there are stretch years).
+**Devalue sliders (two pairs).** Four sliders above the main chart, laid out as a grid (`.devalue-grid`): one shared label column (LTCG devalue, Ordinary income devalue), then the *Before the last passing* pair and the *After the last passing* pair side by side with their headings on top; there is no explanatory note on the page — it lives in `misc/Usage.md`. (`#ltcgDevalue`, `#ordDevalue` = *before the last passing*; `#ltcgDevalue2`, `#ordDevalue2` = *after the last passing, heirs' anticipated brackets*; handlers `onDevalueInput` / `syncDevalueSliders` in `input/controls.js`, values in `state.ui`) shrink what the bands show toward after-tax value via `assetDevalue()`, which returns `[pair1, pair2]`; a row uses pair 2 when `r.stretchYear` is set, pair 1 otherwise. **LTCG devalue %** (default 10 before the last passing, 24 after) removes that % of each brokerage portfolio's *unrealized gain* (`unrealizedGain`, never basis); **Ordinary income devalue %** (default 10 before the last passing, 40 after) removes that % of the pre-tax IRA balance; Roth is unchanged. The LTCG sliders apply to the IDGT chart too (carryover basis, so its gain stays taxable; it has no stretch years, so only pair 1 acts there); the ordinary sliders have nothing to act on there. A drag redraws only the two asset charts (no recompute). The Y axis is locked from *face* values so the scale does not move with the sliders. When a band is devalued its tooltip adds "Face value before devalue", and the note under the chart states the percentages applied (the "after" clause only when there are stretch years).
 
 **Cost basis (§4.6):** under `show_details` only, portfolios add *Dividends used for expenses*,
 *Dividends reinvested*, *Sold to cover shortfall*, *Cost basis* and *Unrealized gain
@@ -630,13 +633,14 @@ tax-year bracket update in `constants.js` (§3.1) is automatically reflected her
 Only the *formula prose* is hand-maintained (formulas change far less often than bracket numbers) —
 if you change a formula in §4, update its description on this page in the same change.
 
-### 6.10 `notesPage.js`
-`openNotesPage()` — the **Notes** button (immediately right of **Formulas**). Opens a new tab, `fetch`es
-`misc/Note4User.md`, converts it to HTML **at the moment of opening** with the file's own small
-Markdown converter `mdToHtml()` (headings, bold/italic, inline code, fenced code, links, lists,
-blockquotes, rules, paragraphs — extend that function rather than adding a CDN library, so it keeps
-working offline), wraps it in `mdPageHtml()`, and `document.write`s it. Editing `Note4User.md` therefore
-needs no code change — the next click shows the new text.
+### 6.10 `mdPage.js`, `usagePage.js`, `notesPage.js`
+`mdPage.js` is the shared Markdown viewer: `openMdPage(file, label)` opens a new tab, `fetch`es the `.md` file, converts it to HTML
+**at the moment of opening** with the small converter `mdToHtml()` (headings, bold/italic, inline code, fenced code, links, lists,
+blockquotes, rules, paragraphs — extend that function rather than adding a CDN library, so it keeps working offline), wraps it in
+`mdPageHtml(title, body, file, label)` and `document.write`s it; when `fetch` is blocked (a `file://` page) it writes an explanation instead.
+`usagePage.js` → `openUsagePage()` — the **Usage** button (topbar, immediately left of **Save to file**) shows `misc/Usage.md`.
+`notesPage.js` → `openNotesPage()` — the **Notes** button (right of **Formulas**) shows `misc/Note4User.md`.
+Editing either `.md` file needs no code change — the next click shows the new text.
 
 ### 6.11 `excelExport.js`
 `exportToExcel()` — the **📊 Export to Excel** button (topbar, right of **Notes**) downloads the current
@@ -706,7 +710,7 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
 - Page markup only: styling lives in `css/styles.css` (linked in `<head>`), behavior in `js/`.
 - Layout: independent-scrolling input column (left, one pane per person) and output column (right,
   the charts) — see §1 for the overall shape. The topbar holds, in order: **Save to file**, **Load file ▾**
-  (dropdown, §5.6), **Reset to defaults**, **Formulas** (§6.9), **Notes** (§6.10), **Export to Excel**
+  (dropdown, §5.6), **Reset to defaults**, **Usage** (§6.10), **Formulas** (§6.9), **Notes** (§6.10), **Export to Excel**
   (§6.11), and the `show_details` checkbox.
 - **Script load order** (dependency-driven — a file may only use a name defined by a file *earlier* in
   this list):
@@ -717,7 +721,7 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
   input/loadMenu →
   display/chartHelpers → display/overlayPlugin → display/ssChart → display/incomeChart →
   display/tssChart → display/taxChart → display/expenseChart → display/assetChart → display/footer →
-  display/formulasPage → display/notesPage → display/excelExport → display/chat → app.js`
+  display/formulasPage → display/mdPage → display/notesPage → display/usagePage → display/excelExport → display/chat → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
   that reads from it. Function *calls* deferred to a later event (a click, `DOMContentLoaded`) don't
   need this — only code that runs immediately when the script loads (top-level `let`/`const`

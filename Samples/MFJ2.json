@@ -51,7 +51,7 @@
         {
           "id": "hp21oac",
           "enabled": true,
-          "hidden": true,
+          "hidden": false,
           "name": "Joe Jill Portfolio",
           "balance": 3000000,
           "growth": {
@@ -63,7 +63,7 @@
           "teYield": 0,
           "aum": true,
           "payExp": true,
-          "reinvest": false,
+          "reinvest": true,
           "basisPct": 50,
           "ar": {
             "startMode": "now",
@@ -226,6 +226,7 @@
   },
   "living": 100000,
   "scgl": 200000,
+  "scglEnabled": true,
   "ltc": {
     "enabled": false,
     "people": [
@@ -242,6 +243,7 @@
     "living2": 0
   },
   "aumFee": {
+    "enabled": true,
     "mode": "pct",
     "value": 1
   },
@@ -260,6 +262,12 @@
       "tax": false,
       "expenses": false,
       "assets": false
+    },
+    "assumpHide": {
+      "scgl": false,
+      "aum": false,
+      "ltc": true,
+      "future": false
     },
     "ltcgDevalue": 0,
     "ordDevalue": 0,

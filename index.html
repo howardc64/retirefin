@@ -15,6 +15,7 @@
   <h1>Retirement Income Planner</h1>
   <p>Enter your household's financial details below, in today's dollars. Projections and charts will build on this data.</p>
   <div class="topbar">
+    <button class="btn" onclick="openUsagePage()">Usage</button>
     <button class="btn btn-primary" onclick="saveToFile()">💾 Save to file</button>
     <div class="dropdown" id="loadDropdown">
       <button class="btn" id="loadMenuBtn" onclick="toggleLoadMenu(event)" aria-haspopup="true" aria-expanded="false">📂 Load file ▾</button>
@@ -58,21 +59,8 @@
     <label>Living expenses (household, $/yr, today's $)</label>
     <input type="number" class="money" id="livingInput" min="0" step="1000" value="0" oninput="onLivingInput(this.value)">
   </div>
-  <div class="field full" style="margin-top:14px">
-    <label>Suspended Capital-Gain Loss carryforward (SCGL, today's $)</label>
-    <input type="number" class="money" id="scglInput" min="0" step="1000" value="0" oninput="onNumberInput('scgl', this.value)">
-  </div>
-  <div class="field full" style="margin-top:14px">
-    <label>AUM fee</label>
-    <div class="arow">
-      <select id="aumFeeMode" onchange="onAumFeeMode(this.value)">
-        <option value="pct">% AUM balance</option>
-        <option value="fixed">Fixed $ / yr</option>
-      </select>
-      <input type="number" class="money" id="aumFeeValue" min="0" step="0.05" value="0" oninput="onNumberInput('aumFee.value', this.value)">
-    </div>
-  </div>
-  <div class="item-note">Advisory / management fee. <strong>AUM balance</strong> = the sum of the balances of every brokerage portfolio, pre-tax IRA and Roth IRA that has its <em>AUM</em> box checked (portfolios must also be enabled, inside their age range and funded). The fee is that balance × the percentage, or a fixed dollar amount per year (entered in today's $, held flat in nominal terms so it shrinks in today's $ with inflation). It is an expense paid like living expenses — household income, then dividends, then asset sales — and is charged on the AUM accounts pro rata to balance, but as an expense it is paid only by the portfolios with <em>Pay expenses</em> checked, not by the account it is charged on. The Medicare IRMAA surcharge is also always paid as a household expense, so it needs no setting here.</div>
+  <div id="scglPanel" style="margin-top:14px"></div>
+  <div id="aumPanel" style="margin-top:14px"></div>
   <div id="ltcPanel" style="margin-top:14px"></div>
   <div id="futureTaxPanel" style="margin-top:14px"></div>
 </div>
@@ -161,29 +149,17 @@
     <button class="rescale-btn" onclick="rescaleChart('asset')">↕ Rescale</button></div>
   <div class="legend" id="assetLegend"></div>
   <div class="devalue-box">
-    <div class="devalue-h">Before the last passing</div>
-    <div class="slider-row">
+    <div class="devalue-grid">
+      <div></div>
+      <div class="devalue-h">Before the last passing</div>
+      <div class="devalue-h">After the last passing</div>
       <div class="sl"><strong>LTCG devalue</strong> (% of unrealized gain)</div>
-      <input type="range" id="ltcgDevalue" min="0" max="100" step="1" value="10" oninput="onDevalueInput('ltcgDevalue',this.value)">
-      <div class="sv" id="ltcgDevalueLbl">10%</div>
-    </div>
-    <div class="slider-row">
+      <div class="dv-cell"><input type="range" id="ltcgDevalue" min="0" max="100" step="1" value="10" oninput="onDevalueInput('ltcgDevalue',this.value)"><div class="sv" id="ltcgDevalueLbl">10%</div></div>
+      <div class="dv-cell"><input type="range" id="ltcgDevalue2" min="0" max="100" step="1" value="24" oninput="onDevalueInput('ltcgDevalue2',this.value)"><div class="sv" id="ltcgDevalue2Lbl">24%</div></div>
       <div class="sl"><strong>Ordinary income devalue</strong> (% of pre-tax IRA)</div>
-      <input type="range" id="ordDevalue" min="0" max="100" step="1" value="10" oninput="onDevalueInput('ordDevalue',this.value)">
-      <div class="sv" id="ordDevalueLbl">10%</div>
+      <div class="dv-cell"><input type="range" id="ordDevalue" min="0" max="100" step="1" value="10" oninput="onDevalueInput('ordDevalue',this.value)"><div class="sv" id="ordDevalueLbl">10%</div></div>
+      <div class="dv-cell"><input type="range" id="ordDevalue2" min="0" max="100" step="1" value="40" oninput="onDevalueInput('ordDevalue2',this.value)"><div class="sv" id="ordDevalue2Lbl">40%</div></div>
     </div>
-    <div class="devalue-h">After the last passing (heirs' anticipated tax brackets)</div>
-    <div class="slider-row">
-      <div class="sl"><strong>LTCG devalue</strong> (% of unrealized gain)</div>
-      <input type="range" id="ltcgDevalue2" min="0" max="100" step="1" value="24" oninput="onDevalueInput('ltcgDevalue2',this.value)">
-      <div class="sv" id="ltcgDevalue2Lbl">24%</div>
-    </div>
-    <div class="slider-row">
-      <div class="sl"><strong>Ordinary income devalue</strong> (% of pre-tax IRA)</div>
-      <input type="range" id="ordDevalue2" min="0" max="100" step="1" value="40" oninput="onDevalueInput('ordDevalue2',this.value)">
-      <div class="sv" id="ordDevalue2Lbl">40%</div>
-    </div>
-    <div class="item-note">Shows what the bands are roughly worth after tax. LTCG devalue removes that % of each brokerage portfolio's unrealized gain (the dashed cost-basis line is drawn only where the LTCG devalue is 0%, since any LTCG devalue moves the band toward 100% basis); ordinary income devalue removes that % of the pre-tax IRA; Roth is not reduced. The first pair applies to the years up to the last passing, the second pair to the 10 years after it. The LTCG sliders also apply to the IDGT chart below.</div>
   </div>
   <div class="co"><div class="cw"><canvas id="assetChart"></canvas></div></div>
   <p class="cn" id="assetChartGain"></p>
@@ -296,7 +272,9 @@
 <script src="js/display/assetChart.js"></script>
 <script src="js/display/footer.js"></script>
 <script src="js/display/formulasPage.js"></script>
+<script src="js/display/mdPage.js"></script>
 <script src="js/display/notesPage.js"></script>
+<script src="js/display/usagePage.js"></script>
 <script src="js/display/excelExport.js"></script>
 <script src="js/display/chat.js"></script>
 

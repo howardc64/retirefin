@@ -231,6 +231,12 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 
 /* Asset Value chart: LTCG / ordinary-income devalue sliders */
 .devalue-box{margin:0 0 10px;padding:4px 10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);}
-.devalue-box .slider-row{padding:4px 0;}
-.devalue-box .item-note{margin-top:2px;}
+.devalue-grid{display:grid;grid-template-columns:minmax(150px,220px) 1fr 1fr;align-items:center;gap:6px 14px;}
+.devalue-grid>*{min-width:0;}
+.devalue-grid .sl{font-size:13px;color:var(--text-muted);}
+.devalue-grid .sl strong{color:var(--text);font-weight:500;}
+.dv-cell{display:grid;grid-template-columns:1fr 44px;align-items:center;gap:8px;}
+.dv-cell input[type=range]{width:100%;min-width:0;}
+.dv-cell .sv{text-align:right;}
+@media (max-width:700px){ .devalue-grid{grid-template-columns:1fr 1fr;} .devalue-grid .sl{grid-column:1/-1;margin-top:4px;} .devalue-grid>div:first-child{display:none;} }
 .devalue-h{font-size:11px;font-weight:600;color:var(--text-muted);margin:6px 0 0;text-transform:uppercase;letter-spacing:.03em;}
