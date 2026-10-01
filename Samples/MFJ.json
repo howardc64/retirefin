@@ -46,22 +46,7 @@
         },
         "bene": false
       },
-      "rental": {
-        "enabled": false,
-        "hidden": true,
-        "amount": 0,
-        "ar": {
-          "startMode": "now",
-          "startVal": 0,
-          "endMode": "passing",
-          "endVal": 0
-        },
-        "change": {
-          "mode": "inflation",
-          "value": 0
-        },
-        "bene": false
-      },
+      "rentals": [],
       "brokerage": [
         {
           "id": "hp21oac",
@@ -75,12 +60,11 @@
           },
           "yield": 1.1,
           "qdivPct": 70,
-          "expense": true,
+          "teYield": 0,
+          "aum": false,
+          "payExp": true,
+          "reinvest": false,
           "basisPct": 50,
-          "fee": {
-            "mode": "pct",
-            "value": 0
-          },
           "ar": {
             "startMode": "now",
             "startVal": 0,
@@ -89,7 +73,6 @@
           },
           "bene": true,
           "idgt": false,
-          "irmaa": false,
           "foreignPct": 33,
           "ftcPct": 0.25
         }
@@ -110,7 +93,10 @@
         },
         "bene": true,
         "conv": 20000,
-        "stretch": true
+        "convStartMode": "now",
+        "convStart": 0,
+        "stretch": true,
+        "aum": false
       },
       "roth": {
         "enabled": true,
@@ -121,7 +107,8 @@
           "value": 3
         },
         "bene": true,
-        "stretch": true
+        "stretch": true,
+        "aum": false
       }
     },
     {
@@ -168,22 +155,7 @@
         },
         "bene": false
       },
-      "rental": {
-        "enabled": false,
-        "hidden": true,
-        "amount": 0,
-        "ar": {
-          "startMode": "now",
-          "startVal": 0,
-          "endMode": "passing",
-          "endVal": 0
-        },
-        "change": {
-          "mode": "inflation",
-          "value": 0
-        },
-        "bene": false
-      },
+      "rentals": [],
       "brokerage": [],
       "ira": {
         "enabled": false,
@@ -201,7 +173,10 @@
         },
         "bene": false,
         "conv": 0,
-        "stretch": false
+        "convStartMode": "rmd",
+        "convStart": 0,
+        "stretch": false,
+        "aum": false
       },
       "roth": {
         "enabled": false,
@@ -212,7 +187,8 @@
           "value": 3
         },
         "bene": false,
-        "stretch": false
+        "stretch": false,
+        "aum": false
       }
     }
   ],
@@ -222,10 +198,44 @@
   },
   "living": 90000,
   "scgl": 0,
+  "ltc": {
+    "enabled": false,
+    "people": [
+      {
+        "startAge": 85,
+        "cost": 100000
+      },
+      {
+        "startAge": 85,
+        "cost": 100000
+      }
+    ],
+    "living1": null,
+    "living2": 0
+  },
+  "aumFee": {
+    "mode": "pct",
+    "value": 0
+  },
   "futureTax": {
     "enabled": false,
     "niitStartYear": 2036,
     "niitSingle": 200000,
     "niitMarried": 250000
+  },
+  "ui": {
+    "hiddenSections": {
+      "assumptions": false,
+      "ss": false,
+      "income": false,
+      "tss": false,
+      "tax": false,
+      "expenses": false,
+      "assets": false
+    },
+    "ltcgDevalue": 0,
+    "ordDevalue": 0,
+    "ltcgDevalue2": 0,
+    "ordDevalue2": 0
   }
 }

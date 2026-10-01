@@ -46,27 +46,12 @@
         },
         "bene": false
       },
-      "rental": {
-        "enabled": false,
-        "hidden": true,
-        "amount": 0,
-        "ar": {
-          "startMode": "now",
-          "startVal": 0,
-          "endMode": "passing",
-          "endVal": 0
-        },
-        "change": {
-          "mode": "inflation",
-          "value": 0
-        },
-        "bene": false
-      },
+      "rentals": [],
       "brokerage": [
         {
           "id": "hp21oac",
           "enabled": true,
-          "hidden": false,
+          "hidden": true,
           "name": "Joe Jill Portfolio",
           "balance": 3000000,
           "growth": {
@@ -75,8 +60,10 @@
           },
           "yield": 1.1,
           "qdivPct": 70,
+          "teYield": 0,
           "aum": true,
           "payExp": true,
+          "reinvest": false,
           "basisPct": 50,
           "ar": {
             "startMode": "now",
@@ -92,7 +79,7 @@
         {
           "id": "1h7dxyo",
           "enabled": true,
-          "hidden": false,
+          "hidden": true,
           "name": "Kids IDGT",
           "balance": 2000000,
           "growth": {
@@ -101,8 +88,10 @@
           },
           "yield": 1.5,
           "qdivPct": 70,
+          "teYield": 0,
           "aum": true,
           "payExp": false,
+          "reinvest": false,
           "basisPct": 50,
           "ar": {
             "startMode": "now",
@@ -131,13 +120,15 @@
           "endVal": 0
         },
         "bene": true,
-        "conv": 100000,
+        "conv": 54000,
+        "convStartMode": "now",
+        "convStart": 0,
         "stretch": true,
         "aum": true
       },
       "roth": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "balance": 0,
         "growth": {
           "mode": "offset",
@@ -192,22 +183,7 @@
         },
         "bene": false
       },
-      "rental": {
-        "enabled": false,
-        "hidden": true,
-        "amount": 0,
-        "ar": {
-          "startMode": "now",
-          "startVal": 0,
-          "endMode": "passing",
-          "endVal": 0
-        },
-        "change": {
-          "mode": "inflation",
-          "value": 0
-        },
-        "bene": false
-      },
+      "rentals": [],
       "brokerage": [],
       "ira": {
         "enabled": false,
@@ -225,6 +201,8 @@
         },
         "bene": false,
         "conv": 0,
+        "convStartMode": "rmd",
+        "convStart": 0,
         "stretch": false,
         "aum": false
       },
@@ -248,6 +226,21 @@
   },
   "living": 100000,
   "scgl": 200000,
+  "ltc": {
+    "enabled": false,
+    "people": [
+      {
+        "startAge": 85,
+        "cost": 100000
+      },
+      {
+        "startAge": 85,
+        "cost": 100000
+      }
+    ],
+    "living1": null,
+    "living2": 0
+  },
   "aumFee": {
     "mode": "pct",
     "value": 1
@@ -267,6 +260,10 @@
       "tax": false,
       "expenses": false,
       "assets": false
-    }
+    },
+    "ltcgDevalue": 0,
+    "ordDevalue": 0,
+    "ltcgDevalue2": 0,
+    "ordDevalue2": 0
   }
 }
