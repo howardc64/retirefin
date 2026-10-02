@@ -2,31 +2,16 @@
 
 This page explains how to work with the planner. Everything is entered in **today's dollars**; the charts are drawn in today's dollars too, so you can read them without mentally adjusting for inflation.
 
-## Features
+## Features at a glance
 
-* **Todays’s $s:** All numbers in today’s $s for easy understanding
-* **Projection for Income, Portfolio/IRA, Expense, Tax**
-* **Income:** Wage, Pension, Social Security
-* **Expense:** Simple living cost, LTC, IRMAA surcharge, Tax, AUM fees
-* **Tax Projection:** Rudimentary but include basics : (ordinary, o
-* rdinary/qualified div), LTCG, itemized deduction (for long term care costs), and foreign tax credit )
-* **Portfolio Features:** Div yield, Qualified Div %, Tax Exempt yield, Foreign % and Tax Credits. Destination to invest income in excess of expenses. Delayed Start (conversion of assets to equity investment portfolios in the future - ie work stock options, real estate etc.), IDGTs
-* **IRA Features:** Pre-Tax, Roth, Roth Conversion (with delayed start), Stretched IRA
-* **On Passing Actions:** Forward asset to survivor, basis step-up, and residual unrealized gains
-* **AUM fees:** Fixed and AUM %
-* **Social Security:** Start age and torpedo analysis
-* **Suspended Long Term Capital Gains Tracking**
-* **Long Term Care:** Start age, costs, and living cost (not LTC cost) adjustments
-* **Married and Single/Widower Status**
-* **Chatbot:** AI to analyze and converse about the plan. Require inserting API key into app when running. No security to keep API key private (will remain on your device) Plan data is sent to the AI model in the cloud of course.
-
-## Lacking and Incomplete Features
-
-* **Simplistic Tax Calculation:** Tax Calculations are general of course. Projection does not calculate complete taxes
-* **No Annuities:** Not Implemented
-* **Excel Export Rudimentary:** Currently just table of #s output by the app. Plan to include cell calculation based on formulas. Waiting until app matures as formula based spreadsheet require AI/LLM to work much longer to build the application 2x (once each for HTML and EXCEL followed by correlation check and testing)
-
----
+- **Household setup** for a single person or a married couple, with inflation, living expenses and optional assumptions (SCGL, AUM fee, long-term care).
+- **Income sources** for each person: Social Security, wages, pension, rental properties, **annuities**, pre-tax IRA / 401(k), Roth IRA and brokerage portfolios.
+- **Brokerage portfolios** as either *Living expense & income* or *IDGT*, with growth, dividends, cost basis and optional AUM fee.
+- **Annuities** with fixed or %-of-value payouts, taxable / tax-exempt payouts and a passing benefit.
+- **Roth conversions**, RMDs and IRA stretch after the last passing.
+- **Tax modeling**: federal brackets, taxable Social Security, long-term gains, NIIT, IRMAA and the senior deduction.
+- **Charts** for Social Security claiming age, annual income, taxes, expenses and asset value (with adjustable withdraw cost).
+- **Save / load** plans, **Export to Excel**, a **Formulas** reference and an optional **chat** to ask about your plan.
 
 ## Getting started
 
@@ -65,10 +50,11 @@ If household income is more than the expenses, the leftover is *excess income*. 
 
 ## Annuities
 
-The **Annuity** card (under Brokerage portfolio income; **Add** / **Remove**, one set per person) holds any number of annuity contracts. Each has an account value, an optional premium (cost basis; blank = account value), credited growth, an annual contract fee, a payout Start–End age, an annual payout (with its annual change), and an optional *Continues to spouse* box.
+The **Annuity** card (under Brokerage portfolio income; **Add** / **Remove**, one set per person) holds any number of annuity contracts. Each has an account value, an optional premium (cost basis; blank = account value), credited growth (**net of all fees**), a payout Start–End age, an annual payout, a passing benefit, and an optional *Continues to spouse* box.
 
-- **Payout tax treatment:** *Non-qualified, withdrawals* (gain is taxed first, then premium comes out tax-free); *Non-qualified, annuitized* (exclusion ratio: premium ÷ expected total payout to the owner's passing age is tax-free until the premium is recovered); *Qualified / IRA annuity* (fully taxable); or *Tax-exempt payout* (a % of every payout is untaxed). Taxable payouts are ordinary income (non-qualified ones also count as net investment income for NIIT). Tax-exempt payouts are never in AGI but count toward Social Security taxation and MAGI (IRMAA), and all payouts are household cash income that pays expenses.
-- **Living Benefit Rider:** replaces the payout amount with a guaranteed one = payout rate × benefit base in the first payout year (level in nominal $, so it shrinks in today's $). The base rolls up at the roll-up % until payouts start (optional annual step-up to the account value). Payouts come from the account value first; when it is gone the insurer keeps paying through the End age. The rider fee (% of base) is taken from the account value.
+- **Annual payout:** *Fixed $* (a nominal amount, not adjusted for inflation or COLA) or *% of annual account value*. Payouts stop when the account is empty.
+- **Payout tax treatment:** *Non-qualified, withdrawals* (gain is taxed first, then premium comes out tax-free); *Non-qualified, annuitized* (exclusion ratio: premium ÷ expected total payout to the owner's passing age is tax-free until the premium is recovered); *Qualified / IRA annuity* (fully taxable); or *Tax-exempt payout* (a % of every payout and of the passing benefit is untaxed). Taxable payouts are ordinary income (non-qualified ones also count as net investment income for NIIT). Tax-exempt payouts are never in AGI but count toward Social Security taxation and MAGI (IRMAA), and all payouts are household cash income that pays expenses.
+- **Passing benefit (paid to heirs):** *Fixed $*, *Initial account value* (both not adjusted for inflation), or *Account value at passing*. It is paid when the contract ends (the owner's passing, or the spouse's if the contract continues) and is shown in the Asset Value tooltip and the Excel export with its taxable and tax-exempt parts: all taxable if qualified; the amount above the remaining premium if non-qualified; the non-exempt % if tax-exempt. It is not household cash flow.
 - **Asset Value chart:** each annuity's account value is a band on the main chart. The *Ordinary income withdraw cost* slider applies to the taxable part of an annuity's value (whole value if qualified, gain only if non-qualified). Annuities end with their owner unless continued to the spouse; there is no stretch.
 
 ## Rental income and tax-exempt income
@@ -87,7 +73,7 @@ The two rows of sliders above the Asset Value chart show roughly what the balanc
 - **LTCG withdraw cost** removes that percentage of each brokerage portfolio's unrealized gain.
 - **Ordinary income withdraw cost** removes that percentage of the pre-tax IRA balance.
 - The Roth IRA is never reduced.
-- The **Before the last passing** pair applies to the years up to the last passing. The **After the last passing** pair applies to the years after it, using the heirs' anticipated tax brackets. Defaults are 10% / 10% before and 24% / 40% after.
+- The **Before the last passing** pair applies to the years up to the last passing. The **After the last passing** pair applies to the years after it, using the heirs' anticipated tax brackets. All four default to 0%.
 - The dashed **cost-basis line** is drawn only in years where the LTCG withdraw cost is 0%. Any LTCG withdraw cost moves the brokerage band toward 100% basis, so the line would no longer mark the top of the gain.
 
 ## Tax features worth knowing

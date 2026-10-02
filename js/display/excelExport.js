@@ -37,10 +37,11 @@ function xlsxColumns(proj){
     ...per('annuityTEByPerson','Annuity payout (tax-exempt)'),
     {head:'Annuity payout total (tax-exempt, untaxed)', get:r=>r.annuityTE||0},
     {head:'Annuity payout total (taxable + tax-exempt)', get:r=>(r.annuity||0)+(r.annuityTE||0)},
-    {head:'  of which paid by insurer (rider, account value exhausted)', get:r=>sumAnnuities(r,'insurerPaid')},
-    {head:'Annuity rider fees (taken from account value)', get:r=>sumAnnuities(r,'riderFee')},
     {head:'Annuity account value total (SOY)', get:r=>r.annuityBalance||0},
     {head:'  Taxable part embedded in annuity value (SOY)', get:r=>sumAnnuities(r,'taxableEmbedded')},
+    {head:'Annuity passing benefit to heirs (year the contract ends)', get:r=>sumAnnuityPassing(r,'amount')},
+    {head:'  passing benefit: taxable', get:r=>sumAnnuityPassing(r,'taxable')},
+    {head:'  passing benefit: tax-exempt', get:r=>sumAnnuityPassing(r,'taxFree')},
     ...per('rentalByPerson','Rental'),
     {head:'Rental total (taxable)', get:r=>r.rental},
     {head:'Rental depreciation (non-cash, untaxed)', get:r=>r.rentalDep||0},
@@ -107,6 +108,9 @@ function pct(n){ return Math.round((n||0)*1000)/1000; } // stored as a fraction;
 function sumAnnuities(r,field){
   let s=0; (r.annuitiesByPerson||[]).forEach(list=>list.forEach(e=>{ s+=(e[field]||0); })); return s;
 }
+function sumAnnuityPassing(r,field){
+  let s=0; (r.annuitiesByPerson||[]).forEach(list=>list.forEach(e=>{ if(e.passing) s+=(e.passing[field]||0); })); return s;
+}
 function sumPortfolios(r,idgt,field){
   let s=0; r.portfoliosByPerson.forEach(list=>list.forEach(e=>{ if(!!e.idgt===idgt) s+=(e[field]||0); }));
   return s;
@@ -156,10 +160,11 @@ function xlsxRothSheet(proj, i){
 }
 function xlsxAnnuitySheet(proj, i, ai){
   const person=displayPersonName(proj.people[i], i);
-  const rows=[['Year',`${person} age`,'Account value (SOY)','Benefit base (SOY)','Payout total','  taxable','  tax-exempt','  paid by insurer (rider, after account value is gone)','Rider fee','Taxable embedded in value (SOY)']];
+  const rows=[['Year',`${person} age`,'Account value (SOY)','Payout total','  taxable','  tax-exempt','Taxable embedded in value (SOY)','Passing benefit to heirs (paid after this year)','  taxable','  tax-exempt']];
   proj.rows.forEach(r=>{
     const e=(r.annuitiesByPerson[i]||[])[ai]; if(!e||!e.live) return;
-    rows.push([THIS_YEAR+r.k, round1(r.ages[i]), e.balance, e.rider?e.base:'', e.payout, e.taxable, e.taxFree, e.insurerPaid, e.riderFee, e.taxableEmbedded]);
+    const pb=e.passing;
+    rows.push([THIS_YEAR+r.k, round1(r.ages[i]), e.balance, e.payout, e.taxable, e.taxFree, e.taxableEmbedded, pb?pb.amount:'', pb?pb.taxable:'', pb?pb.taxFree:'']);
   });
   return rows;
 }

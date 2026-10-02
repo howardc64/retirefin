@@ -102,12 +102,12 @@ function onAnnuityName(pid,ai,val,inputEl){
   if(title) title.textContent=val.trim()||('Annuity '+(ai+1));
   recomputeDebounced(); saveDebounced();
 }
-// Optional dollar inputs (premium paid, rider benefit base): blank is stored as null, which is different from 0.
+// Optional dollar inputs (premium paid): blank is stored as null, which is different from 0.
 function onAnnuityOptional(path,val){
   setPath(path, val===''||val==null?null:Math.max(0,+val||0));
   recomputeDebounced(); saveDebounced();
 }
-// Selects that change which fields are shown (tax treatment) or toggle the rider re-render the cards.
+// Selects that change which fields are shown (tax treatment) or passing-benefit option re-render the cards.
 function onAnnuitySelect(path,val){ setPath(path,val); renderIncomeForms(); recompute(); saveDebounced(); }
 function removeBrokerage(i,bi){
   state.people[i].brokerage.splice(bi,1);

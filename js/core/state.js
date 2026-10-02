@@ -45,16 +45,16 @@ function defaultBrokeragePortfolio(balance, n){
   return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
 }
 // Annuity (per person, any number): `value` = current account value (today's $), `premium` = cost basis / premium paid ($, blank = value,
-// i.e. no gain), `growth` = credited rate (an annual-change spec), `feePct` = annual contract fee (% of account value), `ar` = payout
-// Start–End age, `payout` + `change` = annual payout (today's $) and its annual change (used when the rider is off), `tax` = payout tax
-// treatment ('taxable' | 'lifo' | 'exclusion' | 'exempt'; see compute/projection.js simulateAnnuity) with `exemptPct` for 'exempt',
-// the Living Benefit Rider (`rider`, `riderBase` blank = account value, `riderRollup` % /yr, `riderStepUp`, `riderRate` payout %, `riderFee` % of base)
+// i.e. no gain), `growth` = credited rate, NET of all fees (an annual-change spec), `ar` = payout Start–End age,
+// `payoutMode` ('fixed' = fixed nominal $ `payout`, no inflation/COLA | 'pct' = `payoutPct` % of the account value each year),
+// `tax` = payout tax treatment ('taxable' | 'lifo' | 'exclusion' | 'exempt'; see compute/projection.js simulateAnnuity) with `exemptPct` for 'exempt',
+// `pb` = passing (death) benefit ('fixed' = fixed nominal $ `pbFixed` | 'initial' = initial account value, nominal | 'value' = account value at passing)
 // and `bene` (contract continues to the surviving spouse).
 function defaultAnnuity(n){
-  return {id:uid(), enabled:true, hidden:false, name:'', value:0, premium:null, growth:defaultChange('custom',4), feePct:0,
-          ar:defaultAgeRange('custom',67,'passing',0), payout:0, change:defaultChange('inflation'),
+  return {id:uid(), enabled:true, hidden:false, name:'', value:0, premium:null, growth:defaultChange('custom',4),
+          ar:defaultAgeRange('custom',67,'passing',0), payoutMode:'fixed', payout:0, payoutPct:5,
           tax:'lifo', exemptPct:100,
-          rider:false, riderBase:null, riderRollup:5, riderStepUp:false, riderRate:5, riderFee:1,
+          pb:'value', pbFixed:0,
           bene:false};
 }
 // One rental property: `amount` = TAXABLE (net, after depreciation) rental income, today's $; `depreciation` = annual non-cash
@@ -87,9 +87,9 @@ function defaultPerson(idx){
 const SECTION_HIDE_KEYS=['assumptions','ss','income','tss','tax','expenses','assets'];
 const DEFAULT_SECTION_HIDDEN=true;
 // Asset Value chart "devalue" sliders (display only): % knocked off the unrealized-gain part of brokerage value (LTCG) and off pre-tax IRA value (ordinary income).
-const DEFAULT_LTCG_DEVALUE=10, DEFAULT_ORD_DEVALUE=10;
-// Second set: applies only to the years after the last passing (heirs' anticipated brackets); its defaults (24 / 40) are independent of the first set's.
-const DEFAULT_LTCG_DEVALUE2=24, DEFAULT_ORD_DEVALUE2=40;
+const DEFAULT_LTCG_DEVALUE=0, DEFAULT_ORD_DEVALUE=0;
+// Second set: applies only to the years after the last passing (heirs' anticipated brackets); its defaults (0 / 0) are independent of the first set's.
+const DEFAULT_LTCG_DEVALUE2=0, DEFAULT_ORD_DEVALUE2=0;
 function defaultHiddenSections(hidden){
   const o={}; SECTION_HIDE_KEYS.forEach(k=>{ o[k]=(hidden===undefined?DEFAULT_SECTION_HIDDEN:!!hidden); }); return o;
 }

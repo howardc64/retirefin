@@ -175,17 +175,19 @@ function buildAssetChartFor(cfg){
       if(s && s.type==='annuity' && r){
         const e=annEntry(s,r);
         if(e && e.live){
-          if(e.rider) lines.push(mrow('      Benefit base (rider)', fmt(e.base||0), W));
           if(e.payout>0){
             lines.push(mrow('      Payout this year', fmt(e.payout)+'/yr', W));
             if(showDetails){
               lines.push(mrow('        taxable', fmt(e.taxable||0), W));
               lines.push(mrow('        tax-exempt', fmt(e.taxFree||0), W));
-              if(e.insurerPaid>0) lines.push(mrow('        paid by insurer (rider)', fmt(e.insurerPaid), W));
             }
           }
-          if(showDetails && e.riderFee>0) lines.push(mrow('      Rider fee', fmt(e.riderFee), W));
           if(showDetails) lines.push(mrow('      Taxable embedded in value', fmt(e.taxableEmbedded||0), W));
+          if(e.passing){
+            lines.push(mrow('      Passing benefit (to heirs, after this year)', fmt(e.passing.amount), W));
+            lines.push(mrow('        taxable', fmt(e.passing.taxable), W));
+            lines.push(mrow('        tax-exempt', fmt(e.passing.taxFree), W));
+          }
         }
       }
       if(s && s.type==='portfolio' && r){

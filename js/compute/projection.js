@@ -169,21 +169,21 @@ function computeProjection(){
 
   // ── Annuities (per person, any number) ──
   // Simulated up front, year by year, in today's $ — an annuity's path does not depend on the tax calculation, so it is
-  // computed once here and the projection loop below just reads it. Per year (start-of-year account value V, benefit base B):
-  //   • Payout (inside the Start–End age range): with the Living Benefit Rider, the guaranteed amount = payout rate × benefit
-  //     base at the first payout year, level in nominal $ (so it shrinks in today's $); it is taken from the account value
-  //     first and, once that is gone, paid by the insurer for as long as the range lasts. Without the rider it is the entered
-  //     amount (grown by its annual change), capped at what the account holds.
-  //   • Rider fee = fee % × benefit base, taken from the account value. The benefit base rolls up (nominal %) until payouts
-  //     start, optionally stepping up to the account value (anniversary step-up); afterwards it is fixed in nominal $.
-  //   • V(next) = (V − withdrawal − rider fee) × (1 + credited growth) × (1 − contract fee %).
+  // computed once here and the projection loop below just reads it. Per year (V = start-of-year account value):
+  //   • Payout (inside the Start–End age range): either a fixed nominal $ amount (no inflation / COLA, so it shrinks in
+  //     today's $) or a % of the account value that year; never more than the account holds.
+  //   • V(next) = (V − payout) × (1 + credited growth) — the credited growth is already net of all fees.
+  //   • Passing benefit: paid to heirs when the contract ends (the owner's passing, or the surviving spouse's if the contract
+  //     continues to the spouse): a fixed nominal $ amount, the initial account value (nominal), or the account value then.
+  //     It is information for the legacy (not household cash flow); its taxable / tax-exempt split is computed below.
   // Tax treatment of the payout (nominal $ bookkeeping, results converted back to today's $):
   //   taxable   — qualified / IRA annuity: 100% ordinary income.
-  //   lifo      — non-qualified deferred: withdrawals come out gain first (taxable), then return of premium (tax-free);
-  //               amounts paid by the insurer after the account value is gone are fully taxable.
+  //   lifo      — non-qualified deferred: withdrawals come out gain first (taxable), then return of premium (tax-free).
   //   exclusion — non-qualified annuitized: tax-free share = premium ÷ expected total payout (to the owner's passing age),
   //               until the premium is recovered, then fully taxable.
   //   exempt    — a fixed % of every payout is tax-exempt (e.g. a Roth or tax-free contract).
+  // Passing benefit tax: qualified → all taxable; non-qualified → taxable above the remaining premium (premium returned
+  // tax-free); exempt → the exempt % is tax-free.
   function simulateAnnuity(a, i){
     const none={on:false, yr:[]};
     if(!a||a.enabled===false) return none;
@@ -191,39 +191,21 @@ function computeProjection(){
     if(!(V0>0)) return none;
     const hasPrem=a.premium!=null&&a.premium!==''&&Number.isFinite(Number(a.premium));
     const prem0=Math.max(0, hasPrem?Number(a.premium):V0);
-    const g=realGrowth(a.growth,inflation), fee=clamp(Number(a.feePct)||0,0,100)/100, netF=(1+g)*(1-fee);
-    const rider=!!a.rider;
-    const hasBase=a.riderBase!=null&&a.riderBase!==''&&Number.isFinite(Number(a.riderBase));
-    let B=rider?(hasBase?Math.max(0,Number(a.riderBase)):V0):0;
-    const rollup=(Number(a.riderRollup)||0)/100, rate=(Number(a.riderRate)||0)/100, rFee=(Number(a.riderFee)||0)/100;
-    const cola=realGrowth(a.change,inflation), reqAmt=Math.max(0,Number(a.payout)||0);
-    let V=V0, kStart=null, gpReal0=0;
+    const g=realGrowth(a.growth,inflation);
+    const byPct=a.payoutMode==='pct', fixedNom=Math.max(0,Number(a.payout)||0), pct=clamp(Number(a.payoutPct)||0,0,100)/100;
+    let V=V0, endK=null;
     const yr=[];
     for(let k=0;k<=yearsToProject;k++){
       const ownerAge=curAges[i]+k, ownerAlive=ownerAge<passAges[i];
       const spouseAlive=married&&people.length===2&&(curAges[1-i]+k<passAges[1-i]);
-      if(!(ownerAlive||(a.bene&&spouseAlive))) break;   // the contract ends with its owner unless it continues to the spouse
+      if(!(ownerAlive||(a.bene&&spouseAlive))){ endK=k; break; }   // the contract ends with its owner unless it continues to the spouse
       const [sA,eA]=resolveAgeRange(a.ar,people[i]);
       const rangeAge=ownerAlive?ownerAge:passAges[i]-1;
       const inWindow=rangeAge>=sA&&rangeAge<eA;
-      let payout=0, fromV=0, insurer=0;
-      if(inWindow){
-        if(rider){
-          if(kStart===null){ kStart=k; gpReal0=rate*B; }
-          payout=gpReal0/Math.pow(1+inflation,k-kStart);
-          fromV=Math.min(V,payout); insurer=payout-fromV;
-        }else if(V>0){
-          payout=Math.min(reqAmt*Math.pow(1+cola,k), V); fromV=payout;
-        }
-      }
-      const riderFeeAmt=rider?Math.min(Math.max(0,V-fromV), rFee*B):0;
-      const Vend=Math.max(0,V-fromV-riderFeeAmt)*netF;
-      yr[k]={bal:V, base:B, payout, fromV, insurer, riderFee:riderFeeAmt, started:kStart!==null&&kStart<=k};
-      if(rider){
-        if(kStart!==null) B=B/(1+inflation);
-        else{ B=B*(1+rollup)/(1+inflation); if(a.riderStepUp) B=Math.max(B,Vend); }
-      }
-      V=Vend;
+      let payout=0;
+      if(inWindow&&V>0) payout=byPct?V*pct:Math.min(fixedNom/Math.pow(1+inflation,k), V);
+      yr[k]={bal:V, payout, fromV:payout};
+      V=Math.max(0,V-payout)*(1+g);
     }
     // Tax split of each payout.
     const mode=a.tax||'lifo', exPct=clamp(Number(a.exemptPct!=null?a.exemptPct:100)||0,0,100)/100;
@@ -238,15 +220,25 @@ function computeProjection(){
         embedded=Math.max(0,vNom-premRem)/nk;
         freeNom=Math.min(ER*payNom, premRem); premRem-=freeNom; taxNom=payNom-freeNom;
       }else if(mode==='lifo'){
-        const gain=Math.max(0,vNom-premRem), fromVNom=y.fromV*nk, insNom=y.insurer*nk;
+        const gain=Math.max(0,vNom-premRem), fromVNom=y.fromV*nk;
         const taxFromV=Math.min(fromVNom,gain), ret=fromVNom-taxFromV;
         embedded=gain/nk; premRem=Math.max(0,premRem-ret);
-        freeNom=ret; taxNom=taxFromV+insNom;
+        freeNom=ret; taxNom=taxFromV;
       }
       y.taxable=taxNom/nk; y.taxFree=freeNom/nk; y.taxableEmbedded=embedded;
       y.nonQual=(mode==='lifo'||mode==='exclusion');
+      y.passing=null;
     });
-    return {on:true, yr, rider, mode};
+    // Passing benefit, recorded on the contract's last live year.
+    if(endK!==null&&endK>=1&&yr[endK-1]){
+      const nk=Math.pow(1+inflation,endK), opt=a.pb||'value';
+      const bNom=opt==='fixed'?Math.max(0,Number(a.pbFixed)||0):(opt==='initial'?V0:V*nk);
+      let tax=bNom, free=0;
+      if(mode==='exempt'){ free=bNom*exPct; tax=bNom-free; }
+      else if(mode!=='taxable'){ free=Math.min(bNom,premRem); tax=bNom-free; }
+      yr[endK-1].passing={amount:bNom/nk, taxable:tax/nk, taxFree:free/nk, option:opt};
+    }
+    return {on:true, yr, mode};
   }
   const annuityRun=people.map((p,i)=>(p.annuities||[]).map(a=>simulateAnnuity(a,i)));
 
@@ -352,8 +344,8 @@ function computeProjection(){
     const annuitiesByPerson=people.map((p,i)=>(p.annuities||[]).map((a,ai)=>{
       const run=annuityRun[i][ai], y=run&&run.on?run.yr[k]:null;
       const nm=(a&&a.name&&a.name.trim())||('Annuity '+(ai+1));
-      if(!y) return {id:a&&a.id, name:nm, balance:0, base:0, payout:0, taxable:0, taxFree:0, insurerPaid:0, riderFee:0, taxableEmbedded:0, rider:!!(a&&a.rider), nonQual:false, live:false};
-      return {id:a.id, name:nm, balance:y.bal, base:y.base, payout:y.payout, taxable:y.taxable, taxFree:y.taxFree, insurerPaid:y.insurer, riderFee:y.riderFee, taxableEmbedded:y.taxableEmbedded, rider:run.rider, nonQual:y.nonQual, live:true};
+      if(!y) return {id:a&&a.id, name:nm, balance:0, payout:0, taxable:0, taxFree:0, taxableEmbedded:0, passing:null, nonQual:false, live:false};
+      return {id:a.id, name:nm, balance:y.bal, payout:y.payout, taxable:y.taxable, taxFree:y.taxFree, taxableEmbedded:y.taxableEmbedded, passing:y.passing, nonQual:y.nonQual, live:true};
     }));
     const annuityByPerson=annuitiesByPerson.map(l=>sumArr(l.map(e=>e.taxable)));
     const annuityTEByPerson=annuitiesByPerson.map(l=>sumArr(l.map(e=>e.taxFree)));

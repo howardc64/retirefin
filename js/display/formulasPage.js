@@ -69,7 +69,7 @@ function buildFormulasHtml(){
     ['NIIT','Net Investment Income Tax'], ['NII','Net Investment Income'],
     ['TE','Tax-Exempt income (e.g. municipal-bond interest: untaxed, but part of household income, provisional income and IRMAA MAGI)'], ['ODIV','Ordinary (non-qualified) Dividends'], ['QDIV','Qualified Dividends'],
     ['LTCG','Long-Term Capital Gains'], ['SCGL','Suspended Capital-Gain Loss (carryforward)'],
-    ['IDGT','Intentionally Defective Grantor Trust'], ['GLWB','Guaranteed Lifetime Withdrawal Benefit (the annuity Living Benefit Rider)'], ['LIFO','Last-in, first-out: annuity gain is treated as withdrawn (and taxed) before premium'], ['FTC','Foreign Tax Credit'],
+    ['IDGT','Intentionally Defective Grantor Trust'], ['LIFO','Last-in, first-out: annuity gain is treated as withdrawn (and taxed) before premium'], ['FTC','Foreign Tax Credit'],
     ['IRMAA','Income-Related Monthly Adjustment Amount (Medicare Part B/D surcharge)']
   ].map(([a,f])=>`<tr><td class="fp-acr">${a}</td><td>${f}</td></tr>`).join('');
 
@@ -324,31 +324,35 @@ ${fpEq(
 <p>Household income pays expenses first, so a portfolio is only drawn down when income falls short. A portfolio outside its age range just compounds: it pays no dividends and is not sold.</p>
 
 <h3>Annuities</h3>
-<p>Each person can hold any number of annuities (Add / Remove on the Annuity card). An annuity is simulated year by year in today\'s dollars, independently of the tax calculation. Let <em>V</em> be the start-of-year account value and <em>B</em> the rider benefit base. The account value is the amount plotted on the Asset Value chart.</p>
-<p><strong>Payout.</strong> Inside the Start–End age range (a contract that continues to a surviving spouse is judged at the owner\'s last living age):</p>
+<p>Each person can hold any number of annuities (Add / Remove on the Annuity card). An annuity is simulated year by year in today\'s dollars, independently of the tax calculation. Let <em>V</em> be the start-of-year account value; it is the amount plotted on the Asset Value chart. The credited growth is entered net of all fees, so there is no separate fee.</p>
+<p><strong>Payout and account value.</strong> Inside the Start–End age range (a contract that continues to a surviving spouse is judged at the owner\'s last living age):</p>
 ${fpEq(
-  `Without the rider: Payout = min( entered amount × ( 1 + annual change )<sup>k</sup>, V )`,
-  `With the rider: Guaranteed payout = payout rate % × B<sub>first payout year</sub>, level in nominal $`,
-  `Withdrawn from the account = min( V, Payout ) &emsp; Paid by the insurer = Payout − Withdrawn`
+  `Fixed $: Payout = min( fixed amount ÷ ( 1 + inflation )<sup>k</sup>, V ) &emsp;(a nominal amount with no inflation / COLA)`,
+  `% of value: Payout = min( payout % × V, V )`,
+  `V<sub>next</sub> = ( V − Payout ) × ( 1 + real credited growth )`
 )}
-${fpWhere('The guaranteed payout is fixed in nominal dollars, so in today\'s dollars it shrinks by inflation each year after the first payout year. It is taken from the account value first; once the account is exhausted the insurer keeps paying it through the End age. Without the rider, payouts stop when the account is empty. With the rider on, the entered payout amount is not used.')}
-<p><strong>Account value and Living Benefit Rider.</strong></p>
-${fpEq(
-  `Rider fee = rider fee % × B &emsp;(taken from the account value)`,
-  `V<sub>next</sub> = ( V − Withdrawn − Rider fee ) × ( 1 + real credited growth ) × ( 1 − contract fee % )`,
-  `B<sub>next</sub> = B × ( 1 + roll-up % ) ÷ ( 1 + inflation ) before payouts start  (then max( B, V<sub>next</sub> ) if annual step-up is checked)`,
-  `B<sub>next</sub> = B ÷ ( 1 + inflation ) once payouts have started (fixed nominal amount)`
-)}
-${fpWhere('The benefit base is a notional amount used only to set the guaranteed payout and the rider fee; it is not part of the account value and is not charted as an asset. The benefit base defaults to the account value when left blank.')}
+${fpWhere('Payouts stop when the account is empty. The fixed amount is not adjusted for inflation, so in today\'s dollars it shrinks each year.')}
 <p><strong>Tax treatment of each payout</strong> (premium = the premium / cost basis entered, blank = account value; bookkeeping is done in nominal dollars and converted back):</p>
 ${fpEq(
   `Qualified: Taxable = Payout`,
-  `Non-qualified, withdrawals (LIFO): Taxable = min( Withdrawn, max( 0, V − premium remaining ) ) + Paid by insurer; Tax-free = the rest of Withdrawn (premium returned)`,
+  `Non-qualified, withdrawals (LIFO): Taxable = min( Payout, max( 0, V − premium remaining ) ); Tax-free = the rest (premium returned)`,
   `Non-qualified, annuitized: Exclusion ratio = min( 1, premium ÷ expected total payout ); Tax-free = min( ratio × Payout, premium remaining )`,
   `Tax-exempt: Tax-free = Payout × tax-exempt %`
 )}
 ${fpWhere('Expected total payout is the sum of the projected payouts, in nominal dollars, up to the owner\'s passing age. Once the premium is fully recovered, the exclusion-ratio treatment makes every further payout fully taxable.')}
-<p>The taxable part is ordinary income (it enters AGI and the Ordinary income line above); for non-qualified treatments it is also net investment income for NIIT. The tax-free part is untaxed and never in AGI, but, like tax-exempt portfolio income, it counts toward provisional income (Social Security taxation) and MAGI (IRMAA). Both parts are household cash income, so they pay expenses first in the waterfall above. An annuity ends when its owner passes unless it continues to the spouse; annuities have no step-up and no stretch.</p>
+<p><strong>Passing benefit</strong> (paid to heirs when the contract ends: the owner\'s passing, or the surviving spouse\'s if it continues to the spouse). It is shown for the legacy and is not household cash flow. Three options, none adjusted for inflation:</p>
+${fpEq(
+  `Fixed $: Benefit = the fixed amount`,
+  `Initial value: Benefit = the account value entered today`,
+  `Account value at passing: Benefit = V at the passing`
+)}
+<p>Its taxable and tax-exempt parts, for every option:</p>
+${fpEq(
+  `Qualified: Taxable = Benefit`,
+  `Non-qualified: Tax-free = min( Benefit, premium remaining ); Taxable = Benefit − Tax-free`,
+  `Tax-exempt: Tax-free = Benefit × tax-exempt %`
+)}
+<p>The taxable part of payouts is ordinary income (it enters AGI and the Ordinary income line above); for non-qualified treatments it is also net investment income for NIIT. The tax-free part is untaxed and never in AGI, but, like tax-exempt portfolio income, it counts toward provisional income (Social Security taxation) and MAGI (IRMAA). Both parts are household cash income, so they pay expenses first in the waterfall above. An annuity ends when its owner passes unless it continues to the spouse; annuities have no step-up and no stretch.</p>
 
 <h3>Today's-Dollar Convention</h3>
 <p>Every figure in this app — inputs, intermediate values, and every chart — is expressed in today's dollars. An "Annual change" of <em>Fixed $ (no growth)</em> (worded <em>Fixed $ (no COLA)</em> on the Pension card) actually erodes in real terms by the inflation rate each year; <em>Tracks inflation</em> means 0% real growth; <em>Inflation ± X%</em> and <em>Custom annual %</em> both express a real (today's-dollar) growth rate directly.</p>
