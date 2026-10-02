@@ -32,7 +32,7 @@ function buildIncomeLegend(){
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
   document.getElementById('incomeLegend').innerHTML =
     keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
-    legendItem('IRMAA', null, `border-top:2px dashed ${ov.irmaa[0]};background:transparent;height:2px;margin-top:4px`);
+    legendItem('IRMAA brackets (shown on MAGI chart)', null, `border-top:2px dashed ${ov.irmaa[0]};background:transparent;height:2px;margin-top:4px`);
 }
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -132,13 +132,11 @@ function buildIncomeChart(){
   };
 
   upsertLineChart('income',{canvasId:'incomeChart', labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
-    refresh:o=>{ o.plugins.incomeOverlay={irmaaMFJ,irmaaSgl,switchIdx:swIdx}; },
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
-        incomeOverlay:{irmaaMFJ,irmaaSgl,switchIdx:swIdx},
         tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
@@ -147,5 +145,76 @@ function buildIncomeChart(){
       }
     })});
   buildIncomeLegend();
-}
 
+  // ── Half-size companion chart (right side): household MAGI stack with IRMAA tier lines ──
+  // Same labels (X scale), same locked Y scale (Y_MAX) and same 1:1 aspect ratio as the primary chart,
+  // sparser axis ticks, no legend/note (the primary's legend covers it). The stack uses the primary's colors and order
+  // and sums exactly to MAGI = AGI + tax-exempt income: the same sources as the primary except that untaxed
+  // rental depreciation is left out and Social Security counts only its taxable part (split between the two
+  // people in proportion to their benefits). Dashed IRMAA lines follow the filing status in force (MFJ until switchIdx,
+  // Single after), each labeled with the bracket's MAGI value and the Part B premium % over standard.
+  // Beneficiary pays 25% of the Part B cost at the standard tier and 35/50/65/80/85% at IRMAA tiers 1–5,
+  // so the Part B premium is 40/100/160/220/240% above standard.
+  const IRMAA_PCT=[35,50,65,80,85];
+  const withPct=a=>a.map(l=>({...l,pct:Math.round((IRMAA_PCT[Math.min(l.tier,IRMAA_PCT.length-1)]/25-1)*100)}));
+  const magiOv={irmaaMFJ:withPct(irmaaMFJ),irmaaSgl:withPct(irmaaSgl),switchIdx:swIdx};
+  const mKeys=keys.filter(k=>k!=='rentDep');
+  const mSeries={}; mKeys.forEach(k=>mSeries[k]=[]);
+  const taxSSPart=(r,idx)=>{ const tot=r.totalSS||0; return tot>0 ? (r.taxableSS||0)*((r.ssByPerson[idx]||0)/tot) : 0; };
+  rows.forEach(r=>{
+    mKeys.forEach(k=>{
+      if(k==='ssP0') mSeries[k].push(taxSSPart(r,idxP0));
+      else if(k==='ssOther') mSeries[k].push(taxSSPart(r,otherIdx));
+      else mSeries[k].push(seriesByKey[k][mSeries[k].length]);
+    });
+  });
+  const mAligned={}; mKeys.forEach(k=>{ mAligned[k]=alignToAges(ages, mSeries[k], labels); });
+  const magiDs=mKeys.map(k=>({
+    label:(k==='ssP0'||k==='ssOther') ? INC_LABELS[k]+' — taxable part' : INC_LABELS[k], data:mAligned[k],
+    borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
+    borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'magi'
+  }));
+  const magiTip={
+    title:tooltipCallbacks.title,
+    label:ctx=>{
+      if(ctx.raw==null||ctx.raw===0) return null;
+      const key=mKeys[ctx.datasetIndex];
+      const r=rowByAge[labels[ctx.dataIndex]];
+      const field=INC_BYPERSON_FIELD[key];
+      if(r && field && Array.isArray(r[field])){
+        const lines=[];
+        r[field].forEach((v,pIdx)=>{
+          if(v>0.5) lines.push(mrow('  '+ctx.dataset.label+' — '+displayPersonName(proj.people[pIdx],pIdx), fmt(v)+'/yr'));
+        });
+        if(lines.length) return lines;
+      }
+      return mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr');
+    },
+    footer:items=>{
+      const idx=items[0]?items[0].dataIndex:0;
+      const r=rowByAge[labels[idx]]; if(!r) return [];
+      const total=mKeys.reduce((s,k)=>s+(mAligned[k][idx]||0),0);
+      const lines=['', mrow('MAGI (AGI + tax-exempt income)', fmt(total)+'/yr')];
+      if(showDetails){
+        lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
+        lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
+        // Same IRMAA lines as the primary chart's popup.
+        if(r.expIrmaa>0) lines.push(mrow('  incl. IRMAA surcharge',fmt(r.expIrmaa)+'/yr'));
+      }
+      const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>(r.magi!=null?r.magi:r.agi)>=t.magi);
+      if(showDetails && irmaaT) lines.push(`⚠ IRMAA: +${fmt(irmaaT.surch)}/yr`);
+      return lines;
+    }
+  };
+  upsertLineChart('incomeMagi',{canvasId:'incomeMagiChart', labels, datasets:magiDs, yMax:Y_MAX, tooltip:magiTip,
+    refresh:o=>{ o.plugins.magiOverlay=magiOv; },
+    createOptions:()=>({
+      ...CHART_BASE,
+      interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false}, magiOverlay:magiOv, tooltip:{...TIP_STYLE,callbacks:justifyTip(magiTip)} },
+      scales:{
+        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('MAGI (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+      }
+    })});
+}

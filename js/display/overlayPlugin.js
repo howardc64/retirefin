@@ -50,7 +50,7 @@ const incomeOverlayPlugin={
         const lineCol = ov.irmaa[Math.min(ln.tier,ov.irmaa.length-1)];
         ctx.beginPath(); ctx.setLineDash([8,5]); ctx.lineWidth=1.4; ctx.strokeStyle=lineCol;
         ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke(); ctx.setLineDash([]);
-        bucket.push({y:yPx-5,x:Math.min(right,xb)-3,text:`IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,font:'10px DM Sans,sans-serif'});
+        bucket.push({y:yPx-5,x:Math.min(right,xb)-3,text:ln.pct!=null ? `$${(ln.magi/1000).toFixed(0)}k +${ln.pct}%` : `IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,font:(ln.pct!=null?'9px':'10px')+' DM Sans,sans-serif'});
       });
     }
     drawLines(opts.irmaaMFJ,0,Math.min(swIdx,n)-1,leftLabels);
@@ -61,6 +61,9 @@ const incomeOverlayPlugin={
   }
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('incomeOverlay')) Chart.register(incomeOverlayPlugin);
+// Same dashed IRMAA lines for the small MAGI companion chart (lines carry `pct` → labeled with the bracket MAGI value and the Part B % increase over standard).
+const magiOverlayPlugin={...incomeOverlayPlugin, id:'magiOverlay'};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('magiOverlay')) Chart.register(magiOverlayPlugin);
 
 // Ordinary-income-tax bracket lines for the small ordinary chart on the Total Income Tax section.
 // Each line sits at the cumulative ordinary tax owed at a bracket ceiling ($ on the same axis as the

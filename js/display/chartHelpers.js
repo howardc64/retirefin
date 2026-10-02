@@ -31,6 +31,7 @@ function toggleOverlayMode(){
   const lbl=document.getElementById('overlayModeLabel'); if(lbl) lbl.textContent = overlayMode==='light'?'Light':'Dark';
   buildIncomeLegend(); buildTaxLegend();
   if(charts.income) charts.income.update();
+  if(charts.incomeMagi) charts.incomeMagi.update();
   if(charts.tax) charts.tax.update();
   if(charts.taxOrd) charts.taxOrd.update();
 }
@@ -117,7 +118,7 @@ function ageLabelRange(fromAge,toAge){
 // One live Chart.js instance per key (null until first drawn). Every chart file reads/writes
 // `charts.<key>` through upsertLineChart(); destroy/resize below walk the registry, so adding a
 // chart never means editing a hand-written list of chart variables.
-const charts={ss:null, income:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, idgt:null};
+const charts={ss:null, income:null, incomeMagi:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, idgt:null};
 function allCharts(){ return Object.values(charts).filter(Boolean); }
 
 // Y-axis maximum per chart. It is computed once and then held ("locked") so the scale doesn't

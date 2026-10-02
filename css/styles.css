@@ -160,7 +160,8 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .co{display:flex;justify-content:center;width:100%;}
 .cw{position:relative;width:66.667%;max-width:800px;min-width:0;}
 .cw canvas{display:block;}
-/* Total Income Tax: primary chart (2/3 width) + two half-size charts stacked on the right (1/3 width, each 1/2 the primary's height; all square) */
+/* Primary chart (2/3 width) + half-size companion chart(s) on the right (1/3 width, each 1/2 the primary's height; all square, top-aligned).
+   Used by Annual Household Income (MAGI chart) and Total Income Tax (two charts). */
 .tax-trio{display:grid;grid-template-columns:2fr 1fr;gap:12px;width:100%;max-width:1200px;align-items:start;}
 .tax-main,.tax-sm{position:relative;min-width:0;}
 .tax-side{display:flex;flex-direction:column;min-width:0;}

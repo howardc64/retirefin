@@ -282,3 +282,7 @@
 87. Print: charts printed as nothing because the data-URL snapshot <img> had not decoded when the page was laid out; the swap is now a synchronous canvas-to-canvas pixel copy.
 88. Print: the Social Security and Social Security Tax line charts still printed blank when the live chart was resized/redrawn for print; each chart is now drawn afresh (off-screen, no animation) at print size and that copy is printed. Live charts are no longer touched during print.
 89. Notes/Usage pages: indented (nested) bullets and numbered lists now render nested instead of flattened (`mdToHtml` tracks list depth by indentation; also accepts `+`, `•`, `◦` markers and indented wrapped lines).
+
+27. Annual Household Income is now two charts: the primary stacked chart (left) plus a half-size MAGI chart (right, top-aligned) with dashed IRMAA tier lines labeled only with the tier % (35/50/65/80/85%); shares the primary's X/Y scale and 1:1 aspect ratio.
+28. IRMAA dashed lines removed from the primary income chart (and its legend/title); the MAGI chart's IRMAA lines are now labeled with the bracket MAGI value and Part B premium % over standard (e.g. `$218k +40%`).
+29. Income section: primary legend again lists IRMAA (labeled as shown on the MAGI chart; still no dashed lines on the primary). MAGI chart is now a stack in the primary's colors (sums to MAGI; taxable-part Social Security) and its popup shows the IRMAA surcharge/tier under Show Details in Popup.
