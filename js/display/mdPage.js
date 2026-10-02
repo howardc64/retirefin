@@ -45,7 +45,7 @@ async function openMdPage(file, label){
 
 // A small, intentionally non-exhaustive Markdown → HTML converter — enough for a plain-language
 // document (headings, bold/italic, inline code, fenced code blocks, links, lists, blockquotes,
-// horizontal rules, paragraphs). Not a full CommonMark implementation; if a misc/*.md file needs a
+// horizontal rules, paragraphs, and bullet / numbered lists nested by indentation). Not a full CommonMark implementation; if a misc/*.md file needs a
 // Markdown feature this doesn't handle, extend this function rather than reaching for a CDN library
 // so the Notes and Usage buttons keep working offline once the page itself has loaded.
 function mdToHtml(md){
@@ -60,8 +60,26 @@ function mdToHtml(md){
     return s;
   }
   const lines = md.replace(/\r\n/g,'\n').split('\n');
-  let html='', i=0, inUl=false, inOl=false, inQuote=false;
-  const closeLists=()=>{ if(inUl){html+='</ul>';inUl=false;} if(inOl){html+='</ol>';inOl=false;} if(inQuote){html+='</blockquote>';inQuote=false;} };
+  let html='', i=0, inQuote=false;
+  // Lists nest by indentation (a tab counts as 4 spaces). `stack` holds one entry per open <ul>/<ol>; the current
+  // <li> stays open until the next item so a deeper-indented list can nest inside it.
+  const stack=[];
+  const BULLET=/^(\s*)[-*+•◦▪‣]\s+(.*)$/, NUMBER=/^(\s*)\d+[.)]\s+(.*)$/;
+  const indentOf=ws=>ws.replace(/\t/g,'    ').length;
+  const closeTop=()=>{ const t=stack.pop(); if(t.liOpen) html+='</li>'; html+=`</${t.type}>`; };
+  const closeLists=()=>{ while(stack.length) closeTop(); if(inQuote){html+='</blockquote>';inQuote=false;} };
+  function listItem(type,indent,text){
+    if(inQuote){ html+='</blockquote>'; inQuote=false; }
+    if(!stack.length || indent>stack[stack.length-1].indent){
+      stack.push({type,indent,liOpen:false}); html+=`<${type}>`;        // new (possibly nested) list
+    } else {
+      while(stack.length>1 && indent<stack[stack.length-1].indent) closeTop();   // back out to the matching level
+      const t=stack[stack.length-1];
+      if(t.type!==type){ closeTop(); stack.push({type,indent,liOpen:false}); html+=`<${type}>`; }
+      else if(t.liOpen){ html+='</li>'; t.liOpen=false; }
+    }
+    html+=`<li>${inline(text)}`; stack[stack.length-1].liOpen=true;
+  }
   while(i<lines.length){
     const line=lines[i];
     if(/^```/.test(line)){
@@ -71,7 +89,12 @@ function mdToHtml(md){
       html+=`<pre><code>${esc(buf.join('\n'))}</code></pre>`;
       i++; continue;
     }
-    if(/^\s*$/.test(line)){ closeLists(); i++; continue; }
+    if(/^\s*$/.test(line)){
+      // a blank line ends a list unless the next non-blank line is another list item (loose list)
+      let j=i+1; while(j<lines.length && /^\s*$/.test(lines[j])) j++;
+      if(!(stack.length && j<lines.length && (BULLET.test(lines[j])||NUMBER.test(lines[j])))) closeLists();
+      i++; continue;
+    }
     if(/^#{1,6}\s+/.test(line)){
       closeLists();
       const level=line.match(/^#+/)[0].length;
@@ -84,20 +107,15 @@ function mdToHtml(md){
       html+=`<p>${inline(line.replace(/^>\s?/,''))}</p>`;
       i++; continue;
     }
-    if(/^\s*[-*]\s+/.test(line)){
-      if(!inUl){ closeLists(); html+='<ul>'; inUl=true; }
-      html+=`<li>${inline(line.replace(/^\s*[-*]\s+/,''))}</li>`;
-      i++; continue;
-    }
-    if(/^\s*\d+\.\s+/.test(line)){
-      if(!inOl){ closeLists(); html+='<ol>'; inOl=true; }
-      html+=`<li>${inline(line.replace(/^\s*\d+\.\s+/,''))}</li>`;
-      i++; continue;
-    }
+    let m;
+    if((m=line.match(BULLET))){ listItem('ul',indentOf(m[1]),m[2]); i++; continue; }
+    if((m=line.match(NUMBER))){ listItem('ol',indentOf(m[1]),m[2]); i++; continue; }
+    // An indented, non-list line directly under a list item is that item's wrapped continuation text.
+    if(stack.length && /^\s+\S/.test(line)){ html+=' '+inline(line.trim()); i++; continue; }
     // Paragraph: consume consecutive non-blank, non-block-starting lines as one <p>.
     closeLists();
     const buf=[line]; i++;
-    while(i<lines.length && !/^\s*$/.test(lines[i]) && !/^(#{1,6}\s+|```|>|\s*[-*]\s+|\s*\d+\.\s+|---|\*\*\*|___)/.test(lines[i])){
+    while(i<lines.length && !/^\s*$/.test(lines[i]) && !/^(#{1,6}\s+|```|>|---|\*\*\*|___)/.test(lines[i]) && !BULLET.test(lines[i]) && !NUMBER.test(lines[i])){
       buf.push(lines[i]); i++;
     }
     html+=`<p>${inline(buf.join(' '))}</p>`;
@@ -116,7 +134,7 @@ function mdPageHtml(title, bodyHtml, file, label){
   pre{background:#f2f0ea;padding:10px 12px;border-radius:5px;overflow-x:auto;}
   pre code{background:none;padding:0;}
   blockquote{border-left:3px solid #b08a3e;margin:0;padding:2px 14px;color:#555;background:#f6f4ee;}
-  ul,ol{padding-left:22px;} li{margin-bottom:4px;}
+  ul,ol{padding-left:22px;} li{margin-bottom:4px;} li>ul,li>ol{margin-top:4px;margin-bottom:0;}
   a{color:#8a5a1c;} hr{border:none;border-top:1px solid #ddd;margin:24px 0;}
   .fp-src{color:#888;font-size:11.5px;}
 </style></head>

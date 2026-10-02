@@ -31,7 +31,7 @@
         "claimAge": 70
       },
       "pension": {
-        "enabled": true,
+        "enabled": false,
         "hidden": true,
         "amount": 0,
         "ar": {
@@ -46,6 +46,7 @@
         },
         "bene": false
       },
+      "annuities": [],
       "rentals": [],
       "brokerage": [
         {
@@ -122,7 +123,7 @@
           "endVal": 0
         },
         "bene": true,
-        "conv": 54000,
+        "conv": 0,
         "convStartMode": "now",
         "convStart": 0,
         "stretch": true,
@@ -147,9 +148,9 @@
       "birthYear": 1966,
       "birthMonth": 1,
       "wage": {
-        "enabled": false,
+        "enabled": true,
         "hidden": true,
-        "amount": 0,
+        "amount": 80000,
         "ar": {
           "startMode": "now",
           "startVal": 0,
@@ -185,6 +186,7 @@
         },
         "bene": false
       },
+      "annuities": [],
       "rentals": [],
       "brokerage": [],
       "ira": {
@@ -256,6 +258,16 @@
     "niitMarried": 250000
   },
   "ui": {
+    "incomeOrder": [
+      "wage",
+      "ss",
+      "pension",
+      "rental",
+      "brokerage",
+      "annuity",
+      "ira",
+      "roth"
+    ],
     "hiddenSections": {
       "assumptions": false,
       "ss": true,

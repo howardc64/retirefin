@@ -650,7 +650,7 @@ if you change a formula in §4, update its description on this page in the same 
 
 ### 6.10 `mdPage.js`, `usagePage.js`, `notesPage.js`
 `mdPage.js` is the shared Markdown viewer: `openMdPage(file, label)` opens a new tab, `fetch`es the `.md` file, converts it to HTML
-**at the moment of opening** with the small converter `mdToHtml()` (headings, bold/italic, inline code, fenced code, links, lists,
+**at the moment of opening** with the small converter `mdToHtml()` (headings, bold/italic, inline code, fenced code, links, bullet/numbered lists **nested by indentation** (2+ spaces or a tab per level; `-` `*` `+` `•` markers; indented lines under an item continue it),
 blockquotes, rules, paragraphs — extend that function rather than adding a CDN library, so it keeps working offline), wraps it in
 `mdPageHtml(title, body, file, label)` and `document.write`s it; when `fetch` is blocked (a `file://` page) it writes an explanation instead.
 `usagePage.js` → `openUsagePage()` — the **Usage** button (topbar, immediately left of **Save to file**) shows `misc/Usage.md`.
