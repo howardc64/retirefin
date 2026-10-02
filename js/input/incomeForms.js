@@ -18,14 +18,13 @@ function renderIncomeForms(){
     const p=state.people[i];
     const pid='people.'+i;
     html+=`<div class="person-col"><h3 id="personIncomeHeader_${i}">${escHtml(p.name)}</h3>`;
-    html+=buildWageCard(pid, p);
-    html+=buildSSCard(pid, p, i, married);
-    html+=buildPensionCard(pid, p);
-    html+=buildRentalCard(pid, p);
-    html+=buildBrokerageCard(pid, i, p, married);
-    html+=buildAnnuityCard(pid, i, p, married);
-    html+=buildIraCard(pid, p, married);
-    html+=buildRothCard(pid, p, married);
+    const builders={
+      wage:()=>buildWageCard(pid, p), ss:()=>buildSSCard(pid, p, i, married), pension:()=>buildPensionCard(pid, p),
+      rental:()=>buildRentalCard(pid, p), brokerage:()=>buildBrokerageCard(pid, i, p, married), annuity:()=>buildAnnuityCard(pid, i, p, married),
+      ira:()=>buildIraCard(pid, p, married), roth:()=>buildRothCard(pid, p, married)
+    };
+    // Card order is state.ui.incomeOrder, the same for every person column (drag a card's ⋮⋮ handle to reorder; see below).
+    normalizeIncomeOrderInState().forEach(key=>{ html+=dndCard(key, builders[key]()); });
     html+='</div>';
   }
   const incomeEl = document.getElementById('perPersonIncome');
@@ -34,6 +33,77 @@ function renderIncomeForms(){
   // autocomplete="off": stops a browser's form-state restore (reload / back) from putting a stale checkbox or value on top of the
   // state-derived one — e.g. a Hide box that is checked while its card is open.
   incomeEl.innerHTML=html.replace(/<input /g,'<input autocomplete="off" ');
+  initIncomeDnd(incomeEl);
+}
+
+// ── Drag to reorder the income-source cards ──
+// Each top-level card carries data-card="<key>" and a ⋮⋮ drag handle. The order lives in state.ui.incomeOrder and is shared by all
+// person columns, so in a married plan dragging either spouse's card moves both spouses' cards of that type together (both are
+// highlighted while dragging). The order is part of the saved plan. Display-only: no recompute. (HTML5 drag and drop: mouse / pen.)
+function normalizeIncomeOrderInState(){
+  if(!state.ui) state.ui={};
+  state.ui.incomeOrder=normalizeIncomeOrder(state.ui.incomeOrder);
+  return state.ui.incomeOrder;
+}
+function dndCard(key, html){
+  html=html.replace('<div class="item"', `<div class="item" data-card="${key}"`);
+  return html.replace(/(<div class="item-head"[^>]*>)/, '$1<span class="drag-handle" draggable="true" title="Drag to reorder (moves both spouses\' cards together)" onclick="event.stopPropagation()">⋮⋮</span>');
+}
+// Pure reorder: move `key` before / after `targetKey`; returns the new order.
+function moveIncomeCard(order, key, targetKey, before){
+  if(key===targetKey||!order.includes(key)||!order.includes(targetKey)) return order.slice();
+  const out=order.filter(k=>k!==key), idx=out.indexOf(targetKey);
+  out.splice(before?idx:idx+1, 0, key);
+  return out;
+}
+let _dnd={key:null, target:null, before:true, wired:null};
+function dndClear(root){
+  root.querySelectorAll('.dnd-dragging,.dnd-over-top,.dnd-over-bottom').forEach(el=>el.classList.remove('dnd-dragging','dnd-over-top','dnd-over-bottom'));
+}
+function dndMark(root, key, cls){ root.querySelectorAll('.item[data-card="'+key+'"]').forEach(el=>el.classList.add(cls)); }
+// The card under the pointer or, over a gap / column padding / heading, the vertically nearest card in that person column.
+function dndCardAt(root,e){
+  const t=e.target&&e.target.closest?e.target:null; if(!t) return null;
+  const hit=t.closest('.item[data-card]'); if(hit) return hit;
+  const col=t.closest('.person-col')||root.querySelector('.person-col'); if(!col) return null;
+  let best=null, bd=Infinity;
+  col.querySelectorAll(':scope > .item[data-card]').forEach(c=>{
+    const r=c.getBoundingClientRect(), d=e.clientY<r.top?r.top-e.clientY:(e.clientY>r.bottom?e.clientY-r.bottom:0);
+    if(d<bd){ bd=d; best=c; }
+  });
+  return best;
+}
+function initIncomeDnd(root){
+  if(_dnd.wired===root) return;   // the container persists across re-renders; wire it once
+  _dnd.wired=root;
+  root.addEventListener('dragstart',e=>{
+    const h=e.target.closest&&e.target.closest('.drag-handle'); if(!h) return;
+    const card=h.closest('.item[data-card]'); if(!card) return;
+    _dnd.key=card.dataset.card; _dnd.target=null;
+    e.dataTransfer.effectAllowed='move';
+    try{ e.dataTransfer.setData('text/plain',_dnd.key); e.dataTransfer.setDragImage(card,12,12); }catch(_){}
+    requestAnimationFrame(()=>dndMark(root,_dnd.key,'dnd-dragging'));
+  });
+  root.addEventListener('dragover',e=>{
+    if(!_dnd.key) return;
+    const card=dndCardAt(root,e); if(!card) return;   // anywhere in the income grid counts — the gaps between cards snap to the nearest card
+    e.preventDefault(); e.dataTransfer.dropEffect='move';
+    const r=card.getBoundingClientRect(), before=e.clientY<r.top+r.height/2, key=card.dataset.card;
+    if(_dnd.target===key&&_dnd.before===before) return;
+    root.querySelectorAll('.dnd-over-top,.dnd-over-bottom').forEach(el=>el.classList.remove('dnd-over-top','dnd-over-bottom'));
+    _dnd.target=key; _dnd.before=before;
+    if(key!==_dnd.key) dndMark(root,key,before?'dnd-over-top':'dnd-over-bottom');
+  });
+  root.addEventListener('drop',e=>{
+    if(!_dnd.key) return;
+    e.preventDefault();
+    const key=_dnd.key, target=_dnd.target, before=_dnd.before;
+    _dnd.key=null; _dnd.target=null; dndClear(root);
+    if(!target||target===key) return;
+    state.ui.incomeOrder=moveIncomeCard(normalizeIncomeOrderInState(), key, target, before);
+    renderIncomeForms(); saveDebounced();
+  });
+  root.addEventListener('dragend',()=>{ _dnd.key=null; _dnd.target=null; dndClear(root); });
 }
 
 function onSSStartedToggle(i,checked){ state.people[i].ss.started=checked; renderIncomeForms(); recompute(); saveDebounced(); }

@@ -11,6 +11,7 @@ This page explains how to work with the planner. Everything is entered in **toda
 - **Roth conversions**, RMDs and IRA stretch after the last passing.
 - **Tax modeling**: federal brackets, taxable Social Security, long-term gains, NIIT, IRMAA and the senior deduction.
 - **Charts** for Social Security claiming age, annual income, taxes, expenses and asset value (with adjustable withdraw cost).
+- **Drag to reorder** the income cards (spouses move together); the order is saved with the plan.
 - **Save / load** plans, **Export to Excel**, a **Formulas** reference and an optional **chat** to ask about your plan.
 
 ## Getting started
@@ -19,6 +20,8 @@ This page explains how to work with the planner. Everything is entered in **toda
    The SCGL, AUM fee, Long Term Care and speculative-model items in the Assumptions panel each have an **Enable** box on the left (untick it and the plan ignores that item, but keeps what you typed) and a **Hide** box on the right (collapses the item to save screen space without changing the plan).
 2. Under **Income Sources**, fill in each person: birth date, Social Security, wages, pension, **rental properties**, the **pre-tax IRA / 401(k)**, the **Roth IRA**, and any **brokerage portfolios**. Switch an item on with its checkbox, then fill in its details.
 3. Read the charts below the inputs. They update as you type.
+
+**Reordering cards:** drag the ⋮⋮ handle at the left of any income card (Social Security, wages, pension, rentals, annuities, brokerage, IRA, Roth) and drop it above or below another card. In a married plan both spouses' cards of that type move together. The order is saved with the plan and restored when you load it. (Drag and drop works with a mouse or pen; it is not available on touch screens.)
 
 Most items have an **age range** (when the amount starts and stops) and an **annual change** (how the amount grows or shrinks in real, today's-dollar terms). In a married plan, an item can be set to **continue to the spouse** after its owner passes.
 

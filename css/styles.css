@@ -60,6 +60,13 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .people-panes.two-col{grid-template-columns:repeat(2,minmax(0,1fr));}
 .people-panes .person-col .setup-grid{grid-template-columns:1fr 1fr;gap:10px;}
 .item{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:10px 12px;margin-bottom:10px;min-width:0;}
+.item[data-card]{position:relative;padding-left:24px;}
+.drag-handle{position:absolute;left:6px;top:10px;cursor:grab;color:var(--text-muted);font-size:13px;line-height:1;letter-spacing:-3px;padding:3px 2px;user-select:none;}
+.drag-handle:hover{color:var(--teal-text);}
+.drag-handle:active{cursor:grabbing;}
+.item.dnd-dragging{opacity:.4;}
+.item.dnd-over-top{box-shadow:0 -4px 0 0 var(--teal-text);}
+.item.dnd-over-bottom{box-shadow:0 4px 0 0 var(--teal-text);}
 .item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
 .item-head label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;cursor:pointer;}
 .item-head-right{display:flex;align-items:center;gap:10px;flex:0 0 auto;}

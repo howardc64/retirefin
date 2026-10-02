@@ -86,6 +86,15 @@ function defaultPerson(idx){
 // DEFAULT_SECTION_HIDDEN is what a fresh session / Reset to defaults starts with: true = every section starts checked + collapsed.
 const SECTION_HIDE_KEYS=['assumptions','ss','income','tss','tax','expenses','assets'];
 const DEFAULT_SECTION_HIDDEN=true;
+// Display order of the income-source cards (`state.ui.incomeOrder`), shared by every person column so married spouses reorder together.
+const INCOME_CARD_KEYS=['wage','ss','pension','rental','brokerage','annuity','ira','roth'];
+// A saved order is kept as far as it is valid: unknown / duplicate keys are dropped and any card missing from it (e.g. one added
+// after the save was written) is appended in its default position order.
+function normalizeIncomeOrder(o){
+  const out=[]; (Array.isArray(o)?o:[]).forEach(k=>{ if(INCOME_CARD_KEYS.includes(k)&&!out.includes(k)) out.push(k); });
+  INCOME_CARD_KEYS.forEach(k=>{ if(!out.includes(k)) out.push(k); });
+  return out;
+}
 // Asset Value chart "devalue" sliders (display only): % knocked off the unrealized-gain part of brokerage value (LTCG) and off pre-tax IRA value (ordinary income).
 const DEFAULT_LTCG_DEVALUE=0, DEFAULT_ORD_DEVALUE=0;
 // Second set: applies only to the years after the last passing (heirs' anticipated brackets); its defaults (0 / 0) are independent of the first set's.
@@ -104,7 +113,7 @@ function defaultState(){
     ltc:{enabled:false, people:[{startAge:85,cost:100000},{startAge:85,cost:100000}], living1:null, living2:0},   // Long Term Care: per person start age (own age) and cost; household living expenses from the 1st / 2nd LTC start (today's $)
     aumFee:{enabled:true, mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{hiddenSections:defaultHiddenSections(), assumpHide:{scgl:false,aum:false,ltc:true,future:true}, ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
+    ui:{incomeOrder:INCOME_CARD_KEYS.slice(), hiddenSections:defaultHiddenSections(), assumpHide:{scgl:false,aum:false,ltc:true,future:true}, ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
@@ -236,6 +245,8 @@ function hydrateState(loaded){
     }
     delete p.odiv; delete p.qdiv;
   });
+  if(!out.ui) out.ui={};
+  out.ui.incomeOrder=normalizeIncomeOrder(out.ui.incomeOrder);
   return out;
 }
 let state = defaultState();
