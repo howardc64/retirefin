@@ -19,7 +19,7 @@ function declutterLabels(ctx, items, top, bottom, minGap){
   if(overflow>0) items.forEach(it=>it.y -= overflow);
   if(items[0].y < top) { const under=top-items[0].y; items.forEach(it=>it.y += under); }
   items.forEach(it=>{
-    ctx.font=it.font; ctx.fillStyle=it.color; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.font=it.font; ctx.fillStyle=it.color; ctx.textAlign=it.align||'right'; ctx.textBaseline='middle';
     ctx.fillText(it.text, it.x, it.y);
   });
 }
@@ -61,3 +61,46 @@ const incomeOverlayPlugin={
   }
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('incomeOverlay')) Chart.register(incomeOverlayPlugin);
+
+// Ordinary-income-tax bracket lines for the small ordinary chart on the Total Income Tax section.
+// Each line sits at the cumulative ordinary tax owed at a bracket ceiling ($ on the same axis as the
+// tax area), drawn for the filing status in force (MFJ until switchIdx, Single after) and labeled
+// once with the rate that applies above it. Same draw phase as incomeOverlay (under the tooltip).
+const taxBracketPlugin={
+  id:'taxBracketOverlay',
+  afterDatasetsDraw(chart,args,opts){
+    if(!opts) return;
+    const{ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
+    const n=chart.data.labels.length, swIdx=opts.switchIdx??n;
+    const xP=i=>x.getPixelForValue(Math.max(0,Math.min(n-1,i)));
+    const ov=OV();
+    ctx.save();
+    ctx.beginPath(); ctx.rect(left,top,right-left,bottom-top); ctx.clip();
+    // Lines near the bottom of the shared $ scale are only a few px apart, so labels are staggered
+    // along x (each label that would touch the previous one steps right) instead of being pushed off their line.
+    function draw(lines,i0,i1,col,lblCol){
+      if(!lines||i0>i1) return;
+      const xa=xP(i0), xb=xP(i1), items=[];
+      lines.forEach(ln=>{
+        const yPx=y.getPixelForValue(ln.tax);
+        if(yPx<top||yPx>bottom) return;
+        ctx.beginPath(); ctx.setLineDash([6,4]); ctx.lineWidth=1.2; ctx.strokeStyle=col;
+        ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke(); ctx.setLineDash([]);
+        items.push({y:yPx,text:Math.round(ln.r*100)+'%'});
+      });
+      items.sort((p,q)=>q.y-p.y);   // bottom line first
+      ctx.font='9px DM Sans,sans-serif'; ctx.fillStyle=lblCol; ctx.textAlign='left'; ctx.textBaseline='bottom';
+      let step=0, prevY=null;
+      items.forEach(it=>{
+        step = (prevY!=null && prevY-it.y<11) ? step+1 : 0;
+        prevY=it.y;
+        const x0=xa+3+step*21;
+        if(x0+16<=xb) ctx.fillText(it.text,x0,it.y-2);
+      });
+    }
+    draw(opts.mfj,0,Math.min(swIdx,n)-1,ov.taxBrk,ov.taxLbl);
+    draw(opts.sgl,Math.max(swIdx,0),n-1,ov.taxBrkSgl,ov.taxBrkSgl);
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('taxBracketOverlay')) Chart.register(taxBracketPlugin);

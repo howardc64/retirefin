@@ -66,7 +66,7 @@ js/
                 wage.js  socialSecurity.js  pension.js  rental.js
                 brokerage.js  ira.js  roth.js  incomeForms.js
   display/      chartHelpers.js  overlayPlugin.js
-                ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  footer.js
+                ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  footer.js  print.js
                 formulasPage.js  mdPage.js  notesPage.js  usagePage.js  excelExport.js  chat.js
   app.js
 misc/      Usage.md            (how to use the app; rendered to HTML by the Usage button, §6.10)
@@ -572,6 +572,13 @@ effective rate (red, `totalTax/agi`) and marginal rate (green). Y axis locked, %
 Tooltip: Effective Tax Rate, Marginal Tax Rate, **Total Tax** always shown; under `show_details`, also
 filing status, TI, the deduction applied (labelled **Itemized deduction (LTC)** in a year `usedItemized` is true, else **Standard deduction**; value `r.std`), every income component, provisional income, foreign tax credit,
 and NIIT detail if nonzero.
+
+**Three-chart layout.** The section shows the primary chart (left, 2/3 width) plus two half-size charts stacked on the right (1/3 width; each half the primary's width and height, so all three are 1:1). Both small charts share the primary's X labels, locked Y scale (`chartYMax.tax`, one **Rescale** key) and aspect ratio, use sparser axis ticks, have no legend/note, and reuse the primary's tooltip. Canvases `#taxOrdChart` (`charts.taxOrd`) and `#taxQualChart` (`charts.taxQual`):
+- **Ordinary chart (top):** the ordinary-income-tax segment only (same color). `taxBracketOverlay` (in `overlayPlugin.js`) draws a dashed line at the cumulative ordinary tax owed at each bracket ceiling (`calcOrdTax(lim)`), MFJ lines until the filing-status switch age and Single lines after, each labeled only with the rate that applies above it (e.g. `22%`).
+- **Qualified chart (bottom):** every non-ordinary segment — QDIV tiers, LTCG tiers, then NIIT — same colors and stacking order as the primary.
+
+### 6.6b `print.js` — Print button
+**🖨️ Print** sits right of Export to Excel and calls `window.print()`. Printing behaves as if every Hide checkbox (section Hides and per-card Hides) were unchecked, with no visible or saved change. `beforeprint`: removes `.sec-hidden`, opens collapsed `.item-body` cards, adds `body.printing-all`, then for every chart in `charts{}` builds a fresh non-animated copy of its config on an off-screen canvas at the print size, copies its pixels onto a plain canvas and shows that in place of the live `<canvas>` (live charts are never resized or redrawn, so no animation/resize timing can blank them; an `<img>` data-URL snapshot isn't used because it decodes asynchronously). `afterprint` undoes all of it. `state` is never touched, so Ctrl/Cmd+P gives the same result. Print layout rules (`body.printing-all …` in `css/styles.css`, deliberately not inside `@media print` because they must apply before print media does): single column; panes flow; income-card grid drops subgrid (it overlapped cards when fragmented); charts 480px wide so title+legend+chart fit one landscape page; buttons/Hide boxes hidden.
 
 ### 6.6a `expenseChart.js` — Household Expenses
 Sits between the Total Income Tax and Asset Value sections in `index.html` (`#expenseChart`, `#expenseLegend`,

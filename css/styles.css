@@ -160,6 +160,12 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .co{display:flex;justify-content:center;width:100%;}
 .cw{position:relative;width:66.667%;max-width:800px;min-width:0;}
 .cw canvas{display:block;}
+/* Total Income Tax: primary chart (2/3 width) + two half-size charts stacked on the right (1/3 width, each 1/2 the primary's height; all square) */
+.tax-trio{display:grid;grid-template-columns:2fr 1fr;gap:12px;width:100%;max-width:1200px;align-items:start;}
+.tax-main,.tax-sm{position:relative;min-width:0;}
+.tax-side{display:flex;flex-direction:column;min-width:0;}
+.tax-trio canvas{display:block;}
+@media (max-width:700px){ .tax-trio{grid-template-columns:1fr;} .tax-side{flex-direction:row;gap:12px;} .tax-sm{width:50%;} }
 .cn{font-size:11px;color:var(--text-faint);margin-top:12px;line-height:1.5;text-align:center;}
 .cn:empty{display:none;}
 @container (max-width:520px){ .cw{width:100%;} }
@@ -247,3 +253,23 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .dv-cell .sv{text-align:right;}
 @media (max-width:700px){ .devalue-grid{grid-template-columns:1fr 1fr;} .devalue-grid .sl{grid-column:1/-1;margin-top:4px;} .devalue-grid>div:first-child{display:none;} }
 .devalue-h{font-size:11px;font-weight:600;color:var(--text-muted);margin:6px 0 0;text-transform:uppercase;letter-spacing:.03em;}
+
+/* ── Print (js/display/print.js expands every Hide for the duration of the print; screen is unaffected) ──
+   body.printing-all exists ONLY between beforeprint and afterprint, so these rules are plain (not inside @media print):
+   they must already be in force when print.js measures and snapshots the charts, which happens before print media applies. */
+@page{size:landscape;margin:.4in;}
+@media print{ *{-webkit-print-color-adjust:exact;print-color-adjust:exact;} }
+/* stacked single column; panes flow instead of scrolling/sticking */
+body.printing-all .layout{display:block;}
+body.printing-all .input-col,body.printing-all .chart-col{position:static;max-height:none;overflow:visible;margin-left:0;margin-right:0;padding-left:0;padding-right:0;}
+/* the two-column income grid uses subgrid + explicit rows, which overlaps cards when the page fragments: use two independent columns */
+body.printing-all .income-grid{grid-template-rows:none !important;}
+body.printing-all .income-grid.two-col .person-col{display:block;grid-row:auto;grid-template-rows:none;}
+body.printing-all .topbar,body.printing-all .hide-cb,body.printing-all .hide-toggle,body.printing-all .rescale-btn,body.printing-all .ov-toggle,body.printing-all #chatDock{display:none !important;}
+/* charts small enough that a card (title + legend + chart) fits on one landscape page */
+body.printing-all .cw{width:480px;max-width:100%;}
+body.printing-all .tax-trio{max-width:720px;}
+body.printing-all .cc,body.printing-all .item,body.printing-all .metric{break-inside:avoid;}
+body.printing-all .sec-head{break-after:avoid;}
+/* each chart is swapped for a static pixel copy (print.js) so it can't be blanked by a resize during printing */
+body.printing-all canvas.print-swapped{display:none !important;}

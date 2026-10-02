@@ -141,5 +141,27 @@ function buildTaxChart(){
       }
     })});
   buildTaxLegend();
-}
 
+  // ── Two half-size companion charts (right side): ordinary vs. qualified/NIIT tax ──
+  // Same labels, same locked Y scale (Y_MAX) and same 1:1 aspect ratio as the primary chart; the
+  // datasets are copies of the primary's stack segments, in the same order and colors.
+  const copyDs=d=>({...d, data:d.data.slice()});
+  const smTick=v=>'$'+Math.round(v/1000)+'k';
+  const smOptions=(yTitle)=>({
+    ...CHART_BASE,
+    interaction:{mode:'index',intersect:false},
+    plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)} },
+    scales:{
+      x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
+      y:{stacked:true,min:0,max:Y_MAX,title:axisTitle(yTitle),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:smTick},grid:AXIS_GRID}
+    }
+  });
+  // Cumulative ordinary tax at each bracket ceiling, labeled with the rate that applies above it.
+  const brkLines=brk=>brk.slice(0,-1).map((b,i)=>({tax:calcOrdTax(b.lim,brk), r:brk[i+1].r}));
+  const brkOpts={mfj:brkLines(MFJ_ORD), sgl:brkLines(SGL_ORD), switchIdx:swIdx};
+  upsertLineChart('taxOrd',{canvasId:'taxOrdChart', labels, datasets:[copyDs(datasets[0])], yMax:Y_MAX, tooltip:tooltipCallbacks,
+    refresh:o=>{ o.plugins.taxBracketOverlay=brkOpts; },
+    createOptions:()=>{ const o=smOptions('Ordinary tax'); o.plugins.taxBracketOverlay=brkOpts; return o; }});
+  upsertLineChart('taxQual',{canvasId:'taxQualChart', labels, datasets:datasets.slice(1,8).map(copyDs), yMax:Y_MAX, tooltip:tooltipCallbacks,
+    createOptions:()=>smOptions('QDIV / LTCG / NIIT tax')});
+}
