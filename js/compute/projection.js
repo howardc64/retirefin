@@ -24,7 +24,7 @@ function pfGainFraction(bal, basis){ return bal>0 ? Math.max(0,(bal-basis)/bal) 
 // Years an IRA keeps compounding after the household's last passing (see the stretch block at the end).
 const STRETCH_YEARS=10;
 // Tax↔LTCG fixed-point iteration (see computeProjection): stop when the tax moves less than TAX_TOL dollars, at most TAX_MAX_ITERS rounds.
-const TAX_TOL=0.005, TAX_MAX_ITERS=30;
+const TAX_TOL=0.005, TAX_MAX_ITERS=60;
 function computeProjection(){
   const inflation=state.inflation;
   const married=state.filingStatus==='married';
@@ -114,8 +114,8 @@ function computeProjection(){
         const div=rmdDivisor(spouseAge);
         const wd=div?Math.min(sim.bal/div,sim.bal):0;
         iraW[i][k]=wd;
-        sim.bal=Math.max(0,(sim.bal-wd)*(1+g));
-        iraBal[i][k]=sim.bal;
+        sim.bal=Math.max(0,sim.bal-wd);
+        sim.open=true;   // growth is applied in post(), after any draw to pay household expenses (no conversion: room and fixed stay 0)
         return;
       }
 
@@ -132,18 +132,20 @@ function computeProjection(){
       sim.room=ownerAge>=convStartAge?sim.bal:0;       // the most that could be converted this year
       sim.fixed=Math.min(convAmt,sim.room);              // 'fixed' mode amount (0 for 'bracket' mode)
     };
-    sim.post=function(k,conv){
+    // `draw` = pre-tax IRA withdrawn this year to pay household expenses once the portfolios are exhausted (expense funding waterfall below).
+    sim.post=function(k,conv,draw){
       if(!sim.open) return;
       iraConv[i][k]=conv;
-      sim.bal=Math.max(0,sim.bal-conv)*(1+g);
+      sim.bal=Math.max(0,sim.bal-conv-(draw||0))*(1+g);
       iraBal[i][k]=sim.bal;
     };
     return sim;
   });
 
   // ── Roth IRA: tax-free growth, funded by its starting balance plus any Roth conversion
-  // amount converted from the matching pre-tax IRA above this year. No withdrawals or RMDs
-  // are modeled — it only ever grows until its owner (or, if "continues to spouse", the
+  // amount converted from the matching pre-tax IRA above this year. No RMDs are modeled; the only
+  // withdrawal is the last-resort draw that pays household expenses once the portfolios and the
+  // pre-tax IRA are exhausted. It otherwise grows until its owner (or, if "continues to spouse", the
   // surviving spouse) passes. Stepped like the pre-tax IRA: pre(k) then post(k, conv).
   const rothBal=people.map(()=>({}));
   const rothSim=people.map((p,i)=>{
@@ -169,15 +171,14 @@ function computeProjection(){
           rothBal[i][k]=sim.bal;
           return;
         }
-        sim.bal=sim.bal*(1+g);
-        rothBal[i][k]=sim.bal;
+        sim.open=true;   // inherited by the living spouse: growth is applied in post(), after any draw to pay household expenses
         return;
       }
       sim.open=true;
     };
-    sim.post=function(k,conv){
+    sim.post=function(k,conv,draw){
       if(!sim.open) return;
-      sim.bal=(sim.bal+conv)*(1+g);
+      sim.bal=Math.max(0,sim.bal+conv-(draw||0))*(1+g);
       rothBal[i][k]=sim.bal;
     };
     return sim;
@@ -319,6 +320,10 @@ function computeProjection(){
     if(!alive.some(Boolean)) break;
     // Start-of-year IRA / Roth state (RMDs, AUM balances, room to convert); the conversion itself is decided below, after the year's other income is known.
     people.forEach((p,i)=>{ iraSim[i].pre(k); rothSim[i].pre(k); });
+    // Start-of-year balances (after the RMD) that could be sold to pay expenses if the portfolios run out. Captured now because post() below
+    // advances the balances. A conversion leaves the pre-tax IRA and lands in the Roth IRA the same year, so it is netted/added in runWaterfall.
+    const iraStart=people.map((p,i)=>iraSim[i].open?Math.max(0,iraSim[i].bal):0);
+    const rothStart=people.map((p,i)=>rothSim[i].open?Math.max(0,rothSim[i].bal):0);
     // wages
     const wageByPerson=people.map((p,i)=>{
       if(!p.wage.enabled||!alive[i]) return 0;
@@ -457,7 +462,8 @@ function computeProjection(){
     // Expenses = household living expenses (today's $, flat in real terms) + the household IRMAA surcharge + the
     // AUM fee + THIS YEAR'S INCOME TAX (tax drag is an expense). Funded by, in order: (1) household
     // income, (2) portfolio dividends (leftovers are reinvested), (3) portfolio asset sales (each sale realizes
-    // LTCG = amount sold × the portfolio's unrealized-gain fraction).
+    // LTCG = amount sold × the portfolio's unrealized-gain fraction), then — only once the portfolios are exhausted —
+    // (4) pre-tax IRA withdraw (ordinary income, so it adds to the tax that is itself an expense) and (5) Roth IRA withdrawn (tax-free).
     // Circularity: tax ← LTCG ← asset sales ← expenses ← tax. It is resolved by fixed-point iteration (see the
     // solver below): guess the tax, run the waterfall, recompute the tax, repeat until it stops changing.
     // Household cash income: wages, Social Security, pension, rental (+ its depreciation add-back), tax-exempt income and IRA RMDs. The Roth-conversion
@@ -559,6 +565,7 @@ function computeProjection(){
       if(poolOdiv>0) poolPf.forEach(x=>{ x.divUsed=expFromDiv*x.odiv/poolOdiv; });
       expNeed-=expFromDiv;
       // (3) asset sales, shared pro rata to balance; a portfolio that runs out hands its remainder to the others
+      const needBeforeSales=expNeed;
       let cand=poolPf.filter(x=>x.avail-x.divUsed>0.005), guard=0;
       while(expNeed>0.005 && cand.length && guard++<8){
         const B=cand.reduce((a,x)=>a+x.bal,0); let given=0; const next=[];
@@ -568,18 +575,30 @@ function computeProjection(){
         });
         expNeed-=given; cand=next;
       }
+      const expFromSales=needBeforeSales-Math.max(0,expNeed);
+      // (4) pre-tax IRA, then (5) Roth IRA, for what the portfolios could not cover. Each is shared pro rata to balance across the
+      // people's accounts. A pre-tax IRA withdraw is ordinary income (taxOn adds it, and the tax-expense iteration grosses it up); a Roth IRA
+      // sale is tax-free. Converted dollars have left the pre-tax IRA and sit in the Roth IRA the same year.
+      const iraAvail=iraStart.map((b,i)=>Math.max(0,b-(convByPerson[i]||0)));
+      const rothAvail=rothStart.map((b,i)=>b+(convByPerson[i]||0));
+      const drawPro=(avail,need)=>{ const tot=avail.reduce((a,b)=>a+b,0), amt=Math.min(Math.max(0,need),tot); return avail.map(v=>tot>0?amt*v/tot:0); };
+      const iraExpByPerson=drawPro(iraAvail, expNeed);
+      const expFromIra=iraExpByPerson.reduce((a,b)=>a+b,0);
+      expNeed-=expFromIra;
+      const rothExpByPerson=drawPro(rothAvail, expNeed);
+      const expFromRoth=rothExpByPerson.reduce((a,b)=>a+b,0);
+      expNeed-=expFromRoth;
       const expUnfunded=Math.max(0,expNeed);
-      const expFromSales=expTotal-expFromIncome-expFromDiv-expUnfunded;
       // Realized LTCG = sold × gain fraction, for every portfolio (IDGT included, on its own sales).
       poolPf.forEach(x=>{ x.ltcg=x.sold*x.f; });
       let ltcgGross=0; pfx.forEach(list=>list.forEach(x=>{ if(x) ltcgGross+=x.ltcg; }));
-      return {expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, ltcgGross};
+      return {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expUnfunded, ltcgGross, iraExpByPerson, rothExpByPerson};
     }
     // The year's tax given gross realized LTCG. Spec §8.3: available SCGL (suspended capital-gain loss
     // carryforward) eliminates realized LTCG dollar-for-dollar, before tax, so only the net-of-SCGL amount is taxed.
     // Pure (does not consume the SCGL pool) — the pool is drawn down once, after the iteration converges.
-    function taxOn(ltcgGross, conv){
-      const nonSSOrdinary=nonSSBase+conv;   // ordinary income excluding Social Security, including this year's Roth conversion
+    function taxOn(ltcgGross, conv, iraExp){
+      const nonSSOrdinary=nonSSBase+conv+(iraExp||0);   // ordinary income excluding Social Security, including this year's Roth conversion and any pre-tax IRA withdraw for expenses
       const scglUsed=Math.min(scglRemaining,Math.max(0,ltcgGross));
       const ltcg=Math.max(0,ltcgGross-scglUsed); // net-of-SCGL LTCG — what's actually taxed/displayed
       const qualIncome=qdiv+ltcg;
@@ -616,7 +635,7 @@ function computeProjection(){
     function solveTax(convTotal){
       let it=0, ok=false, w, t;
       while(it<TAX_MAX_ITERS){
-        w=runWaterfall(taxIn); t=taxOn(w.ltcgGross, convTotal); it++;
+        w=runWaterfall(taxIn); t=taxOn(w.ltcgGross, convTotal, w.expFromIra); it++;
         if(Math.abs(t.totalTax-taxIn)<TAX_TOL){ ok=true; break; }
         taxIn=t.totalTax;
       }
@@ -689,13 +708,16 @@ function computeProjection(){
     });
     const rothConvByPerson=convByPerson.slice();
     const rothConvTotal=convTotalOf();
-    people.forEach((p,i)=>{ iraSim[i].post(k,rothConvByPerson[i]); rothSim[i].post(k,rothConvByPerson[i]); });
-    const nonSSOrdinary = nonSSBase+rothConvTotal;
     const fin=solveTax(rothConvTotal);
     const wf=fin.wf, tx=fin.tx, taxIters=fin.iters, taxConverged=fin.converged;
+    // Advance the IRA / Roth balances one year now that this year's expense draws are known (conversion and draw both leave the pre-tax IRA;
+    // the conversion enters the Roth IRA, and the Roth draw leaves it).
+    people.forEach((p,i)=>{ iraSim[i].post(k,rothConvByPerson[i],wf.iraExpByPerson[i]); rothSim[i].post(k,rothConvByPerson[i],wf.rothExpByPerson[i]); });
+    const iraExpByPerson=wf.iraExpByPerson, iraExpTotal=wf.expFromIra, rothExpByPerson=wf.rothExpByPerson, rothExpTotal=wf.expFromRoth;
+    const nonSSOrdinary = nonSSBase+rothConvTotal+iraExpTotal;
     // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
     const expTax=taxIn;
-    const {expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded}=wf;
+    const {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expUnfunded}=wf;
     const {scglUsed, ltcg, qualIncome, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax}=tx;
     const ltcgGross=wf.ltcgGross;
     scglRemaining=Math.max(0,scglRemaining-scglUsed);
@@ -758,12 +780,12 @@ function computeProjection(){
       wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson, rentalDep, rentalDepByPerson, teIncome, teByPerson, annuity, annuityTE, annuityByPerson, annuityTEByPerson, annuitiesByPerson, annuityBalance,
       odiv, qdiv, odivNQ, ltcg, ltcgGross, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
-      iraByPerson, iraTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, embeddedGain, embeddedGainIdgt,
+      iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, embeddedGain, embeddedGainIdgt,
       nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, ltcStarted, ltcCostByPerson, agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
       niiIncome, niit,
       irmaaSurcharge,
-      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
+      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
       convTrials,
       totalTax, agi, magi:agi+teIncome+annuityTE
     });

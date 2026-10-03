@@ -4,16 +4,16 @@
 // with IRMAA-tier overlay (spec §8.3).
 // ═══════════════════════════════════════════════════════════════
 const VZ = {
-  pen:'#D06A18', ann:'#B8860B', annTE:'#8FBC8F', wg:'#7B5EA7', iraW:'#C79A3E', rmd:'#E85D9A', rent:'#A0522D', rentDep:'#D2A488', te:'#2A9D8F',
+  pen:'#D06A18', ann:'#B8860B', annTE:'#8FBC8F', wg:'#7B5EA7', iraW:'#C79A3E', rmd:'#E85D9A', iraExp:'#8E3B5E', rothExp:'#5C6BC0', rent:'#A0522D', rentDep:'#D2A488', te:'#2A9D8F',
   qdiv:'#2E86AB', odivNQ:'#1A5276', ltcg:'#6C3483',
   ssP0:'#0F6E56', ssOther:'#3DB08A'
 };
-const INC_KEYS=['pension','annuity','annuityTE','wageTotal','rothConv','iraTotal','rental','rentDep','te','qdiv','odivNQ','ltcg','ssP0','ssOther'];
-const INC_LABELS={pension:'Pension',annuity:'Annuity payout (taxable)',annuityTE:'Annuity payout (tax-exempt, untaxed)',wageTotal:'Wage',rothConv:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',rental:'Rental income',rentDep:'Rental depreciation (non-cash, untaxed)',te:'Tax-exempt income (untaxed)',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
-const INC_COLORS={pension:VZ.pen,annuity:VZ.ann,annuityTE:VZ.annTE,wageTotal:VZ.wg,rothConv:VZ.iraW,iraTotal:VZ.rmd,rental:VZ.rent,rentDep:VZ.rentDep,te:VZ.te,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
+const INC_KEYS=['pension','annuity','annuityTE','wageTotal','rothConv','iraTotal','iraExp','rental','rentDep','te','rothExp','qdiv','odivNQ','ltcg','ssP0','ssOther'];
+const INC_LABELS={pension:'Pension',annuity:'Annuity payout (taxable)',annuityTE:'Annuity payout (tax-exempt, untaxed)',wageTotal:'Wage',rothConv:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',iraExp:'Pre-tax IRA withdraw (for expenses)',rental:'Rental income',rentDep:'Rental depreciation (non-cash, untaxed)',te:'Tax-exempt income (untaxed)',rothExp:'Roth IRA withdraw (tax-exempt, untaxed)',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
+const INC_COLORS={pension:VZ.pen,annuity:VZ.ann,annuityTE:VZ.annTE,wageTotal:VZ.wg,rothConv:VZ.iraW,iraTotal:VZ.rmd,iraExp:VZ.iraExp,rental:VZ.rent,rentDep:VZ.rentDep,te:VZ.te,rothExp:VZ.rothExp,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
 // Maps a stacked income key to the per-person breakdown array on each projection row,
 // so the tooltip can attribute the amount to whichever person(s) it belongs to.
-const INC_BYPERSON_FIELD={pension:'pensionByPerson',annuity:'annuityByPerson',annuityTE:'annuityTEByPerson',wageTotal:'wageByPerson',rothConv:'rothConvByPerson',iraTotal:'iraByPerson',rental:'rentalByPerson',rentDep:'rentalDepByPerson',te:'teByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
+const INC_BYPERSON_FIELD={pension:'pensionByPerson',annuity:'annuityByPerson',annuityTE:'annuityTEByPerson',wageTotal:'wageByPerson',rothConv:'rothConvByPerson',iraTotal:'iraByPerson',iraExp:'iraExpByPerson',rental:'rentalByPerson',rentDep:'rentalDepByPerson',te:'teByPerson',rothExp:'rothExpByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
 // Single source of truth for the SS dataset labels, since they're read both
 // when building the stacked datasets (buildIncomeChart) and the legend HTML
 // (buildIncomeLegend). Must be refreshed before dataset construction on every
@@ -32,7 +32,7 @@ function buildIncomeLegend(){
   document.getElementById('incomeLegend').innerHTML =
     keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
     legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(OVERLAY_COLOR)) +
-    legendItem('Ordinary income tax brackets (rate above each line, on ordinary income chart)', null, legendDashStyle(OVERLAY_COLOR));
+    legendItem('Taxable income brackets (rate above each line, shown on taxable income chart)', null, legendDashStyle(OVERLAY_COLOR));
 }
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -49,7 +49,7 @@ function buildIncomeChart(){
   rows.forEach(r=>{
     seriesByKey.pension.push(r.pension); seriesByKey.annuity.push(r.annuity||0); seriesByKey.annuityTE.push(r.annuityTE||0); seriesByKey.wageTotal.push(r.wageTotal);
     seriesByKey.rothConv.push(r.rothConvTotal);
-    seriesByKey.iraTotal.push(r.iraTotal); seriesByKey.rental.push(r.rental); seriesByKey.rentDep.push(r.rentalDep||0); seriesByKey.te.push(r.teIncome||0);
+    seriesByKey.iraTotal.push(r.iraTotal); seriesByKey.iraExp.push(r.iraExpTotal||0); seriesByKey.rental.push(r.rental); seriesByKey.rentDep.push(r.rentalDep||0); seriesByKey.te.push(r.teIncome||0); seriesByKey.rothExp.push(r.rothExpTotal||0);
     seriesByKey.qdiv.push(r.qdiv); seriesByKey.ltcg.push(r.ltcg);
     seriesByKey.odivNQ.push(r.odivNQ);
     seriesByKey.ssP0.push(r.ssByPerson[idxP0]||0);
@@ -121,6 +121,8 @@ function buildIncomeChart(){
           lines.push(mrow('  paid by household income',fmt(r.expFromIncome)+'/yr'));
           lines.push(mrow('  paid by dividends',fmt(r.expFromDiv)+'/yr'));
           lines.push(mrow('  paid by asset sales',fmt(r.expFromSales)+'/yr'));
+          if(r.expFromIra>0.5) lines.push(mrow('  paid by pre-tax IRA',fmt(r.expFromIra)+'/yr'));
+          if(r.expFromRoth>0.5) lines.push(mrow('  paid by Roth IRA',fmt(r.expFromRoth)+'/yr'));
           if(r.expUnfunded>1) lines.push(mrow('  unfunded shortfall',fmt(r.expUnfunded)+'/yr'));
         }
       }
@@ -157,7 +159,7 @@ function buildIncomeChart(){
   // so the Part B premium is 40/100/160/220/240% above standard.
   const withPct=a=>a.map(l=>({...l,pct:IRMAA_PART_B_INCREASE[Math.min(l.tier,IRMAA_PART_B_INCREASE.length-1)]}));
   const magiOv={irmaaMFJ:withPct(irmaaMFJ),irmaaSgl:withPct(irmaaSgl),switchIdx:swIdx};
-  const mKeys=keys.filter(k=>k!=='rentDep');
+  const mKeys=keys.filter(k=>k!=='rentDep'&&k!=='rothExp');   // Roth IRA withdraw is untaxed and not part of MAGI, like untaxed rental depreciation
   const mSeries={}; mKeys.forEach(k=>mSeries[k]=[]);
   const taxSSPart=(r,idx)=>{ const tot=r.totalSS||0; return tot>0 ? (r.taxableSS||0)*((r.ssByPerson[idx]||0)/tot) : 0; };
   rows.forEach(r=>{
@@ -200,35 +202,54 @@ function buildIncomeChart(){
       }
     })});
 
-  // ── Second half-size companion chart, under the MAGI chart: ordinary income ──
-  // Stack = the income taxed at ordinary rates, in the primary's colors and order: pension, taxable annuity, wages, pre-tax IRA withdraw (conversions),
-  // IRA RMDs, rental, non-qualified dividends and the taxable part of Social Security (split by person like the MAGI chart). It sums to the year's
-  // ordinary income (`row.ordIncome`). Same X labels, Y scale and 1:1 ratio as the primary. The dashed lines are the ordinary-bracket starts, each labeled
-  // with the rate that applies above it; because brackets apply to income AFTER the deduction, each line sits at (bracket start + that year's standard/
-  // itemized + senior deduction) so stack height can be compared with it directly; they follow the filing status in force each year.
-  const ordKeys=['pension','annuity','wageTotal','rothConv','iraTotal','rental','odivNQ','ssP0','ssOther'].filter(k=>mKeys.includes(k));
+  // ── Second half-size companion chart, under the MAGI chart: taxable income ──
+  // The height is the year's taxable income = taxable ordinary income (`row.ordTI` = ordinary income − the standard/itemized + senior deduction, floored at 0) + qualified income (QDIV + net LTCG, stacked on top, as the tax calc stacks it), so the
+  // bottom (ordinary) part reads directly against the ordinary tax brackets, which are defined on taxable income. The band colors/order are the primary's: pension, taxable
+  // annuity, wages, pre-tax IRA withdraw, IRA RMDs, rental, non-qualified dividends and the taxable part of Social Security (per person, as in the MAGI
+  // stack), then QDIV and LTCG on top. The deduction is applied to the stack from the bottom up (brackets fill from the bottom too), so the ordinary bands are each source's taxable
+  // portion and they sum exactly to `ordTI`; with QDIV + LTCG the stack sums to taxable income. Same X labels, Y scale and 1:1 ratio as the primary. Dashed lines = bracket starts, labeled with the rate
+  // that applies above them, for the filing status in force each year. The popup lists the full components, the deduction and the taxable total.
+  const ordOnlyKeys=['pension','annuity','wageTotal','rothConv','iraTotal','iraExp','rental','odivNQ','ssP0','ssOther'].filter(k=>mKeys.includes(k));
+  const ordKeys=[...ordOnlyKeys,'qdiv','ltcg'];   // qualified income sits on top of the ordinary bands
+  const taxPortion={}; ordKeys.forEach(k=>taxPortion[k]=[]);
+  rows.forEach((r,ri)=>{
+    let skip=Math.max(0,(r.ordIncome||0)-(r.ordTI||0));    // deduction actually absorbed by ordinary income
+    ordKeys.forEach(k=>{
+      if(k==='qdiv'||k==='ltcg'){ taxPortion[k].push(mSeries[k][ri]||0); return; }   // deduction is absorbed by ordinary income only
+      const g=mSeries[k][ri]||0, used=Math.min(g,skip);
+      skip-=used; taxPortion[k].push(g-used);
+    });
+  });
+  const ordAligned={}; ordKeys.forEach(k=>{ ordAligned[k]=alignToAges(ages, taxPortion[k], labels); });
   const ordDs=ordKeys.map(k=>({
-    label:(k==='ssP0'||k==='ssOther') ? INC_LABELS[k]+' \u2014 taxable part' : INC_LABELS[k], data:mAligned[k], _key:k,
+    label:(k==='ssP0'||k==='ssOther') ? INC_LABELS[k]+' \u2014 taxable part' : INC_LABELS[k], data:ordAligned[k],
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
     borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'ord', order:3
   }));
   const nBrk=MFJ_ORD.length-1;   // the top bracket (37%) has no upper limit, so there is no line above the 35% bracket's end
   for(let j=0;j<nBrk;j++){
-    const vals=rows.map(r=>{ const t=r.filing==='married'?MFJ_ORD:SGL_ORD; return t[j].lim+(r.std||0)+(r.seniorDeduction||0); });
+    const vals=rows.map(r=>(r.filing==='married'?MFJ_ORD:SGL_ORD)[j].lim);
     if(Math.min(...vals)>=Y_MAX) continue;   // off the chart's scale
-    const al=alignToAges(ages, vals, labels);
     const rate=Math.round(MFJ_ORD[j+1].r*100)+'%';
-    const base={data:al, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false, borderDash:[7,4]};
-    ordDs.push({...base, label:rate, ordLabel:rate, borderColor:OVERLAY_COLOR, stack:'ol'+j, order:0});
+    ordDs.push({data:alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
+      borderDash:[7,4], borderColor:OVERLAY_COLOR, stack:'ol'+j, order:0});
   }
   const nStack=ordKeys.length;
   const ordTip={
     title:tooltipCallbacks.title,   // owners + ages
-    label:c=>(c.datasetIndex>=nStack||c.raw==null||c.raw===0)?null:mrow('  '+c.dataset.label, fmt(c.raw)+'/yr'),
+    // Full (pre-deduction) component amounts, so the lines reconcile with the footer: components − deduction = taxable income.
+    label:c=>{
+      if(c.datasetIndex>=nStack) return null;
+      const k=ordKeys[c.datasetIndex], g=mSeries[k][rows.indexOf(rowByAge[labels[c.dataIndex]])];
+      return (!g)?null:mrow('  '+c.dataset.label, fmt(g)+'/yr');
+    },
     footer:items=>{
-      const idx=items[0]?items[0].dataIndex:0;
-      const total=ordKeys.reduce((t,k)=>t+(mAligned[k][idx]||0),0);
-      return ['', mrow('Ordinary income', fmt(total)+'/yr')];
+      const r=rowByAge[labels[items[0]?items[0].dataIndex:0]]; if(!r) return [];
+      const ded=Math.max(0,(r.ordIncome||0)-(r.ordTI||0));
+      const lines=['']; if(ded>0) lines.push(mrow('Deduction','\u2212'+fmt(ded)+'/yr'));
+      if((r.qualIncome||0)>0) lines.push(mrow('  of which taxable ordinary income', fmt(r.ordTI||0)+'/yr'));
+      lines.push(mrow('Taxable income', fmt((r.ordTI||0)+(r.qualIncome||0))+'/yr'));
+      return lines;
     }
   };
   upsertLineChart('incomeOrd',{canvasId:'incomeOrdChart', labels, datasets:ordDs, yMax:Y_MAX, tooltip:ordTip,
@@ -238,7 +259,7 @@ function buildIncomeChart(){
       plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(ordTip)} },
       scales:{
         x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Ordinary income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Taxable income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
     })});
 }

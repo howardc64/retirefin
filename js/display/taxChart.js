@@ -120,6 +120,7 @@ function buildTaxChart(){
         if(r.annuity>0) lines.push(mrow('  Annuity payouts (taxable part)', fmt(r.annuity)+'/yr'));
         lines.push(mrow('  IRA RMD', fmt(r.iraTotal)+'/yr'));
         if(r.rothConvTotal>0) lines.push(mrow('  Pre-tax IRA withdraw (Roth conversion)', fmt(r.rothConvTotal)+'/yr'));
+        if(r.iraExpTotal>0) lines.push(mrow('  Pre-tax IRA withdraw (for expenses)', fmt(r.iraExpTotal)+'/yr'));
         lines.push(mrow('  Ordinary (non-qualified) dividends', fmt(r.odivNQ)+'/yr'));
         lines.push(mrow('  Qualified dividends (QDIV)', fmt(r.qdiv)+'/yr'));
         lines.push(mrow('  Long-term capital gains (LTCG, net of SCGL)', fmt(r.ltcg)+'/yr'));

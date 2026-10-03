@@ -193,7 +193,7 @@ ${fpWhere('Each re-run recomputes provisional income (which includes QDIV, LTCG 
 <h3>Total Tax (TT)</h3>
 <p>Income is built up in stages:</p>
 ${fpEq(
-  `Ordinary income = wages + pension + rental + taxable annuity payouts + IRA RMD + pre-tax IRA withdraw + (ODIV − QDIV)`,
+  `Ordinary income = wages + pension + rental + taxable annuity payouts + IRA RMD + pre-tax IRA withdraw + pre-tax IRA withdraw (for expenses) + (ODIV − QDIV)`,
   `AGI = ordinary income + taxable SS + QDIV + LTCG<sub>net of SCGL</sub>`,
   `TI = AGI − max(standard deduction, itemized deductions) − enhanced senior deduction`
 )}
@@ -212,7 +212,7 @@ ${fpEq(
   `Depreciation<sub>year k</sub> = annual depreciation ÷ (1 + inflation)<sup>k</sup>`
 )}
 ${fpWhere('Depreciation uses the same age range, enable switch and survivor rule as the rental amount. Straight-line depreciation is a fixed dollar amount, so in today\'s dollars it shrinks with inflation (the same treatment as a fixed-dollar AUM fee). The Annual Household Income chart shows it as its own band, separate from taxable rental income, so the chart\'s taxable bands still add up to roughly AGI. Depreciation recapture on a sale and passive-loss limits are not modeled.')}
-<p><strong>Long Term Care (LTC).</strong> Each person's LTC starts when they reach their own LTC start age (and is skipped if they pass before it); their LTC cost (entered in today's $) is an extra household expense for each year they are alive after that, paid by the same funding order as other expenses (household income, then dividends, then asset sales):</p>
+<p><strong>Long Term Care (LTC).</strong> Each person's LTC starts when they reach their own LTC start age (and is skipped if they pass before it); their LTC cost (entered in today's $) is an extra household expense for each year they are alive after that, paid by the same funding order as other expenses (household income, then dividends, then asset sales, then pre-tax IRA, then Roth IRA):</p>
 ${fpEq(`LTC expense = Σ LTC cost<sub>person</sub> &ensp;(each person started and alive)`)}
 ${fpPw('Living expenses',[
   ['Living expenses','before any LTC has started'],
@@ -263,12 +263,23 @@ ${fpWhere('Growth is total return, so, like dividends, the tax-exempt income is 
 <p><strong>Household expense funding waterfall.</strong> The household's expenses are:</p>
 ${fpEq(`Expenses = living expenses + LTC expense + IRMAA surcharge + AUM fee + income tax`)}
 ${fpWhere('Living expenses is a flat today\'s-dollar amount (it switches to the 1st / 2nd LTC living expenses as each LTC starts). The LTC expense is the sum of the LTC costs (today\'s $) of each person whose LTC has started and who is still living; it is paid like every other expense. The IRMAA surcharge and income tax (tax drag, the year\'s Total Tax) are always household expenses. The AUM fee is charged on the portfolios whose AUM box is checked (below); the whole AUM fee is a household expense like the rest, so it is paid only by <em>Living expense &amp; income</em> portfolios.')}
-<p>They are paid in this order: (1) household income (wages, Social Security, pension, rental and its depreciation add-back, tax-exempt income, annuity payouts, IRA RMDs); (2) the dividends (ODIV) of the <em>Living expense &amp; income</em> portfolios, shared pro rata, with any dividend not needed reinvested; (3) selling those portfolios\' assets, shared pro rata to balance, for what is left. Each brokerage portfolio has a <em>Portfolio type</em>: <em>Living expense &amp; income</em> (the default) pays household expenses and receives excess income; an <em>IDGT</em> contributes neither dividends nor sales to household expenses, receives no excess income and reinvests all its dividends.</p>
+<p>They are paid in this order: (1) household income (wages, Social Security, pension, rental and its depreciation add-back, tax-exempt income, annuity payouts, IRA RMDs); (2) the dividends (ODIV) of the <em>Living expense &amp; income</em> portfolios, shared pro rata, with any dividend not needed reinvested; (3) selling those portfolios\' assets, shared pro rata to balance; (4) if the portfolios are exhausted, withdrawing from pre-tax IRA, shared pro rata to the IRA balances; (5) then withdrawing from the Roth IRA, shared pro rata to the Roth balances, for whatever is still left. Each brokerage portfolio has a <em>Portfolio type</em>: <em>Living expense &amp; income</em> (the default) pays household expenses and receives excess income; an <em>IDGT</em> contributes neither dividends nor sales to household expenses, receives no excess income and reinvests all its dividends.</p>
 ${fpEq(
   `Paid by income = min( Expenses, household income )`,
   `Paid by dividends = min( ΣODIV, Expenses − Paid by income )`,
-  `Shortfall = Expenses − Paid by income − Paid by dividends`,
+  `Paid by asset sales = min( portfolio balances, Expenses − Paid by income − Paid by dividends )`,
+  `Paid by pre-tax IRA = min( pre-tax IRA balances, remaining expenses )`,
+  `Paid by Roth IRA = min( Roth IRA balances, remaining expenses )`,
+  `Shortfall = Expenses − Paid by income − Paid by dividends − Paid by asset sales − Paid by pre-tax IRA − Paid by Roth IRA`,
   `Reinvested = max( 0, ODIV − dividends used )`
+)}
+
+<p><strong>Pre-tax IRA and Roth IRA as last resorts.</strong> Only when household income, dividends and portfolio sales together cannot cover the year\'s expenses, the model withdraws from pre-tax IRA first and then from the Roth IRA. Each step is shared across the people\'s accounts pro rata to balance, and can never exceed what the account holds that year (the start-of-year balance after the RMD; a Roth conversion that year leaves the pre-tax IRA and arrives in the Roth IRA, so it is netted from the one and added to the other). It applies to accounts the household still holds: the owner\'s own account while alive, or an account inherited by the living spouse (not an account held by heirs under IRA stretch). The pre-tax IRA withdraw is ordinary income, taxed like the RMD, so it raises the tax expense and therefore the amount that has to be sold (the same fixed-point iteration below grosses it up). The Roth IRA withdraw is tax-free and does not enter AGI or MAGI; it is shown on the Annual Household Income chart as a tax-exempt band. Neither amount is household cash income, so neither can create excess income. The balances then roll forward as shown. No early-withdrawal penalty or age limit is modeled.</p>
+${fpEq(
+  `Pre-tax IRA withdraw<sub><em>j</em></sub> = remaining expenses × ${fpFr('(balance<sub><em>j</em></sub> − conversion<sub><em>j</em></sub>)','Σ (balance − conversion)')}&ensp;(never more than the account holds)`,
+  `Roth withdrawn<sub><em>j</em></sub> = remaining expenses × ${fpFr('(balance<sub><em>j</em></sub> + conversion<sub><em>j</em></sub>)','Σ (balance + conversion)')}`,
+  `pre-tax IRA balance<sub>next</sub> = ( balance − RMD − conversion − Pre-tax IRA withdraw ) × ( 1 + real growth )`,
+  `Roth IRA balance<sub>next</sub> = ( balance + conversion − Roth withdrawn ) × ( 1 + real growth )`
 )}
 
 <p><strong>Reinvest excess income.</strong> When household income alone covers every expense, the part left over is <em>excess income</em>. It is reinvested at year-end into the <em>Living expense &amp; income</em> portfolios that are inside their age range, shared pro rata to their start-of-year balances. Because excess exists only when income covered all expenses, it never occurs in a year when dividends were used or shares sold. Only household cash income counts (wages, Social Security, pension, rental with its depreciation add-back, tax-exempt income, annuity payouts, IRA RMDs); the Roth-conversion amount is excluded because it moves to the Roth IRA. It is computed after the tax and expense calculation settles, so it does not change that year\'s tax. If there is no such portfolio, the excess simply leaves the model.</p>
@@ -287,13 +298,13 @@ ${fpEq(
   `gain fraction <em>f</em> = max( 0,&ensp;${fpFr('value − basis','value')} )`,
   `LTCG = Sold × <em>f</em>`
 )}
-<p><strong>Tax ↔ LTCG circularity.</strong> Income tax is an expense, so selling shares to pay it realizes more LTCG, which raises the tax. The model solves this by fixed-point iteration each year: start from last year's tax, run the waterfall, recompute the tax, and repeat until the tax moves by less than half a cent (at most 30 rounds; typically 6–8):</p>
+<p><strong>Tax ↔ LTCG circularity.</strong> Income tax is an expense, so selling shares to pay it realizes more LTCG, which raises the tax. The model solves this by fixed-point iteration each year: start from last year's tax, run the waterfall, recompute the tax, and repeat until the tax moves by less than half a cent (at most 60 rounds; typically 6–8):</p>
 ${fpEq(
   `T<sub>0</sub> = prior-year Total Tax`,
-  `T<sub>n+1</sub> = Tax( LTCG( Waterfall( living + LTC + IRMAA + AUM fee + T<sub>n</sub> ) ) )`,
+  `T<sub>n+1</sub> = Tax( LTCG, IRA withdraw ( Waterfall( living + LTC + IRMAA + AUM fee + T<sub>n</sub> ) ) )`,
   `stop when |T<sub>n+1</sub> − T<sub>n</sub>| &lt; $0.005`
 )}
-<p>Each extra dollar of tax creates well under a dollar of new tax (only the gain share of a sale is LTCG, taxed at no more than about 24% with NIIT), so the map is a contraction and always converges. The Suspended Capital-Gain Loss (SCGL) pool is drawn down once, after the iteration settles.</p>
+<p>Each extra dollar of tax creates well under a dollar of new tax (only the gain share of a sale is LTCG, taxed at no more than about 24% with NIIT; a pre-tax IRA dollar is taxed at the ordinary rate, plus the Social Security torpedo, which stays below 100%), so the map is a contraction and converges. When pre-tax IRA is being withdrawn it converges more slowly, which is why the cap is 60 rounds. The Suspended Capital-Gain Loss (SCGL) pool is drawn down once, after the iteration settles.</p>
 
 <p><strong>Cost basis roll-forward.</strong> Each year:</p>
 ${fpEq(`basis<sub>next</sub> = ${fpFr('basis − Sold × (1 − <em>f</em>) + Reinvested dividends + Reinvested excess income','1 + inflation')}`)}
@@ -321,18 +332,19 @@ ${fpEq(
   `IRMAA<sub>household</sub> = surcharge( tier reached by MAGI<sub>year − 2</sub> ) × N<sub>65+</sub>`
 )}
 ${fpWhere('N<sub>65+</sub> is the number of living people age 65 or older, and the tier uses this year\'s filing status. Years 0 and 1 are $0 because the model has no MAGI from before the projection starts.')}
-<p>Using the MAGI from two years earlier mirrors IRMAA's real 2-year look-back, and it also avoids a circularity (this year's AGI depends on LTCG, which depends on asset sales, which fund this surcharge). The tier table is indexed, so it is used in today's dollars as-is. It is charged once per household and paid through the same income → dividends → sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</p>
+<p>Using the MAGI from two years earlier mirrors IRMAA's real 2-year look-back, and it also avoids a circularity (this year's AGI depends on LTCG, which depends on asset sales, which fund this surcharge). The tier table is indexed, so it is used in today's dollars as-is. It is charged once per household and paid through the same funding waterfall (income → dividends → asset sales → pre-tax IRA → Roth IRA) as every other expense, so selling shares to cover it can realize LTCG.</p>
 
 <p><strong>IRMAA on the charts.</strong> The MAGI chart beside Annual Household Income stacks this year's MAGI by source:</p>
 ${fpEq(
-  `MAGI = wages + pension + rental + annuity + IRA withdrawals + Roth conversions + ODIV + taxable SS + QDIV + LTCG + tax-exempt income`
+  `MAGI = wages + pension + rental + annuity + IRA withdrawals + Roth conversions + pre-tax IRA withdraw (for expenses) + ODIV + taxable SS + QDIV + LTCG + tax-exempt income`
 )}
 ${fpWhere('Rental counts after depreciation is excluded (it is untaxed) and Social Security counts only its taxable part, split between the two people by benefit share. The dashed lines sit at the IRMAA bracket MAGI amounts for that year\'s filing status. Each is labeled with the Part B premium increase over standard: the standard premium is 25% of the Part B cost and tiers 1–5 are 35%, 50%, 65%, 80% and 85%, so the premium is +40%, +100%, +160%, +220% and +240% higher.')}
-<p>The ordinary income chart beside it stacks the income taxed at ordinary rates, which is the sum behind the ordinary tax calculation:</p>
+<p>The taxable income chart beside it stacks the income the tax brackets are applied to: taxable ordinary income (which the taxable income brackets apply to) with qualified income on top:</p>
 ${fpEq(
-  `Ordinary income = wages + pension + rental + annuity + IRA withdrawals + Roth conversions + ODIV + taxable SS`
+  `Taxable ordinary income = max( 0, ( wages + pension + rental + annuity + IRA withdrawals + Roth conversions + pre-tax IRA withdraw (for expenses) + ODIV + taxable SS ) − deduction )`,
+  `Taxable income = taxable ordinary income + QDIV + LTCG<sub>net of SCGL</sub>`
 )}
-${fpWhere('Its dashed lines mark where each ordinary bracket starts. Brackets apply to income after the deduction, so each line is drawn at bracket start + that year\'s deduction (standard or itemized, plus the senior deduction), which lets you compare the stack height with the line directly.')}
+${fpWhere('The deduction is the standard or itemized deduction plus the senior deduction. On the chart it is taken off the bottom of the stack, so each ordinary band is that source\'s taxable part and those bands add up to the taxable ordinary income; QDIV and LTCG are stacked above them, as the qualified tax calculation stacks them. The dashed lines are the taxable income brackets: each marks where an ordinary tax bracket starts and is labeled with the rate that applies above it, so the ordinary part of the stack can be read against them directly (QDIV and LTCG are taxed at their own rates, stacked on top).')}
 <p>On the Total Income Tax chart, <em>view IRMAA as tax</em> adds the household IRMAA surcharge paid that year (the expense above) on top of the tax stack, so the dashed line is <em>Total tax + IRMAA surcharge</em>. It is a display option only and never changes the projection.</p>
 
 <p><strong>Annual balance change.</strong></p>

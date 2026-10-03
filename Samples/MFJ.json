@@ -24,16 +24,16 @@
       },
       "ss": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "pia": 3200,
         "fra": 67,
         "started": false,
-        "claimAge": 70
+        "claimAge": 69
       },
       "pension": {
-        "enabled": true,
-        "hidden": false,
-        "amount": 24000,
+        "enabled": false,
+        "hidden": true,
+        "amount": 0,
         "ar": {
           "startMode": "now",
           "startVal": 0,
@@ -46,6 +46,7 @@
         },
         "bene": false
       },
+      "annuities": [],
       "rentals": [],
       "brokerage": [
         {
@@ -53,10 +54,10 @@
           "enabled": true,
           "hidden": false,
           "name": "John Jane Portfolio",
-          "balance": 400000,
+          "balance": 1000000,
           "growth": {
             "mode": "custom",
-            "value": 8
+            "value": 7
           },
           "yield": 1.1,
           "qdivPct": 70,
@@ -83,8 +84,8 @@
         "hidden": false,
         "balance": 400000,
         "growth": {
-          "mode": "offset",
-          "value": 3
+          "mode": "custom",
+          "value": 7
         },
         "ar": {
           "startMode": "rmd",
@@ -93,7 +94,10 @@
           "endVal": 0
         },
         "bene": true,
-        "conv": 20000,
+        "conv": 0,
+        "convMode": "bracket",
+        "convIrmaaPct": 100,
+        "convOrdPct": 22,
         "convStartMode": "now",
         "convStart": 0,
         "stretch": true,
@@ -104,8 +108,8 @@
         "hidden": false,
         "balance": 0,
         "growth": {
-          "mode": "offset",
-          "value": 3
+          "mode": "custom",
+          "value": 7
         },
         "bene": true,
         "stretch": true,
@@ -119,7 +123,7 @@
       "birthMonth": 1,
       "wage": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "amount": 50000,
         "ar": {
           "startMode": "now",
@@ -134,7 +138,7 @@
       },
       "ss": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "pia": 2500,
         "fra": 67,
         "started": false,
@@ -156,6 +160,7 @@
         },
         "bene": false
       },
+      "annuities": [],
       "rentals": [],
       "brokerage": [],
       "ira": {
@@ -174,6 +179,9 @@
         },
         "bene": false,
         "conv": 0,
+        "convMode": "fixed",
+        "convIrmaaPct": 40,
+        "convOrdPct": 32,
         "convStartMode": "rmd",
         "convStart": 0,
         "stretch": false,
@@ -194,14 +202,14 @@
     }
   ],
   "passing": {
-    "p1": 89,
+    "p1": 92,
     "p2": 92
   },
   "living": 90000,
   "scgl": 0,
   "scglEnabled": false,
   "ltc": {
-    "enabled": false,
+    "enabled": true,
     "people": [
       {
         "startAge": 85,
@@ -212,7 +220,7 @@
         "cost": 100000
       }
     ],
-    "living1": null,
+    "living1": 90000,
     "living2": 0
   },
   "aumFee": {
@@ -227,11 +235,21 @@
     "niitMarried": 250000
   },
   "ui": {
+    "incomeOrder": [
+      "ira",
+      "brokerage",
+      "ss",
+      "pension",
+      "rental",
+      "annuity",
+      "wage",
+      "roth"
+    ],
     "hiddenSections": {
       "assumptions": false,
-      "ss": false,
+      "ss": true,
       "income": false,
-      "tss": false,
+      "tss": true,
       "tax": false,
       "expenses": false,
       "assets": false
@@ -239,7 +257,7 @@
     "assumpHide": {
       "scgl": true,
       "aum": true,
-      "ltc": true,
+      "ltc": false,
       "future": true
     },
     "ltcgDevalue": 0,

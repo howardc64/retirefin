@@ -273,3 +273,8 @@ body.printing-all .cc,body.printing-all .item,body.printing-all .metric{break-in
 body.printing-all .sec-head{break-after:avoid;}
 /* each chart is swapped for a static pixel copy (print.js) so it can't be blanked by a resize during printing */
 body.printing-all canvas.print-swapped{display:none !important;}
+
+/* Household Expenses: shown only when some year's expenses cannot be fully funded */
+.unfunded-alert{margin:0 0 12px;text-align:center;color:#D00000;font-weight:800;font-size:22px;line-height:1.25;letter-spacing:.02em;text-transform:uppercase;}
+.unfunded-alert[hidden]{display:none;}
+.unfunded-alert small{display:block;margin-top:2px;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0;}
