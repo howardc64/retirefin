@@ -288,3 +288,4 @@
 93. Cleanup: all dashed reference lines (IRMAA, ordinary-tax brackets) and their legend swatches are black (`OVERLAY_COLOR`); removed the now-meaningless Light/Dark overlay toggle (`toggleOverlayMode`, `overlayMode`, `OV()`, `.ov-toggle`) and the unused qualified-bracket colors; dashed legend swatches share `legendDashStyle()`.
 94. Usage.md updated for the MAGI chart, the Total Income Tax companion charts, 'view IRMAA as tax', and popup behavior.
 95. Formulas page: added 'IRMAA on the charts' (MAGI stack, Part B % over standard, view-IRMAA-as-tax).
+96. Formulas page: corrected the Asset Value withdraw cost defaults (all four are 0%, matching the sliders and Usage page).

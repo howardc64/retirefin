@@ -292,7 +292,7 @@ ${fpEq(
 <p><strong>Cost basis roll-forward.</strong> Each year:</p>
 ${fpEq(`basis<sub>next</sub> = ${fpFr('basis − Sold × (1 − <em>f</em>) + Reinvested dividends + Reinvested excess income','1 + inflation')}`)}
 <p>Sales remove basis in proportion to cost share, reinvested dividends and reinvested excess income add basis, and basis erodes with inflation because it is a fixed nominal amount. When the owner passes and the portfolio continues to a surviving spouse, a non-IDGT portfolio's basis steps up to its value (gain becomes $0); an IDGT keeps its original basis. The balance itself is unaffected, since growth is total return. The asset charts report the unrealized gain remaining at the end of the plan.</p>
-<p><strong>Asset Value chart withdraw cost (display only).</strong> Two slider pairs shrink the plotted bands toward an after-tax value; they never change the projection. The first pair (defaults 10% LTCG, 10% ordinary) applies to the years up to the last passing, the second pair (defaults 24% / 40%) to the 10 stretch years after it:</p>
+<p><strong>Asset Value chart withdraw cost (display only).</strong> Two slider pairs shrink the plotted bands toward an after-tax value; they never change the projection. The first pair applies to the years up to the last passing, the second pair to the stretch years after it; all four default to 0%:</p>
 ${fpEq(
   `brokerage band = balance − LTCG withdraw cost % × unrealized gain`,
   `pre-tax IRA band = balance × ( 1 − ordinary income withdraw cost % )`,
