@@ -12,7 +12,9 @@ const TAX_LEGEND=[
   ['effRate','Effective tax rate (right axis, dashed)'], ['marginalRate','Marginal tax rate (right axis, dashed)']
 ];
 function buildTaxLegend(){
-  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.map(([k,label])=>legendItem(label, VZ_TAX[k])).join('');
+  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.map(([k,label])=>legendItem(label, VZ_TAX[k]) +
+      (k==='ord' ? legendItem('Ordinary tax brackets (rate above each line, on ordinary tax chart)', null, legendDashStyle(OV().taxBrk)) : '')).join('') +
+    (viewIrmaaAsTax ? legendItem('IRMAA surcharge (stacked above total tax, dashed)', null, legendDashStyle(OV().irmaa[0])) : '');
 }
 function buildTaxChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -50,10 +52,13 @@ function buildTaxChart(){
   const marginalArr=rows.map(r=>(r.marginalRate||0)*100);
   const alignedMarginal=alignToAges(ages,marginalArr,labels);
 
+  // "view IRMAA as tax": the IRMAA surcharge paid that year (null when none) stacks on top of the tax stack as a dashed line.
+  const alignedIrmaa=alignToAges(ages, rows.map(r=>r.expIrmaa>0?r.expIrmaa:null), labels);
   const Y_MAX=lockedYMax('tax', ()=>{
     let maxV=0;
     for(let i=0;i<labels.length;i++){
       let t=alignedOrd[i]||0; alignedQ.forEach(a=>t+=a[i]||0); alignedL.forEach(a=>t+=a[i]||0); t+=alignedNiit[i]||0;
+      if(viewIrmaaAsTax) t+=alignedIrmaa[i]||0;
       maxV=Math.max(maxV,t);
     }
     return Math.ceil(Math.max(maxV,1)/2000)*2000+4000;
@@ -78,6 +83,11 @@ function buildTaxChart(){
     {label:'Marginal tax rate', data:alignedMarginal, borderColor:VZ_TAX.marginalRate, backgroundColor:'transparent', borderWidth:4, borderDash:[3,3], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:0}
   ];
 
+  if(viewIrmaaAsTax){
+    const c=OV().irmaa[0];
+    datasets.push({label:'IRMAA surcharge', data:alignedIrmaa, borderColor:c, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'tax', order:2});
+  }
+
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.
   const tooltipCallbacks={
     title:i=>{ const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]]; return r?popupPersonAgeLines(proj,r):[]; },
@@ -97,6 +107,7 @@ function buildTaxChart(){
       const lines=['', mrow('Effective tax rate', effRate.toFixed(1)+'%')];
       lines.push(mrow('Marginal tax rate', ((r.marginalRate||0)*100).toFixed(1)+'%'));
       lines.push(mrow('Total tax (TT)', fmt(r.totalTax)+'/yr'));
+      if(viewIrmaaAsTax && r.expIrmaa>0) lines.push(mrow('Total tax + IRMAA', fmt(r.totalTax+r.expIrmaa)+'/yr'));
       if(showDetails){
         lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
         lines.push(mrow('Taxable income (TI)', fmt(r.ordTI)+'/yr'));
@@ -146,11 +157,17 @@ function buildTaxChart(){
   // Same labels, same locked Y scale (Y_MAX) and same 1:1 aspect ratio as the primary chart; the
   // datasets are copies of the primary's stack segments, in the same order and colors.
   const copyDs=d=>({...d, data:d.data.slice()});
+  // Companion-chart popups show only that chart's own values: no title/age, no totals, nothing extra with Show Details.
+  const smTip={
+    title:()=>[],
+    label:ctx=>(ctx.raw==null||ctx.raw===0)?null:mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr'),
+    footer:()=>[]
+  };
   const smTick=v=>'$'+Math.round(v/1000)+'k';
   const smOptions=(yTitle)=>({
     ...CHART_BASE,
     interaction:{mode:'index',intersect:false},
-    plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)} },
+    plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(smTip)} },
     scales:{
       x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
       y:{stacked:true,min:0,max:Y_MAX,title:axisTitle(yTitle),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:smTick},grid:AXIS_GRID}
@@ -159,9 +176,9 @@ function buildTaxChart(){
   // Cumulative ordinary tax at each bracket ceiling, labeled with the rate that applies above it.
   const brkLines=brk=>brk.slice(0,-1).map((b,i)=>({tax:calcOrdTax(b.lim,brk), r:brk[i+1].r}));
   const brkOpts={mfj:brkLines(MFJ_ORD), sgl:brkLines(SGL_ORD), switchIdx:swIdx};
-  upsertLineChart('taxOrd',{canvasId:'taxOrdChart', labels, datasets:[copyDs(datasets[0])], yMax:Y_MAX, tooltip:tooltipCallbacks,
+  upsertLineChart('taxOrd',{canvasId:'taxOrdChart', labels, datasets:[copyDs(datasets[0])], yMax:Y_MAX, tooltip:smTip,
     refresh:o=>{ o.plugins.taxBracketOverlay=brkOpts; },
     createOptions:()=>{ const o=smOptions('Ordinary tax'); o.plugins.taxBracketOverlay=brkOpts; return o; }});
-  upsertLineChart('taxQual',{canvasId:'taxQualChart', labels, datasets:datasets.slice(1,8).map(copyDs), yMax:Y_MAX, tooltip:tooltipCallbacks,
+  upsertLineChart('taxQual',{canvasId:'taxQualChart', labels, datasets:datasets.slice(1,8).map(copyDs), yMax:Y_MAX, tooltip:smTip,
     createOptions:()=>smOptions('QDIV / LTCG / NIIT tax')});
 }

@@ -134,7 +134,9 @@
 <div class="sec-head hideable"><span>Total Income Tax</span><label class="hide-cb"><input type="checkbox" data-hide-key="tax" autocomplete="off" onchange="onSectionHide(this)">Hide</label></div>
 <div class="cc">
   <div class="cc-head"><div class="ct">Annual total income tax · segmented by income type · today's dollars</div>
-    <button class="rescale-btn" onclick="rescaleChart('tax')">↕ Rescale</button></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <label class="hide-cb"><input type="checkbox" id="viewIrmaaAsTaxToggle" autocomplete="off" onchange="viewIrmaaAsTax=this.checked;rescaleChart('tax')">view IRMAA as tax</label>
+      <button class="rescale-btn" onclick="rescaleChart('tax')">↕ Rescale</button></div></div>
   <div class="legend" id="taxLegend"></div>
   <div class="co"><div class="tax-trio">
     <div class="tax-main"><canvas id="taxChart"></canvas></div>

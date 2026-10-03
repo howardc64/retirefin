@@ -32,7 +32,7 @@ function buildIncomeLegend(){
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
   document.getElementById('incomeLegend').innerHTML =
     keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
-    legendItem('IRMAA brackets (shown on MAGI chart)', null, `border-top:2px dashed ${ov.irmaa[0]};background:transparent;height:2px;margin-top:4px`);
+    legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(ov.irmaa[0]));
 }
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -174,35 +174,18 @@ function buildIncomeChart(){
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
     borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'magi'
   }));
+  // Popup shows only the MAGI value and the IRMAA surcharge for the tier that MAGI reaches (nothing else, regardless
+  // of Show Details in Popup); every other value is in the primary chart's popup.
   const magiTip={
-    title:tooltipCallbacks.title,
-    label:ctx=>{
-      if(ctx.raw==null||ctx.raw===0) return null;
-      const key=mKeys[ctx.datasetIndex];
-      const r=rowByAge[labels[ctx.dataIndex]];
-      const field=INC_BYPERSON_FIELD[key];
-      if(r && field && Array.isArray(r[field])){
-        const lines=[];
-        r[field].forEach((v,pIdx)=>{
-          if(v>0.5) lines.push(mrow('  '+ctx.dataset.label+' — '+displayPersonName(proj.people[pIdx],pIdx), fmt(v)+'/yr'));
-        });
-        if(lines.length) return lines;
-      }
-      return mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr');
-    },
+    title:()=>[],
+    label:()=>null,
     footer:items=>{
       const idx=items[0]?items[0].dataIndex:0;
       const r=rowByAge[labels[idx]]; if(!r) return [];
-      const total=mKeys.reduce((s,k)=>s+(mAligned[k][idx]||0),0);
-      const lines=['', mrow('MAGI (AGI + tax-exempt income)', fmt(total)+'/yr')];
-      if(showDetails){
-        lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
-        lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
-        // Same IRMAA lines as the primary chart's popup.
-        if(r.expIrmaa>0) lines.push(mrow('  incl. IRMAA surcharge',fmt(r.expIrmaa)+'/yr'));
-      }
-      const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>(r.magi!=null?r.magi:r.agi)>=t.magi);
-      if(showDetails && irmaaT) lines.push(`⚠ IRMAA: +${fmt(irmaaT.surch)}/yr`);
+      const m=r.magi!=null?r.magi:r.agi;
+      const lines=[mrow('MAGI', fmt(m)+'/yr')];
+      const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>m>=t.magi);
+      if(irmaaT) lines.push(mrow('IRMAA', '+'+fmt(irmaaT.surch)+'/yr'));
       return lines;
     }
   };
@@ -211,7 +194,7 @@ function buildIncomeChart(){
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
-      plugins:{ legend:{display:false}, magiOverlay:magiOv, tooltip:{...TIP_STYLE,callbacks:justifyTip(magiTip)} },
+      plugins:{ legend:{display:false}, magiOverlay:magiOv, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(magiTip)} },
       scales:{
         x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('MAGI (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}

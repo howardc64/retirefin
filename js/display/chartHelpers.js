@@ -12,18 +12,19 @@ let overlayMode='light'; // default: lighter, per spec
 // show_details-only in the chart specs (§8.3, §9.3.1, §9.4, §10). Tooltip callbacks read
 // this live (not captured), so toggling it needs no chart rebuild — just re-hover.
 let showDetails=false;
+let viewIrmaaAsTax=false;   // Total Income Tax chart: draw the IRMAA surcharge as a dashed line above the tax stack
 function OV(){
   if(overlayMode==='light') return {
     irmaa:['rgba(255,200,80,.95)','rgba(255,140,40,.95)','rgba(255,80,60,.95)','rgba(240,40,100,.95)','rgba(200,20,80,.95)'],
-    taxBrk:'rgba(200,160,255,.95)', taxLbl:'rgba(190,140,255,.95)',
+    taxBrk:'rgba(120,190,255,.95)', taxLbl:'rgba(120,190,255,.95)',
     qualBrk:'rgba(80,240,200,.95)', qualLbl:'rgba(60,220,180,.95)',
-    taxBrkSgl:'rgba(255,200,130,.95)', qualBrkSgl:'rgba(100,255,220,.95)'
+    taxBrkSgl:'rgba(120,190,255,.95)', qualBrkSgl:'rgba(100,255,220,.95)'
   };
   return {
     irmaa:['rgba(180,100,20,.80)','rgba(180,60,20,.80)','rgba(160,30,30,.80)','rgba(130,20,50,.80)','rgba(120,20,60,.80)'],
-    taxBrk:'rgba(100,70,180,.70)', taxLbl:'rgba(90,55,170,.85)',
+    taxBrk:'rgba(31,78,170,.90)', taxLbl:'rgba(31,78,170,.95)',
     qualBrk:'rgba(123,63,190,.80)', qualLbl:'rgba(123,63,190,.90)',
-    taxBrkSgl:'rgba(184,132,116,.80)', qualBrkSgl:'rgba(26,158,143,.80)'
+    taxBrkSgl:'rgba(31,78,170,.90)', qualBrkSgl:'rgba(26,158,143,.80)'
   };
 }
 function toggleOverlayMode(){
@@ -49,6 +50,44 @@ const TIP_STYLE={
   titleAlign:'right',
   footerAlign:'right'
 };
+// External (HTML) tooltip for the small companion charts. Chart.js draws its built-in tooltip INSIDE the canvas, so on a
+// 1/3-width chart a wide popup (long source names, per-person lines) is clipped and its right-justified values are cut off.
+// This renders the same lines (already padded by justifyTip, in one monospace font) into a floating <div> that can
+// extend past the canvas edge, and flips to the left of the cursor when it would run off the window.
+function externalTooltip(context){
+  const {chart,tooltip}=context;
+  let el=document.getElementById('extTooltip');
+  if(!el){
+    el=document.createElement('div'); el.id='extTooltip';
+    el.style.cssText='position:fixed;z-index:10000;pointer-events:none;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;padding:6px 8px;'+
+      'font:12px monospace;white-space:pre;line-height:1.35;opacity:0;';
+    document.body.appendChild(el);
+  }
+  const GLIDE='opacity .12s, left .3s cubic-bezier(.25,1,.5,1), top .3s cubic-bezier(.25,1,.5,1)';
+  if(!tooltip||tooltip.opacity===0){ el.style.transition='opacity .12s'; el.style.opacity=0; el._shown=false; return; }
+  const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const line=(t,color)=>`<div style="position:relative;padding-left:14px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${color};border:1px solid #fff;box-sizing:border-box;"></span>`:''}${esc(t)}</div>`;
+  let html='';
+  (tooltip.title||[]).forEach(t=>{ html+=line(t); });
+  (tooltip.body||[]).forEach((b,i)=>{
+    const col=tooltip.labelColors&&tooltip.labelColors[i]?tooltip.labelColors[i].backgroundColor:null;
+    (b.lines||[]).forEach((t,j)=>{ if(t!=null&&t!=='') html+=line(t, j===0?col:null); });
+  });
+  (tooltip.footer||[]).forEach(t=>{ html+=line(t); });
+  el.innerHTML=html;
+  const r=chart.canvas.getBoundingClientRect();
+  const x=r.left+tooltip.caretX, y=r.top+tooltip.caretY;
+  el.style.opacity=1;
+  const w=el.offsetWidth, h=el.offsetHeight;
+  let left=x+14; if(left+w>window.innerWidth-8) left=x-14-w;
+  let top=y-h/2; top=Math.max(8,Math.min(top,window.innerHeight-h-8));
+  // Glide to each new position like the built-in tooltip (Chart.js tweens x/y); a tooltip that was hidden
+  // appears in place (no transition) and only then starts gliding.
+  if(!el._shown){ el.style.transition='none'; }
+  el.style.left=Math.max(8,left)+'px'; el.style.top=top+'px';
+  if(!el._shown){ void el.offsetWidth; el._shown=true; }
+  el.style.transition=GLIDE;
+}
 function mrow(label,value){ return label+TIP_SEP+value; }
 function tipLines(x){ return x==null?[]:(Array.isArray(x)?x:[x]); }
 function tipLen(l){ const i=l.indexOf(TIP_SEP); return i<0?l.length:i+TIP_GAP+(l.length-i-1); }
@@ -129,6 +168,10 @@ function resetChartYMax(){ Object.keys(chartYMax).forEach(k=>{ chartYMax[k]=null
 function rescaleChart(which){ chartYMax[which]=null; recompute(); }
 
 // Legend swatch + label. `style` overrides the default solid-color swatch (e.g. the dashed IRMAA key).
+// Dashed-line swatch (matches the dashed overlay lines on the charts).
+function legendDashStyle(color){
+  return `background:repeating-linear-gradient(90deg,${color} 0 5px,transparent 5px 8px);height:2px;border-radius:0`;
+}
 function legendItem(text, color, style){
   return `<span class="li"><span class="ls" style="${style||('background:'+color)}"></span>${text}</span>`;
 }
