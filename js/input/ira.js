@@ -13,8 +13,15 @@ function buildIraCard(pid, p, married){
           <input type="number" class="money" min="0" step="5000" value="${p.ira.balance}" oninput="onIraBalance('${pid}', this.value)"></div>
         ${renderAgeRangeRow(pid+'.ira.ar', p.ira.ar, [{value:'rmd',label:'RMD age ('+rmdAge+')'},{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'passing',label:'Passing'},{value:'custom',label:'Custom age'}])}
         ${renderChangeRow(pid+'.ira.growth', p.ira.growth, 1)}
-        <div class="field full"><label>Annual Roth conversion ($/yr, today's $)</label>
-          ${pairHtml('conv_'+idx, pid+'.ira.conv', 0, Math.max(0,Number(p.ira.balance)||0), 1000, p.ira.conv||0, {kind:'ira',i:idx}, true)}</div>
+        <div class="field full"><label>Annual Roth conversion</label>
+          <select onchange="onConvMode('${pid}',this.value)">
+            <option value="fixed" ${(p.ira.convMode||'fixed')==='fixed'?'selected':''}>$/yr, today's $</option>
+            <option value="bracket" ${p.ira.convMode==='bracket'?'selected':''}>Below IRMAA &amp; ordinary income tax brackets</option>
+          </select>
+          ${p.ira.convMode==='bracket'
+            ? `<div style="display:flex;gap:12px;align-items:flex-start;margin-top:8px">${convSliderHtml(pid,'ord',p)}${convSliderHtml(pid,'irmaa',p)}</div>
+               <div class="cn" style="margin-top:4px">Converts as much pre-tax IRA as fits <strong>below both</strong> brackets: taxable ordinary income stays below the chosen ordinary bracket, and MAGI stays below the chosen IRMAA bracket (the line labeled with that Part B % on the MAGI chart). Slide to 0 to block conversions, or to the end for no limit. Dollar amounts follow the Single / Married setting.</div>`
+            : pairHtml('conv_'+idx, pid+'.ira.conv', 0, Math.max(0,Number(p.ira.balance)||0), 1000, p.ira.conv||0, {kind:'ira',i:idx}, true)}</div>
         <div class="field full"><label>Conversion start</label>
           <select onchange="onAgeRangeMode('${pid}.ira','convStartMode',this.value)">
             <option value="rmd" ${(p.ira.convStartMode||'rmd')==='rmd'?'selected':''}>RMD start (age ${Math.round(resolveAgeRange(p.ira.ar,p)[0])})</option>
@@ -29,6 +36,42 @@ function buildIraCard(pid, p, married){
     </div>`;
 }
 
+// Discrete slider for one "below bracket" limit. `which` = 'ord' (ordinary income tax bracket) or 'irmaa' (IRMAA bracket, Part B % over standard).
+function convStopText(which, v){
+  const married=state.filingStatus==='married', st=married?'Married':'Single';
+  if(which==='ord'){
+    if(v==null) return 'No ordinary income limit';
+    if(!(v>0)) return 'Below the 0 bracket \u2014 no conversion';
+    const top=convOrdTop(v, married?MFJ_ORD:SGL_ORD);
+    return `Below the ${v}% bracket \u00b7 taxable ordinary income \u2264 $${Math.round(top).toLocaleString()} (${st})`;
+  }
+  if(v==null) return 'No IRMAA limit';
+  if(!(v>0)) return 'Below the standard bracket \u2014 no conversion';
+  const cap=convMagiCap(v, married?IRMAA_MFJ:IRMAA_SGL)+1;
+  return `Below the +${v}% IRMAA bracket \u00b7 MAGI < $${Math.round(cap).toLocaleString()} (${st})`;
+}
+function convSliderHtml(pid, which, p){
+  const stops=which==='ord'?CONV_ORD_STOPS:CONV_IRMAA_STOPS;
+  const v=which==='ord'?p.ira.convOrdPct:p.ira.convIrmaaPct;
+  const idx=convStopIndex(stops, v), val=stops[idx];
+  const title=which==='ord'?'Ordinary income tax bracket':'IRMAA bracket (Part B %)';
+  return `<div style="flex:1 1 0;min-width:0"><label style="font-weight:400;font-size:11px">${title}</label>
+    <input type="range" min="0" max="${stops.length-1}" step="1" value="${idx}" oninput="onConvStop('${pid}','${which}',this.value)">
+    <div class="cn" id="convLbl_${pid}_${which}" style="margin-top:2px">${convStopText(which,val)}</div></div>`;
+}
+function onConvStop(pid, which, idx){
+  const stops=which==='ord'?CONV_ORD_STOPS:CONV_IRMAA_STOPS;
+  const v=stops[+idx];
+  setPath(pid+'.ira.'+(which==='ord'?'convOrdPct':'convIrmaaPct'), v);
+  const el=document.getElementById('convLbl_'+pid+'_'+which); if(el) el.textContent=convStopText(which,v);
+  saveDebounced();
+  window.liveDrag=true; recompute(); window.liveDrag=false;
+}
+function onConvMode(pid, mode){
+  setPath(pid+'.ira.convMode', mode);
+  renderIncomeForms();
+  recompute(); saveDebounced();
+}
 function onIraBalance(pid, val){
   onNumberInput(pid+'.ira.balance', val);
   const idx=+pid.split('.')[1], max=Math.max(0,+val||0);

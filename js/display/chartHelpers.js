@@ -135,7 +135,7 @@ function ageLabelRange(fromAge,toAge){
 // One live Chart.js instance per key (null until first drawn). Every chart file reads/writes
 // `charts.<key>` through upsertLineChart(); destroy/resize below walk the registry, so adding a
 // chart never means editing a hand-written list of chart variables.
-const charts={ss:null, income:null, incomeMagi:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, idgt:null};
+const charts={ss:null, income:null, incomeMagi:null, incomeOrd:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, assetConv:null, idgt:null};
 function allCharts(){ return Object.values(charts).filter(Boolean); }
 
 // Y-axis maximum per chart. It is computed once and then held ("locked") so the scale doesn't
@@ -143,7 +143,7 @@ function allCharts(){ return Object.values(charts).filter(Boolean); }
 const chartYMax=Object.fromEntries(Object.keys(charts).map(k=>[k,null]));
 function lockedYMax(key, compute){ if(chartYMax[key]==null) chartYMax[key]=compute(); return chartYMax[key]; }
 function resetChartYMax(){ Object.keys(chartYMax).forEach(k=>{ chartYMax[k]=null; }); }
-function rescaleChart(which){ chartYMax[which]=null; recompute(); }
+function rescaleChart(which){ chartYMax[which]=null; if(which==='asset') chartYMax.assetConv=null; recompute(); }
 
 // Legend swatch + label. `style` overrides the default solid-color swatch (e.g. the dashed IRMAA key).
 // Dashed-line swatch (matches the dashed overlay lines on the charts).

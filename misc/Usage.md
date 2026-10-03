@@ -31,17 +31,17 @@ Most items have an **age range** (when the amount starts and stops) and an **ann
 - **Save to file** — saves the whole plan as a file. **Load file** brings a saved plan back (or loads a sample plan if any are available).
 - **Reset to defaults** — clears the plan back to its starting values.
 - **Export to Excel** — downloads the full year-by-year projection.
-- **Show Details in Popup** — adds the line-by-line breakdown to the hover popups on the main charts. The small charts beside Annual Household Income and Total Income Tax always show just their own values.
+- **Show Details in Popup** — adds the line-by-line breakdown to the hover popups on the main charts. The small charts beside Annual Household Income, Total Income Tax and Asset Value show the plan owner(s) and age, then only their own values.
 
 The Usage, Notes and Formulas pages open in a new tab. Usage and Notes read their text from the `misc` folder when you click, so they show whatever those files currently say. This works when the app is served over `http(s)`; if you opened it as a local `file://` page the browser may block it, and the new tab will say so.
 
 ## Reading the charts
 
 - **Social Security — Start Age Analysis**: cumulative household Social Security for different claiming ages.
-- **Annual Household Income**: income by source. The small chart on the right shows your MAGI, stacked in the same colors (Social Security counts only its taxable part), with dashed lines at the IRMAA brackets. Each line is labeled with the bracket's income and how much more you pay for Medicare Part B than the standard premium (for example `$218k +40%`). Its popup shows your MAGI and the IRMAA surcharge for that year.
+- **Annual Household Income**: income by source. The small chart on the right shows your MAGI, stacked in the same colors (Social Security counts only its taxable part), with dashed lines at the IRMAA brackets. Each line is labeled with the bracket's income and how much more you pay for Medicare Part B than the standard premium (for example `$218k +40%`). Its popup shows your MAGI and the IRMAA surcharge for that year. Below it, a second small chart shows your ordinary income (the income taxed at ordinary rates: pension, taxable annuity, wages, IRA withdrawals and conversions, rental, non-qualified dividends and taxable Social Security), stacked in the same colors. Black dashed lines mark the ordinary tax brackets, each labeled with the rate above it; they sit at the bracket start plus that year's deduction so you can compare them directly with the stack. Its popup lists the owner and age, every component and the ordinary income total.
 - **Social Security Tax** and **Total Income Tax**: tax by source and by income type. Total Income Tax has two small charts on the right: ordinary income tax (with dashed lines at the ordinary tax brackets, each labeled with the rate above it) and qualified dividend, long-term gain and NIIT tax. Check **view IRMAA as tax** to add the IRMAA surcharge above the tax stack as a dashed line.
 - **Household Expenses**: living, long-term care, IRMAA, AUM fee and income tax.
-- **Asset Value**: brokerage, pre-tax IRA and Roth IRA balances by holder, with a second chart for IDGT portfolios when you set a portfolio's type to IDGT.
+- **Asset Value**: brokerage, pre-tax IRA and Roth IRA balances by holder, with a second chart for IDGT portfolios when you set a portfolio's type to IDGT. The small chart on the right shows the annual Roth conversion (today's $), stacked by pre-tax IRA in the same colors as the main chart. Its scale starts at the combined value of your pre-tax IRAs, and its popup shows each IRA's conversion and the total. It appears when a pre-tax IRA converts to a Roth IRA.
 
 Each chart has a **Rescale** button to refit its vertical axis, and a **Hide** box to collapse the whole section. Hover a chart for a popup of that year's numbers.
 
@@ -67,7 +67,10 @@ The **Annuity** card (under Brokerage portfolio income; **Add** / **Remove**, on
 
 ## Roth conversions
 
-On the pre-tax IRA card, **Annual Roth conversion** moves money into the Roth IRA each year, taxed as ordinary income. The slider runs from $0 up to the IRA balance and starts at $0. **Conversion start** is **RMD start** by default (the IRA's own start age), or **Now**, or a **Custom age**. The Roth IRA card must be switched on for conversions to happen.
+On the pre-tax IRA card, **Annual Roth conversion** moves money into the Roth IRA each year, taxed as ordinary income. It has two options:
+
+- **$/yr, today's $** — a flat amount each year. The slider runs from $0 up to the IRA balance and starts at $0.
+- **Below IRMAA & ordinary income tax brackets** — the projection converts as much as it can while staying **below both** brackets you choose with two sliders. The two sliders sit side by side and step through the bracket values (the dollar amounts shown follow the Single / Married setting). Staying *below* a bracket means under the point where it starts, so choosing the 24% ordinary bracket fills the 22% bracket and stops. Slide to 0 to block conversions, or to the far end for no limit. The first ordinary stop (10%) converts only what fits in the standard deduction. The **IRMAA bracket** slider uses the Part B % over standard that labels the lines on the MAGI chart (+40%, +100%, +160%, +220%, +240%); +40% means MAGI stays under the first IRMAA line, so no surcharge. Because IRMAA looks back two years, a conversion now sets the premium two years later, so the IRMAA limit applies whenever someone alive is 63 or older, right up to the last years. If your other income already exceeds a limit, nothing is converted that year. When both spouses use this option, the first person converts first and the second converts what is still left under the limits. **Conversion start** is **RMD start** by default (the IRA's own start age), or **Now**, or a **Custom age**. The Roth IRA card must be switched on for conversions to happen.
 
 ## Asset Value chart: the withdraw cost sliders
 

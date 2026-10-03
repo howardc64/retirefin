@@ -42,8 +42,8 @@
 
 * **Several Consideration Factors:**
   * If withdraw has very little taxation, then no need for conversion. Scenarios are
-    * If LTC cost starts, itemized deduction will eliminate pre-tax IRA withdraw taxation.
+    * If LTC cost starts, itemized deduction will eliminate pre-tax IRA withdraw taxation. Resulting lower tax bracket also offers higher Roth conversion pace opportunity.
     * If heir has lower income bracket, their withdraw cost maybe low. However, the withdraw pace with <= 10 years after passing. IRA beneficiary is changeable anytime so ideal tax efficiency is name the lower income bracket heirs for the pre-tax IRA
-  * If withdraw has high taxation, ideally complete roth convert before passing. Require guesstimate on timing of course.
+  * If heir withdraw has high taxation, ideally complete roth convert before passing. Require guesstimate on timing of course.
   * More aggressive Roth Conversion pacing may not be beneficial even for long term. Study overall asset value projection and 10 year after passing stretch to evaluate. Asset Chart include Asset withdraw costs to help evaluation.
 

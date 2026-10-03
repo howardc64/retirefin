@@ -54,6 +54,7 @@ function buildAssetChartFor(cfg){
 
   const clear=()=>{
     if(charts[cfg.key]){ try{ charts[cfg.key].destroy(); }catch(e){} charts[cfg.key]=null; }
+    if(!cfg.idgt){ if(charts.assetConv){ try{ charts.assetConv.destroy(); }catch(e){} charts.assetConv=null; } const sd=document.getElementById('assetConvSide'); if(sd) sd.style.display='none'; }
     legendEl.innerHTML='';
     setGainNote(cfg, '');
   };
@@ -236,6 +237,7 @@ function buildAssetChartFor(cfg){
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle(cfg.yTitle),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
     })});
+  if(!cfg.idgt) buildRothConvChart({proj, rows, allRows, labels, ages, rowByAge, series, seriesLabel});
   legendEl.innerHTML = series.map((s,si)=>
     legendItem(escHtml(seriesLabel(s,si)), ASSET_COLORS[si%ASSET_COLORS.length])
   ).join('') + (showBasis ? legendItem('Cost basis (dashed) — brokerage above it is unrealized gain', null, 'border-top:2px dashed #1f1f1f;background:transparent;height:2px;margin-top:4px') : '');
@@ -266,6 +268,59 @@ function buildAssetChartFor(cfg){
   if(t2) devParts.push('after it (heirs), by '+t2);
   if(devParts.length) gainText=(gainText?gainText+' ':'')+'Withdraw cost: '+devParts.join('; ')+'.';
   setGainNote(cfg, gainText);
+}
+
+// Half-size companion chart (right of the main asset chart): annual Roth conversion $ (today's $), one stacked band per pre-tax IRA that
+// converts, in the same color as that IRA's band on the main chart. Same X labels and 1:1 aspect ratio as the main chart; own Y scale that
+// starts at the combined value of all pre-tax IRAs (locked until Rescale); sparser ticks; no legend. External HTML popup (see externalTooltip):
+// owners + ages, each IRA's conversion, and the total — all in today's $.
+function buildRothConvChart(ctx){
+  const {proj, rows, allRows, labels, ages, rowByAge, series, seriesLabel}=ctx;
+  const side=document.getElementById('assetConvSide');
+  const convSeries=[];   // [{personIdx, color, label}]
+  series.forEach((s,si)=>{
+    if(s.type!=='ira') return;
+    const p=proj.people[s.personIdx];
+    if(!(p.roth&&p.roth.enabled)) return;                                   // conversions need the Roth IRA turned on
+    if(!(p.ira.convMode==='bracket' || Number(p.ira.conv)>0)) return;      // and a conversion set up
+    convSeries.push({personIdx:s.personIdx, color:ASSET_COLORS[si%ASSET_COLORS.length],
+      label:proj.married?`${displayPersonName(p,s.personIdx)} \u2014 IRA conversion`:'IRA conversion'});
+  });
+  if(!convSeries.length){
+    if(charts.assetConv){ try{ charts.assetConv.destroy(); }catch(e){} charts.assetConv=null; }
+    if(side) side.style.display='none';
+    return;
+  }
+  if(side) side.style.display='';
+  const data=convSeries.map(cs=>alignToAges(ages, allRows.map(r=>r.stretchYear?null:((r.rothConvByPerson&&r.rothConvByPerson[cs.personIdx])||0)), labels));
+  // Initial Y range = combined value of all pre-tax IRAs (today's $), held until Rescale.
+  const Y_MAX=lockedYMax('assetConv', ()=>{
+    const tot=proj.people.reduce((a,p)=>a+((p.ira&&p.ira.enabled)?(Number(p.ira.balance)||0):0),0);
+    return Math.max(10000, Math.ceil(tot/10000)*10000);
+  });
+  const datasets=convSeries.map((cs,ci)=>({
+    label:cs.label, data:data[ci], borderColor:cs.color, backgroundColor:cs.color+'bb',
+    borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'conv', order:1
+  }));
+  const tip={
+    title:items=>{ const r=rowByAge[labels[items[0]?items[0].dataIndex:0]]; return r?popupPersonAgeLines(proj,r):[]; },
+    label:c=>(c.raw==null)?null:mrow('  '+c.dataset.label, fmt(c.raw)+'/yr'),
+    footer:items=>{
+      const idx=items[0]?items[0].dataIndex:0;
+      const total=data.reduce((t,d)=>t+(d[idx]||0),0);
+      return ['', mrow('Total Roth IRA conversion', fmt(total)+'/yr')];
+    }
+  };
+  upsertLineChart('assetConv',{canvasId:'assetConvChart', labels, datasets, yMax:Y_MAX, tooltip:tip,
+    createOptions:()=>({
+      ...CHART_BASE,
+      interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(tip)} },
+      scales:{
+        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Roth conversion (today's $)"),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+      }
+    })});
 }
 
 function buildAssetChart(){

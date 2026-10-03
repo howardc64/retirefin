@@ -57,23 +57,33 @@ function computeProjection(){
   // ── Pre-tax IRA / 401(k) RMD schedule, plus optional annual Roth conversion ──
   // Continue RMDs after an owner's death by transferring the remaining
   // balance to the spouse when the IRA is marked to continue to spouse.
-  // A configured Roth conversion (flat today's-$ amount, spec §4.4) moves money out of the
-  // pre-tax IRA and into this person's Roth IRA each year the pre-tax IRA still has a balance
-  // — independent of the RMD/withdrawal age window — as long as the Roth IRA below is enabled;
-  // the converted amount is added to ordinary income for tax purposes (§9.4, computed below).
+  // A Roth conversion moves money out of the pre-tax IRA and into this person's Roth IRA each year the pre-tax IRA still has a
+  // balance (from the conversion start age, independent of the RMD/withdrawal age window) as long as the Roth IRA below is enabled;
+  // the converted amount is added to ordinary income for tax purposes (§9.4). Two modes (`ira.convMode`):
+  //   'fixed'   — a flat today's-$ amount per year (spec §4.4), capped at the balance left after the RMD.
+  //   'bracket' — as much as fits under the IRMAA % and ordinary-bracket % entered. That depends on the year's other income, taxable
+  //               Social Security, realized LTCG and the tax itself, so it is solved inside the year loop (see "Roth conversion
+  //               solve" below); the IRA / Roth balances are therefore advanced one year at a time: pre(k) = RMD and start-of-year
+  //               balances, post(k, conv) = apply the conversion and grow. Every other mode behaves exactly as when the whole
+  //               schedule was simulated up front.
   const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({})), iraAum=people.map(()=>({})), rothAum=people.map(()=>({}));
-  people.forEach((p,i)=>{
-    if(!p.ira.enabled) return;
-    let bal=Number(p.ira.balance)||0;
+  const iraSim=people.map((p,i)=>{
+    const sim={bal:0, done:true, open:false, room:0, fixed:0, mode:'fixed', pre(){}, post(){}};
+    if(!p.ira.enabled) return sim;
+    sim.bal=Number(p.ira.balance)||0; sim.done=false;
     const [startAge,ownerEndAge]=resolveAgeRange(p.ira.ar,p);
     const g=realGrowth(p.ira.growth,inflation);
     const rothOk=!!(p.roth&&p.roth.enabled);
-    const convAmt=rothOk?Math.max(0,Number(p.ira.conv)||0):0;
+    sim.mode=(rothOk&&p.ira.convMode==='bracket')?'bracket':'fixed';
+    const convAmt=(rothOk&&sim.mode==='fixed')?Math.max(0,Number(p.ira.conv)||0):0;
     // Conversion start: 'rmd' (default) = the IRA's own Start age (the RMD start), 'now' = today, 'custom' = ira.convStart.
     // Never earlier than the owner's current age.
     const cMode=p.ira.convStartMode||'rmd';
     const convStartAge=Math.max(curAges[i], cMode==='custom'?(Number(p.ira.convStart)||0):(cMode==='now'?0:startAge));
-    for(let k=0;k<=yearsToProject;k++){
+    // Start of year k: AUM balance, RMD, and the room left for a conversion. `open` = a conversion decision is pending (post() finishes the year).
+    sim.pre=function(k){
+      sim.open=false; sim.room=0; sim.fixed=0;
+      if(sim.done) return;
       const ownerAge=curAges[i]+k;
       const ownerAlive=ownerAge<passAges[i];
       const otherIdx=1-i;
@@ -81,7 +91,7 @@ function computeProjection(){
       const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
       // AUM box: the start-of-year balance counts toward the household AUM balance while the account is held by the
       // household (owner alive, or inherited by a living spouse) — not while held by heirs under the stretch option.
-      if(p.ira.aum && (ownerAlive || (p.ira.bene&&spouseAlive))) iraAum[i][k]=bal;
+      if(p.ira.aum && (ownerAlive || (p.ira.bene&&spouseAlive))) iraAum[i][k]=sim.bal;
 
       // While the owner is alive, use the owner's RMD schedule and the
       // owner's configured end age.  Once the owner passes, an IRA marked
@@ -94,77 +104,83 @@ function computeProjection(){
           // Not (or no longer) inherited by a living spouse. Normally the account ends here; with the
           // "IRA stretch" box checked it is instead held by heirs: no RMDs/withdrawals, still compounding
           // (through the last passing here, then STRETCH_YEARS more in the stretch block at the end).
-          if(!p.ira.stretch) break;
+          if(!p.ira.stretch){ sim.done=true; return; }
           iraW[i][k]=0;
-          bal=bal*(1+g);
-          iraBal[i][k]=bal;
-          continue;
+          sim.bal=sim.bal*(1+g);
+          iraBal[i][k]=sim.bal;
+          return;
         }
-        if(bal<=0){ iraW[i][k]=0; iraBal[i][k]=0; continue; }
+        if(sim.bal<=0){ iraW[i][k]=0; iraBal[i][k]=0; return; }
         const div=rmdDivisor(spouseAge);
-        const wd=div?Math.min(bal/div,bal):0;
+        const wd=div?Math.min(sim.bal/div,sim.bal):0;
         iraW[i][k]=wd;
-        bal=Math.max(0,(bal-wd)*(1+g));
-        iraBal[i][k]=bal;
-        continue;
+        sim.bal=Math.max(0,(sim.bal-wd)*(1+g));
+        iraBal[i][k]=sim.bal;
+        return;
       }
 
       if(ownerAge>=ownerEndAge){
         iraW[i][k]=0;
-        const conv=ownerAge>=convStartAge?Math.min(convAmt,bal):0;
-        iraConv[i][k]=conv;
-        bal=Math.max(0,bal-conv)*(1+g);
-        iraBal[i][k]=bal;
-        continue;
-      }
-
-      if(ownerAge>=startAge&&bal>0){
-        const div=rmdDivisor(ownerAge), wd=div?Math.min(bal/div,bal):0;
+      }else if(ownerAge>=startAge&&sim.bal>0){
+        const div=rmdDivisor(ownerAge), wd=div?Math.min(sim.bal/div,sim.bal):0;
         iraW[i][k]=wd;
-        bal=Math.max(0,bal-wd);
+        sim.bal=Math.max(0,sim.bal-wd);
       }else{
         iraW[i][k]=0;
       }
-      const conv=ownerAge>=convStartAge?Math.min(convAmt,bal):0;
+      sim.open=true;
+      sim.room=ownerAge>=convStartAge?sim.bal:0;       // the most that could be converted this year
+      sim.fixed=Math.min(convAmt,sim.room);              // 'fixed' mode amount (0 for 'bracket' mode)
+    };
+    sim.post=function(k,conv){
+      if(!sim.open) return;
       iraConv[i][k]=conv;
-      bal=Math.max(0,bal-conv)*(1+g);
-      iraBal[i][k]=bal;
-    }
+      sim.bal=Math.max(0,sim.bal-conv)*(1+g);
+      iraBal[i][k]=sim.bal;
+    };
+    return sim;
   });
 
   // ── Roth IRA: tax-free growth, funded by its starting balance plus any Roth conversion
   // amount converted from the matching pre-tax IRA above this year. No withdrawals or RMDs
   // are modeled — it only ever grows until its owner (or, if "continues to spouse", the
-  // surviving spouse) passes.
+  // surviving spouse) passes. Stepped like the pre-tax IRA: pre(k) then post(k, conv).
   const rothBal=people.map(()=>({}));
-  people.forEach((p,i)=>{
-    if(!(p.roth&&p.roth.enabled)) return;
-    let bal=Number(p.roth.balance)||0;
+  const rothSim=people.map((p,i)=>{
+    const sim={bal:0, done:true, open:false, pre(){}, post(){}};
+    if(!(p.roth&&p.roth.enabled)) return sim;
+    sim.bal=Number(p.roth.balance)||0; sim.done=false;
     const g=realGrowth(p.roth.growth,inflation);
-    for(let k=0;k<=yearsToProject;k++){
+    sim.pre=function(k){
+      sim.open=false;
+      if(sim.done) return;
       const ownerAge=curAges[i]+k;
       const ownerAlive=ownerAge<passAges[i];
       const otherIdx=1-i;
       const spouseAge=(married&&people.length===2)?curAges[otherIdx]+k:Infinity;
       const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
 
-      if(p.roth.aum && (ownerAlive || (p.roth.bene&&spouseAlive))) rothAum[i][k]=bal;   // start-of-year, as for the pre-tax IRA
+      if(p.roth.aum && (ownerAlive || (p.roth.bene&&spouseAlive))) rothAum[i][k]=sim.bal;   // start-of-year, as for the pre-tax IRA
       if(!ownerAlive){
         if(!(p.roth.bene&&spouseAlive)){
           // Same "IRA stretch" rule as the pre-tax IRA above: held by heirs and still compounding.
-          if(!p.roth.stretch) break;
-          bal=bal*(1+g);
-          rothBal[i][k]=bal;
-          continue;
+          if(!p.roth.stretch){ sim.done=true; return; }
+          sim.bal=sim.bal*(1+g);
+          rothBal[i][k]=sim.bal;
+          return;
         }
-        bal=bal*(1+g);
-        rothBal[i][k]=bal;
-        continue;
+        sim.bal=sim.bal*(1+g);
+        rothBal[i][k]=sim.bal;
+        return;
       }
-      const conv=(iraConv[i]&&iraConv[i][k])||0;
-      bal=(bal+conv)*(1+g);
-      rothBal[i][k]=bal;
-    }
+      sim.open=true;
+    };
+    sim.post=function(k,conv){
+      if(!sim.open) return;
+      sim.bal=(sim.bal+conv)*(1+g);
+      rothBal[i][k]=sim.bal;
+    };
+    return sim;
   });
 
   // ── Annuities (per person, any number) ──
@@ -301,6 +317,8 @@ function computeProjection(){
     const ages=people.map((p,i)=>curAges[i]+k);
     const alive=people.map((p,i)=>ages[i]<passAges[i]);
     if(!alive.some(Boolean)) break;
+    // Start-of-year IRA / Roth state (RMDs, AUM balances, room to convert); the conversion itself is decided below, after the year's other income is known.
+    people.forEach((p,i)=>{ iraSim[i].pre(k); rothSim[i].pre(k); });
     // wages
     const wageByPerson=people.map((p,i)=>{
       if(!p.wage.enabled||!alive[i]) return 0;
@@ -490,17 +508,15 @@ function computeProjection(){
 
     // IRA withdrawals, plus any Roth conversion amount (taxed as ordinary income, spec §4.4)
     const iraByPerson=people.map((p,i)=>iraW[i][k]||0);
-    const rothConvByPerson=people.map((p,i)=>iraConv[i][k]||0);
 
     const wageTotal=wageByPerson.reduce((a,b)=>a+b,0);
     const iraTotal=iraByPerson.reduce((a,b)=>a+b,0);
-    const rothConvTotal=rothConvByPerson.reduce((a,b)=>a+b,0);
 
     // Ordinary side of the return that does not depend on LTCG, computed once outside the iteration. (Taxable Social Security does
     // depend on LTCG — provisional income includes QDIV and LTCG — so it is computed inside taxOn() below.)
     const filing = married && alive[0] && alive[1] ? 'married' : 'single';
     const ssThresholdFactor = Math.pow(1+inflation,-k); // un-indexed SS-tax thresholds, in today's $
-    const nonSSOrdinary = wageTotal+pension+rental+annuity+iraTotal+rothConvTotal+odivNQ;
+    const nonSSBase = wageTotal+pension+rental+annuity+iraTotal+odivNQ;   // + the Roth conversion (decided below) = nonSSOrdinary
     const std = filing==='married'?STD_MFJ:STD_SGL;
     // Long Term Care: from the LTC start age (older person's age) the LTC cost is an extra expense and the household
     // living expense switches to the post-LTC amount. Both are today's $ (flat in real terms = inflating in future $).
@@ -562,7 +578,8 @@ function computeProjection(){
     // The year's tax given gross realized LTCG. Spec §8.3: available SCGL (suspended capital-gain loss
     // carryforward) eliminates realized LTCG dollar-for-dollar, before tax, so only the net-of-SCGL amount is taxed.
     // Pure (does not consume the SCGL pool) — the pool is drawn down once, after the iteration converges.
-    function taxOn(ltcgGross){
+    function taxOn(ltcgGross, conv){
+      const nonSSOrdinary=nonSSBase+conv;   // ordinary income excluding Social Security, including this year's Roth conversion
       const scglUsed=Math.min(scglRemaining,Math.max(0,ltcgGross));
       const ltcg=Math.max(0,ltcgGross-scglUsed); // net-of-SCGL LTCG — what's actually taxed/displayed
       const qualIncome=qdiv+ltcg;
@@ -593,13 +610,89 @@ function computeProjection(){
     // T_{n+1} = Tax( LTCG( Waterfall( living + IRMAA + AUM fee + T_n ) ) ). More tax → more expenses → more shares
     // sold → more LTCG → more tax, but each extra tax dollar creates well under a dollar of new tax (LTCG is
     // taxed at ≤ ~24% including NIIT, and only the gain share of a sale is LTCG), so the map is a contraction:
-    // the error shrinks ~4× per round and a few rounds settle it to the cent. Warm-started from last year's tax.
-    let taxIn=(k>0&&rows[k-1])?(rows[k-1].totalTax||0):0, wf, tx, taxIters=0, taxConverged=false;
-    while(taxIters<TAX_MAX_ITERS){
-      wf=runWaterfall(taxIn); tx=taxOn(wf.ltcgGross); taxIters++;
-      if(Math.abs(tx.totalTax-taxIn)<TAX_TOL){ taxConverged=true; break; }
-      taxIn=tx.totalTax;
+    // the error shrinks ~4× per round and a few rounds settle it to the cent. Warm-started from last year's tax
+    // (and, during the conversion search below, from the previous trial).
+    let taxIn=(k>0&&rows[k-1])?(rows[k-1].totalTax||0):0;
+    function solveTax(convTotal){
+      let it=0, ok=false, w, t;
+      while(it<TAX_MAX_ITERS){
+        w=runWaterfall(taxIn); t=taxOn(w.ltcgGross, convTotal); it++;
+        if(Math.abs(t.totalTax-taxIn)<TAX_TOL){ ok=true; break; }
+        taxIn=t.totalTax;
+      }
+      return {wf:w, tx:t, iters:it, converged:ok};
     }
+
+    // ── Roth conversion solve ──
+    // 'fixed' IRAs convert their flat amount. 'bracket' IRAs convert as much as fits under BOTH limits entered (AND — the stricter limit
+    // sets the amount), one person at a time in person order (each given the conversions already settled): the largest amount c in
+    // [0, room after RMD] with
+    //   • taxable ordinary income stays BELOW the chosen ordinary bracket, i.e. ≤ where that bracket starts (stop 0 = nothing converts;
+    //     the first bracket's start is $0, which fills just the standard deduction; no-limit stop = no ceiling), and
+    //   • MAGI (AGI + tax-exempt income) stays BELOW the IRMAA line labeled with the chosen Part B % (stop 0 = nothing converts; no-limit
+    //     stop = no ceiling). IRMAA looks back two years, so this year's MAGI sets the premium of year k+2: it applies to anyone alive
+    //     now and 63+ (on Medicare by then), using the filing status of the latest of k+2/k+1/k in which someone is alive.
+    // Both measures rise with c, but c also moves taxable Social Security, the tax, the asset sales that fund it and so the realized LTCG
+    // — a circular dependence — so each trial c runs the full tax ↔ LTCG iteration above, and the search over c is iterated too
+    // (false position with bisection safeguards) until the largest feasible c is pinned to a few cents.
+    const convByPerson=people.map((p,i)=>iraSim[i].fixed||0);
+    const convTotalOf=()=>convByPerson.reduce((a,b)=>a+b,0);
+    let convTrials=0;
+    function convLimits(p){
+      const num=v=>(v!=null&&v!==''&&Number.isFinite(Number(v)))?Number(v):null;
+      const ordIn=num(p.ira.convOrdPct), irmIn=num(p.ira.convIrmaaPct);
+      let ordTop=Infinity, magiCap=Infinity, ordOn=false, magiOn=false;
+      if(ordIn!=null){ ordOn=true; ordTop=convOrdTop(ordIn, ordBrk); }
+      if(irmIn!=null){
+        // This year's MAGI sets the IRMAA premium of year k+2, for anyone who will be on Medicare (65+) then. A person alive now and 63+ is
+        // exposed whether or not they live to k+2 — so the limit keeps applying right up to the last years (no end-of-plan conversion
+        // spike). Filing status is that of the latest of k+2, k+1, k in which anyone is still alive.
+        const exposed=people.some((q,j)=>curAges[j]+k<passAges[j] && curAges[j]+k+2>=65);
+        if(exposed){
+          let fm=false;
+          for(const dk of [2,1,0]){
+            const al=people.map((q,j)=>curAges[j]+k+dk<passAges[j]);
+            if(al.some(Boolean)){ fm=married&&al.length===2&&al[0]&&al[1]; break; }
+          }
+          magiCap=convMagiCap(irmIn, fm?IRMAA_MFJ:IRMAA_SGL);
+          magiOn=true;
+        }
+      }
+      return {ordTop, magiCap, ordOn, magiOn};
+    }
+    people.forEach((p,i)=>{
+      const sim=iraSim[i];
+      if(sim.mode!=='bracket'||!(sim.room>0)) return;
+      const lim=convLimits(p);
+      if(!lim.ordOn&&!lim.magiOn){ convByPerson[i]=sim.room; return; }   // no limit applies (both sliders at "no limit", or only an IRMAA limit and nobody is IRMAA-exposed yet): convert it all
+      // Headroom under the stricter active limit when person i converts c (negative = over a limit). Non-increasing in c.
+      const slack=c=>{
+        convByPerson[i]=c; convTrials++;
+        const r=solveTax(convTotalOf());
+        const so=lim.ordOn?lim.ordTop-r.tx.ordTI:Infinity, sm=lim.magiOn?lim.magiCap-(r.tx.agi+teIncome+annuityTE):Infinity;
+        return Math.min(so,sm);
+      };
+      const hi=sim.room;
+      let a=0, fa=slack(0);
+      if(fa<0){ convByPerson[i]=0; return; }               // already over a limit before converting anything
+      let b=hi, fb=slack(b);
+      if(fb>=0){ convByPerson[i]=hi; return; }              // the whole balance fits
+      let side=0;
+      for(let n=0;n<60&&b-a>0.01;n++){
+        let c=a+(b-a)*fa/(fa-fb);                          // false position
+        if(!(c>a&&c<b)||n%4===3) c=(a+b)/2;                // safeguard: bisect now and then / if the interpolation misbehaves
+        const fc=slack(c);
+        if(fc>=0){ a=c; fa=fc; if(side===1) fb/=2; side=1; if(fc<0.005) break; }
+        else { b=c; fb=fc; if(side===-1) fa/=2; side=-1; }
+      }
+      convByPerson[i]=a;                                    // the largest amount known to fit
+    });
+    const rothConvByPerson=convByPerson.slice();
+    const rothConvTotal=convTotalOf();
+    people.forEach((p,i)=>{ iraSim[i].post(k,rothConvByPerson[i]); rothSim[i].post(k,rothConvByPerson[i]); });
+    const nonSSOrdinary = nonSSBase+rothConvTotal;
+    const fin=solveTax(rothConvTotal);
+    const wf=fin.wf, tx=fin.tx, taxIters=fin.iters, taxConverged=fin.converged;
     // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
     const expTax=taxIn;
     const {expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded}=wf;
@@ -671,6 +764,7 @@ function computeProjection(){
       niiIncome, niit,
       irmaaSurcharge,
       expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
+      convTrials,
       totalTax, agi, magi:agi+teIncome+annuityTE
     });
   }

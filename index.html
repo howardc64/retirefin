@@ -98,6 +98,7 @@
     <div class="tax-main"><canvas id="incomeChart"></canvas></div>
     <div class="tax-side">
       <div class="tax-sm"><canvas id="incomeMagiChart"></canvas></div>
+      <div class="tax-sm"><canvas id="incomeOrdChart"></canvas></div>
     </div>
   </div></div>
 </div>
@@ -172,7 +173,12 @@
       <div class="dv-cell"><input type="range" id="ordDevalue2" min="0" max="100" step="1" value="0" oninput="onDevalueInput('ordDevalue2',this.value)"><div class="sv" id="ordDevalue2Lbl">0%</div></div>
     </div>
   </div>
-  <div class="co"><div class="cw"><canvas id="assetChart"></canvas></div></div>
+  <div class="co"><div class="tax-trio" id="assetTrio">
+    <div class="tax-main"><canvas id="assetChart"></canvas></div>
+    <div class="tax-side" id="assetConvSide">
+      <div class="tax-sm"><canvas id="assetConvChart"></canvas></div>
+    </div>
+  </div></div>
   <p class="cn" id="assetChartGain"></p>
 </div>
 

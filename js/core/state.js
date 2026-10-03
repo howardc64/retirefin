@@ -76,7 +76,7 @@ function defaultPerson(idx){
     annuities: [],   // any number of annuities (see defaultAnnuity); Add/Remove on the Annuity card
     rentals: [],   // any number of rental properties (see defaultRental); Add/Remove on the Rental income card
     brokerage:[],
-    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, convStartMode:'rmd', convStart:0, stretch:false, aum:false},   // convStartMode: 'rmd' (conversions begin at the IRA's Start / RMD age), 'now', or 'custom' (uses convStart)
+    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, convMode:'fixed', convIrmaaPct:40, convOrdPct:32, convStartMode:'rmd', convStart:0, stretch:false, aum:false},   // convMode: 'fixed' ($/yr, today's $ = conv) or 'bracket' (convert as much as fits BELOW the IRMAA bracket and the ordinary bracket chosen with the sliders; stops in CONV_*_STOPS, null = no limit); convStartMode: 'rmd' (conversions begin at the IRA's Start / RMD age), 'now', or 'custom' (uses convStart)
     roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false, aum:false}
   };
 }

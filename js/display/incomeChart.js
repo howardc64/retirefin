@@ -31,7 +31,8 @@ function buildIncomeLegend(){
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
   document.getElementById('incomeLegend').innerHTML =
     keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
-    legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(OVERLAY_COLOR));
+    legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(OVERLAY_COLOR)) +
+    legendItem('Ordinary income tax brackets (rate above each line, on ordinary income chart)', null, legendDashStyle(OVERLAY_COLOR));
 }
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -154,8 +155,7 @@ function buildIncomeChart(){
   // Single after), each labeled with the bracket's MAGI value and the Part B premium % over standard.
   // Beneficiary pays 25% of the Part B cost at the standard tier and 35/50/65/80/85% at IRMAA tiers 1–5,
   // so the Part B premium is 40/100/160/220/240% above standard.
-  const IRMAA_PCT=[35,50,65,80,85];
-  const withPct=a=>a.map(l=>({...l,pct:Math.round((IRMAA_PCT[Math.min(l.tier,IRMAA_PCT.length-1)]/25-1)*100)}));
+  const withPct=a=>a.map(l=>({...l,pct:IRMAA_PART_B_INCREASE[Math.min(l.tier,IRMAA_PART_B_INCREASE.length-1)]}));
   const magiOv={irmaaMFJ:withPct(irmaaMFJ),irmaaSgl:withPct(irmaaSgl),switchIdx:swIdx};
   const mKeys=keys.filter(k=>k!=='rentDep');
   const mSeries={}; mKeys.forEach(k=>mSeries[k]=[]);
@@ -173,10 +173,10 @@ function buildIncomeChart(){
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
     borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'magi'
   }));
-  // Popup shows only the MAGI value and the IRMAA surcharge for the tier that MAGI reaches (nothing else, regardless
+  // Popup shows the plan owner(s) and age, then only the MAGI value and the IRMAA surcharge for the tier that MAGI reaches (nothing else, regardless
   // of Show Details in Popup); every other value is in the primary chart's popup.
   const magiTip={
-    title:()=>[],
+    title:tooltipCallbacks.title,   // owners + ages, as on the primary
     label:()=>null,
     footer:items=>{
       const idx=items[0]?items[0].dataIndex:0;
@@ -197,6 +197,48 @@ function buildIncomeChart(){
       scales:{
         x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('MAGI (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+      }
+    })});
+
+  // ── Second half-size companion chart, under the MAGI chart: ordinary income ──
+  // Stack = the income taxed at ordinary rates, in the primary's colors and order: pension, taxable annuity, wages, pre-tax IRA withdraw (conversions),
+  // IRA RMDs, rental, non-qualified dividends and the taxable part of Social Security (split by person like the MAGI chart). It sums to the year's
+  // ordinary income (`row.ordIncome`). Same X labels, Y scale and 1:1 ratio as the primary. The dashed lines are the ordinary-bracket starts, each labeled
+  // with the rate that applies above it; because brackets apply to income AFTER the deduction, each line sits at (bracket start + that year's standard/
+  // itemized + senior deduction) so stack height can be compared with it directly; they follow the filing status in force each year.
+  const ordKeys=['pension','annuity','wageTotal','rothConv','iraTotal','rental','odivNQ','ssP0','ssOther'].filter(k=>mKeys.includes(k));
+  const ordDs=ordKeys.map(k=>({
+    label:(k==='ssP0'||k==='ssOther') ? INC_LABELS[k]+' \u2014 taxable part' : INC_LABELS[k], data:mAligned[k], _key:k,
+    borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
+    borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'ord', order:3
+  }));
+  const nBrk=MFJ_ORD.length-1;   // the top bracket (37%) has no upper limit, so there is no line above the 35% bracket's end
+  for(let j=0;j<nBrk;j++){
+    const vals=rows.map(r=>{ const t=r.filing==='married'?MFJ_ORD:SGL_ORD; return t[j].lim+(r.std||0)+(r.seniorDeduction||0); });
+    if(Math.min(...vals)>=Y_MAX) continue;   // off the chart's scale
+    const al=alignToAges(ages, vals, labels);
+    const rate=Math.round(MFJ_ORD[j+1].r*100)+'%';
+    const base={data:al, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false, borderDash:[7,4]};
+    ordDs.push({...base, label:rate, ordLabel:rate, borderColor:OVERLAY_COLOR, stack:'ol'+j, order:0});
+  }
+  const nStack=ordKeys.length;
+  const ordTip={
+    title:tooltipCallbacks.title,   // owners + ages
+    label:c=>(c.datasetIndex>=nStack||c.raw==null||c.raw===0)?null:mrow('  '+c.dataset.label, fmt(c.raw)+'/yr'),
+    footer:items=>{
+      const idx=items[0]?items[0].dataIndex:0;
+      const total=ordKeys.reduce((t,k)=>t+(mAligned[k][idx]||0),0);
+      return ['', mrow('Ordinary income', fmt(total)+'/yr')];
+    }
+  };
+  upsertLineChart('incomeOrd',{canvasId:'incomeOrdChart', labels, datasets:ordDs, yMax:Y_MAX, tooltip:ordTip,
+    createOptions:()=>({
+      ...CHART_BASE,
+      interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(ordTip)} },
+      scales:{
+        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Ordinary income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
     })});
 }

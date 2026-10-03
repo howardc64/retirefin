@@ -17,6 +17,32 @@ const MFJ_QDIV=[{lim:98900,r:0},{lim:613700,r:.15},{lim:Infinity,r:.20}];
 const SGL_QDIV=[{lim:49450,r:0},{lim:545500,r:.15},{lim:Infinity,r:.20}];
 // IRMAA (2026 premium year, based on 2024 MAGI): CMS fact sheet, Nov 14 2025.
 // surch = combined annual Part B + Part D surcharge per enrolled person.
+// Part B premium increase over the standard premium at IRMAA tiers 1–5 (the beneficiary pays 35/50/65/80/85% of the Part B cost vs 25% standard).
+const IRMAA_PART_B_INCREASE=[40,100,160,220,240];
+// Roth-conversion "below brackets" slider stops. Semantics: stay BELOW the chosen bracket. 0 = below the first bracket = no conversion;
+// null (the last stop) = no limit of that kind. Rates are the same for every filing status; the dollar amounts shown/used come from the
+// filing status's own tables.
+const CONV_ORD_STOPS=[0,10,12,22,24,32,35,37,null];
+const CONV_IRMAA_STOPS=[0,...IRMAA_PART_B_INCREASE,null];
+function convStopIndex(stops, v){
+  if(v==null||v==='') return stops.length-1;
+  let bi=0; stops.forEach((s,i)=>{ if(s!=null&&Math.abs(s-v)<Math.abs((stops[bi]==null?1e9:stops[bi])-v)) bi=i; });
+  return bi;
+}
+// Top of taxable ordinary income that stays below the r% bracket (= where that bracket starts). Infinity = no limit; -1 = below everything (no conversion).
+function convOrdTop(v, brk){
+  if(v==null||v==='') return Infinity;
+  if(!(v>0)) return -1;
+  let j=0; brk.forEach((b,i)=>{ if(Math.abs(b.r*100-v)<Math.abs(brk[j].r*100-v)) j=i; });
+  return j>0?brk[j-1].lim:0;
+}
+// MAGI ceiling that stays below the IRMAA line labeled with this Part B % increase. Infinity = no limit; -1 = no conversion.
+function convMagiCap(v, tiers){
+  if(v==null||v==='') return Infinity;
+  if(!(v>0)) return -1;
+  let j=0; IRMAA_PART_B_INCREASE.forEach((x,i)=>{ if(Math.abs(x-v)<Math.abs(IRMAA_PART_B_INCREASE[j]-v)) j=i; });
+  return tiers[j].magi-1;   // strictly below the tier's MAGI threshold
+}
 const IRMAA_MFJ=[{magi:218000,label:'T1',surch:1148},{magi:274000,label:'T2',surch:2885},{magi:342000,label:'T3',surch:4620},{magi:410000,label:'T4',surch:6355},{magi:750000,label:'T5+',surch:6936}];
 const IRMAA_SGL=[{magi:109000,label:'T1',surch:1148},{magi:137000,label:'T2',surch:2885},{magi:171000,label:'T3',surch:4620},{magi:205000,label:'T4',surch:6355},{magi:500000,label:'T5+',surch:6936}];
 // Net Investment Income Tax (NIIT, IRC §1411): 3.8% on the LESSER of (a) net investment income

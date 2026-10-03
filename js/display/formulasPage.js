@@ -166,6 +166,12 @@ ${fpEq(
   `Withdraw = min( conversion amount, remaining pre-tax IRA balance )`,
   `Roth balance<sub>next</sub> = ( Roth balance + Withdraw ) × ( 1 + real growth )`
 )}
+<p><strong>Conversion below brackets</strong> (the second conversion option): instead of a flat amount, the projection finds the largest conversion <em>c</em> (no more than the balance left after the RMD) that keeps both limits satisfied (each slider means <em>below</em> the chosen bracket; 0 = no conversion, last stop = no limit):</p>
+${fpEq(
+  `ordinary taxable income( c ) ≤ start of the chosen ordinary bracket (the top of the bracket below it)`,
+  `MAGI( c ) &lt; MAGI threshold of the IRMAA line labeled with the chosen Part B % over standard`
+)}
+${fpWhere('Both measures rise with <em>c</em>, but a bigger conversion also raises taxable Social Security and the tax. The tax is itself an expense that is paid by selling assets, and those sales realize LTCG, which feeds back into MAGI — so the calculation is circular. It is solved by iteration: each trial <em>c</em> runs the full tax ↔ LTCG iteration, and the search over <em>c</em> (false position with bisection safeguards) repeats until the largest <em>c</em> under both limits is found to within a cent. A slider at 0 blocks conversions; a slider at its last stop is no limit (both at no limit = the whole balance converts). The 10% stop is a start of $0, so only the standard deduction is filled. IRMAA uses the MAGI of two years earlier, so the IRMAA limit applies to anyone alive and 63 or older (they will be on Medicare two years later) — it keeps applying through the last years instead of dropping away — and uses the filing status of the latest of the next two years in which someone is alive. If other income already exceeds a limit, nothing is converted that year. With two bracket-mode IRAs the first person converts first, then the second converts what is left.')}
 
 <h3>Taxable Social Security &amp; Social Security Tax (SST)</h3>
 <p>Provisional income is all the non-Social-Security income that goes into AGI — ordinary income, qualified dividends and long-term capital gains — plus the tax-exempt income (untaxed, but it still counts here) plus half of total Social Security (TSS):</p>
@@ -322,6 +328,11 @@ ${fpEq(
   `MAGI = wages + pension + rental + annuity + IRA withdrawals + Roth conversions + ODIV + taxable SS + QDIV + LTCG + tax-exempt income`
 )}
 ${fpWhere('Rental counts after depreciation is excluded (it is untaxed) and Social Security counts only its taxable part, split between the two people by benefit share. The dashed lines sit at the IRMAA bracket MAGI amounts for that year\'s filing status. Each is labeled with the Part B premium increase over standard: the standard premium is 25% of the Part B cost and tiers 1–5 are 35%, 50%, 65%, 80% and 85%, so the premium is +40%, +100%, +160%, +220% and +240% higher.')}
+<p>The ordinary income chart beside it stacks the income taxed at ordinary rates, which is the sum behind the ordinary tax calculation:</p>
+${fpEq(
+  `Ordinary income = wages + pension + rental + annuity + IRA withdrawals + Roth conversions + ODIV + taxable SS`
+)}
+${fpWhere('Its dashed lines mark where each ordinary bracket starts. Brackets apply to income after the deduction, so each line is drawn at bracket start + that year\'s deduction (standard or itemized, plus the senior deduction), which lets you compare the stack height with the line directly.')}
 <p>On the Total Income Tax chart, <em>view IRMAA as tax</em> adds the household IRMAA surcharge paid that year (the expense above) on top of the tax stack, so the dashed line is <em>Total tax + IRMAA surcharge</em>. It is a display option only and never changes the projection.</p>
 
 <p><strong>Annual balance change.</strong></p>

@@ -20,6 +20,7 @@ function declutterLabels(ctx, items, top, bottom, minGap){
   if(items[0].y < top) { const under=top-items[0].y; items.forEach(it=>it.y += under); }
   items.forEach(it=>{
     ctx.font=it.font; ctx.fillStyle=it.color; ctx.textAlign=it.align||'right'; ctx.textBaseline='middle';
+    if(it.halo){ ctx.lineWidth=3; ctx.lineJoin='round'; ctx.strokeStyle=it.halo; ctx.strokeText(it.text, it.x, it.y); }
     ctx.fillText(it.text, it.x, it.y);
   });
 }
@@ -105,3 +106,25 @@ const taxBracketPlugin={
   }
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('taxBracketOverlay')) Chart.register(taxBracketPlugin);
+
+// Rate labels for the ordinary-income bracket lines on the Annual Household Income ordinary-income chart. The lines themselves are ordinary
+// (dashed, per-year) line datasets flagged `ordLabel`; this writes that label at each line's right end.
+const ordLabelPlugin={
+  id:'ordLabels',
+  afterDatasetsDraw(chart){
+    const {ctx,chartArea,scales}=chart, y=scales.y, x=scales.x; if(!y||!x) return;
+    const items=[];
+    chart.data.datasets.forEach((ds,di)=>{
+      if(!ds.ordLabel||!chart.isDatasetVisible(di)) return;
+      let li=-1; for(let i=ds.data.length-1;i>=0;i--){ if(ds.data[i]!=null){ li=i; break; } }
+      if(li<0) return;
+      const py=y.getPixelForValue(ds.data[li]); if(py<chartArea.top||py>chartArea.bottom) return;
+      const px=Math.min(chartArea.right-2, x.getPixelForValue(li));
+      items.push({y:py-7, x:px-2, text:ds.ordLabel, color:OVERLAY_COLOR, font:'10px DM Sans,sans-serif'});
+    });
+    ctx.save();
+    declutterLabels(ctx, items, chartArea.top+6, chartArea.bottom-6, 11);
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('ordLabels')) Chart.register(ordLabelPlugin);

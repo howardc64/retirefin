@@ -157,9 +157,9 @@ function buildTaxChart(){
   // Same labels, same locked Y scale (Y_MAX) and same 1:1 aspect ratio as the primary chart; the
   // datasets are copies of the primary's stack segments, in the same order and colors.
   const copyDs=d=>({...d, data:d.data.slice()});
-  // Companion-chart popups show only that chart's own values: no title/age, no totals, nothing extra with Show Details.
+  // Companion-chart popups show the plan owner(s) and age, then only that chart's own values: no totals, nothing extra with Show Details.
   const smTip={
-    title:()=>[],
+    title:tooltipCallbacks.title,
     label:ctx=>(ctx.raw==null||ctx.raw===0)?null:mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr'),
     footer:()=>[]
   };
