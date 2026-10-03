@@ -39,7 +39,6 @@ const incomeOverlayPlugin={
     function xP(idx){ return x.getPixelForValue(Math.max(0,Math.min(n-1,idx))); }
     ctx.save();
     ctx.beginPath(); ctx.rect(left,top,right-left,bottom-top); ctx.clip();
-    const ov=OV();
     const leftLabels=[], rightLabels=[];
     function drawLines(lines,i0,i1,bucket){
       if(!lines||i0>i1) return;
@@ -47,7 +46,7 @@ const incomeOverlayPlugin={
       lines.forEach(ln=>{
         const yPx=y.getPixelForValue(ln.magi);
         if(yPx<top||yPx>bottom) return;
-        const lineCol = ov.irmaa[Math.min(ln.tier,ov.irmaa.length-1)];
+        const lineCol = OVERLAY_COLOR;
         ctx.beginPath(); ctx.setLineDash([8,5]); ctx.lineWidth=1.4; ctx.strokeStyle=lineCol;
         ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke(); ctx.setLineDash([]);
         bucket.push({y:yPx-5,x:Math.min(right,xb)-3,text:ln.pct!=null ? `$${(ln.magi/1000).toFixed(0)}k +${ln.pct}%` : `IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,font:(ln.pct!=null?'9px':'10px')+' DM Sans,sans-serif'});
@@ -76,7 +75,6 @@ const taxBracketPlugin={
     const{ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
     const n=chart.data.labels.length, swIdx=opts.switchIdx??n;
     const xP=i=>x.getPixelForValue(Math.max(0,Math.min(n-1,i)));
-    const ov=OV();
     ctx.save();
     ctx.beginPath(); ctx.rect(left,top,right-left,bottom-top); ctx.clip();
     // Lines near the bottom of the shared $ scale are only a few px apart, so labels are staggered
@@ -101,8 +99,8 @@ const taxBracketPlugin={
         if(x0+16<=xb) ctx.fillText(it.text,x0,it.y-2);
       });
     }
-    draw(opts.mfj,0,Math.min(swIdx,n)-1,ov.taxBrk,ov.taxLbl);
-    draw(opts.sgl,Math.max(swIdx,0),n-1,ov.taxBrkSgl,ov.taxBrkSgl);
+    draw(opts.mfj,0,Math.min(swIdx,n)-1,OVERLAY_COLOR,OVERLAY_COLOR);
+    draw(opts.sgl,Math.max(swIdx,0),n-1,OVERLAY_COLOR,OVERLAY_COLOR);
     ctx.restore();
   }
 };

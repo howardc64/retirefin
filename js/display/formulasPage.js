@@ -317,6 +317,13 @@ ${fpEq(
 ${fpWhere('N<sub>65+</sub> is the number of living people age 65 or older, and the tier uses this year\'s filing status. Years 0 and 1 are $0 because the model has no MAGI from before the projection starts.')}
 <p>Using the MAGI from two years earlier mirrors IRMAA's real 2-year look-back, and it also avoids a circularity (this year's AGI depends on LTCG, which depends on asset sales, which fund this surcharge). The tier table is indexed, so it is used in today's dollars as-is. It is charged once per household and paid through the same income → dividends → sales waterfall as every other expense, so selling shares to cover it can realize LTCG.</p>
 
+<p><strong>IRMAA on the charts.</strong> The MAGI chart beside Annual Household Income stacks this year's MAGI by source:</p>
+${fpEq(
+  `MAGI = wages + pension + rental + annuity + IRA withdrawals + Roth conversions + ODIV + taxable SS + QDIV + LTCG + tax-exempt income`
+)}
+${fpWhere('Rental counts after depreciation is excluded (it is untaxed) and Social Security counts only its taxable part, split between the two people by benefit share. The dashed lines sit at the IRMAA bracket MAGI amounts for that year\'s filing status. Each is labeled with the Part B premium increase over standard: the standard premium is 25% of the Part B cost and tiers 1–5 are 35%, 50%, 65%, 80% and 85%, so the premium is +40%, +100%, +160%, +220% and +240% higher.')}
+<p>On the Total Income Tax chart, <em>view IRMAA as tax</em> adds the household IRMAA surcharge paid that year (the expense above) on top of the tax stack, so the dashed line is <em>Total tax + IRMAA surcharge</em>. It is a display option only and never changes the projection.</p>
+
 <p><strong>Annual balance change.</strong></p>
 ${fpEq(
   `Δ balance = growth − ( dividends used + shares sold )`

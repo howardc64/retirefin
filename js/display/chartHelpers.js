@@ -6,36 +6,14 @@
 // chart so animations tween smoothly instead of resetting (spec §5).
 // Per-chart color palettes live alongside each chart's own file.
 // ═══════════════════════════════════════════════════════════════
-let overlayMode='light'; // default: lighter, per spec
+// Color of every dashed reference line drawn over a chart (IRMAA tiers, ordinary-tax brackets) and of its legend swatch.
+const OVERLAY_COLOR='rgba(0,0,0,.9)';
 // §3 "show_details checkbox": when on, chart popups reveal the underlying calculation
 // components (provisional income, AGI, standard deduction, etc.) called out as
 // show_details-only in the chart specs (§8.3, §9.3.1, §9.4, §10). Tooltip callbacks read
 // this live (not captured), so toggling it needs no chart rebuild — just re-hover.
 let showDetails=false;
 let viewIrmaaAsTax=false;   // Total Income Tax chart: draw the IRMAA surcharge as a dashed line above the tax stack
-function OV(){
-  if(overlayMode==='light') return {
-    irmaa:['rgba(255,200,80,.95)','rgba(255,140,40,.95)','rgba(255,80,60,.95)','rgba(240,40,100,.95)','rgba(200,20,80,.95)'],
-    taxBrk:'rgba(120,190,255,.95)', taxLbl:'rgba(120,190,255,.95)',
-    qualBrk:'rgba(80,240,200,.95)', qualLbl:'rgba(60,220,180,.95)',
-    taxBrkSgl:'rgba(120,190,255,.95)', qualBrkSgl:'rgba(100,255,220,.95)'
-  };
-  return {
-    irmaa:['rgba(180,100,20,.80)','rgba(180,60,20,.80)','rgba(160,30,30,.80)','rgba(130,20,50,.80)','rgba(120,20,60,.80)'],
-    taxBrk:'rgba(31,78,170,.90)', taxLbl:'rgba(31,78,170,.95)',
-    qualBrk:'rgba(123,63,190,.80)', qualLbl:'rgba(123,63,190,.90)',
-    taxBrkSgl:'rgba(31,78,170,.90)', qualBrkSgl:'rgba(26,158,143,.80)'
-  };
-}
-function toggleOverlayMode(){
-  overlayMode = overlayMode==='light'?'dark':'light';
-  const lbl=document.getElementById('overlayModeLabel'); if(lbl) lbl.textContent = overlayMode==='light'?'Light':'Dark';
-  buildIncomeLegend(); buildTaxLegend();
-  if(charts.income) charts.income.update();
-  if(charts.incomeMagi) charts.incomeMagi.update();
-  if(charts.tax) charts.tax.update();
-  if(charts.taxOrd) charts.taxOrd.update();
-}
 // ── Tooltip layout (spec §5: label left-justified, data right-justified) ──
 // mrow() only tags a line as "label | value" with a separator; justifyTip() then pads EVERY
 // line of the popup (title, body, afterBody, footer) to one common width, so all values line

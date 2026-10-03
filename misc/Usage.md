@@ -31,15 +31,15 @@ Most items have an **age range** (when the amount starts and stops) and an **ann
 - **Save to file** — saves the whole plan as a file. **Load file** brings a saved plan back (or loads a sample plan if any are available).
 - **Reset to defaults** — clears the plan back to its starting values.
 - **Export to Excel** — downloads the full year-by-year projection.
-- **Show Details in Popup** — adds the line-by-line breakdown to the hover popups on the charts.
+- **Show Details in Popup** — adds the line-by-line breakdown to the hover popups on the main charts. The small charts beside Annual Household Income and Total Income Tax always show just their own values.
 
 The Usage, Notes and Formulas pages open in a new tab. Usage and Notes read their text from the `misc` folder when you click, so they show whatever those files currently say. This works when the app is served over `http(s)`; if you opened it as a local `file://` page the browser may block it, and the new tab will say so.
 
 ## Reading the charts
 
 - **Social Security — Start Age Analysis**: cumulative household Social Security for different claiming ages.
-- **Annual Household Income**: income by source. The dashed lines mark IRMAA tiers.
-- **Social Security Tax** and **Total Income Tax**: tax by source and by income type.
+- **Annual Household Income**: income by source. The small chart on the right shows your MAGI, stacked in the same colors (Social Security counts only its taxable part), with dashed lines at the IRMAA brackets. Each line is labeled with the bracket's income and how much more you pay for Medicare Part B than the standard premium (for example `$218k +40%`). Its popup shows your MAGI and the IRMAA surcharge for that year.
+- **Social Security Tax** and **Total Income Tax**: tax by source and by income type. Total Income Tax has two small charts on the right: ordinary income tax (with dashed lines at the ordinary tax brackets, each labeled with the rate above it) and qualified dividend, long-term gain and NIIT tax. Check **view IRMAA as tax** to add the IRMAA surcharge above the tax stack as a dashed line.
 - **Household Expenses**: living, long-term care, IRMAA, AUM fee and income tax.
 - **Asset Value**: brokerage, pre-tax IRA and Roth IRA balances by holder, with a second chart for IDGT portfolios when you set a portfolio's type to IDGT.
 

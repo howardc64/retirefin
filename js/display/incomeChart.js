@@ -28,11 +28,10 @@ function buildIncomeLegend(){
   if(!lastProjection) return;
   const proj=lastProjection;
   updateIncomeLabels(proj);
-  const ov=OV();
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
   document.getElementById('incomeLegend').innerHTML =
     keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
-    legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(ov.irmaa[0]));
+    legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(OVERLAY_COLOR));
 }
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;

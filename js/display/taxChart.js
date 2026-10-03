@@ -13,8 +13,8 @@ const TAX_LEGEND=[
 ];
 function buildTaxLegend(){
   document.getElementById('taxLegend').innerHTML = TAX_LEGEND.map(([k,label])=>legendItem(label, VZ_TAX[k]) +
-      (k==='ord' ? legendItem('Ordinary tax brackets (rate above each line, on ordinary tax chart)', null, legendDashStyle(OV().taxBrk)) : '')).join('') +
-    (viewIrmaaAsTax ? legendItem('IRMAA surcharge (stacked above total tax, dashed)', null, legendDashStyle(OV().irmaa[0])) : '');
+      (k==='ord' ? legendItem('Ordinary tax brackets (rate above each line, on ordinary tax chart)', null, legendDashStyle(OVERLAY_COLOR)) : '')).join('') +
+    (viewIrmaaAsTax ? legendItem('IRMAA surcharge (stacked above total tax, dashed)', null, legendDashStyle(OVERLAY_COLOR)) : '');
 }
 function buildTaxChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -84,7 +84,7 @@ function buildTaxChart(){
   ];
 
   if(viewIrmaaAsTax){
-    const c=OV().irmaa[0];
+    const c=OVERLAY_COLOR;
     datasets.push({label:'IRMAA surcharge', data:alignedIrmaa, borderColor:c, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'tax', order:2});
   }
 

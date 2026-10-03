@@ -179,7 +179,6 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .tb-ex{background:#e1f5ee;color:#085041;}.tb-50{background:#fff3cd;color:#856404;}.tb-85{background:#fde8d8;color:#7c3a00;}
 .best td{background:#e8f7f2!important;color:var(--text);}
 .best td:first-child{font-weight:500;color:var(--teal-text);}
-.ov-toggle{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:11px;font-weight:500;padding:4px 12px;color:var(--text-muted);font-family:inherit;}
 .rescale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:10.5px;font-weight:500;padding:3px 10px;color:var(--text-muted);font-family:inherit;}
 @media (max-width:700px){ .cw{width:100%;} }
 
@@ -266,7 +265,7 @@ body.printing-all .input-col,body.printing-all .chart-col{position:static;max-he
 /* the two-column income grid uses subgrid + explicit rows, which overlaps cards when the page fragments: use two independent columns */
 body.printing-all .income-grid{grid-template-rows:none !important;}
 body.printing-all .income-grid.two-col .person-col{display:block;grid-row:auto;grid-template-rows:none;}
-body.printing-all .topbar,body.printing-all .hide-cb,body.printing-all .hide-toggle,body.printing-all .rescale-btn,body.printing-all .ov-toggle,body.printing-all #chatDock{display:none !important;}
+body.printing-all .topbar,body.printing-all .hide-cb,body.printing-all .hide-toggle,body.printing-all .rescale-btn,body.printing-all #chatDock{display:none !important;}
 /* charts small enough that a card (title + legend + chart) fits on one landscape page */
 body.printing-all .cw{width:480px;max-width:100%;}
 body.printing-all .tax-trio{max-width:720px;}
