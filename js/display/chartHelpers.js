@@ -127,7 +127,7 @@ function chartMaxAge(proj){
   return ages.length&&Number.isFinite(r0.age0) ? Math.ceil(r0.age0+100-Math.min(...ages)) : 100;
 }
 function ageLabelRange(fromAge,toAge){
-  const labels=[]; for(let a=Math.floor(fromAge); a<=toAge; a++) labels.push(a);
+  const labels=[]; for(let a=Math.round(fromAge); a<=toAge; a++) labels.push(a);   // round, not floor: every row lookup keys by Math.round(age)
   return labels;
 }
 

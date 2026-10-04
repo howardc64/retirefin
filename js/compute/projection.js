@@ -566,11 +566,11 @@ function computeProjection(){
       expNeed-=expFromDiv;
       // (3) asset sales, shared pro rata to balance; a portfolio that runs out hands its remainder to the others
       const needBeforeSales=expNeed;
-      let cand=poolPf.filter(x=>x.avail-x.divUsed>0.005), guard=0;
+      let cand=poolPf.filter(x=>x.avail-x.divUsed-x.te>0.005), guard=0;   // tax-exempt income is paid out of the same total return, so it is reserved before any sale
       while(expNeed>0.005 && cand.length && guard++<8){
         const B=cand.reduce((a,x)=>a+x.bal,0); let given=0; const next=[];
         cand.forEach(x=>{
-          const room=Math.max(0,x.avail-x.divUsed-x.sold), amt=Math.min(expNeed*x.bal/B, room);
+          const room=Math.max(0,x.avail-x.divUsed-x.te-x.sold), amt=Math.min(expNeed*x.bal/B, room);
           x.sold+=amt; given+=amt; if(room-amt>0.005) next.push(x);
         });
         expNeed-=given; cand=next;

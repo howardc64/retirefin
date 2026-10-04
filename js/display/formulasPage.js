@@ -138,7 +138,7 @@ configured start year onward.</p>
 
 <h3>IRA Required Minimum Distribution — IRS Uniform Lifetime Table divisor by age</h3>
 ${fpRmdTable()}
-<p class="fp-src">Source: <a href="https://www.fidelity.com/bin-public/060_www_fidelity_com/documents/UniformLifetimeTable.pdf">IRS/Fidelity Uniform Lifetime Table</a>. Ages below 72 use a linear approximation for voluntary early withdrawals.</p>
+<p class="fp-src">Source: <a href="https://www.fidelity.com/bin-public/060_www_fidelity_com/documents/UniformLifetimeTable.pdf">IRS/Fidelity Uniform Lifetime Table</a>. Ages below 72 use a linear approximation for voluntary early withdrawals; ages above 105 use the age-105 divisor (4.6).</p>
 
 <h2>Formulas</h2>
 
@@ -154,6 +154,7 @@ ${fpEq(`Benefit<sub>delayed</sub> = PIA × [ 1 + 8% × (years past FRA) ]`)}
 ${fpEq(`Spousal = 50% × PIA<sub>other</sub> × [ 1 − ${fpFr('25','36')}% × min(<em>m</em>, 36) − ${fpFr('5','12')}% × max(0, <em>m</em> − 36) ]`)}
 <p>Each spouse receives the higher of their own benefit or the spousal amount (SSSBR):</p>
 ${fpEq(`SS benefit = max( own benefit, Spousal )`)}
+${fpWhere('This is a simplification of the SSA rule (own benefit + the excess of the spousal amount over own PIA, reduced for early claiming); the two agree when both are claimed at or after FRA. The spousal amount here starts at the spouse\'s own claim age, whether or not the other spouse has filed yet.')}
 
 <p><strong>Survivor benefit.</strong> When one spouse dies, the survivor's benefit becomes the larger of their own benefit or the deceased's benefit:</p>
 ${fpEq(`Survivor benefit = max( own benefit, deceased's benefit )`)}
@@ -164,7 +165,7 @@ ${fpEq(`RMD = ${fpFr('prior-year IRA balance','Uniform Lifetime Table divisor fo
 <p><strong>Pre-tax IRA withdraw</strong> (Roth conversion): a separate, real withdrawal on top of the RMD — a flat today's-dollar amount moved into the linked Roth IRA each year the pre-tax IRA still has a balance, taxed exactly like the RMD as ordinary income. It starts at the later of the owner's current age and the <em>Conversion start</em> — by default the <em>RMD start</em>, meaning the pre-tax IRA's own Start age (the RMD age unless that Start is changed), or Now, or a custom age — needs the Roth IRA card to be enabled, and stops when the owner passes. The conversion slider runs from $0 to the pre-tax IRA's starting balance and starts at $0 (no conversion).</p>
 ${fpEq(
   `Withdraw = min( conversion amount, remaining pre-tax IRA balance )`,
-  `Roth balance<sub>next</sub> = ( Roth balance + Withdraw ) × ( 1 + real growth )`
+  `Roth balance<sub>next</sub> = ( Roth balance + Withdraw − Roth withdrawn for expenses ) × ( 1 + real growth )`
 )}
 <p><strong>Conversion below brackets</strong> (the second conversion option): instead of a flat amount, the projection finds the largest conversion <em>c</em> (no more than the balance left after the RMD) that keeps both limits satisfied (each slider means <em>below</em> the chosen bracket; 0 = no conversion, last stop = no limit):</p>
 ${fpEq(
@@ -183,8 +184,10 @@ ${fpPw('Taxable SS',[
   ['min( 50% × (PI − T<sub>1</sub>),&ensp;50% × TSS )','T<sub>1</sub> &lt; PI ≤ T<sub>2</sub>'],
   ['min( base + 85% × (PI − T<sub>2</sub>),&ensp;85% × TSS )','PI &gt; T<sub>2</sub>']
 ])}
+${fpWhere('The base is applied in full; the IRS uses the smaller of the base and 50% of TSS, so for very small benefits (below about $12,000 married / $9,000 single) taxable SS can be slightly overstated.')}
 <p><strong>SST</strong> is <em>not</em> the taxable-SS dollar amount — it's the incremental tax that including taxable SS actually generates, holding non-SS income, filing status and qualified income fixed:</p>
-${fpEq(`SST = TT<sub>actual</sub> − TT<sub>no SS taxed</sub>`)}
+${fpEq(`SST = Tax<sub>actual</sub> − Tax<sub>no SS taxed</sub>`)}
+${fpWhere('Tax here is ordinary tax + qualified tax only, before the foreign tax credit and without NIIT, so a change in NIIT or FTC is never counted as tax on Social Security. The marginal rate below uses the same basis.')}
 <p><strong>Marginal rate / "torpedo effect".</strong> The true marginal rate on the next dollar of ordinary income is a small numerical derivative — add $100 of ordinary income, then re-run the taxable-SS and tax calculations:</p>
 ${fpEq(`Marginal rate = ${fpFr('Tax(ordinary income + $100) − Tax(ordinary income)','$100')}`)}
 ${fpWhere('Each re-run recomputes provisional income (which includes QDIV, LTCG and tax-exempt income) and the enhanced senior deduction at the higher income, so the marginal rate also picks up the extra 6% per eligible person while the senior deduction is phasing out.')}
@@ -240,7 +243,7 @@ ${fpEq(`FTC = portfolio balance × foreign asset % × foreign tax credit %`)}
 
 <p><strong>Net Investment Income Tax (NIIT).</strong> 3.8% of the lesser of net investment income or MAGI (~AGI) over the threshold above — calculated on the pre-credit ordinary + qualified tax basis, since the foreign tax credit doesn't offset NIIT:</p>
 ${fpEq(
-  `NII = (ODIV − QDIV) + QDIV + LTCG`,
+  `NII = (ODIV − QDIV) + QDIV + LTCG<sub>net of SCGL</sub> + taxable payouts of non-qualified annuities`,
   `NIIT = 3.8% × min( NII,&ensp;max(0, MAGI − threshold) )`
 )}
 
@@ -385,7 +388,7 @@ ${fpEq(
 <p>The taxable part of payouts is ordinary income (it enters AGI and the Ordinary income line above); for non-qualified treatments it is also net investment income for NIIT. The tax-free part is untaxed and never in AGI, but, like tax-exempt portfolio income, it counts toward provisional income (Social Security taxation) and MAGI (IRMAA). Both parts are household cash income, so they pay expenses first in the waterfall above. An annuity ends when its owner passes unless it continues to the spouse; annuities have no step-up and no stretch.</p>
 
 <h3>Today's-Dollar Convention</h3>
-<p>Every figure in this app — inputs, intermediate values, and every chart — is expressed in today's dollars. An "Annual change" of <em>Fixed $ (no growth)</em> (worded <em>Fixed $ (no COLA)</em> on the Pension card) actually erodes in real terms by the inflation rate each year; <em>Tracks inflation</em> means 0% real growth; <em>Inflation ± X%</em> and <em>Custom annual %</em> both express a real (today's-dollar) growth rate directly.</p>
+<p>Every figure in this app — inputs, intermediate values, and every chart — is expressed in today's dollars. An "Annual change" of <em>Fixed $ (no growth)</em> (worded <em>Fixed $ (no COLA)</em> on the Pension card) actually erodes in real terms by the inflation rate each year; <em>Tracks inflation</em> means 0% real growth; <em>Inflation ± X%</em> means a nominal rate of inflation + X%, so the real rate is X% ÷ (1 + inflation); <em>Custom annual %</em> is a nominal rate, so the real rate is (1 + rate) ÷ (1 + inflation) − 1.</p>
 
 <h3>Filing Status</h3>
 <p>The moment either spouse has died, filing status becomes Single for every subsequent year — every bracket, the standard deduction, and every IRMAA/NIIT threshold for that year onward uses the Single tables.</p>

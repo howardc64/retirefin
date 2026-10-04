@@ -55,7 +55,7 @@ function xlsxColumns(proj){
     {head:'Pre-tax IRA withdraw (for expenses) total (taxable)', get:r=>r.iraExpTotal||0},
     {head:'Ordinary dividends (ODIV−QDIV)', get:r=>r.odivNQ},
     {head:'Qualified dividends (QDIV)', get:r=>r.qdiv},
-    {head:'LTCG realized, gross', get:r=>r.ltcgGross},
+    {head:'LTCG realized, gross (before SCGL)', get:r=>r.ltcgGross},
     {head:'SCGL used', get:r=>r.scglUsed},
     {head:'SCGL remaining (today\'s $)', get:r=>r.scglRemaining},
     {head:'LTCG, net of SCGL (taxed)', get:r=>r.ltcg},
@@ -71,6 +71,7 @@ function xlsxColumns(proj){
     {head:'AUM fee paid by household (non-IDGT)', get:r=>r.expAum||0},
     {head:'Income tax paid as expense (tax drag)', get:r=>r.expTax||0},
     {head:'Total household expenses', get:r=>r.expTotal||0},
+    {head:'Total income (as on Annual Household Income chart: every band incl. dividends, LTCG, IRA/Roth withdraws, depreciation)', get:r=>chartTotalIncome(r)},
     {head:'Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+annuity+RMD)', get:r=>r.cashIncome||0},
     {head:'Expenses paid by household income', get:r=>r.expFromIncome||0},
     {head:'Expenses paid by dividends', get:r=>r.expFromDiv||0},
@@ -107,6 +108,13 @@ function xlsxColumns(proj){
   ];
   return cols;
 }
+// Sum of every stacked band on the Annual Household Income chart (same fields as INC_KEYS in incomeChart.js),
+// i.e. the "Total income" shown in that chart's popup. Differs from cashIncome, which excludes dividends, LTCG and IRA conversions.
+function chartTotalIncome(r){
+  const v=x=>x||0;
+  return v(r.pension)+v(r.annuity)+v(r.annuityTE)+v(r.wageTotal)+v(r.rothConvTotal)+v(r.iraTotal)+v(r.iraExpTotal)+v(r.rental)+v(r.rentalDep)+
+    v(r.teIncome)+v(r.rothExpTotal)+v(r.qdiv)+v(r.odivNQ)+v(r.ltcg)+(r.ssByPerson||[]).reduce((a,b)=>a+v(b),0);
+}
 function round1(n){ return Math.round((n||0)*10)/10; }
 function pct(n){ return Math.round((n||0)*1000)/1000; } // stored as a fraction; formatted as % below
 function sumAnnuities(r,field){
@@ -138,7 +146,7 @@ function xlsxSheetName(base, used){
 
 function xlsxPortfolioSheet(proj, i, bi){
   const person=displayPersonName(proj.people[i], i);
-  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','AUM fee share','Realized LTCG','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Dividends used for expenses','Dividends reinvested','Shares sold','Excess income reinvested','Tax-exempt income paid']];
+  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','AUM fee share','Realized LTCG (gross, before SCGL)','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Dividends used for expenses','Dividends reinvested','Shares sold','Excess income reinvested','Tax-exempt income paid']];
   proj.rows.forEach(r=>{
     const e=r.portfoliosByPerson[i][bi]; if(!e) return;
     rows.push([THIS_YEAR+r.k, round1(r.ages[i]), e.balance, round1(e.growthPct), round1(e.netGrowthPct!=null?e.netGrowthPct:e.growthPct),

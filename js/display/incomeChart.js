@@ -128,7 +128,8 @@ function buildIncomeChart(){
       }
       r.iraBalByPerson.forEach((bal,i)=>{ if(bal>1)lines.push(mrow(displayPersonName(proj.people[i],i)+" IRA bal.", fmt(bal))); });
       const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>(r.magi!=null?r.magi:r.agi)>=t.magi);
-      if(irmaaT) lines.push(`⚠ IRMAA: +${fmt(irmaaT.surch)}/yr`);
+      // This year's MAGI sets the premium two years later, per person on Medicare (the Household Expenses chart charges the tier from two years earlier × people 65+).
+      if(irmaaT) lines.push(`⚠ IRMAA tier reached by this year's MAGI: +${fmt(irmaaT.surch)}/person/yr (billed 2 yrs later)`);
       return lines;
     }
   };
@@ -186,7 +187,7 @@ function buildIncomeChart(){
       const m=r.magi!=null?r.magi:r.agi;
       const lines=[mrow('MAGI', fmt(m)+'/yr')];
       const irmaaT=(r.filing==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>m>=t.magi);
-      if(irmaaT) lines.push(mrow('IRMAA', '+'+fmt(irmaaT.surch)+'/yr'));
+      if(irmaaT) lines.push(mrow('IRMAA tier reached (billed 2 yrs later)', '+'+fmt(irmaaT.surch)+'/person/yr'));
       return lines;
     }
   };
