@@ -80,9 +80,9 @@ function renderLtcPanel(){
         <input type="number" class="money" min="0" step="1000" value="${L.cost||0}" oninput="onNumberInput('ltc.people.${i}.cost', this.value)"></div>`;
     }
     html+=`<div class="field full"><label>${n>1?'1st LTC living expenses':'LTC living expenses'} ($/yr, today's $)</label>
-      <input type="number" class="money" id="ltcLiving1" min="0" step="1000" value="${l.living1!=null?l.living1:(state.living||0)}" oninput="onNumberInput('ltc.living1', this.value)"></div>`;
+      <input type="number" class="money" id="ltcLiving1" min="0" step="1000" value="${l.living1!=null?l.living1:ltcLiving1Default(n>1)}" oninput="onNumberInput('ltc.living1', this.value)"></div>`;
     if(n>1) html+=`<div class="field full"><label>2nd LTC living expenses ($/yr, today's $)</label>
-      <input type="number" class="money" min="0" step="1000" value="${l.living2||0}" oninput="onNumberInput('ltc.living2', this.value)"></div>`;
+      <input type="number" class="money" min="0" step="1000" value="${l.living2!=null?l.living2:LTC_LIVING2_DEFAULT}" oninput="onNumberInput('ltc.living2', this.value)"></div>`;
   }
   document.getElementById('ltcPanel').innerHTML=assumpCard('ltc','Long Term Care (LTC)','ltc.enabled',!!l.enabled,html);
 }
@@ -91,5 +91,5 @@ function renderLtcPanel(){
 function onLivingInput(val){
   onNumberInput('living', val);
   const el=document.getElementById('ltcLiving1');
-  if(el && state.ltc && state.ltc.living1==null) el.value=state.living||0;
+  if(el && state.ltc && state.ltc.living1==null) el.value=ltcLiving1Default(state.filingStatus==='married');
 }

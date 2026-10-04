@@ -222,7 +222,7 @@ ${fpPw('Living expenses',[
   ['1st LTC living expenses','after the 1st LTC start'],
   ['2nd LTC living expenses','after the 2nd LTC start']
 ])}
-${fpWhere('Living expenses switch to the 1st LTC amount once the first person\'s LTC has started, and to the 2nd LTC amount once the second person\'s has started.')}
+${fpWhere('Living expenses switch to the 1st LTC amount once the first person\'s LTC has started, and to the 2nd LTC amount once the second person\'s has started. A single person only has the 1st amount. Defaults: single $7,500; married 1st = the original living expenses (it follows that field until edited) and 2nd = $15,000; all in today\'s $ and editable.')}
 <p>The LTC cost is also the itemized deduction, limited by the 7.5% of AGI floor and compared with the standard deduction each year:</p>
 ${fpEq(
   `Itemized = max( 0, LTC expense − 7.5% × AGI )`,

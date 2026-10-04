@@ -96,8 +96,8 @@ state = {
   ltc: {                          // Long Term Care (§4.6, Assumptions panel §5.3). Off by default
     enabled: boolean,
     people: [{startAge, cost}, {startAge, cost}],  // per person: the person's OWN age at which their LTC starts (default 85) and the LTC cost $/yr, today's $ (default 100000). people[1] is unused when single
-    living1: number | null,       // household living expenses, today's $, once the 1st LTC has started (null = never set: follows `living`)
-    living2: number               // household living expenses, today's $, once the 2nd person's LTC has also started (default 0)
+    living1: number | null,       // household living expenses, today's $, once the 1st LTC has started (null = never set: married → follows `living`; single → $7,500, `LTC_SINGLE_LIVING`)
+    living2: number               // household living expenses, today's $, once the 2nd person's LTC has also started (default $15,000, `LTC_LIVING2_DEFAULT`)
   },
   aumFee: { mode: 'pct'|'fixed', value: number },  // AUM fee: 'pct' = % of the AUM balance (sum of balances of portfolios with `aum` checked); 'fixed' = $/yr in today's $ (flat nominal, so it shrinks with inflation). Household-level; UI is below SCGL in the Assumptions panel (§5.3)
   futureTax: {
@@ -322,7 +322,7 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 **Long Term Care (LTC)** (`state.ltc`, off by default; Assumptions panel §5.3). Each row, for each person `i` (only if `ltc.enabled`):
 - **Started** if their LTC start age is *before* their passing age (`startAge < passing`, so an LTC that would begin after they pass never happens) **and** their age this year ≥ `startAge`. Once started it stays started for the rest of the projection, even after that person passes (`ltcStarted` counts started people, 0–2).
 - **Cost:** a started person who is still **alive** adds `max(0, cost)` (today's $, flat in real terms) to `expLtc`; the row keeps each person's amount in `ltcCostByPerson`. The cost stops the year they pass.
-- **Living expenses switch:** `expLiving` = `state.living` until anyone's LTC starts; `ltc.living1` (or `state.living` if `living1` is `null`) once exactly one person has started; `ltc.living2` once both have. A single-person household only ever uses `living1`.
+- **Living expenses switch:** `expLiving` = `state.living` until anyone's LTC starts; `ltc.living1` (or, if `living1` is `null`, `state.living` when married / $7,500 when single) once exactly one person has started; `ltc.living2` once both have. A single-person household only ever uses `living1`.
 - **LTC is a household expense**, added to the expense pool (see *Expense funding*) and paid income → dividends → asset sales → pre-tax IRA → Roth IRA like everything else.
 - **Itemized deduction:** the LTC cost is also the only itemized deduction modelled: `itemized = max(0, expLtc − 7.5% × AGI)` (`agiFloor` = 7.5% × AGI). `usedItemized` is true when `itemized` exceeds the standard deduction; the deduction actually applied is `max(standard, itemized)`. Because AGI depends on LTCG, this sits inside the tax↔LTCG iteration.
 

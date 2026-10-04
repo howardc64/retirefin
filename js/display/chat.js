@@ -96,12 +96,12 @@ function buildChatSnapshot(includeNames){
   };
   if(state.futureTax && state.futureTax.enabled) hh.speculativeFutureNiitThreshold = chatStrip(state.futureTax);
   // Long Term Care: start age + cost per person (only as many as the household has), and the living expenses that apply after
-  // the 1st / 2nd LTC start. living1 falls back to the household living expenses when never set (as in projection.js).
+  // the 1st / 2nd LTC start. living1 falls back to the household living expenses (married) or $7,500 (single) when never set, as in projection.js.
   if(state.ltc && state.ltc.enabled){
     const l = state.ltc;
     const ltcPeople = {}; people.forEach((p,i)=>{ const L=(l.people&&l.people[i])||{}; ltcPeople[label(i)] = {startAge:L.startAge, costPerYear:L.cost}; });
-    hh.longTermCare = {people:ltcPeople, livingExpensesAfter1stLtcStart:(l.living1!=null?l.living1:(state.living||0))};
-    if(married) hh.longTermCare.livingExpensesAfter2ndLtcStart = l.living2||0;
+    hh.longTermCare = {people:ltcPeople, livingExpensesAfter1stLtcStart:(l.living1!=null?l.living1:ltcLiving1Default(married))};
+    if(married) hh.longTermCare.livingExpensesAfter2ndLtcStart = (l.living2!=null?l.living2:LTC_LIVING2_DEFAULT);
   }
   out.push(JSON.stringify(hh));
   out.push('');

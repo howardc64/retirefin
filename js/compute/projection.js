@@ -536,7 +536,7 @@ function computeProjection(){
       ltcStarted++;
       if(alive[i]){ ltcCostByPerson[i]=Math.max(0,Number(L.cost)||0); expLtc+=ltcCostByPerson[i]; }
     });
-    const ltcLiving=ltcStarted>=2?Math.max(0,Number(ltc.living2)||0):(ltcStarted===1?Math.max(0,Number(ltc.living1!=null?ltc.living1:state.living)||0):null);
+    const ltcLiving=ltcStarted>=2?Math.max(0,Number(ltc.living2)||0):(ltcStarted===1?Math.max(0,Number(ltc.living1!=null?ltc.living1:ltcLiving1Default(married))||0):null);
     const ltcActive=ltcLiving!==null;
     // Itemized deduction = LTC cost above the 7.5%-of-AGI floor; AGI includes realized LTCG, so it is computed inside taxOn() below.
     // Enhanced deduction for seniors (Schedule 1-A Part V): each living person who is 65 by the end of this tax year (birth year
