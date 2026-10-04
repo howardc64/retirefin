@@ -24,6 +24,8 @@ const IRMAA_PART_B_INCREASE=[40,100,160,220,240];
 // filing status's own tables.
 const CONV_ORD_STOPS=[0,10,12,22,24,32,35,37,null];
 const CONV_IRMAA_STOPS=[0,...IRMAA_PART_B_INCREASE,null];
+// Roth-conversion START trigger "when the ordinary tax bracket is below x%": the discrete brackets the slider can pick (no 0 / no-limit stop).
+const CONV_START_BRACKET_STOPS=[10,12,22,24,32,35,37];
 function convStopIndex(stops, v){
   if(v==null||v==='') return stops.length-1;
   let bi=0; stops.forEach((s,i)=>{ if(s!=null&&Math.abs(s-v)<Math.abs((stops[bi]==null?1e9:stops[bi])-v)) bi=i; });

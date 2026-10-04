@@ -68,7 +68,7 @@ function computeProjection(){
   //               schedule was simulated up front.
   const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({})), iraAum=people.map(()=>({})), rothAum=people.map(()=>({}));
   const iraSim=people.map((p,i)=>{
-    const sim={bal:0, done:true, open:false, room:0, fixed:0, mode:'fixed', pre(){}, post(){}};
+    const sim={bal:0, done:true, open:false, room:0, fixed:0, mode:'fixed', trigger:null, started:false, startedK:null, live:false, rothOk:false, convAmt:0, pre(){}, post(){}};
     if(!p.ira.enabled) return sim;
     sim.bal=Number(p.ira.balance)||0; sim.done=false;
     const [startAge,ownerEndAge]=resolveAgeRange(p.ira.ar,p);
@@ -78,11 +78,15 @@ function computeProjection(){
     const convAmt=(rothOk&&sim.mode==='fixed')?Math.max(0,Number(p.ira.conv)||0):0;
     // Conversion start: 'rmd' (default) = the IRA's own Start age (the RMD start), 'now' = today, 'custom' = ira.convStart.
     // Never earlier than the owner's current age.
+    // Trigger starts ('bracket' | 'itemized' | 'ltc') are not age based: the year loop below decides, once that year's tax picture is known,
+    // whether the trigger is met; from then on (`started`) the IRA converts every year like 'now' would.
     const cMode=p.ira.convStartMode||'rmd';
-    const convStartAge=Math.max(curAges[i], cMode==='custom'?(Number(p.ira.convStart)||0):(cMode==='now'?0:startAge));
+    sim.trigger=(cMode==='bracket'||cMode==='itemized'||cMode==='ltc')?cMode:null;
+    sim.rothOk=rothOk; sim.convAmt=convAmt;
+    const convStartAge=Math.max(curAges[i], cMode==='custom'?(Number(p.ira.convStart)||0):((cMode==='now'||sim.trigger)?0:startAge));
     // Start of year k: AUM balance, RMD, and the room left for a conversion. `open` = a conversion decision is pending (post() finishes the year).
     sim.pre=function(k){
-      sim.open=false; sim.room=0; sim.fixed=0;
+      sim.open=false; sim.room=0; sim.fixed=0; sim.live=false;
       if(sim.done) return;
       const ownerAge=curAges[i]+k;
       const ownerAlive=ownerAge<passAges[i];
@@ -128,8 +132,8 @@ function computeProjection(){
       }else{
         iraW[i][k]=0;
       }
-      sim.open=true;
-      sim.room=ownerAge>=convStartAge?sim.bal:0;       // the most that could be converted this year
+      sim.open=true; sim.live=true;
+      sim.room=(sim.trigger?sim.started:ownerAge>=convStartAge)?sim.bal:0;       // the most that could be converted this year
       sim.fixed=Math.min(convAmt,sim.room);              // 'fixed' mode amount (0 for 'bracket' mode)
     };
     // `draw` = pre-tax IRA withdrawn this year to pay household expenses once the portfolios are exhausted (expense funding waterfall below).
@@ -654,8 +658,31 @@ function computeProjection(){
     // Both measures rise with c, but c also moves taxable Social Security, the tax, the asset sales that fund it and so the realized LTCG
     // — a circular dependence — so each trial c runs the full tax ↔ LTCG iteration above, and the search over c is iterated too
     // (false position with bisection safeguards) until the largest feasible c is pinned to a few cents.
-    const convByPerson=people.map((p,i)=>iraSim[i].fixed||0);
+    const convByPerson=people.map(()=>0);
     const convTotalOf=()=>convByPerson.reduce((a,b)=>a+b,0);
+    // Trigger starts: an IRA whose conversion start is 'bracket' / 'itemized' / 'ltc' and has not started yet checks its trigger against this year's
+    // tax with NO conversion (everyone's conversion held at 0, so the test is on the household's own income and deductions). Once met it stays started.
+    //   bracket  — taxable ordinary income stays at or below where the chosen bracket starts (same reading as the "below bracket" limit).
+    //   itemized — the itemized deduction (LTC cost above the 7.5%-of-AGI floor), in today's $, exceeds the entered value.
+    //   ltc      — the first LTC start has been reached (needs Long Term Care enabled).
+    const trigPending=i=>{ const s=iraSim[i]; return !!(s.trigger&&!s.started&&s.live&&s.rothOk&&s.bal>0); };
+    let noConvOrdTI=null, noConvItemized=null;   // the no-conversion tax picture the triggers test (exported for reference)
+    // Solved whenever a Roth conversion is possible this year (any start mode), so the export always shows the no-conversion picture.
+    const trigLive=people.some((p,i)=>iraSim[i].live&&iraSim[i].rothOk&&iraSim[i].bal>0);
+    if(trigLive){
+      const r0=solveTax(0);
+      noConvOrdTI=r0.tx.ordTI; noConvItemized=r0.tx.itemized;
+      people.forEach((p,i)=>{
+        if(!trigPending(i)) return;
+        const sim=iraSim[i];
+        let go=false;
+        if(sim.trigger==='ltc') go=ltcStarted>=1;
+        else if(sim.trigger==='bracket'){ const b=Number(p.ira.convStartBracket); go=r0.tx.ordTI<=convOrdTop(Number.isFinite(b)?b:24, ordBrk)+0.005; }
+        else go=r0.tx.itemized>(Number(p.ira.convStartItemized)||0);
+        if(go){ sim.started=true; sim.startedK=k; sim.room=sim.bal; sim.fixed=Math.min(sim.convAmt,sim.room); }
+      });
+    }
+    people.forEach((p,i)=>{ convByPerson[i]=iraSim[i].fixed||0; });
     let convTrials=0;
     function convLimits(p){
       const num=v=>(v!=null&&v!==''&&Number.isFinite(Number(v)))?Number(v):null;
@@ -781,7 +808,7 @@ function computeProjection(){
       odiv, qdiv, odivNQ, ltcg, ltcgGross, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
       iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, embeddedGain, embeddedGainIdgt,
-      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, ltcStarted, ltcCostByPerson, agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
+      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, ltcStarted, ltcCostByPerson, noConvOrdTI, noConvItemized, convTriggerStartedByPerson:iraSim.map(s=>s.startedK===k), agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
       niiIncome, niit,
       irmaaSurcharge,

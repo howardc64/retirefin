@@ -17,9 +17,9 @@
 // so the sheet stays one row per projected year, easy to sort/filter/chart in Excel.
 function xlsxColumns(proj){
   const married=proj.married;
-  const per=(field, label)=> married
-    ? [0,1].map(i=>({head:`${displayPersonName(proj.people[i],i)} ${label}`, get:r=>r[field][i]||0}))
-    : [{head:label, get:r=>r[field][0]||0}];
+  const per=(field, label, fmt)=>{ const f=fmt||(v=>v||0); return married
+    ? [0,1].map(i=>({head:`${displayPersonName(proj.people[i],i)} ${label}`, get:r=>f(r[field][i])}))
+    : [{head:label, get:r=>f(r[field][0])}]; };
 
   const cols=[
     {head:'Year', get:r=>THIS_YEAR+r.k},
@@ -97,6 +97,9 @@ function xlsxColumns(proj){
     {head:'Deduction used (standard or itemized)', get:r=>r.std},
     {head:'Enhanced senior deduction (Schedule 1-A)', get:r=>r.seniorDeduction||0},
     {head:'Ordinary taxable income', get:r=>r.ordTI},
+    {head:'Ordinary taxable income, no conversion (a bracket start tests this)', get:r=>r.noConvOrdTI==null?'':r.noConvOrdTI},
+    {head:'Itemized deductions, no conversion (an itemized start tests this)', get:r=>r.noConvItemized==null?'':r.noConvItemized},
+    ...per('convTriggerStartedByPerson','Roth conversion trigger met this year (trigger starts only)',v=>v?'Yes':''),
     {head:'Ordinary tax', get:r=>r.ordTax},
     {head:'Qualified tax (QDIV+LTCG)', get:r=>r.qualTax},
     {head:'Social Security Tax (SST)', get:r=>r.sst},

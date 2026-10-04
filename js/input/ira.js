@@ -27,8 +27,12 @@ function buildIraCard(pid, p, married){
             <option value="rmd" ${(p.ira.convStartMode||'rmd')==='rmd'?'selected':''}>RMD start (age ${Math.round(resolveAgeRange(p.ira.ar,p)[0])})</option>
             <option value="now" ${p.ira.convStartMode==='now'?'selected':''}>Now</option>
             <option value="custom" ${p.ira.convStartMode==='custom'?'selected':''}>Custom age</option>
+            <option value="bracket" ${p.ira.convStartMode==='bracket'?'selected':''}>When tax bracket is below x%</option>
+            <option value="itemized" ${p.ira.convStartMode==='itemized'?'selected':''}>When itemized deductions &gt; a value</option>
+            <option value="ltc" ${p.ira.convStartMode==='ltc'?'selected':''}>When LTC starts</option>
           </select>
-          ${p.ira.convStartMode==='custom'?pairHtml('convStart_'+idx, pid+'.ira.convStart', ab[0], ab[1], 1, Math.min(ab[1],Math.max(ab[0],Number(p.ira.convStart)||ab[0])), {kind:'person',i:idx}):''}</div>
+          ${p.ira.convStartMode==='custom'?pairHtml('convStart_'+idx, pid+'.ira.convStart', ab[0], ab[1], 1, Math.min(ab[1],Math.max(ab[0],Number(p.ira.convStart)||ab[0])), {kind:'person',i:idx}):''}
+          ${convStartTriggerHtml(pid, p)}</div>
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.ira.bene?'checked':''} onchange="onBeneToggle('${pid}.ira.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
         <div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.ira.stretch?'checked':''} onchange="onBeneToggle('${pid}.ira.stretch', this.checked)"> IRA stretch: keep growing until 10 years after ${married?'the 2nd':'this person\'s'} passing</label></div>
         <div class="field full"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px;line-height:1.4"><input type="checkbox" style="flex:0 0 auto" ${p.ira.aum?'checked':''} onchange="onBeneToggle('${pid}.ira.aum', this.checked)"> AUM (this balance counts toward the AUM balance the AUM fee is charged on)</label></div>
@@ -49,6 +53,42 @@ function convStopText(which, v){
   if(!(v>0)) return 'Below the standard bracket \u2014 no conversion';
   const cap=convMagiCap(v, married?IRMAA_MFJ:IRMAA_SGL)+1;
   return `Below the +${v}% IRMAA bracket \u00b7 MAGI < $${Math.round(cap).toLocaleString()} (${st})`;
+}
+// Extra control under "Conversion start" for the three trigger starts. Each trigger is tested on the year's tax with no conversion; once it is
+// met the IRA converts every later year too.
+function convStartBracketText(v){
+  const married=state.filingStatus==='married', st=married?'Married':'Single';
+  const top=convOrdTop(v, married?MFJ_ORD:SGL_ORD);
+  return `Starts when taxable ordinary income is below the ${v}% bracket \u00b7 \u2264 $${Math.round(top).toLocaleString()} (${st})`;
+}
+function convStartTriggerHtml(pid, p){
+  const mode=p.ira.convStartMode;
+  const note=t=>`<div class="cn" style="margin-top:4px">${t}</div>`;
+  if(mode==='bracket'){
+    const stops=CONV_START_BRACKET_STOPS, idx=convStopIndex(stops, p.ira.convStartBracket), v=stops[idx];
+    return `<div style="margin-top:8px"><label style="font-weight:400;font-size:11px">Ordinary income tax bracket</label>
+      <input type="range" min="0" max="${stops.length-1}" step="1" value="${idx}" oninput="onConvStartBracket('${pid}',this.value)">
+      <div class="cn" id="convStartLbl_${pid}" style="margin-top:2px">${convStartBracketText(v)}</div></div>
+      ${note('Conversions start the first year the household\'s taxable ordinary income (before any conversion) is that low, then continue every year. Dollar amounts follow the Single / Married setting.')}`;
+  }
+  if(mode==='itemized'){
+    const std=state.filingStatus==='married'?STD_MFJ:STD_SGL;
+    return `<div style="margin-top:8px"><label style="font-weight:400;font-size:11px">Itemized deductions exceed (today's $)</label>
+      <input type="number" class="money" min="0" step="1000" value="${Number(p.ira.convStartItemized)||0}" oninput="onNumberInput('${pid}.ira.convStartItemized', this.value)"></div>
+      ${note('Itemized deductions here are the Long Term Care cost above 7.5% of AGI (the standard deduction is $'+Math.round(std).toLocaleString()+'). Conversions start the first year it exceeds this value, then continue every year.')}`;
+  }
+  if(mode==='ltc'){
+    const on=!!(state.ltc&&state.ltc.enabled);
+    return note('Conversions start the year the first Long Term Care start age is reached, then continue every year.'+(on?'':' <strong>Long Term Care is not enabled in Assumptions, so conversions never start.</strong>'));
+  }
+  return '';
+}
+function onConvStartBracket(pid, idx){
+  const v=CONV_START_BRACKET_STOPS[+idx];
+  setPath(pid+'.ira.convStartBracket', v);
+  const el=document.getElementById('convStartLbl_'+pid); if(el) el.textContent=convStartBracketText(v);
+  saveDebounced();
+  window.liveDrag=true; recompute(); window.liveDrag=false;
 }
 function convSliderHtml(pid, which, p){
   const stops=which==='ord'?CONV_ORD_STOPS:CONV_IRMAA_STOPS;
