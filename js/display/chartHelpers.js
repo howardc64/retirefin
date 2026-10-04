@@ -8,6 +8,7 @@
 // ═══════════════════════════════════════════════════════════════
 // Color of every dashed reference line drawn over a chart (IRMAA tiers, ordinary-tax brackets) and of its legend swatch.
 const OVERLAY_COLOR='rgba(0,0,0,.9)';
+const DEDUCTION_COLOR='#D62828';   // red dashed deduction line on the taxable ordinary income chart
 // §3 "show_details checkbox": when on, chart popups reveal the underlying calculation
 // components (provisional income, AGI, standard deduction, etc.) called out as
 // show_details-only in the chart specs (§8.3, §9.3.1, §9.4, §10). Tooltip callbacks read

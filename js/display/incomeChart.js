@@ -32,7 +32,8 @@ function buildIncomeLegend(){
   document.getElementById('incomeLegend').innerHTML =
     keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
     legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(OVERLAY_COLOR)) +
-    legendItem('Taxable income brackets (rate above each line, shown on taxable income chart)', null, legendDashStyle(OVERLAY_COLOR));
+    legendItem('Ordinary tax brackets (rate above each line, shown on taxable ordinary income chart)', null, legendDashStyle(OVERLAY_COLOR)) +
+    legendItem('Deduction stacked on taxable ordinary income (shown on taxable ordinary income chart)', null, legendDashStyle(DEDUCTION_COLOR));
 }
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -112,6 +113,13 @@ function buildIncomeChart(){
         lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
         lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
         if(r.teIncome>0||r.annuityTE>0) lines.push(mrow('MAGI (AGI + tax-exempt income)',fmt(r.magi)+'/yr'));
+        // Taxable-income numbers (the Taxable Ordinary Income chart's own popup shows only the deduction and the ordinary total).
+        if(r.taxableSS>0.5) lines.push(mrow('Taxable Social Security',fmt(r.taxableSS)+'/yr'));
+        lines.push(mrow('Taxable ordinary income',fmt(r.ordTI||0)+'/yr'));
+        if((r.qualIncome||0)>0.5){
+          lines.push(mrow('Qualified income (QDIV + LTCG)',fmt(r.qualIncome)+'/yr'));
+          lines.push(mrow('Taxable income (ordinary + qualified)',fmt((r.ordTI||0)+(r.qualIncome||0))+'/yr'));
+        }
         // Household expense funding (income → dividends → asset sales), when there are any expenses.
         if(r.expTotal>0){
           lines.push(mrow('Household expenses',fmt(r.expTotal)+'/yr'));
@@ -203,20 +211,20 @@ function buildIncomeChart(){
       }
     })});
 
-  // ── Second half-size companion chart, under the MAGI chart: taxable income ──
-  // The height is the year's taxable income = taxable ordinary income (`row.ordTI` = ordinary income − the standard/itemized + senior deduction, floored at 0) + qualified income (QDIV + net LTCG, stacked on top, as the tax calc stacks it), so the
-  // bottom (ordinary) part reads directly against the ordinary tax brackets, which are defined on taxable income. The band colors/order are the primary's: pension, taxable
-  // annuity, wages, pre-tax IRA withdraw, IRA RMDs, rental, non-qualified dividends and the taxable part of Social Security (per person, as in the MAGI
-  // stack), then QDIV and LTCG on top. The deduction is applied to the stack from the bottom up (brackets fill from the bottom too), so the ordinary bands are each source's taxable
-  // portion and they sum exactly to `ordTI`; with QDIV + LTCG the stack sums to taxable income. Same X labels, Y scale and 1:1 ratio as the primary. Dashed lines = bracket starts, labeled with the rate
-  // that applies above them, for the filing status in force each year. The popup lists the full components, the deduction and the taxable total.
+  // ── Second half-size companion chart, under the MAGI chart: taxable ORDINARY income ──
+  // The height is the year's taxable ordinary income (`row.ordTI` = ordinary income − the standard/itemized + senior deduction, floored at 0). Qualified
+  // income (QDIV + net LTCG) is not drawn: it is taxed at its own rates, so it does not belong against the ordinary brackets (it is in the main popup's
+  // Show Details). The band colors/order are the primary's: pension, taxable annuity, wages, pre-tax IRA withdraw, IRA RMDs, rental, non-qualified
+  // dividends and the taxable part of Social Security (per person, as in the MAGI stack). The deduction is applied to the stack from the bottom up
+  // (brackets fill from the bottom too), so the bands are each source's taxable portion and they sum exactly to `ordTI`, which is what the Roth
+  // conversion "below ordinary bracket" limit tests. Same X labels, Y scale and 1:1 ratio as the primary. Black dashed lines = ordinary bracket starts, labeled
+  // with the rate that applies above them, for the filing status in force each year. A red dashed line marks the deduction stacked on top of the stack. The popup lists only the owners' ages, the deduction and the taxable ordinary income.
   const ordOnlyKeys=['pension','annuity','wageTotal','rothConv','iraTotal','iraExp','rental','odivNQ','ssP0','ssOther'].filter(k=>mKeys.includes(k));
-  const ordKeys=[...ordOnlyKeys,'qdiv','ltcg'];   // qualified income sits on top of the ordinary bands
+  const ordKeys=ordOnlyKeys;
   const taxPortion={}; ordKeys.forEach(k=>taxPortion[k]=[]);
   rows.forEach((r,ri)=>{
     let skip=Math.max(0,(r.ordIncome||0)-(r.ordTI||0));    // deduction actually absorbed by ordinary income
     ordKeys.forEach(k=>{
-      if(k==='qdiv'||k==='ltcg'){ taxPortion[k].push(mSeries[k][ri]||0); return; }   // deduction is absorbed by ordinary income only
       const g=mSeries[k][ri]||0, used=Math.min(g,skip);
       skip-=used; taxPortion[k].push(g-used);
     });
@@ -235,21 +243,25 @@ function buildIncomeChart(){
     ordDs.push({data:alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
       borderDash:[7,4], borderColor:OVERLAY_COLOR, stack:'ol'+j, order:0});
   }
+  // Red dashed line: the deduction stacked on top of the taxable ordinary income, i.e. taxable ordinary income + the deduction absorbed (the same
+  // "Deduction" the popup shows) = the year's gross ordinary income (`ordIncome`). The gap between the top of the stack and the line is the deduction.
+  // Left out (null) in years where no deduction is absorbed. Its own stack key keeps it from stacking on the bands.
+  const dedLine=rows.map(r=>{ const d=Math.max(0,(r.ordIncome||0)-(r.ordTI||0)); return d>0.5 ? (r.ordTI||0)+d : null; });
+  ordDs.push({data:alignToAges(ages, dedLine, labels), label:'Deduction', borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
+    borderDash:[7,4], borderColor:DEDUCTION_COLOR, stack:'ded', order:0});
   const nStack=ordKeys.length;
   const ordTip={
     title:tooltipCallbacks.title,   // owners + ages
-    // Full (pre-deduction) component amounts, so the lines reconcile with the footer: components − deduction = taxable income.
-    label:c=>{
-      if(c.datasetIndex>=nStack) return null;
-      const k=ordKeys[c.datasetIndex], g=mSeries[k][rows.indexOf(rowByAge[labels[c.dataIndex]])];
-      return (!g)?null:mrow('  '+c.dataset.label, fmt(g)+'/yr');
-    },
+    // Kept simple: owners + ages, ordinary income before deduction (the red line), the deduction and the taxable ordinary income. The other numbers (taxable Social Security, qualified income,
+    // total taxable income) are in the main Annual Household Income popup under Show Details.
+    label:()=>null,
     footer:items=>{
       const r=rowByAge[labels[items[0]?items[0].dataIndex:0]]; if(!r) return [];
       const ded=Math.max(0,(r.ordIncome||0)-(r.ordTI||0));
-      const lines=['']; if(ded>0) lines.push(mrow('Deduction','\u2212'+fmt(ded)+'/yr'));
-      if((r.qualIncome||0)>0) lines.push(mrow('  of which taxable ordinary income', fmt(r.ordTI||0)+'/yr'));
-      lines.push(mrow('Taxable income', fmt((r.ordTI||0)+(r.qualIncome||0))+'/yr'));
+      const lines=[''];
+      // Ordinary income before the deduction = the height of the red dashed line (taxable ordinary income + deduction).
+      if(ded>0){ lines.push(mrow('Ordinary income before deduction', fmt((r.ordTI||0)+ded)+'/yr')); lines.push(mrow('Deduction','\u2212'+fmt(ded)+'/yr')); }
+      lines.push(mrow('Taxable ordinary income', fmt(r.ordTI||0)+'/yr'));
       return lines;
     }
   };
@@ -260,7 +272,7 @@ function buildIncomeChart(){
       plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(ordTip)} },
       scales:{
         x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Taxable income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Taxable ordinary income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
     })});
 }
