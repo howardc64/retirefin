@@ -52,7 +52,7 @@
         {
           "id": "hp21oac",
           "enabled": true,
-          "hidden": false,
+          "hidden": true,
           "name": "Joe Jill Portfolio",
           "balance": 3000000,
           "growth": {
@@ -110,7 +110,7 @@
       ],
       "ira": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "balance": 1000000,
         "growth": {
           "mode": "offset",
@@ -124,8 +124,13 @@
         },
         "bene": true,
         "conv": 0,
+        "convMode": "fixed",
+        "convIrmaaPct": 40,
+        "convOrdPct": 32,
         "convStartMode": "now",
         "convStart": 0,
+        "convStartBracket": 24,
+        "convStartItemized": 35000,
         "stretch": true,
         "aum": true
       },
@@ -205,8 +210,13 @@
         },
         "bene": false,
         "conv": 0,
+        "convMode": "fixed",
+        "convIrmaaPct": 40,
+        "convOrdPct": 32,
         "convStartMode": "rmd",
         "convStart": 0,
+        "convStartBracket": 24,
+        "convStartItemized": 35000,
         "stretch": false,
         "aum": false
       },
@@ -229,6 +239,8 @@
     "p2": 92
   },
   "living": 100000,
+  "basisSwap": false,
+  "basisSwapYears": 3,
   "scgl": 200000,
   "scglEnabled": true,
   "ltc": {
@@ -259,14 +271,14 @@
   },
   "ui": {
     "incomeOrder": [
-      "wage",
-      "ss",
-      "pension",
-      "rental",
       "brokerage",
-      "annuity",
       "ira",
-      "roth"
+      "roth",
+      "ss",
+      "wage",
+      "pension",
+      "annuity",
+      "rental"
     ],
     "hiddenSections": {
       "assumptions": false,
@@ -280,8 +292,9 @@
     "assumpHide": {
       "scgl": false,
       "aum": false,
+      "swap": true,
       "ltc": true,
-      "future": false
+      "future": true
     },
     "ltcgDevalue": 0,
     "ordDevalue": 0,

@@ -52,7 +52,7 @@
         {
           "id": "hp21oac",
           "enabled": true,
-          "hidden": false,
+          "hidden": true,
           "name": "John Jane Portfolio",
           "balance": 1000000,
           "growth": {
@@ -81,7 +81,7 @@
       ],
       "ira": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "balance": 400000,
         "growth": {
           "mode": "custom",
@@ -100,12 +100,14 @@
         "convOrdPct": 22,
         "convStartMode": "now",
         "convStart": 0,
+        "convStartBracket": 24,
+        "convStartItemized": 35000,
         "stretch": true,
         "aum": false
       },
       "roth": {
         "enabled": true,
-        "hidden": false,
+        "hidden": true,
         "balance": 0,
         "growth": {
           "mode": "custom",
@@ -184,6 +186,8 @@
         "convOrdPct": 32,
         "convStartMode": "rmd",
         "convStart": 0,
+        "convStartBracket": 24,
+        "convStartItemized": 35000,
         "stretch": false,
         "aum": false
       },
@@ -206,6 +210,8 @@
     "p2": 92
   },
   "living": 90000,
+  "basisSwap": false,
+  "basisSwapYears": 3,
   "scgl": 0,
   "scglEnabled": false,
   "ltc": {
@@ -236,14 +242,14 @@
   },
   "ui": {
     "incomeOrder": [
-      "ira",
       "brokerage",
+      "ira",
+      "roth",
       "ss",
+      "wage",
       "pension",
       "rental",
-      "annuity",
-      "wage",
-      "roth"
+      "annuity"
     ],
     "hiddenSections": {
       "assumptions": false,
@@ -257,7 +263,8 @@
     "assumpHide": {
       "scgl": true,
       "aum": true,
-      "ltc": false,
+      "swap": true,
+      "ltc": true,
       "future": true
     },
     "ltcgDevalue": 0,
