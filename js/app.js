@@ -39,6 +39,7 @@ function renderAll(){
   renderScglPanel();
   renderAumFee();
   renderFutureTaxPanel();
+  renderSwapPanel();
   renderLtcPanel();
   renderIncomeForms();
   renderFooter();

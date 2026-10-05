@@ -17,6 +17,7 @@ This page explains how to work with the planner. Everything is entered in **toda
 ## Getting started
 
 1. In **Household Setup**, choose **Single / widowed** or **Married**, then set the assumptions: inflation rate (also used as the Social Security COLA), household living expenses, the suspended capital-gain loss (SCGL) carryforward, and the advisory (AUM) fee.
+   **Asset / basis swap** (unchecked by default, above Long Term Care): when checked, *Living expense & income* portfolio assets are swapped, value for value, with *IDGT* assets, and the basis moves in proportion to the assets traded, so the IDGT ends up with the high-basis assets and the living portfolio with the low-basis ones, which step up at the last passing. Enter how many **years before the last passing** to swap (single or married). If married, the swap is also done the year after the first person passes, when that person's portfolio steps up (no value needed). A swap only happens where the IDGT's assets have a lower basis % than the living portfolio's (both portfolios must track cost basis); the amount is the smaller of the two values, and a swap is only between portfolios held by the same person: a portfolio marked **Joint owned with spouse** is held by the spouse once its owner has passed (one without it is gone, so it cannot be swapped). Because the living portfolio then holds low-basis assets, it realizes more gain if it sells to pay expenses.
    Long Term Care living expenses start at $7,500 for a single household; for a married household the 1st LTC living expenses follow your household living expenses until you change them and the 2nd default to $15,000 (all in today's $).
    The SCGL, AUM fee, Long Term Care and speculative-model items in the Assumptions panel each have an **Enable** box on the left (untick it and the plan ignores that item, but keeps what you typed) and a **Hide** box on the right (collapses the item to save screen space without changing the plan).
 2. Under **Income Sources**, fill in each person: birth date, Social Security, wages, pension, **rental properties**, the **pre-tax IRA / 401(k)**, the **Roth IRA**, and any **brokerage portfolios**. Switch an item on with its checkbox, then fill in its details.
@@ -24,7 +25,7 @@ This page explains how to work with the planner. Everything is entered in **toda
 
 **Reordering cards:** drag the ⋮⋮ handle at the left of any income card (Social Security, wages, pension, rentals, annuities, brokerage, IRA, Roth) and drop it above or below another card. In a married plan both spouses' cards of that type move together. The order is saved with the plan and restored when you load it. (Drag and drop works with a mouse or pen; it is not available on touch screens.)
 
-Most items have an **age range** (when the amount starts and stops) and an **annual change** (how the amount grows or shrinks in real, today's-dollar terms). In a married plan, an item can be set to **continue to the spouse** after its owner passes.
+Most items have an **age range** (when the amount starts and stops) and an **annual change** (how the amount grows or shrinks in real, today's-dollar terms). In a married plan, an owned item (rental, brokerage portfolio, annuity) can be marked **Joint owned with spouse** and an IRA (pre-tax or Roth) or a pension **Inherited by spouse**, so in both cases the spouse owns it (or receives it) after the first person passes.
 
 ## The top buttons
 
@@ -54,12 +55,12 @@ If household income is more than the expenses, the leftover is *excess income*. 
 
 ## Annuities
 
-The **Annuity** card (under Brokerage portfolio income; **Add** / **Remove**, one set per person) holds any number of annuity contracts. Each has an account value, an optional premium (cost basis; blank = account value), credited growth (**net of all fees**), a payout Start–End age, an annual payout, a passing benefit, and an optional *Continues to spouse* box.
+The **Annuity** card (under Brokerage portfolio income; **Add** / **Remove**, one set per person) holds any number of annuity contracts. Each has an account value, an optional premium (cost basis; blank = account value), credited growth (**net of all fees**), a payout Start–End age, an annual payout, a passing benefit, and an optional *Joint owned with spouse* box.
 
 - **Annual payout:** *Fixed $* (a nominal amount, not adjusted for inflation or COLA) or *% of annual account value*. Payouts stop when the account is empty.
 - **Payout tax treatment:** *Non-qualified, withdrawals* (gain is taxed first, then premium comes out tax-free); *Non-qualified, annuitized* (exclusion ratio: premium ÷ expected total payout to the owner's passing age is tax-free until the premium is recovered); *Qualified / IRA annuity* (fully taxable); or *Tax-exempt payout* (a % of every payout and of the passing benefit is untaxed). Taxable payouts are ordinary income (non-qualified ones also count as net investment income for NIIT). Tax-exempt payouts are never in AGI but count toward Social Security taxation and MAGI (IRMAA), and all payouts are household cash income that pays expenses.
 - **Passing benefit (paid to heirs):** *Fixed $*, *Initial account value* (both not adjusted for inflation), or *Account value at passing*. It is paid when the contract ends (the owner's passing, or the spouse's if the contract continues) and is shown in the Asset Value tooltip and the Excel export with its taxable and tax-exempt parts: all taxable if qualified; the amount above the remaining premium if non-qualified; the non-exempt % if tax-exempt. It is not household cash flow.
-- **Asset Value chart:** each annuity's account value is a band on the main chart. The *Ordinary income withdraw cost* slider applies to the taxable part of an annuity's value (whole value if qualified, gain only if non-qualified). Annuities end with their owner unless continued to the spouse; there is no stretch.
+- **Asset Value chart:** each annuity's account value is a band on the main chart. The *Ordinary income withdraw cost* slider applies to the taxable part of an annuity's value (whole value if qualified, gain only if non-qualified). Annuities end with their owner unless marked joint owned with the spouse; there is no stretch.
 
 ## Rental income and tax-exempt income
 
@@ -82,7 +83,7 @@ The two rows of sliders above the Asset Value chart show roughly what the balanc
 - **Ordinary income withdraw cost** removes that percentage of the pre-tax IRA balance.
 - The Roth IRA is never reduced.
 - The **Before the last passing** pair applies to the years up to the last passing. The **After the last passing** pair applies to the years after it, using the heirs' anticipated tax brackets. All four default to 0%.
-- The dashed **cost-basis line** is drawn only in years where the LTCG withdraw cost is 0%. Any LTCG withdraw cost moves the brokerage band toward 100% basis, so the line would no longer mark the top of the gain.
+- The dashed **cost-basis line** is drawn only in years where the LTCG withdraw cost is 0%. Any LTCG withdraw cost moves the brokerage band toward 100% basis, so the line would no longer mark the top of the gain. In the hover popups of both asset charts, each brokerage portfolio that tracks cost basis shows its **cost basis as a % of its value** (100% means no unrealized gain), and the dashed line's row shows the basis as a % of the total brokerage value.
 
 ## Tax features worth knowing
 

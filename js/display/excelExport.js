@@ -153,12 +153,12 @@ function xlsxSheetName(base, used){
 
 function xlsxPortfolioSheet(proj, i, bi){
   const person=displayPersonName(proj.people[i], i);
-  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','AUM fee share','Realized LTCG (gross, before SCGL)','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Dividends used for expenses','Dividends reinvested','Shares sold','Excess income reinvested','Tax-exempt income paid']];
+  const rows=[['Year',`${person} age`,'Balance (SOY)','Growth %','Net growth %','AUM fee share','Realized LTCG (gross, before SCGL)','Cost basis (SOY)','Unrealized gain (SOY)','Stepped up this year','Swapped with IDGT this year (value)','Dividends used for expenses','Dividends reinvested','Shares sold','Excess income reinvested','Tax-exempt income paid']];
   proj.rows.forEach(r=>{
     const e=r.portfoliosByPerson[i][bi]; if(!e) return;
     rows.push([THIS_YEAR+r.k, round1(r.ages[i]), e.balance, round1(e.growthPct), round1(e.netGrowthPct!=null?e.netGrowthPct:e.growthPct),
       e.feeDrag, e.ltcg,
-      e.tracked?e.basis:'', e.tracked?e.unrealizedGain:'', e.steppedUp?'Yes':'',
+      e.tracked?e.basis:'', e.tracked?e.unrealizedGain:'', e.steppedUp?'Yes':'', e.swapAmt>0?e.swapAmt:'',
       e.divUsed, e.divReinvested, e.sold, e.excessReinvested||0, e.taxExempt||0]);
   });
   return rows;

@@ -304,10 +304,13 @@ function computeProjection(){
   // Cost basis is tracked in today's $ alongside every portfolio's balance: `basis` starts at the entered cost
   // basis % × start balance (blank = no unrealized gain today, i.e. basis = balance), clamped to [0, balance].
   // `stepped` marks that the owner-death step-up has been considered; `steppedNow` flags the year it applied.
+  // Asset / basis swap timing: row of the last passing (first row with nobody alive) minus `basisSwapYears` (at least 1), not before row 0.
+  const lastPassRow=Math.max(...people.map((p,i)=>Math.max(0,Math.ceil(passAges[i]-curAges[i]-1e-9))));
+  const swapRow=Math.max(0,lastPassRow-Math.max(1,Math.round(Number(state.basisSwapYears)||BASIS_SWAP_YEARS_DEFAULT)));
   const pfState=people.map(p=>(p.brokerage||[]).map(b=>{
     const bal0=Number(b&&b.balance)||0, tracked=pfTracksBasis(b);
     const bas0=tracked?clamp(pfBasisEntered(b)?bal0*Number(b.basisPct)/100:bal0, 0, bal0):0;
-    return {bal:bal0, dead:false, tracked, basis:bas0, stepped:false, steppedNow:false};
+    return {bal:bal0, dead:false, tracked, basis:bas0, stepped:false, steppedNow:false, swapAmt:0};
   }));
 
   // ── Suspended Capital-Gain Loss (SCGL) carryforward, spec §4.5/§8.3 ──
@@ -427,13 +430,55 @@ function computeProjection(){
       // Step-up in basis (spec §4.6, cost basis): the year the owner has passed and the portfolio continues to
       // the surviving spouse, a tracked, non-IDGT portfolio's basis resets to its value (unrealized
       // gain → 0). IDGT assets are outside the owner's estate, so they keep their carryover basis.
-      st.steppedNow=false;
+      st.steppedNow=false; st.swapAmt=0;
       if(!alive[i] && !st.dead && st.tracked && !st.stepped){
         st.stepped=true;
         if(!b.idgt){ st.basis=st.bal; st.steppedNow=true; }
       }
       return st.dead?0:st.bal;
     }));
+    // Asset / basis swap (Assumptions, off by default). The IDGT's swap power lets the household trade assets of equal value with the IDGT, so the
+    // low-basis assets end up in the owner's estate (stepped up at the last passing) and the high-basis assets in the IDGT (carryover basis).
+    // A swap of `S` of value moves the basis in proportion to the assets traded: the living portfolio gives up S × its basis ratio and takes S × the
+    // IDGT's basis ratio, the IDGT the reverse, so total basis is unchanged and so are both balances (growth/dividends are unaffected).
+    // It happens at the start of the year, (A) when a living-expense portfolio's basis steps up after the first passing (married; no setting), and
+    // (B) `basisSwapYears` years before the last passing (single or married). Done only when it helps and is possible: the living portfolio and the
+    // IDGT both exist (not dead), are funded and track cost basis, and the IDGT's basis ratio is lower than the living portfolio's. A swap is between
+    // assets held by the same person: a portfolio is held by its owner while alive and, after the owner passes, by the spouse if its "Joint owned
+    // with spouse" box is checked (otherwise it is gone, `dead`, and cannot be swapped).
+    // IDGTs with the lowest basis % are used first, the living portfolios with the highest basis % first; S = min(value left, IDGT value left).
+    if(state.basisSwap){
+      // Current holder of a portfolio: its owner while alive; once the owner has passed, the spouse if "Joint owned with spouse" is checked.
+      const holder=(i,b)=>alive[i]?i:((b&&b.bene&&married&&people.length===2&&alive[1-i])?1-i:-1);
+      const swapWith=living=>{
+        const idgts=[];
+        people.forEach((p,j)=>(p.brokerage||[]).forEach((b,bj)=>{
+          const t=pfState[j][bj];
+          const own=holder(j,b);                                // who holds it now (-1 = nobody: it has gone)
+          if(b&&b.enabled&&b.idgt&&!t.dead&&own>=0&&t.tracked&&t.bal>0.005) idgts.push({s:t, cap:t.bal, own});
+        }));
+        if(!idgts.length||!living.length) return;
+        living.sort((x,y)=>(y.t.basis/y.t.bal)-(x.t.basis/x.t.bal));
+        living.forEach(Lx=>{
+          const L=Lx.t; let left=L.bal;
+          idgts.sort((x,y)=>(x.s.basis/x.s.bal)-(y.s.basis/y.s.bal));
+          idgts.forEach(g=>{
+            if(!(left>0.005)||!(g.cap>0.005)||g.own!==Lx.own) return;   // a swap is between assets held by the same person
+            const rL=L.basis/L.bal, rI=g.s.basis/g.s.bal;
+            if(!(rI<rL-1e-9)) return;                     // nothing to gain: the IDGT's assets do not have a lower basis %
+            const amt=Math.min(left,g.cap), shift=amt*(rL-rI);
+            L.basis-=shift; g.s.basis+=shift;
+            L.swapAmt+=amt; g.s.swapAmt+=amt; left-=amt; g.cap-=amt;
+          });
+        });
+      };
+      const livingStates=pick=>{ const out=[];
+        people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{ const t=pfState[i][bi];
+          if(b&&b.enabled&&!b.idgt&&!t.dead&&t.tracked&&t.bal>0.005&&pick(t)){ const own=holder(i,b); if(own>=0) out.push({t, own}); } }));
+        return out; };
+      swapWith(livingStates(t=>t.steppedNow));                                  // (A) after the first passing (the stepped-up portfolio)
+      if(k===swapRow) swapWith(livingStates(()=>true));                         // (B) N years before the last passing
+    }
     // Dividends / foreign tax credit per portfolio (independent of expenses).
     const pfVals=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>brokerageValues(b,i,k,pfBalNow[i][bi])));
 
@@ -770,7 +815,7 @@ function computeProjection(){
       return {
         id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, aum:!!b.aum, payExp:!!b.payExp, feeDrag:0, ltcg:0,
         // Cost-basis tracking (spec §4.6, cost basis) — start-of-year values, after any step-up this year.
-        tracked, basis:tracked?st.basis:null, unrealizedGain:tracked?Math.max(0,bal-st.basis):null, steppedUp:tracked&&!!st.steppedNow,
+        tracked, basis:tracked?st.basis:null, unrealizedGain:tracked?Math.max(0,bal-st.basis):null, steppedUp:tracked&&!!st.steppedNow, swapAmt:tracked?(st.swapAmt||0):0,
         divUsed:0, divReinvested:0, sold:0, excessReinvested:0, taxExempt:0, reinvest:!!b.reinvest   // expense waterfall (filled in the roll-forward below): dividends used, dividends reinvested, shares sold
       };
     }));

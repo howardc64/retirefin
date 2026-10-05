@@ -8,6 +8,7 @@ const STORAGE_KEY='retirementPlannerState_v1';
 
 // LTC household living-expense defaults (today's $/yr). Single: the one LTC amount defaults to $7,500. Married: the 1st LTC amount
 // defaults to the household's original living expenses (it follows `state.living` while ltc.living1 is null) and the 2nd to $15,000.
+const BASIS_SWAP_YEARS_DEFAULT=3;   // Asset / basis swap: default years before the last passing
 const LTC_SINGLE_LIVING=7500, LTC_LIVING2_DEFAULT=15000;
 function ltcLiving1Default(married){ return married ? (Number(state.living)||0) : LTC_SINGLE_LIVING; }
 function defaultChange(mode,value){return{mode,value:value||0};}
@@ -113,11 +114,12 @@ function defaultState(){
     people:[defaultPerson(0), defaultPerson(1)],
     passing:{p1:85,p2:90},
     living:0,   // household living expenses per year, today's $ (funded income → dividends → asset sales)
+    basisSwap:false, basisSwapYears:BASIS_SWAP_YEARS_DEFAULT,   // Asset / basis swap (Assumptions): off by default. When on, living-expense portfolio assets (and their proportional basis) are swapped with IDGT assets after the first passing (married) and `basisSwapYears` years before the last passing (see projection.js)
     scgl:0, scglEnabled:true,   // SCGL carryforward; scglEnabled=false makes the projection ignore it (the amount is kept)
     ltc:{enabled:false, people:[{startAge:85,cost:100000},{startAge:85,cost:100000}], living1:null, living2:LTC_LIVING2_DEFAULT},   // Long Term Care: per person start age (own age) and cost; household living expenses from the 1st / 2nd LTC start (today's $)
     aumFee:{enabled:true, mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{incomeOrder:INCOME_CARD_KEYS.slice(), hiddenSections:defaultHiddenSections(), assumpHide:{scgl:false,aum:false,ltc:true,future:true}, ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
+    ui:{incomeOrder:INCOME_CARD_KEYS.slice(), hiddenSections:defaultHiddenSections(), assumpHide:{scgl:false,aum:false,swap:false,ltc:true,future:true}, ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
@@ -170,7 +172,7 @@ function hydrateState(loaded){
   fillLegacyHide(loaded);
   const out=merge(loaded, base);
   // Saves from before the Assumptions cards had Hide: LTC / speculative cards were open only while enabled — keep that.
-  if(loaded && !(loaded.ui && loaded.ui.assumpHide)) out.ui={...out.ui, assumpHide:{scgl:false, aum:false, ltc:!(out.ltc&&out.ltc.enabled), future:!(out.futureTax&&out.futureTax.enabled)}};
+  if(loaded && !(loaded.ui && loaded.ui.assumpHide)) out.ui={...out.ui, assumpHide:{scgl:false, aum:false, swap:false, ltc:!(out.ltc&&out.ltc.enabled), future:!(out.futureTax&&out.futureTax.enabled)}};
   if(loaded && !(loaded.ui && loaded.ui.hiddenSections)) out.ui={...out.ui, hiddenSections:defaultHiddenSections(false)};
   // Older saves had a per-portfolio "Withdrawal" (`living`) and "tax drag %" — both are gone. Carry the
   // withdrawals over as the household living expenses so an old plan keeps roughly the same spending.

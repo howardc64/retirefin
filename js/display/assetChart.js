@@ -117,6 +117,8 @@ function buildAssetChartFor(cfg){
     });
     return any?t:null;
   };
+  // Value (face, before any withdraw cost) of this chart's portfolios in a row — the denominator for the dashed line's cost basis %.
+  const pfValueOf=r=>{ let t=0; series.forEach(s=>{ if(s.type!=='portfolio') return; const e=entryOf(s,r); if(e&&e.balance>0) t+=e.balance; }); return t; };
   const aligned=series.map(s=>alignToAges(ages, allRows.map(r=>valueOf(s,r)), labels));
   const alignedFace=series.map(s=>alignToAges(ages, allRows.map(r=>faceOf(s,r)), labels));
   const alignedBasis=hasPf?alignToAges(ages, allRows.map(basisOf), labels):null;
@@ -167,7 +169,10 @@ function buildAssetChartFor(cfg){
     label:ctx=>{
       if(ctx.raw==null||ctx.raw<1) return null;
       const W=46;
-      if(ctx.datasetIndex>=series.length) return [mrow('  Cost basis (dashed line)', fmt(ctx.raw), W)];
+      if(ctx.datasetIndex>=series.length){
+        const rb=rowByAge[labels[ctx.dataIndex]], tv=rb?pfValueOf(rb):0;
+        return [mrow('  Cost basis (dashed line)', fmt(ctx.raw)+(tv>0?' ('+(ctx.raw/tv*100).toFixed(0)+'% of value)':''), W)];
+      }
       const lines=[mrow('  '+ctx.dataset.label, fmt(ctx.raw), W)];
       const s=series[ctx.datasetIndex], r=rowByAge[labels[ctx.dataIndex]];
       // Show the face value whenever a withdraw-cost slider has changed what's plotted.
@@ -199,6 +204,8 @@ function buildAssetChartFor(cfg){
           const paid=(e.divUsed||0)+(e.sold||0);
           if(paid>0) lines.push(mrow('      Annual growth (net of expenses paid)', (e.netGrowthPct||0).toFixed(1)+'%', W));
           lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
+          // Cost basis as a % of this portfolio's value (100% = no unrealized gain; shown for portfolios that track basis).
+          if(e.tracked && e.balance>0) lines.push(mrow('      Cost basis (% of value)', ((e.basis||0)/e.balance*100).toFixed(0)+'%', W));
           if(showDetails){
             if(e.aum) lines.push(mrow('      AUM fee charged on this balance', fmt(e.feeDrag||0), W));
             lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
@@ -217,6 +224,7 @@ function buildAssetChartFor(cfg){
             lines.push(mrow('      Cost basis', fmt(e.basis||0), W));
             lines.push(mrow('      Unrealized gain', fmt(e.unrealizedGain||0)+' ('+gainPct.toFixed(0)+'% of value)', W));
             if(e.steppedUp) lines.push(mrow('      Basis stepped up at death', 'reset to value', W));
+            if(e.swapAmt>0) lines.push(mrow('      Asset/basis swap with IDGT', fmt(e.swapAmt)+' swapped', W));
           }
         }
       }

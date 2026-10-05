@@ -53,7 +53,7 @@ function buildAnnuityCard(pid, i, p, married){
                 </select></div>
               ${pb==='fixed'?`<div class="field"><label>Fixed passing benefit ($)</label><input type="number" class="money" min="0" step="5000" value="${a.pbFixed||0}" oninput="onNumberInput('${ap}.pbFixed', this.value)"></div>`:'<div></div>'}
               <div class="field full"><div class="item-note">Passing benefit is paid when the contract ends (this person's passing, or the spouse's if it continues). Taxable part: all of it if qualified; the amount above the remaining premium if non-qualified; the non-exempt % if tax-exempt.</div></div>
-              ${married?`<div class="field full"><label style="${lbl}"><input type="checkbox" style="flex:0 0 auto" ${a.bene?'checked':''} onchange="onBeneToggle('${ap}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
+              ${married?`<div class="field full"><label style="${lbl}"><input type="checkbox" style="flex:0 0 auto" ${a.bene?'checked':''} onchange="onBeneToggle('${ap}.bene', this.checked)"> Joint owned with spouse</label></div>`:''}
             </div>
           </div>`;}).join(''):`<div class="item-note">Add one or more annuities to include annuity payouts and their account value.</div>`}
       </div>

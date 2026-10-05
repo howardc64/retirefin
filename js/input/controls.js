@@ -63,7 +63,7 @@ function toggleItem(headerEl){
 function onEnableToggle(path, checked){
   setPath(path, checked);
   // SCGL / AUM fee inputs are greyed while their Enable box is off.
-  if(path==='scglEnabled'||path==='aumFee.enabled') syncAssumpEnable();
+  if(path==='scglEnabled'||path==='aumFee.enabled'||path==='basisSwap') syncAssumpEnable();
   recompute(); saveDebounced();
 }
 // Hide = purely a display-space convenience: collapses the card body without touching whether
@@ -110,7 +110,7 @@ function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel, extraFiel
         ${extraFieldsHtml||''}
         ${renderAgeRangeRow(checkboxPath+'.ar', item.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
         ${renderChangeRow(checkboxPath+'.change', item.change, 0, fixedLabel)}
-        ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${item.bene?'checked':''} onchange="onBeneToggle('${checkboxPath}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
+        ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${item.bene?'checked':''} onchange="onBeneToggle('${checkboxPath}.bene', this.checked)"> Inherited by spouse</label></div>`:''}
       </div>
     </div>`;
 }

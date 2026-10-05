@@ -38,12 +38,22 @@
 
 ---
 
-## Higher Age Roth Conversion
+## Roth Conversion
 
-* **Several Consideration Factors:**
+* **Convert < future tax bracket strategy** A common strategy. App can maximize pre-tax IRA withdraw below target tax bracket.
+* **Higher Aage Conversion Considerations:**
   * If withdraw has very little taxation, then no need for conversion. Scenarios are
     * If LTC cost starts, itemized deduction will eliminate pre-tax IRA withdraw taxation. Resulting lower tax bracket also offers higher Roth conversion pace opportunity.
     * If heir has lower income bracket, their withdraw cost maybe low. However, the withdraw pace with <= 10 years after passing. IRA beneficiary is changeable anytime so ideal tax efficiency is name the lower income bracket heirs for the pre-tax IRA
   * If heir withdraw has high taxation, ideally complete roth convert before passing. Require guesstimate on timing of course.
   * More aggressive Roth Conversion pacing may not be beneficial even for long term. Study overall asset value projection and 10 year after passing stretch to evaluate. Asset Chart include Asset withdraw costs to help evaluation.
+
+---
+
+## Basis Tracking
+
+* **Just Average** A portfolio only tracks average basis %. In reality, asset lots are likely considered during withdrawal to maximize overall tax efficiency.
+* **Reinvestments** These are 100% basis added to basis tracking
+* **Step-up** Portfolio (non IDGT) basis changed to 100% on passing.
+* **Asset/Basis Swaps** Between owner’s portfolio and IDGTs. Very crude. Since average basis %, there is no lot tracking. Most likely asset/basis swap in this crude simulation is after 1st person of married couple passes. Then fully stepped-up basis can be swapped with IDGT. Besides this scenario, crude simulation often doesn’t result in IDGT basis % higher than expense/income portfolio basis % (if IDGT is not higher, then there is no benefit to swap) Again, very crude simulation without lot tracking but perhaps an indicator of the general high level pattern.
 

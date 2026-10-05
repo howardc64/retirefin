@@ -29,7 +29,7 @@ function buildRentalCard(pid, p){
               <div class="field full"><div class="item-note">The taxable amount is net of depreciation (Schedule E). Depreciation is cash to the household but untaxed; it is a fixed dollar amount (straight-line), so it shrinks in today's $, and follows this rental's age range.</div></div>
               ${renderAgeRangeRow(rp+'.ar', r.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
               ${renderChangeRow(rp+'.change', r.change, 0)}
-              ${married?`<div class="field full"><label style="${lbl}"><input type="checkbox" ${r.bene?'checked':''} onchange="onBeneToggle('${rp}.bene', this.checked)"> Continues to spouse after this person passes</label></div>`:''}
+              ${married?`<div class="field full"><label style="${lbl}"><input type="checkbox" ${r.bene?'checked':''} onchange="onBeneToggle('${rp}.bene', this.checked)"> Joint owned with spouse</label></div>`:''}
             </div>
           </div>`;}).join(''):`<div class="item-note">Add one or more rental properties to include rental income.</div>`}
       </div>

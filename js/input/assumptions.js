@@ -59,6 +59,7 @@ function syncAssumpEnable(){
   const set=(ids,on)=>ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=!on; });
   set(['scglInput'], state.scglEnabled!==false);
   set(['aumFeeMode','aumFeeValue'], !(state.aumFee&&state.aumFee.enabled===false));
+  set(['swapYears'], !!state.basisSwap);
 }
 function onAumFeeMode(mode){
   setPath('aumFee.mode', mode);
@@ -66,6 +67,16 @@ function onAumFeeMode(mode){
   renderAumFee(); recompute(); saveDebounced();
 }
 
+// Asset / basis swap card (Enable / Hide like the others; off by default). One input: how many years before the last passing to swap (the swap after the
+// first passing, for a married household, needs no value). See projection.js, "Asset / basis swap".
+function renderSwapPanel(){
+  const yrs=Math.max(1,Math.round(Number(state.basisSwapYears)||BASIS_SWAP_YEARS_DEFAULT));
+  const body=`<div class="field full"><label>Swap this many years before the last passing</label>
+      <input type="number" id="swapYears" min="1" max="60" step="1" value="${yrs}" oninput="onNumberInput('basisSwapYears', this.value)"></div>
+    <div class="item-note">Swaps <em>Living expense &amp; income</em> portfolio assets, value for value, with <em>IDGT</em> assets, and the basis moves in proportion to the assets traded: the IDGT ends up with the high-basis assets and the living portfolio with the low-basis ones, which step up at the last passing. It is done once, that many years before the last person passes (single or married). If married, it is also done the year after the first person passes, when that person's portfolio steps up (no value needed). A swap only happens where the IDGT's assets have a lower basis % than the living portfolio's; the amount is the smaller of the two values. A swap is between portfolios held by the same person: a portfolio marked <em>Joint owned with spouse</em> is held by the spouse once its owner has passed (one without it is gone, so it cannot be swapped).</div>`;
+  document.getElementById('swapPanel').innerHTML=assumpCard('swap','Asset / basis swap','basisSwap',!!state.basisSwap,body);
+  syncAssumpEnable();
+}
 // Long Term Care (Assumptions panel): per person start age (own age) + cost + new living expenses once LTC starts.
 function renderLtcPanel(){
   const l=state.ltc||{}, n=state.filingStatus==='married'?2:1;
