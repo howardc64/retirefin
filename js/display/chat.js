@@ -114,17 +114,19 @@ function buildChatSnapshot(includeNames){
       const c=chatStrip(b); if(!includeNames) c.name='Portfolio'; return c;
     });
     const ann=(Array.isArray(p.annuities)?p.annuities:[]).filter(a=>a.enabled!==false).map(a=>{ const c=chatStrip(a); if(!includeNames) c.name='Annuity'; return c; });
+    const re=(Array.isArray(p.realEstate)?p.realEstate:[]).filter(r=>r.enabled!==false).map(r=>{ const c=chatStrip(r); if(!includeNames) c.name='Property'; return c; });
     out.push(`${label(i)} (current age ${currentAge(p).toFixed(1)}):`);
-    out.push(JSON.stringify({enabled, rentalProperties:rentalProps, brokeragePortfolios:pf, annuities:ann, notEnabled:disabled}));
+    out.push(JSON.stringify({enabled, rentalProperties:rentalProps, brokeragePortfolios:pf, realEstateAssets:re, annuities:ann, notEnabled:disabled}));
   });
   out.push('');
   out.push('## Computed projection (one row per year, from the app; values are annual unless a balance)');
-  out.push('Columns: year; ages (per person, "-" = deceased); filing; wages; ss (Social Security); pension; rental (taxable rental income); rental_dep (non-cash rental depreciation, added to cash income, untaxed); annuity_taxable / annuity_tax_exempt (annuity payouts: taxable part is ordinary income, tax-exempt part is untaxed; both are household income); tax_exempt (tax-exempt portfolio income, untaxed, part of household income); ira_dist (IRA distributions/RMDs); roth_conv (Roth conversions); ira_exp (pre-tax IRA withdrawn to pay expenses once the portfolios are exhausted; taxable ordinary income); roth_exp (Roth IRA withdrawn to pay expenses after the pre-tax IRA is exhausted; untaxed); div (all dividends); qdiv (qualified dividends, included in div); ltcg (realized long-term gains, net of SCGL); agi; magi (AGI + tax-exempt income, used for IRMAA); taxable_ss; senior_ded (enhanced senior deduction, Schedule 1-A, tax years 2025–2028); marginal_pct (marginal rate on the next dollar of ordinary income, includes the Social Security tax torpedo); tax_total (all income tax incl. NIIT); irmaa (Medicare surcharge); exp_living, exp_ltc, exp_tax, exp_irmaa, exp_aum, exp_total (household expenses); exp_unfunded (expenses no source could cover); excess_reinvested (household income left after all expenses, reinvested into portfolios with "Reinvest excess income" checked); bal_brokerage (excl. IDGT), bal_idgt, bal_ira, bal_roth (year balances).');
-  const head = 'year,ages,filing,wages,ss,pension,rental,rental_dep,tax_exempt,annuity_taxable,annuity_tax_exempt,ira_dist,roth_conv,ira_exp,roth_exp,div,qdiv,ltcg,agi,magi,taxable_ss,senior_ded,marginal_pct,tax_total,irmaa,exp_living,exp_ltc,exp_tax,exp_irmaa,exp_aum,exp_total,exp_unfunded,excess_reinvested,bal_brokerage,bal_idgt,bal_ira,bal_roth,bal_annuity';
+  out.push('Columns: year; ages (per person, "-" = deceased); filing; wages; ss (Social Security); pension; rental (taxable rental income); rental_dep (non-cash rental depreciation, added to cash income, untaxed); annuity_taxable / annuity_tax_exempt (annuity payouts: taxable part is ordinary income, tax-exempt part is untaxed; both are household income); tax_exempt (tax-exempt portfolio income, untaxed, part of household income); ira_dist (IRA distributions/RMDs); roth_conv (Roth conversions); ira_exp (pre-tax IRA withdrawn to pay expenses once the portfolios are exhausted; taxable ordinary income); roth_exp (Roth IRA withdrawn to pay expenses after the pre-tax IRA is exhausted; untaxed); div (all dividends); qdiv (qualified dividends, included in div); ltcg (realized long-term gains, net of SCGL); agi; magi (AGI + tax-exempt income, used for IRMAA); taxable_ss; senior_ded (enhanced senior deduction, Schedule 1-A, tax years 2025–2028); marginal_pct (marginal rate on the next dollar of ordinary income, includes the Social Security tax torpedo); tax_total (all income tax incl. NIIT); irmaa (Medicare surcharge); exp_living, exp_ltc, exp_tax, exp_irmaa, exp_aum, exp_total (household expenses); exp_unfunded (expenses no source could cover); excess_reinvested (household income left after all expenses, reinvested into portfolios with "Reinvest excess income" checked); bal_brokerage (excl. IDGT), bal_idgt, bal_ira, bal_roth, bal_annuity, bal_realestate (year balances; real estate values are after tax, counting exempt gains, and it pays no expenses).');
+  const head = 'year,ages,filing,wages,ss,pension,rental,rental_dep,tax_exempt,annuity_taxable,annuity_tax_exempt,ira_dist,roth_conv,ira_exp,roth_exp,div,qdiv,ltcg,agi,magi,taxable_ss,senior_ded,marginal_pct,tax_total,irmaa,exp_living,exp_ltc,exp_tax,exp_irmaa,exp_aum,exp_total,exp_unfunded,excess_reinvested,bal_brokerage,bal_idgt,bal_ira,bal_roth,bal_annuity,bal_realestate';
   out.push(head);
   (proj.rows||[]).forEach(r=>{
-    let brk=0, idgt=0;
+    let brk=0, idgt=0, reBal=0;
     (r.portfoliosByPerson||[]).forEach(list=>(list||[]).forEach(e=>{ if(e.idgt) idgt+=e.balance||0; else brk+=e.balance||0; }));
+    (r.realEstateByPerson||[]).forEach(list=>(list||[]).forEach(e=>{ reBal+=e.balance||0; }));
     out.push([
       THIS_YEAR+r.k,
       (r.ages||[]).map((a,i)=>(r.alive&&r.alive[i]===false)?'-':Math.floor(a)).join('/'),
@@ -134,7 +136,7 @@ function buildChatSnapshot(includeNames){
       chatRound(r.agi), chatRound(r.magi), chatRound(r.taxableSS), chatRound(r.seniorDeduction), (Number(r.marginalRate)*100||0).toFixed(1),
       chatRound(r.totalTax), chatRound(r.irmaaSurcharge),
       chatRound(r.expLiving), chatRound(r.expLtc), chatRound(r.expTax), chatRound(r.expIrmaa), chatRound(r.expAum), chatRound(r.expTotal), chatRound(r.expUnfunded), chatRound(r.excessReinvested),
-      chatRound(brk), chatRound(idgt), chatRound(chatSum(r.iraBalByPerson)), chatRound(chatSum(r.rothBalByPerson)), chatRound(r.annuityBalance)
+      chatRound(brk), chatRound(idgt), chatRound(chatSum(r.iraBalByPerson)), chatRound(chatSum(r.rothBalByPerson)), chatRound(r.annuityBalance), chatRound(reBal)
     ].join(','));
   });
   if(proj.stretch && proj.stretch.length && proj.people.some(p=>(p.ira.enabled&&p.ira.stretch)||(p.roth&&p.roth.enabled&&p.roth.stretch))){

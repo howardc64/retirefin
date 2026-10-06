@@ -312,6 +312,14 @@ function computeProjection(){
     const bas0=tracked?clamp(pfBasisEntered(b)?bal0*Number(b.basisPct)/100:bal0, 0, bal0):0;
     return {bal:bal0, dead:false, tracked, basis:bas0, stepped:false, steppedNow:false, swapAmt:0};
   }));
+  // Real estate: a passive asset (no income, no expenses paid from it, never sold). Value grows at its own real rate; cost basis (blank = no
+  // unrealized gain today) is a fixed nominal amount, so in today's $ it erodes by inflation, and it steps up to value when the owner passes
+  // (a property not jointly owned leaves the plan at that point, like a brokerage portfolio).
+  const reState=people.map(p=>(p.realEstate||[]).map(r=>{
+    const bal0=Math.max(0,Number(r&&r.balance)||0);
+    const bas0=clamp(reBasisEntered(r)?Number(r.basis):bal0, 0, bal0);   // dollars, today's $; blank = no unrealized gain
+    return {bal:bal0, dead:false, basis:bas0, stepped:false, steppedNow:false};
+  }));
 
   // ── Suspended Capital-Gain Loss (SCGL) carryforward, spec §4.5/§8.3 ──
   // A household-level pool (today's $) that shields realized LTCG from tax, dollar-for-dollar,
@@ -844,6 +852,27 @@ function computeProjection(){
       entry.netGrowthPct = ((st.bal/bal)-1)*100;
     }));
 
+    // Real estate, start-of-year values (today's $) for the asset chart, then roll each property forward one year.
+    const realEstateByPerson=people.map((p,i)=>(p.realEstate||[]).map((r,ri)=>{
+      const st=reState[i][ri], on=!!r&&r.enabled!==false;
+      st.steppedNow=false;
+      if(on){
+        const spouseAlive=married&&people.length===2&&alive[1-i];
+        if(!alive[i]&&!(r.bene&&spouseAlive)) st.dead=true;
+        if(!alive[i]&&!st.dead&&!st.stepped){ st.stepped=true; st.basis=st.bal; st.steppedNow=true; }
+      }
+      const bal=(on&&!st.dead)?st.bal:0;
+      return {id:r.id, name:(r.name&&r.name.trim())||('Property '+(ri+1)), balance:bal,
+        basis:bal>0?Math.min(st.basis,bal):0, unrealizedGain:bal>0?Math.max(0,bal-st.basis):0,
+        steppedUp:bal>0&&st.steppedNow, growthPct:realGrowth(r.growth,inflation)*100};
+    }));
+    people.forEach((p,i)=>(p.realEstate||[]).forEach((r,ri)=>{
+      const st=reState[i][ri], e=realEstateByPerson[i][ri];
+      if(!(e.balance>0)){ st.bal=0; st.basis=0; return; }
+      st.bal=e.balance*(1+realGrowth(r.growth,inflation));
+      st.basis=clamp(st.basis/(1+inflation), 0, st.bal);
+    }));
+
     const iraBalByPerson = people.map((p,i)=> iraBal[i][k]!=null?iraBal[i][k]:0);
     const rothBalByPerson = people.map((p,i)=> rothBal[i][k]!=null?rothBal[i][k]:0);
     rows.push({
@@ -852,7 +881,7 @@ function computeProjection(){
       wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson, rentalDep, rentalDepByPerson, teIncome, teByPerson, annuity, annuityTE, annuityByPerson, annuityTEByPerson, annuitiesByPerson, annuityBalance,
       odiv, qdiv, odivNQ, ltcg, ltcgGross, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
-      iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, embeddedGain, embeddedGainIdgt,
+      iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, realEstateByPerson, embeddedGain, embeddedGainIdgt,
       nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, ltcStarted, ltcCostByPerson, noConvOrdTI, noConvItemized, convTriggerStartedByPerson:iraSim.map(s=>s.startedK===k), agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate,
       niiIncome, niit,
@@ -877,6 +906,7 @@ function computeProjection(){
     const gIra=people.map(p=>realGrowth(p.ira.growth,inflation));
     const gRoth=people.map(p=>p.roth&&p.roth.growth?realGrowth(p.roth.growth,inflation):0);
     const gPf=people.map(p=>(p.brokerage||[]).map(b=>realGrowth(b.growth,inflation)));
+    const gRe=people.map(p=>(p.realEstate||[]).map(r=>realGrowth(r.growth,inflation)));
     let any=false;
     for(let n=1;n<=STRETCH_YEARS;n++){
       const k=last.k+n, ages=curAges.map(a=>a+k);
@@ -891,8 +921,15 @@ function computeProjection(){
                 basis:Math.min(basis,balance), unrealizedGain:Math.max(0,balance-basis), steppedUp:n===1,
                 divUsed:0, divReinvested:0, sold:0, growthPct:g*100, netGrowthPct:g*100};
       }));
+      // Real estate still held at the last row carries on like a non-IDGT portfolio: basis stepped up at the passing, then eroding by inflation.
+      const realEstateByPerson=(last.realEstateByPerson||[]).map((list,i)=>list.map((e,ri)=>{
+        if(!e||!(e.balance>0)) return null;
+        const g=gRe[i][ri], balance=e.balance*Math.pow(1+g,n), basis=e.balance*(1+g)/Math.pow(1+inflation,n-1);
+        any=true;
+        return {id:e.id, name:e.name, balance, basis:Math.min(basis,balance), unrealizedGain:Math.max(0,balance-basis), steppedUp:n===1, growthPct:g*100};
+      }));
       if(iraBalByPerson.some(v=>v>0)||rothBalByPerson.some(v=>v>0)) any=true;
-      stretch.push({k, stretchYear:n, age0:ages[idxP0], ages, alive:ages.map(()=>false), iraBalByPerson, rothBalByPerson, portfoliosByPerson});
+      stretch.push({k, stretchYear:n, age0:ages[idxP0], ages, alive:ages.map(()=>false), iraBalByPerson, rothBalByPerson, portfoliosByPerson, realEstateByPerson});
     }
     if(!any) stretch.length=0;
   }

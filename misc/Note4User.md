@@ -8,8 +8,8 @@
   * Spouse age gaps. Widow will inherit spouse’s SS value if higher. If older spouse has higher SS and comfortable to gamble living > 80, then delay start to 70 potentially provides highest SS benefit to younger spouse for even longer.
 * **Social Security Tax Torpedo:** SS taxation is designed to be highly taxable once overall income increase slightly. Widower usually gets torpedoed as they keep all income sources except deceased spouse’s SS while tax bracket is halved. 20-40% of SS are taxes if hit by torpedo
 * **Widower Taxation:** Widower tax rate increase signification from while married. Generally only deceased spouse’s social security income is lost while everything else remains. But all the tax brackets, exemptions etc. are all generally halved
-* **IRMAA:** Medicare cost has surcharges for higher income levels (5 income tiers) Top tiers + Medigap cost converge toward private health insurance costs (~60yo) but probably still cheaper in higher ages. Medicare + good Medigap generally better insurance than cheaper private health insurance.
-* **AUM fee drag:** A 1% AUM fee is significant drag on portfolio value (See MFJ2 sample data). For smaller portfolios, < 1% is difficult. For larger portfolios in maintenance phase, re-negotiate fees with advisor is highly desirable to reduce drag. Probably many financial advisor have business model to lower fees to keep customer fees flowing (even if less) in maintenance phase.
+* **IRMAA:** Medicare cost has surcharges for higher income levels (5 income tiers) Top tiers + Medigap cost converge toward private health insurance costs for 60yo (still less). Medicare + good Medigap generally better insurance than cheaper private health insurance.
+* **AUM fee drag:** A 1% AUM fee is a significant drag on portfolio value (See MFJ2 sample data). For smaller portfolios, < 1% is difficult. For larger portfolios in maintenance phase with reduced workload, re-negotiated fees highly desirable to reduce drag. Probably many financial advisor have business model to lower fees to for maintenance mode clients.
 * **Long Term Compounding Implications:** This can cause geometric change. Even smaller IRA account can compound significantly with only inflation drag. Foreign Tax Credit’s impact can also be high if have typical 20-30%+ international equities. Any error will also have significant geometric impact. So carefully review all inputs. Hopefully program itself will have no significant errors (NO GUARANTEE!)
 ---
 
@@ -55,7 +55,9 @@
 * **Just Average** A portfolio only tracks average basis %. In reality, asset lots are likely considered during withdrawal to maximize overall tax efficiency.
 * **Reinvestments** These are 100% basis added to basis tracking
 * **Step-up** Portfolio (non IDGT) basis changed to 100% on passing.
-* **Asset/Basis Swaps** Between owner’s portfolio and IDGTs. Very crude. Since using only average basis % without lot tracking. Easiest asset/basis swap benefit in this crude simulation is after 1st person of married couple passes. The fully stepped-up basis can be swapped with IDGT at this time. Besides this scenario, crude simulation illustrates all the portfolios with similar asset classes will have similar basis % decrease over time which doesn’t provide much asset/basis swap opportunity. Lot level optimization may improve the yield but is likely a minor benefit compared to 1st passing step-up.
+* **Asset/Basis Swaps** Between owner’s portfolio and IDGTs. Very crude. Using only average basis % so no lot optimizations
+  * However dominant asset/basis swap opportunity is after 1st person of married couple passes (fully stepped-up basis can be swapped with IDGT at this time).
+  * Projection shows any asset generally will have similar basis % decrease over time. Therefore, not much asset/basis swap opportunities. Lot level optimization may improve the yield but is likely a minor benefit compared to 1st passing step-up.
 
 ---
 
@@ -65,5 +67,5 @@
   * web application runs completely on your computer and do not have a build-in chatbot by default
   * this chatbot has to be granted an access API key to LLMs. Tested with google’s free gemini free tier (Gemini flash 3 on 10/4/26 from https://aistudio.google.com/) and it can only answer some simple requests and are often wrong.
 * **Export data to use with frontier chatbots** Export PDF and excel data of your plan and given it to frontier chatbots like chatgpt, claude, grok to ask for review generate quite interesting results and offer more things to consider.
-* **Provide the app and save file** Providing a link to the html app and your plan’s save file is perhaps most powerful. Chatgpt copied the entire app and can have the ability to run various scenarios.
+* **Provide the app and save file** Providing a link to the html app and your plan’s save file is perhaps most powerful. Chatgpt copied the entire app and understand all of the retirement plan logic in the app.
 

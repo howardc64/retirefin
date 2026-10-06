@@ -11,7 +11,7 @@ function renderIncomeForms(){
   // SS, pension, rental, ODIV, QDIV, LTCG, IRA), so both columns
   // always have the same row count; this lets the two-column grid below use
   // CSS subgrid to keep every income type's top edge aligned across people.
-  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*annuity*/ + 1 /*brokerage*/ + 1 /*ira*/ + 1 /*roth*/;
+  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*annuity*/ + 1 /*brokerage*/ + 1 /*real estate*/ + 1 /*ira*/ + 1 /*roth*/;
 
   let html='';
   for(let i=0;i<n;i++){
@@ -20,7 +20,7 @@ function renderIncomeForms(){
     html+=`<div class="person-col"><h3 id="personIncomeHeader_${i}">${escHtml(p.name)}</h3>`;
     const builders={
       wage:()=>buildWageCard(pid, p), ss:()=>buildSSCard(pid, p, i, married), pension:()=>buildPensionCard(pid, p),
-      rental:()=>buildRentalCard(pid, p), brokerage:()=>buildBrokerageCard(pid, i, p, married), annuity:()=>buildAnnuityCard(pid, i, p, married),
+      rental:()=>buildRentalCard(pid, p), brokerage:()=>buildBrokerageCard(pid, i, p, married), realestate:()=>buildRealEstateCard(pid, i, p, married), annuity:()=>buildAnnuityCard(pid, i, p, married),
       ira:()=>buildIraCard(pid, p, married), roth:()=>buildRothCard(pid, p, married)
     };
     // Card order is state.ui.incomeOrder, the same for every person column (drag a card's ⋮⋮ handle to reorder; see below).
@@ -179,6 +179,26 @@ function onAnnuityOptional(path,val){
 }
 // Selects that change which fields are shown (tax treatment) or passing-benefit option re-render the cards.
 function onAnnuitySelect(path,val){ setPath(path,val); renderIncomeForms(); recompute(); saveDebounced(); }
+// Real estate cards: cost basis in $ (blank = null = no unrealized gain), live-updating card title, add / remove.
+function onRealEstateBasis(pid,ri,val){
+  setPath(pid+'.realEstate.'+ri+'.basis', val===''||val==null?null:Math.max(0,+val||0));   // dollars; the projection caps it at the value
+  recomputeDebounced(); saveDebounced();
+}
+function onRealEstateName(pid,ri,val,inputEl){
+  setPath(pid+'.realEstate.'+ri+'.name', val);
+  const title=inputEl.closest('.realestate-card').querySelector('.re-title');
+  if(title) title.textContent=val.trim()||('Property '+(ri+1));
+  recomputeDebounced(); saveDebounced();
+}
+function addRealEstate(i){
+  if(!Array.isArray(state.people[i].realEstate)) state.people[i].realEstate=[];
+  state.people[i].realEstate.push(defaultRealEstate(state.people[i].realEstate.length+1));
+  renderIncomeForms(); recompute(); saveDebounced();
+}
+function removeRealEstate(i,ri){
+  state.people[i].realEstate.splice(ri,1);
+  renderIncomeForms(); recompute(); saveDebounced();
+}
 function removeBrokerage(i,bi){
   state.people[i].brokerage.splice(bi,1);
   renderIncomeForms(); recompute(); saveDebounced();

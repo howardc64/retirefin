@@ -101,7 +101,7 @@ function justifyTip(cb){
   let W=0;
   const call=(fn,self,arg)=>fn?fn.call(self,arg):null;
   const pad=r=>r==null?r:tipLines(r).map(l=>tipPad(l,W));
-  return {
+  const out={
     // Chart.js builds the title first, so measure the whole popup here.
     title(items){
       const all=[...tipLines(call(cb.title,this,items))];
@@ -114,6 +114,9 @@ function justifyTip(cb){
     afterBody(items){ return pad(call(cb.afterBody,this,items)); },
     footer(items){ return pad(call(cb.footer,this,items)); }
   };
+  // Pass-through for the color-box callback (it draws the swatch, not a text line, so it needs no padding).
+  if(cb.labelColor) out.labelColor=function(ctx){ return cb.labelColor.call(this,ctx); };
+  return out;
 }
 
 // ── Shared Chart.js configuration (used by all five charts) ──

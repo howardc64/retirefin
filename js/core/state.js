@@ -49,6 +49,16 @@ function defaultBrokeragePortfolio(balance, n){
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
   return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
 }
+// Real estate asset (per person, any number): a passive asset with no income stream — no dividends, tax-exempt yield, foreign credit, AUM fee,
+// type (IDGT) or expense funding. `balance` = value today ($, today's $) entered AFTER TAX, counting any gain covered by an exemption (e.g. the
+// home-sale exclusion) at full value, so the app computes no tax on it. `basis` = cost basis in dollars, today's $ (blank = no unrealized gain
+// today; capped at the value). Saves from the short-lived % version (`basisPct`) are converted on load. `growth` = annual change, default 'inflation' (flat in today's $). `bene` = Joint owned with
+// spouse. The basis is a fixed nominal amount, so in today's $ it erodes with inflation, and steps up to value when the owner passes (to the
+// surviving spouse if jointly owned; otherwise the property leaves the plan, like a brokerage portfolio).
+function defaultRealEstate(n){
+  return {id:uid(), enabled:true, hidden:false, name:'', balance:0, basis:null, growth:defaultChange('inflation',0), bene:false};
+}
+function reBasisEntered(r){ return !!r && r.basis!=null && r.basis!=='' && Number.isFinite(Number(r.basis)); }
 // Annuity (per person, any number): `value` = current account value (today's $), `premium` = cost basis / premium paid ($, blank = value,
 // i.e. no gain), `growth` = credited rate, NET of all fees (an annual-change spec), `ar` = payout Start–End age,
 // `payoutMode` ('fixed' = fixed nominal $ `payout`, no inflation/COLA | 'pct' = `payoutPct` % of the account value each year),
@@ -81,6 +91,7 @@ function defaultPerson(idx){
     annuities: [],   // any number of annuities (see defaultAnnuity); Add/Remove on the Annuity card
     rentals: [],   // any number of rental properties (see defaultRental); Add/Remove on the Rental income card
     brokerage:[],
+    realEstate:[],   // any number of real estate assets (see defaultRealEstate); Add/Remove on the Real estate card
     ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, convMode:'fixed', convIrmaaPct:40, convOrdPct:32, convStartMode:'rmd', convStart:0, convStartBracket:24, convStartItemized:35000, stretch:false, aum:false},   // convMode: 'fixed' ($/yr, today's $ = conv) or 'bracket' (convert as much as fits BELOW the IRMAA bracket and the ordinary bracket chosen with the sliders; stops in CONV_*_STOPS, null = no limit); convStartMode: 'rmd' (conversions begin at the IRA's Start / RMD age), 'now', 'custom' (uses convStart), or a trigger that starts conversions the first year it is met and keeps them going: 'bracket' (taxable ordinary income before any conversion is below the convStartBracket % bracket), 'itemized' (itemized deductions before any conversion exceed convStartItemized, today's $) or 'ltc' (the first LTC start)
     roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false, aum:false}
   };
@@ -92,7 +103,7 @@ function defaultPerson(idx){
 const SECTION_HIDE_KEYS=['assumptions','ss','income','tss','tax','expenses','assets'];
 const DEFAULT_SECTION_HIDDEN=true;
 // Display order of the income-source cards (`state.ui.incomeOrder`), shared by every person column so married spouses reorder together.
-const INCOME_CARD_KEYS=['wage','ss','pension','rental','brokerage','annuity','ira','roth'];
+const INCOME_CARD_KEYS=['wage','ss','pension','rental','brokerage','realestate','annuity','ira','roth'];
 // A saved order is kept as far as it is valid: unknown / duplicate keys are dropped and any card missing from it (e.g. one added
 // after the save was written) is appended in its default position order.
 function normalizeIncomeOrder(o){
@@ -215,6 +226,14 @@ function hydrateState(loaded){
     p.rentals=p.rentals.map(r=>merge(r, defaultRental(0)));
     if(!Array.isArray(p.annuities)) p.annuities=[];
     p.annuities=p.annuities.map(a=>merge(a, defaultAnnuity(0)));
+    if(!Array.isArray(p.realEstate)) p.realEstate=[];
+    p.realEstate=p.realEstate.map(r=>{
+      // Older real estate saves held the basis as a % of value (`basisPct`): convert to dollars.
+      if(r && r.basis===undefined && r.basisPct!=null && r.basisPct!=='' && Number.isFinite(Number(r.basisPct))){
+        r=Object.assign({}, r, {basis: Math.round((Number(r.balance)||0)*Math.min(100,Math.max(0,Number(r.basisPct)))/100)});
+      }
+      return merge(r, defaultRealEstate(0));
+    });
     // Older saves have no convStartMode: a plan that already converts keeps its old start (convStart>0 = that age, else now); one that
     // does not convert simply takes the new default (RMD start).
     const lpIra=loaded&&Array.isArray(loaded.people)&&loaded.people[pi]&&loaded.people[pi].ira;
@@ -294,6 +313,7 @@ function applyDefaultHiddenFromEnabled(s){
     (p.rentals||[]).forEach(r=>{ r.hidden = !(r.enabled!==false); });
     (p.annuities||[]).forEach(a=>{ a.hidden = !(a.enabled!==false); });
     (p.brokerage||[]).forEach(b=>{ b.hidden = !(b.enabled!==false); });
+    (p.realEstate||[]).forEach(r=>{ r.hidden = !(r.enabled!==false); });
   });
   return s;
 }

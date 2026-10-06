@@ -319,7 +319,8 @@ ${fpEq(
   `brokerage band = balance − LTCG withdraw cost % × unrealized gain`,
   `pre-tax IRA band = balance × ( 1 − ordinary income withdraw cost % )`,
   `annuity band = balance − ordinary income withdraw cost % × taxable part of the balance`,
-  `Roth IRA band = balance   (no withdraw cost)`
+  `Roth IRA band = balance   (no withdraw cost)`,
+  `real estate band = value   (no withdraw cost; already entered after tax)`
 )}
 <p>Because the withdraw cost removes a share of the gain but leaves basis untouched, a 100% LTCG withdraw cost puts the top of the brokerage band exactly at cost basis. The dashed cost-basis line is therefore drawn only in years where the applicable LTCG withdraw cost is 0%; at any LTCG withdraw cost above 0% the line is removed (and so is its legend key).</p>
 
@@ -357,6 +358,25 @@ ${fpEq(
   `Δ balance = growth − ( dividends used + shares sold )`
 )}
 <p>Household income pays expenses first, so a portfolio is only drawn down when income falls short. A portfolio outside its age range just compounds: it pays no dividends and is not sold.</p>
+
+<h3>Real Estate</h3>
+<p>Each person can hold any number of properties (Add / Remove on the Real estate card). A property is a passive asset: it has no dividends, tax-exempt income, foreign tax credit, AUM fee or portfolio type, is never sold to pay expenses, and so has no effect on income, expenses or tax. Its value is entered in today's dollars <em>after tax, with any gain covered by an exemption counted in full</em>; the app computes no tax on it. Let <em>V</em> be the start-of-year value, the amount plotted on the Asset Value chart:</p>
+${fpEq(
+  `V<sub>0</sub> = value entered`,
+  `V<sub>next</sub> = V × ( 1 + real growth )`
+)}
+${fpWhere('Real growth follows the Annual change setting, in today\'s dollars: Tracks inflation = 0%; Inflation ± X% = X% ÷ ( 1 + inflation ); Custom annual % = ( 1 + X% ) ÷ ( 1 + inflation ) − 1; Fixed $ = 1 ÷ ( 1 + inflation ) − 1. The default is Tracks inflation, so the value stays flat in today\'s dollars.')}
+<p><strong>Cost basis.</strong> The basis is entered in today's dollars (a blank basis is treated as no unrealized gain today, and a basis above the value is capped at the value). Like a portfolio's basis it is a fixed nominal amount, so it erodes with inflation, and the unrealized gain and the basis % shown in the Asset Value popup follow from it:</p>
+${fpEq(
+  `basis<sub>0</sub> = cost basis entered   (blank = <em>V</em><sub>0</sub>;&ensp;at most <em>V</em><sub>0</sub>)`,
+  `basis<sub>next</sub> = ${fpFr('basis','1 + inflation')}`,
+  `unrealized gain = max( 0,&ensp;<em>V</em> − basis )`,
+  `basis % = ${fpFr('basis','<em>V</em>')}`
+)}
+<p>When the owner passes and the property is <em>Joint owned with spouse</em>, the surviving spouse keeps it and its basis steps up to its value (gain becomes $0); otherwise the property leaves the plan at that point. A property still held at the last passing carries on through the post-passing years like a non-IDGT portfolio: its basis is stepped up to value at the passing and then erodes with inflation.</p>
+<p><strong>Asset Value chart.</strong> Real estate is stacked above the brokerage portfolios and below the IRAs. It is not reduced by either withdraw cost slider, because the value is already after tax. The dotted cost-basis line inside each property's band plots at:</p>
+${fpEq(`line height = top of everything stacked below the band + basis`)}
+<p>so it sits at the basis % of the way up the band, and the part of the band above it is the unrealized gain.</p>
 
 <h3>Annuities</h3>
 <p>Each person can hold any number of annuities (Add / Remove on the Annuity card). An annuity is simulated year by year in today\'s dollars, independently of the tax calculation. Let <em>V</em> be the start-of-year account value; it is the amount plotted on the Asset Value chart. The credited growth is entered net of all fees, so there is no separate fee.</p>
