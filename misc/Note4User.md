@@ -55,5 +55,15 @@
 * **Just Average** A portfolio only tracks average basis %. In reality, asset lots are likely considered during withdrawal to maximize overall tax efficiency.
 * **Reinvestments** These are 100% basis added to basis tracking
 * **Step-up** Portfolio (non IDGT) basis changed to 100% on passing.
-* **Asset/Basis Swaps** Between owner’s portfolio and IDGTs. Very crude. Since average basis %, there is no lot tracking. Most likely asset/basis swap in this crude simulation is after 1st person of married couple passes. Then fully stepped-up basis can be swapped with IDGT. Besides this scenario, crude simulation often doesn’t result in IDGT basis % higher than expense/income portfolio basis % (if IDGT is not higher, then there is no benefit to swap) Again, very crude simulation without lot tracking but perhaps an indicator of the general high level pattern.
+* **Asset/Basis Swaps** Between owner’s portfolio and IDGTs. Very crude. Since using only average basis % without lot tracking. Easiest asset/basis swap benefit in this crude simulation is after 1st person of married couple passes. The fully stepped-up basis can be swapped with IDGT at this time. Besides this scenario, crude simulation illustrates all the portfolios with similar asset classes will have similar basis % decrease over time which doesn’t provide much asset/basis swap opportunity. Lot level optimization may improve the yield but is likely a minor benefit compared to 1st passing step-up.
+
+---
+
+## How to use AI
+
+* **Built-in chatbot** The “ask about this plan” chatbot is quite limited in value because
+  * web application runs completely on your computer and do not have a build-in chatbot by default
+  * this chatbot has to be granted an access API key to LLMs. Tested with google’s free gemini free tier (Gemini flash 3 on 10/4/26 from https://aistudio.google.com/) and it can only answer some simple requests and are often wrong.
+* **Export data to use with frontier chatbots** Export PDF and excel data of your plan and given it to frontier chatbots like chatgpt, claude, grok to ask for review generate quite interesting results and offer more things to consider.
+* **Provide the app and save file** Providing a link to the html app and your plan’s save file is perhaps most powerful. Chatgpt copied the entire app and can have the ability to run various scenarios.
 

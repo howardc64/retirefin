@@ -34,6 +34,7 @@ Most items have an **age range** (when the amount starts and stops) and an **ann
 - **Reset to defaults** — clears the plan back to its starting values.
 - **Export to Excel** — downloads the full year-by-year projection (the "Projection by year" sheet) plus one sheet per account. It includes the Annual Household Income popup's *Total income*, the ordinary income before deduction, the deduction, ordinary / qualified / total taxable income, and the no-conversion figures and "trigger met" flag used by the Roth conversion start triggers.
 - **Show Details in Popup** — adds the line-by-line breakdown to the hover popups on the main charts. The small charts beside Annual Household Income, Total Income Tax and Asset Value show the plan owner(s) and age, then only their own values.
+- **Popup background** — the slider to the right of *Show Details in Popup* sets how light or dark every chart popup is, from a see-through white (left) to a see-through black (right), so the chart underneath stays visible; the text switches to dark on a light background. It is remembered in your browser.
 
 The Usage, Notes and Formulas pages open in a new tab. Usage and Notes read their text from the `misc` folder when you click, so they show whatever those files currently say. This works when the app is served over `http(s)`; if you opened it as a local `file://` page the browser may block it, and the new tab will say so.
 

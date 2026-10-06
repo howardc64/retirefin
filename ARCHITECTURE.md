@@ -534,6 +534,7 @@ presentation is fine; new financial logic is not).
 **Section Hide:** every chart section header (Social Security start age, Annual Household Income, Social Security Tax, Total Income Tax, Household Expenses, Asset Value incl. the IDGT card) carries a **Hide** checkbox (`onSectionHide`, §5.1; kept in `state.ui.hiddenSections`, so saved/restored/reset with the plan; default checked). Also on the Assumptions panel (§5.3).
 | Export | Contract |
 |---|---|
+| `tipBg` / `tipTheme()` / `setTipBg()` / `TIP_ALPHA` | Popup background slider (`#tipBgSlider`, header, right of Show Details; 0 = light … 100 = dark, saved in `localStorage` key `tipBg`). `tipTheme()` gives the see-through background, text and border colors; `TIP_STYLE` uses them as scriptable Chart.js options (built-in tooltips) and `externalTooltip` applies them to the floating `#extTooltip`; `setTipBg` updates a visible popup immediately. |
 | `showDetails` / `viewIrmaaAsTax` / `OVERLAY_COLOR` | The `show_details` flag, the Total Income Tax "view IRMAA as tax" flag, and the single (black) color of every dashed reference line — read live by the charts' tooltips/plugins |
 | `mrow`, `tipLines`, `tipPad`, `justifyTip`, `TIP_STYLE` | Tooltip layout: label left-justified, value right-justified |
 | `CHART_BASE`, `ageXAxis`, `AXIS_COLOR`, `AXIS_TICKS`, `axisTitle` | Shared Chart.js base config — chart width = 2/3 page width, height = width, X axis = P0's age from current age to the younger person's age-100 |

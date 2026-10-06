@@ -30,6 +30,9 @@
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;">
       <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Show Details in Popup
     </label>
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-muted);" title="Popup background: light (see-through white) to dark (see-through black)">
+      Popup background <span>light</span><input type="range" id="tipBgSlider" min="0" max="100" step="1" value="85" style="width:90px" oninput="setTipBg(this.value)"><span>dark</span>
+    </label>
     <span class="savemsg" id="saveMsg"></span>
   </div>
 </header>

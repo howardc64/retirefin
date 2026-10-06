@@ -21,8 +21,27 @@ let viewIrmaaAsTax=false;   // Total Income Tax chart: draw the IRMAA surcharge 
 // up on the same right edge no matter which section or callback produced the line.
 // This needs one monospace font at one size across title/body/footer (TIP_STYLE), and
 // right-aligned title/footer so they line up with body text that Chart.js indents past the color box.
+// ── Popup background: one slider (header, right of "Show Details in Popup") from light (0) to dark (100) drives every popup, built-in and external.
+// The background is see-through (TIP_ALPHA) so the chart underneath stays visible; the text and border flip to dark on a light background.
+// Remembered in localStorage ('tipBg'). Chart.js reads the scriptable colors below on every hover, so no chart rebuild is needed.
+const TIP_ALPHA=0.6;
+let tipBg=85;
+try{ const v=parseFloat(localStorage.getItem('tipBg')); if(Number.isFinite(v)) tipBg=Math.max(0,Math.min(100,v)); }catch(e){}
+function tipTheme(){
+  const c=Math.round(255*(1-tipBg/100)), dark=tipBg>=50;
+  return {bg:`rgba(${c},${c},${c},${TIP_ALPHA})`, fg:dark?'#fff':'#111', border:dark?'rgba(255,255,255,.35)':'rgba(0,0,0,.35)'};
+}
+function setTipBg(v){
+  tipBg=Math.max(0,Math.min(100,Number(v)||0));
+  try{ localStorage.setItem('tipBg',String(tipBg)); }catch(e){}
+  const el=document.getElementById('extTooltip'), t=tipTheme();
+  if(el){ el.style.background=t.bg; el.style.color=t.fg; el.style.borderColor=t.border; el.querySelectorAll('[data-sw]').forEach(s=>s.style.borderColor=t.fg); }
+}
+(function(){ const s=document.getElementById('tipBgSlider'); if(s) s.value=tipBg; })();
 const TIP_SEP='\u0001', TIP_GAP=2;
 const TIP_STYLE={
+  backgroundColor:()=>tipTheme().bg, titleColor:()=>tipTheme().fg, bodyColor:()=>tipTheme().fg, footerColor:()=>tipTheme().fg,
+  borderColor:()=>tipTheme().border, borderWidth:1,
   titleFont:{family:'monospace',size:12},
   bodyFont:{family:'monospace',size:12},
   footerFont:{family:'monospace',size:12},
@@ -38,14 +57,15 @@ function externalTooltip(context){
   let el=document.getElementById('extTooltip');
   if(!el){
     el=document.createElement('div'); el.id='extTooltip';
-    el.style.cssText='position:fixed;z-index:10000;pointer-events:none;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;padding:6px 8px;'+
+    el.style.cssText='position:fixed;z-index:10000;pointer-events:none;border:1px solid;border-radius:6px;padding:6px 8px;'+
       'font:12px monospace;white-space:pre;line-height:1.35;opacity:0;';
     document.body.appendChild(el);
   }
+  const th=tipTheme(); el.style.background=th.bg; el.style.color=th.fg; el.style.borderColor=th.border;
   const GLIDE='opacity .12s, left .3s cubic-bezier(.25,1,.5,1), top .3s cubic-bezier(.25,1,.5,1)';
   if(!tooltip||tooltip.opacity===0){ el.style.transition='opacity .12s'; el.style.opacity=0; el._shown=false; return; }
   const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const line=(t,color)=>`<div style="position:relative;padding-left:14px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${color};border:1px solid #fff;box-sizing:border-box;"></span>`:''}${esc(t)}</div>`;
+  const line=(t,color)=>`<div style="position:relative;padding-left:14px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${color};border:1px solid ${tipTheme().fg};box-sizing:border-box;" data-sw></span>`:''}${esc(t)}</div>`;
   let html='';
   (tooltip.title||[]).forEach(t=>{ html+=line(t); });
   (tooltip.body||[]).forEach((b,i)=>{
