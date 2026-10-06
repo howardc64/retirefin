@@ -18,7 +18,8 @@ function openFormulasPage(){
 function fpBracketTable(brackets, rateAsPct){
   let prev=0;
   const rows = brackets.map(b=>{
-    const range = b.lim===Infinity ? `over ${fmt(prev)}` : `${fmt(prev)} – ${fmt(b.lim)}`;
+    // Matches calcOrdTax/calcQualTax: each limit is the top of its bracket, and a dollar exactly at the limit is taxed at that bracket's rate.
+    const range = b.lim===Infinity ? `over ${fmt(prev)}` : prev===0 ? `up to ${fmt(b.lim)}` : `over ${fmt(prev)} up to ${fmt(b.lim)}`;
     prev = b.lim;
     return `<tr><td>${range}</td><td>${(b.r*100).toFixed(rateAsPct?1:0)}%</td></tr>`;
   }).join('');
@@ -26,12 +27,13 @@ function fpBracketTable(brackets, rateAsPct){
 }
 
 function fpIrmaaTable(tiers){
-  let prev=0;
-  const rows = tiers.map(t=>{
-    const range = t.magi>=750000||t.magi>=500000 ? `over ${fmt(prev)}` : `${fmt(prev)} – ${fmt(t.magi)}`;
-    prev = t.magi;
-    return `<tr><td>${t.label}</td><td>${range}</td><td>${fmt(t.surch)}/yr per enrolled person</td></tr>`;
-  }).join('');
+  // A tier applies once MAGI >= its threshold (see projection.js), up to (not including) the next tier's threshold.
+  let rows = `<tr><td>Standard</td><td>under ${fmt(tiers[0].magi)}</td><td>$0/yr</td></tr>`;
+  tiers.forEach((t,i)=>{
+    const next = tiers[i+1];
+    const range = next ? `${fmt(t.magi)} to under ${fmt(next.magi)}` : `${fmt(t.magi)} and over`;
+    rows += `<tr><td>${t.label}</td><td>${range}</td><td>${fmt(t.surch)}/yr per enrolled person</td></tr>`;
+  });
   return `<table><thead><tr><th>Tier</th><th>MAGI range (2-years-prior)</th><th>Part B+D surcharge</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
