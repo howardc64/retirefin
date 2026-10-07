@@ -58,13 +58,18 @@ function buildTaxChart(){
 
   // "view IRMAA as tax": the IRMAA surcharge paid that year (null when none) stacks on top of the tax stack as a dashed line.
   const alignedIrmaa=alignToAges(ages, rows.map(r=>r.expIrmaa>0?r.expIrmaa:null), labels);
+  // Height of the tax stack itself (the foreign tax credit line is not part of it): the IRMAA line is drawn at this + IRMAA.
+  const stackTop=labels.map((_,i)=>{
+    let t=alignedOrd[i]||0; alignedQ.forEach(a=>t+=a[i]||0); alignedL.forEach(a=>t+=a[i]||0); return t+(alignedNiit[i]||0);
+  });
+  const alignedIrmaaTop=alignedIrmaa.map((v,i)=>v>0?stackTop[i]+v:null);
   const Y_MAX=lockedYMax('tax', ()=>{
     let maxV=0;
     for(let i=0;i<labels.length;i++){
       let t=alignedOrd[i]||0; alignedQ.forEach(a=>t+=a[i]||0); alignedL.forEach(a=>t+=a[i]||0); t+=alignedNiit[i]||0;
       t+=alignedFtc[i]||0;
-      if(viewIrmaaAsTax) t+=alignedIrmaa[i]||0;
       maxV=Math.max(maxV,t);
+      if(viewIrmaaAsTax && alignedIrmaaTop[i]!=null) maxV=Math.max(maxV,alignedIrmaaTop[i]);
     }
     return Math.ceil(Math.max(maxV,1)/2000)*2000+4000;
   });
@@ -91,7 +96,8 @@ function buildTaxChart(){
 
   if(viewIrmaaAsTax){
     const c=OVERLAY_COLOR;
-    datasets.push({label:'IRMAA surcharge', data:alignedIrmaa, borderColor:c, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'tax', order:2});
+    // Own stack id so it is plotted at an absolute height (tax stack + IRMAA), not on top of the foreign tax credit line; irmaaAmt is what the popup reports.
+    datasets.push({label:'IRMAA surcharge', data:alignedIrmaaTop, irmaaAmt:alignedIrmaa, borderColor:c, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'irmaa', order:2});
   }
 
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.
@@ -101,7 +107,8 @@ function buildTaxChart(){
       // Effective-tax-rate line reports in the footer (below), not as a stack segment here.
       if(ctx.dataset.yAxisID==='y1') return null;
       if(ctx.raw==null||ctx.raw===0)return null;
-      return mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr');
+      const v=ctx.dataset.irmaaAmt?ctx.dataset.irmaaAmt[ctx.dataIndex]:ctx.raw;
+      return mrow('  '+ctx.dataset.label, fmt(v)+'/yr');
     },
     footer:items=>{
       const idx=items[0]?items[0].dataIndex:0;

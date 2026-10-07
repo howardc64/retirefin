@@ -345,3 +345,5 @@
 137. Total Income Tax chart: the effective and marginal tax-rate lines are dashed again, with the same dash pattern and width as the foreign tax credit line (7px dash / 4px gap, 3px), and their legend keys are dashed to match.
 
 138. Asset Value chart (main, non-IDGT): the years after the household's last passing (the IRA stretch window) get a light grey tint behind the graph, labeled at the top "10 year stretched IRA window" (`stretchTint` plugin in `overlayPlugin.js`). The IDGT chart is unchanged.
+
+139. Total Income Tax chart, *view IRMAA as tax*: the dashed IRMAA line is now drawn at the top of the tax stack plus IRMAA, no longer stacked above the foreign tax credit line (the popup still reports the IRMAA amount itself).
