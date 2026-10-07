@@ -171,7 +171,15 @@ function buildIncomeChart(){
   const irmaaKeep=crowdedBracketKeep([
     rows.some(r=>r.filing==='married')?IRMAA_MFJ.map(l=>l.magi):null,
     rows.some(r=>r.filing!=='married')?IRMAA_SGL.map(l=>l.magi):null], Y_MAX);
-  const magiOv={irmaaMFJ:withPct(irmaaMFJ.filter(l=>irmaaKeep.has(l.tier))),irmaaSgl:withPct(irmaaSgl.filter(l=>irmaaKeep.has(l.tier))),switchIdx:swIdx};
+  // IRMAA lines only matter while someone is on (or about to be on) Medicare: this year's MAGI sets the premium two years later, so the
+  // lines show from the year a living person is 63 (65 two years on, the same exposure rule the Roth-conversion IRMAA limit uses) until the last passing.
+  let irmFrom=-1, irmTo=-1;
+  labels.forEach((lb,i)=>{
+    const r=rowByAge[lb]; if(!r||!r.alive||!r.ages) return;
+    if(r.alive.some((al,j)=>al&&r.ages[j]+2>=65)){ if(irmFrom<0) irmFrom=i; irmTo=i; }
+  });
+  const magiOv={irmaaMFJ:withPct(irmaaMFJ.filter(l=>irmaaKeep.has(l.tier))),irmaaSgl:withPct(irmaaSgl.filter(l=>irmaaKeep.has(l.tier))),switchIdx:swIdx,
+    fromIdx:irmFrom<0?labels.length:irmFrom, toIdx:irmTo};
   const mKeys=keys.filter(k=>k!=='rentDep'&&k!=='rothExp');   // Roth IRA withdraw is untaxed and not part of MAGI, like untaxed rental depreciation
   const mSeries={}; mKeys.forEach(k=>mSeries[k]=[]);
   const taxSSPart=(r,idx)=>{ const tot=r.totalSS||0; return tot>0 ? (r.taxableSS||0)*((r.ssByPerson[idx]||0)/tot) : 0; };

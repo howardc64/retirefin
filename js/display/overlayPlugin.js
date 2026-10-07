@@ -42,6 +42,8 @@ const incomeOverlayPlugin={
     ctx.beginPath(); ctx.rect(left,top,right-left,bottom-top); ctx.clip();
     const leftLabels=[], rightLabels=[];
     function drawLines(lines,i0,i1,bucket){
+      if(opts.fromIdx!=null) i0=Math.max(i0,opts.fromIdx);   // optional visible window (e.g. IRMAA lines only while on/near Medicare)
+      if(opts.toIdx!=null) i1=Math.min(i1,opts.toIdx);
       if(!lines||i0>i1) return;
       const xa=xP(i0), xb=xP(i1);
       lines.forEach(ln=>{

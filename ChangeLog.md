@@ -347,3 +347,5 @@
 138. Asset Value chart (main, non-IDGT): the years after the household's last passing (the IRA stretch window) get a light grey tint behind the graph, labeled at the top "10 year stretched IRA window" (`stretchTint` plugin in `overlayPlugin.js`). The IDGT chart is unchanged.
 
 139. Total Income Tax chart, *view IRMAA as tax*: the dashed IRMAA line is now drawn at the top of the tax stack plus IRMAA, no longer stacked above the foreign tax credit line (the popup still reports the IRMAA amount itself).
+
+140. MAGI chart: the dashed IRMAA bracket lines are drawn only while a living person is on or about to be on Medicare (age 63+, since a year's MAGI sets the premium two years later), instead of across the whole chart.
