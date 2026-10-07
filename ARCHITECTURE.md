@@ -681,19 +681,34 @@ Editing either `.md` file needs no code change — the next click shows the new 
 ### 6.11 `excelExport.js`
 
 (Annuities: summary-sheet columns for taxable / tax-exempt payouts, account value, the taxable part embedded in it and the passing benefit with its split; plus one sheet per enabled annuity via `xlsxAnnuitySheet`.)
-`exportToExcel()` — the **📊 Export to Excel** button (topbar, right of **Notes**) downloads the current
-plan's full projection as a `.xlsx` workbook via the SheetJS (`XLSX`) library (loaded from a pinned CDN
-`<script>` tag in `index.html`, same pattern as Chart.js). **Projection by year** is always the first sheet —
-one row per projected year, every field in the row schema (§4.6) a chart could plot (income sources, taxes,
-SST/NIIT/IRMAA, AGI, effective/marginal rate, IRA/Roth/brokerage balances, plus the LTC cost per person, LTC-started count and LTC expense, and the deduction columns: standard deduction, 7.5% AGI floor, itemized deduction, deduction used). After it, **every enabled account
-gets its own sheet** (one row per year; `xlsxAccountSheets`), in person order: each enabled brokerage portfolio
-(`"<Person> - <Portfolio>"`, plus ` (IDGT)` when flagged — balance, growth %, drags, withdrawal, LTCG, cost
-basis / unrealized gain, expense-waterfall amounts), then that person's **Pre-tax IRA** (RMD, Roth-conversion
-withdraw, EOY balance) and **Roth IRA** (converted in, EOY balance). Disabled accounts are skipped, so the sheet
-count follows the plan. Sheet names are sanitized and de-duplicated by `xlsxSheetName` (≤31 chars, no `[]:*?/\`).
+`exportToExcel()` — the **📊 Export to Excel** button (topbar, right of **Notes**) downloads the plan as a
+**live-formula `.xlsx` model** via the SheetJS (`XLSX`) library (pinned CDN `<script>` in `index.html`).
+`xlsxBuildWorkbook(proj)` builds every sheet (also used by a Node test harness); the workbook sets `fullCalcOnLoad`.
+Sheets, in order:
+- **Inputs** — every assumption and input value of the saved plan (household, inflation, living, SCGL, AUM fee, future-NIIT,
+  LTC, and per person: birth, passing age, wage, Social Security, pension, pre-tax IRA, Roth, every portfolio, annuity, rental,
+  real estate). Named cells used by formulas: `BaseYear`, `Inflation`, `SCGL_Start`, `Pass_1`/`Pass_2`, `FutNIIT_On/Start/SGL/MFJ`.
+- **Tax tables** — standard / senior deduction, itemized floor, NIIT, SS thresholds, qualified-dividend tiers, ordinary brackets
+  (with rate-step column) and IRMAA tiers, all as defined names (`Std_MFJ`, `MFJ_Lo`/`MFJ_dR`, `QD_*`, `IR_*`, …).
+- **Projection by year** — one row per year. Row 3 labels each column **formula** or **app value**. App values are what the
+  iterative solver produces (income sources, dividends, LTCG gross, SCGL used, foreign tax credit, living / LTC / AUM amounts,
+  expense-funding split, excess income, SST, marginal rate, senior-eligible count). Everything downstream is an Excel formula:
+  per-category totals, total income, taxable SS, provisional income, AGI, MAGI, deductions (standard / itemized / senior),
+  ordinary taxable income, ordinary tax (SUMPRODUCT over brackets), qualified tax, NII, NIIT, Total Tax, effective rate,
+  inflation deflator, SCGL remaining, people on Medicare, IRMAA (tier of MAGI two years back × people on Medicare),
+  total expenses, expenses paid by income, a funding check, and the IRA / Roth / brokerage balances and unrealized gains
+  (`SUMIFS` by Year into the account sheets).
+- **One sheet per enabled portfolio / annuity / IRA / Roth** (person order). Portfolio: unrealized gain, basis %, and a
+  rolled-forward next-year balance; IRA / Roth: EOY balance roll-forward `(prior − RMD − conversion − expense draw) × (1 + growth)`
+  (Roth: `(prior + converted in − sold) × (1 + growth)`) including the 10 stretch years; the real growth rate is derived from the
+  Inputs growth mode / value and `Inflation`. A roll-forward formula is written only where it reproduces the app's balance
+  (e.g. an account that ends at death stays a value). Annuity sheets are values.
+Ages are exported unrounded so the 65+ Medicare test is exact. Verified by recalculating the exported workbook in LibreOffice
+and comparing every formula cell with the app's value (three plans, ~7,000 formula cells, no differences).
 Read-only: reads `lastProjection` (§7.1), never writes into `state`. If
 `lastProjection` has no rows (no income source enabled) or the `XLSX` library failed to load, shows an
-`alert()` instead of downloading an empty/broken file.
+`alert()` instead of downloading an empty/broken file. Sheet names are sanitized and de-duplicated by `xlsxSheetName`
+(≤31 chars, no `[]:*?/\\`).
 
 **Limitation:** `fetch` of a sibling file only works when the app is served over `http(s)` (GitHub
 Pages, any local static server); Chrome blocks it under `file://`. On failure the new tab shows an
