@@ -305,12 +305,16 @@ function buildAssetChartFor(cfg){
     }
   };
 
+  // Grey tint + label behind the stretch window (main chart only): starts at the first stretch year's age on the axis.
+  const stretchOpts=stretch.length?{fromIdx:Math.max(0,labels.indexOf(Math.round(stretch[0].age0))), label:STRETCH_YEARS+' year stretched IRA window'}:null;
   upsertLineChart(cfg.key,{canvasId:cfg.canvasId, labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
+    refresh:o=>{ o.plugins.stretchTint=stretchOpts||false; },
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
+        stretchTint:stretchOpts||false,
         tooltip:{...TIP_STYLE,multiKeyBackground:'transparent',callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{

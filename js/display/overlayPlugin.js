@@ -128,3 +128,26 @@ const ordLabelPlugin={
   }
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('ordLabels')) Chart.register(ordLabelPlugin);
+
+// Asset Value chart: light grey tint behind the IRA stretch window (the years after the household's last passing, when only
+// stretched IRAs / non-IDGT holdings carry on), labeled at its top. Options: {fromIdx, label}; no options = nothing drawn.
+const stretchTintPlugin={
+  id:'stretchTint',
+  beforeDatasetsDraw(chart,args,opts){
+    if(!opts||opts.fromIdx==null) return;
+    const {ctx,chartArea:{left,right,top,bottom},scales:{x}}=chart; if(!x) return;
+    const xa=Math.max(left,x.getPixelForValue(opts.fromIdx)); if(xa>=right) return;
+    ctx.save(); ctx.fillStyle='rgba(120,120,120,.16)'; ctx.fillRect(xa,top,right-xa,bottom-top); ctx.restore();
+  },
+  afterDatasetsDraw(chart,args,opts){
+    if(!opts||opts.fromIdx==null||!opts.label) return;
+    const {ctx,chartArea:{left,right,top},scales:{x}}=chart; if(!x) return;
+    const xa=Math.max(left,x.getPixelForValue(opts.fromIdx)); if(xa>=right) return;
+    ctx.save(); ctx.font='11px DM Sans,sans-serif'; ctx.fillStyle='#555'; ctx.textBaseline='top';
+    const w=ctx.measureText(opts.label).width, fits=w+8<=right-xa;
+    ctx.textAlign=fits?'center':'right';
+    ctx.fillText(opts.label, fits?(xa+right)/2:right-4, top+4);
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('stretchTint')) Chart.register(stretchTintPlugin);

@@ -343,3 +343,5 @@
 136. Total Income Tax chart: a **blue dashed Foreign tax credit line** is stacked on top of the tax stack (just below the optional IRMAA line), showing the credit actually absorbed by income tax so the line's height is tax before credit. It appears in the legend and popup, and counts toward the Y scale. The effective and marginal tax-rate lines are now thin (1.5px) solid lines with thin solid legend swatches; the legend's foreign-tax-credit key is dashed.
 
 137. Total Income Tax chart: the effective and marginal tax-rate lines are dashed again, with the same dash pattern and width as the foreign tax credit line (7px dash / 4px gap, 3px), and their legend keys are dashed to match.
+
+138. Asset Value chart (main, non-IDGT): the years after the household's last passing (the IRA stretch window) get a light grey tint behind the graph, labeled at the top "10 year stretched IRA window" (`stretchTint` plugin in `overlayPlugin.js`). The IDGT chart is unchanged.
