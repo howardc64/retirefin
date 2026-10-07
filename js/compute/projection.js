@@ -66,7 +66,7 @@ function computeProjection(){
   //               solve" below); the IRA / Roth balances are therefore advanced one year at a time: pre(k) = RMD and start-of-year
   //               balances, post(k, conv) = apply the conversion and grow. Every other mode behaves exactly as when the whole
   //               schedule was simulated up front.
-  const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({})), iraAum=people.map(()=>({})), rothAum=people.map(()=>({}));
+  const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({}));
   const iraSim=people.map((p,i)=>{
     const sim={bal:0, done:true, open:false, room:0, fixed:0, mode:'fixed', trigger:null, started:false, startedK:null, live:false, rothOk:false, convAmt:0, pre(){}, post(){}};
     if(!p.ira.enabled) return sim;
@@ -93,9 +93,6 @@ function computeProjection(){
       const otherIdx=1-i;
       const spouseAge=(married&&people.length===2)?curAges[otherIdx]+k:Infinity;
       const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
-      // AUM box: the start-of-year balance counts toward the household AUM balance while the account is held by the
-      // household (owner alive, or inherited by a living spouse) — not while held by heirs under the stretch option.
-      if(p.ira.aum && (ownerAlive || (p.ira.bene&&spouseAlive))) iraAum[i][k]=sim.bal;
 
       // While the owner is alive, use the owner's RMD schedule and the
       // owner's configured end age.  Once the owner passes, an IRA marked
@@ -166,7 +163,6 @@ function computeProjection(){
       const spouseAge=(married&&people.length===2)?curAges[otherIdx]+k:Infinity;
       const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
 
-      if(p.roth.aum && (ownerAlive || (p.roth.bene&&spouseAlive))) rothAum[i][k]=sim.bal;   // start-of-year, as for the pre-tax IRA
       if(!ownerAlive){
         if(!(p.roth.bene&&spouseAlive)){
           // Same "IRA stretch" rule as the pre-tax IRA above: held by heirs and still compounding.
@@ -504,16 +500,14 @@ function computeProjection(){
     const irmaaSurcharge = irmaaTier ? irmaaTier.surch*irmaaEnrolled : 0;
     // The IRMAA surcharge is always a household expense (no per-portfolio opt-in); it is paid by the pool below.
     // AUM fee (spec §4.6): a household assumption (`state.aumFee`) charged on the AUM balance = the start-of-year
-    // balances of every portfolio whose AUM box is checked (and that is enabled, inside its age range and funded).
+    // balances of every non-IDGT portfolio whose AUM box is checked (and that is enabled, inside its age range and funded). IDGTs and IRAs (pre-tax and Roth) are never charged.
     // '% AUM balance' × that sum, or a fixed $/yr (entered in today's $ for year 0, flat nominal, so it shrinks with inflation).
     // The charge is split across the checked accounts pro rata to balance (for display); the whole fee is a household expense
     // paid by the pool below — i.e. only by portfolios with "Pay expenses" checked.
     const aumMode=(state.aumFee&&state.aumFee.mode==='fixed')?'fixed':'pct';
     const aumVal=(state.aumFee&&state.aumFee.enabled===false)?0:Math.max(0,Number(state.aumFee&&state.aumFee.value)||0);   // unchecked Enable → no fee
-    const aumBase=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>(b&&b.aum&&pfVals[i][bi].active&&!pfState[i][bi].dead&&pfBalNow[i][bi]>0)?pfBalNow[i][bi]:0));
-    // IRAs (pre-tax and Roth) with their AUM box checked add their start-of-year balances to the AUM balance.
-    const aumBalanceIra=people.reduce((a,p,i)=>a+(iraAum[i][k]||0)+(rothAum[i][k]||0),0);
-    const aumBalance=aumBase.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0)+aumBalanceIra;
+    const aumBase=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>(b&&b.aum&&!b.idgt&&pfVals[i][bi].active&&!pfState[i][bi].dead&&pfBalNow[i][bi]>0)?pfBalNow[i][bi]:0));
+    const aumBalance=aumBase.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
     const aumFee=aumBalance>0?(aumMode==='pct'?aumBalance*aumVal/100:aumVal/Math.pow(1+inflation,k)):0;
     // ── Household expense funding waterfall (spec §4.6) ──
     // Expenses = household living expenses (today's $, flat in real terms) + the household IRMAA surcharge + the
@@ -821,7 +815,7 @@ function computeProjection(){
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
       const st=pfState[i][bi], bal=pfBalNow[i][bi], tracked=!!st.tracked&&bal>0;
       return {
-        id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, aum:!!b.aum, payExp:!!b.payExp, feeDrag:0, ltcg:0,
+        id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, aum:!!b.aum&&!b.idgt, payExp:!!b.payExp, feeDrag:0, ltcg:0,
         // Cost-basis tracking (spec §4.6, cost basis) — start-of-year values, after any step-up this year.
         tracked, basis:tracked?st.basis:null, unrealizedGain:tracked?Math.max(0,bal-st.basis):null, steppedUp:tracked&&!!st.steppedNow, swapAmt:tracked?(st.swapAmt||0):0,
         divUsed:0, divReinvested:0, sold:0, excessReinvested:0, taxExempt:0, reinvest:!!b.reinvest   // expense waterfall (filled in the roll-forward below): dividends used, dividends reinvested, shares sold
@@ -886,7 +880,7 @@ function computeProjection(){
       sst, marginalRate,
       niiIncome, niit,
       irmaaSurcharge,
-      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalanceIra, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
+      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
       convTrials,
       totalTax, agi, magi:agi+teIncome+annuityTE
     });

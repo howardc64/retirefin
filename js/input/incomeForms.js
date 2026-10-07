@@ -125,6 +125,7 @@ function applyPortfolioType(b, type){
   b.idgt = b.type==='idgt';
   b.payExp = !b.idgt;
   b.reinvest = !b.idgt;
+  if(b.idgt) b.aum = false;   // the AUM fee is charged only on Living expense & income portfolios
 }
 function onPortfolioType(i,bi,type){
   applyPortfolioType(state.people[i].brokerage[bi], type);

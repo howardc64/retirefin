@@ -324,13 +324,13 @@ ${fpEq(
 )}
 <p>Because the withdraw cost removes a share of the gain but leaves basis untouched, a 100% LTCG withdraw cost puts the top of the brokerage band exactly at cost basis. The dashed cost-basis line is therefore drawn only in years where the applicable LTCG withdraw cost is 0%; at any LTCG withdraw cost above 0% the line is removed (and so is its legend key).</p>
 
-<p><strong>AUM fee.</strong> The AUM balance is the sum of the start-of-year balances of every enabled, funded brokerage portfolio inside its age range whose AUM box is checked, plus every pre-tax IRA and Roth IRA whose AUM box is checked (while held by the household — not while held by heirs under IRA stretch). The fee is a percentage of it, or a fixed dollar amount:</p>
+<p><strong>AUM fee.</strong> The AUM balance is the sum of the start-of-year balances of every enabled, funded Living expense &amp; income brokerage portfolio inside its age range whose AUM box is checked (IDGT portfolios, pre-tax IRAs and Roth IRAs are never charged). The fee is a percentage of it, or a fixed dollar amount:</p>
 ${fpEq(
-  `AUM balance = Σ balance<sub>i</sub> &ensp;(AUM box checked; portfolios, pre-tax IRAs, Roth IRAs)`,
+  `AUM balance = Σ balance<sub>i</sub> &ensp;(AUM box checked; Living expense &amp; income portfolios only)`,
   `AUM fee = AUM balance × fee %&emsp;or&emsp;Fixed $ ÷ (1 + inflation)<sup>k</sup>`,
   `share<sub>i</sub> = AUM fee × ${fpFr('balance<sub>i</sub>','AUM balance')}`
 )}
-<p>A fixed fee is entered in today\'s dollars for year 0 and held flat in nominal terms, so it shrinks in today\'s dollars as inflation compounds. The fee is split across the AUM accounts pro rata to balance, but it is one household expense: it is paid through the waterfall above, by the portfolios with <em>Pay expenses</em> checked — not by the account it is charged on unless that account also pays expenses.</p>
+<p>A fixed fee is entered in today\'s dollars for year 0 and held flat in nominal terms, so it shrinks in today\'s dollars as inflation compounds. The fee is split across the AUM portfolios pro rata to balance, but it is one household expense: it is paid through the waterfall above, by the portfolios with <em>Pay expenses</em> checked — not by the account it is charged on unless that account also pays expenses.</p>
 
 <p><strong>IRMAA as an expense</strong> (always a household expense):</p>
 ${fpEq(

@@ -280,7 +280,7 @@ function buildAssetChartFor(cfg){
           // Cost basis as a % of this portfolio's value (100% = no unrealized gain; shown for portfolios that track basis).
           if(e.tracked && e.balance>0) lines.push(mrow('      Cost basis (% of value)', ((e.basis||0)/e.balance*100).toFixed(0)+'%', W));
           if(showDetails){
-            if(e.aum) lines.push(mrow('      AUM fee charged on this balance', fmt(e.feeDrag||0), W));
+            if(e.aum&&!e.idgt) lines.push(mrow('      AUM fee charged on this balance', fmt(e.feeDrag||0), W));
             lines.push(mrow('      LTCG realized', fmt(e.ltcg||0), W));
           }
           // Cost basis / unrealized gain (spec §4.6) — Show details only. A step-up (owner passed, portfolio

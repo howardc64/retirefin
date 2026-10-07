@@ -6,7 +6,7 @@ This page explains how to work with the planner. Everything is entered in **toda
 
 - **Household setup** for a single person or a married couple, with inflation, living expenses and optional assumptions (SCGL, AUM fee, long-term care).
 - **Income & assets** for each person: Social Security, wages, pension, rental properties, **annuities**, pre-tax IRA / 401(k), Roth IRA, brokerage portfolios and **real estate**.
-- **Brokerage portfolios** as either *Living expense & income* or *IDGT*, with growth, dividends, cost basis and optional AUM fee.
+- **Brokerage portfolios** as either *Living expense & income* or *IDGT*, with growth, dividends, cost basis and optional AUM fee (Living expense & income portfolios only; IDGTs are never charged).
 - **Real estate** assets with a value, cost basis and annual change, charted in the Asset Value chart.
 - **Annuities** with fixed or %-of-value payouts, taxable / tax-exempt payouts and a passing benefit.
 - **Roth conversions**, RMDs and IRA stretch after the last passing.

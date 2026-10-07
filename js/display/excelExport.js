@@ -62,7 +62,6 @@ function xlsxColumns(proj){
     {head:'Foreign tax credit', get:r=>r.foreignTaxCredit},
     {head:'Household IRMAA surcharge (expense)', get:r=>r.irmaaSurcharge||0},
     {head:'AUM balance (start of year)', get:r=>r.aumBalance||0},
-    {head:'  of which IRAs (pre-tax + Roth)', get:r=>r.aumBalanceIra||0},
     {head:'AUM fee, total charged', get:r=>r.aumFee||0},
     {head:'Living expenses', get:r=>r.expLiving||0},
     ...per('ltcCostByPerson','LTC cost'),
