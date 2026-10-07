@@ -91,7 +91,7 @@
           "yield": 1.5,
           "qdivPct": 70,
           "teYield": 0,
-          "aum": true,
+          "aum": false,
           "type": "idgt",
           "payExp": false,
           "reinvest": false,
@@ -108,9 +108,10 @@
           "ftcPct": 0.25
         }
       ],
+      "realEstate": [],
       "ira": {
         "enabled": true,
-        "hidden": true,
+        "hidden": false,
         "balance": 1000000,
         "growth": {
           "mode": "offset",
@@ -124,15 +125,14 @@
         },
         "bene": true,
         "conv": 0,
-        "convMode": "fixed",
+        "convMode": "bracket",
         "convIrmaaPct": 40,
         "convOrdPct": 32,
         "convStartMode": "now",
         "convStart": 0,
         "convStartBracket": 24,
         "convStartItemized": 35000,
-        "stretch": true,
-        "aum": true
+        "stretch": true
       },
       "roth": {
         "enabled": true,
@@ -143,8 +143,7 @@
           "value": 3
         },
         "bene": true,
-        "stretch": true,
-        "aum": true
+        "stretch": true
       }
     },
     {
@@ -194,6 +193,7 @@
       "annuities": [],
       "rentals": [],
       "brokerage": [],
+      "realEstate": [],
       "ira": {
         "enabled": false,
         "hidden": true,
@@ -217,8 +217,7 @@
         "convStart": 0,
         "convStartBracket": 24,
         "convStartItemized": 35000,
-        "stretch": false,
-        "aum": false
+        "stretch": false
       },
       "roth": {
         "enabled": false,
@@ -229,8 +228,7 @@
           "value": 3
         },
         "bene": false,
-        "stretch": false,
-        "aum": false
+        "stretch": false
       }
     }
   ],
@@ -278,7 +276,8 @@
       "wage",
       "pension",
       "annuity",
-      "rental"
+      "rental",
+      "realestate"
     ],
     "hiddenSections": {
       "assumptions": false,
