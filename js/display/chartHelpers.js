@@ -169,10 +169,29 @@ function lockedYMax(key, compute){ if(chartYMax[key]==null) chartYMax[key]=compu
 function resetChartYMax(){ Object.keys(chartYMax).forEach(k=>{ chartYMax[k]=null; }); }
 function rescaleChart(which){ chartYMax[which]=null; if(which==='asset') chartYMax.assetConv=null; recompute(); }
 
+// Crowding guard for the ordinary-bracket overlays on the small charts (Taxable ordinary income, Ordinary income tax). `valueLists` holds one
+// array per filing status in use (the Y value of each bracket line, ascending). A line is visible when it sits below yMax. If more than `keep`
+// lines are visible and any two neighbours are closer than gapFrac of the Y range (their labels would collide), only the top `keep` visible
+// brackets are drawn; otherwise every visible one is. Returns the Set of bracket indices to draw.
+function crowdedBracketKeep(valueLists, yMax, keep=3, gapFrac=0.05){
+  const visible=new Set(); let crowded=false;
+  valueLists.filter(Boolean).forEach(vals=>{
+    const vis=vals.map((v,j)=>({v,j})).filter(o=>o.v<yMax);
+    vis.forEach(o=>visible.add(o.j));
+    if(vis.length>keep){ for(let i=1;i<vis.length;i++){ if(vis[i].v-vis[i-1].v<gapFrac*yMax){ crowded=true; break; } } }
+  });
+  const idx=[...visible].sort((a,b)=>a-b);
+  return new Set(crowded?idx.slice(-keep):idx);
+}
+
 // Legend swatch + label. `style` overrides the default solid-color swatch (e.g. the dashed IRMAA key).
 // Dashed-line swatch (matches the dashed overlay lines on the charts).
 function legendDashStyle(color){
   return `background:repeating-linear-gradient(90deg,${color} 0 5px,transparent 5px 8px);height:2px;border-radius:0`;
+}
+// Thin solid-line swatch (matches the thin solid overlay lines, e.g. tax-rate lines).
+function legendLineStyle(color){
+  return `background:${color};height:2px;border-radius:0`;
 }
 function legendItem(text, color, style){
   return `<span class="li"><span class="ls" style="${style||('background:'+color)}"></span>${text}</span>`;

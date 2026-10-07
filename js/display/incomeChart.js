@@ -167,7 +167,11 @@ function buildIncomeChart(){
   // Beneficiary pays 25% of the Part B cost at the standard tier and 35/50/65/80/85% at IRMAA tiers 1–5,
   // so the Part B premium is 40/100/160/220/240% above standard.
   const withPct=a=>a.map(l=>({...l,pct:IRMAA_PART_B_INCREASE[Math.min(l.tier,IRMAA_PART_B_INCREASE.length-1)]}));
-  const magiOv={irmaaMFJ:withPct(irmaaMFJ),irmaaSgl:withPct(irmaaSgl),switchIdx:swIdx};
+  // When the IRMAA lines would crowd each other (too many tiers inside the chart's Y range) only the top 3 are drawn on this small chart.
+  const irmaaKeep=crowdedBracketKeep([
+    rows.some(r=>r.filing==='married')?IRMAA_MFJ.map(l=>l.magi):null,
+    rows.some(r=>r.filing!=='married')?IRMAA_SGL.map(l=>l.magi):null], Y_MAX);
+  const magiOv={irmaaMFJ:withPct(irmaaMFJ.filter(l=>irmaaKeep.has(l.tier))),irmaaSgl:withPct(irmaaSgl.filter(l=>irmaaKeep.has(l.tier))),switchIdx:swIdx};
   const mKeys=keys.filter(k=>k!=='rentDep'&&k!=='rothExp');   // Roth IRA withdraw is untaxed and not part of MAGI, like untaxed rental depreciation
   const mSeries={}; mKeys.forEach(k=>mSeries[k]=[]);
   const taxSSPart=(r,idx)=>{ const tot=r.totalSS||0; return tot>0 ? (r.taxableSS||0)*((r.ssByPerson[idx]||0)/tot) : 0; };
@@ -235,10 +239,14 @@ function buildIncomeChart(){
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
     borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'ord', order:3
   }));
-  const nBrk=MFJ_ORD.length-1;   // the top bracket (37%) has no upper limit, so there is no line above the 35% bracket's end
+  const nBrk=MFJ_ORD.length-1;
+  // When the bracket lines would crowd each other (too many inside the chart's Y range) only the top 3 are drawn.
+  const brkKeep=crowdedBracketKeep([
+    rows.some(r=>r.filing==='married')?MFJ_ORD.slice(0,nBrk).map(b=>b.lim):null,
+    rows.some(r=>r.filing!=='married')?SGL_ORD.slice(0,nBrk).map(b=>b.lim):null], Y_MAX);   // the top bracket (37%) has no upper limit, so there is no line above the 35% bracket's end
   for(let j=0;j<nBrk;j++){
     const vals=rows.map(r=>(r.filing==='married'?MFJ_ORD:SGL_ORD)[j].lim);
-    if(Math.min(...vals)>=Y_MAX) continue;   // off the chart's scale
+    if(Math.min(...vals)>=Y_MAX||!brkKeep.has(j)) continue;   // off the chart's scale, or dropped by the crowding limit
     const rate=Math.round(MFJ_ORD[j+1].r*100)+'%';
     ordDs.push({data:alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
       borderDash:[7,4], borderColor:OVERLAY_COLOR, stack:'ol'+j, order:0});

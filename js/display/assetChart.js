@@ -393,6 +393,7 @@ function buildRothConvChart(ctx){
       return ['', mrow('Total Roth IRA conversion', fmt(total)+'/yr')];
     }
   };
+  
   upsertLineChart('assetConv',{canvasId:'assetConvChart', labels, datasets, yMax:Y_MAX, tooltip:tip,
     createOptions:()=>({
       ...CHART_BASE,
