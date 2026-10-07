@@ -108,7 +108,21 @@
           "ftcPct": 0.25
         }
       ],
-      "realEstate": [],
+      "realEstate": [
+        {
+          "id": "qohqu5t",
+          "enabled": true,
+          "hidden": true,
+          "name": "Main residence",
+          "balance": 1000000,
+          "basis": 400000,
+          "growth": {
+            "mode": "inflation",
+            "value": 0
+          },
+          "bene": true
+        }
+      ],
       "ira": {
         "enabled": true,
         "hidden": false,
@@ -126,8 +140,8 @@
         "bene": true,
         "conv": 0,
         "convMode": "bracket",
-        "convIrmaaPct": 40,
-        "convOrdPct": 32,
+        "convIrmaaPct": 100,
+        "convOrdPct": 24,
         "convStartMode": "now",
         "convStart": 0,
         "convStartBracket": 24,
@@ -237,7 +251,7 @@
     "p2": 92
   },
   "living": 100000,
-  "basisSwap": false,
+  "basisSwap": true,
   "basisSwapYears": 3,
   "scgl": 200000,
   "scglEnabled": true,
@@ -271,13 +285,13 @@
     "incomeOrder": [
       "brokerage",
       "ira",
+      "realestate",
       "roth",
       "ss",
       "wage",
       "pension",
       "annuity",
-      "rental",
-      "realestate"
+      "rental"
     ],
     "hiddenSections": {
       "assumptions": false,
