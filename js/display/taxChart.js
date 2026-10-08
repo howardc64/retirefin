@@ -13,8 +13,7 @@ const TAX_LEGEND=[
   ['effRate','Effective tax rate (right axis, dashed)'], ['marginalRate','Marginal tax rate (right axis, dashed)']
 ];
 function buildTaxLegend(){
-  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.map(([k,label])=>legendItem(label, VZ_TAX[k], (k==='ftc'||k==='effRate'||k==='marginalRate')?legendDashStyle(VZ_TAX[k]):undefined) +
-      (k==='ord' ? legendItem('Ordinary income tax brackets (rate above each line, on Ordinary income tax chart)', null, legendDashStyle(OVERLAY_COLOR)) : '')).join('') +
+  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.map(([k,label])=>legendItem(label, VZ_TAX[k], (k==='ftc'||k==='effRate'||k==='marginalRate')?legendDashStyle(VZ_TAX[k]):undefined)).join('') +
     (viewIrmaaAsTax ? legendItem('IRMAA surcharge (stacked above total tax, dashed)', null, legendDashStyle(OVERLAY_COLOR)) : '');
 }
 function buildTaxChart(){
@@ -189,15 +188,8 @@ function buildTaxChart(){
       y:{stacked:true,min:0,max:Y_MAX,title:axisTitle(yTitle),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:smTick},grid:AXIS_GRID}
     }
   });
-  // Cumulative ordinary tax at each bracket ceiling, labeled with the rate that applies above it.
-  const brkLines=brk=>brk.slice(0,-1).map((b,i)=>({tax:calcOrdTax(b.lim,brk), r:brk[i+1].r}));
-  // When the lines would crowd each other (too many brackets inside the chart's Y range) only the top 3 are drawn.
-  const mfjBrk=brkLines(MFJ_ORD), sglBrk=brkLines(SGL_ORD);
-  const brkKeep=crowdedBracketKeep([swIdx>0?mfjBrk.map(l=>l.tax):null, swIdx<labels.length?sglBrk.map(l=>l.tax):null], Y_MAX);
-  const brkOpts={mfj:mfjBrk.filter((_,i)=>brkKeep.has(i)), sgl:sglBrk.filter((_,i)=>brkKeep.has(i)), switchIdx:swIdx};
   upsertLineChart('taxOrd',{canvasId:'taxOrdChart', labels, datasets:[copyDs(datasets[0])], yMax:Y_MAX, tooltip:smTip,
-    refresh:o=>{ o.plugins.taxBracketOverlay=brkOpts; },
-    createOptions:()=>{ const o=smOptions('Ordinary income tax'); o.plugins.taxBracketOverlay=brkOpts; return o; }});
+    createOptions:()=>smOptions('Ordinary income tax')});
   upsertLineChart('taxQual',{canvasId:'taxQualChart', labels, datasets:datasets.slice(1,8).map(copyDs), yMax:Y_MAX, tooltip:smTip,
     createOptions:()=>smOptions('QDIV / LTCG / NIIT tax')});
 }

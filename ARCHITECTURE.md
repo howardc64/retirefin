@@ -553,7 +553,7 @@ presentation is fine; new financial logic is not).
 Chart.js plugins drawing black (`OVERLAY_COLOR`) dashed horizontal lines with label decluttering
 (`declutterLabels`): `incomeOverlay` (IRMAA tiers) is registered a second time as `magiOverlay` for the
 MAGI chart — lines carrying `pct` are labeled `$<bracket>k +<Part B % over standard>%` — and
-`taxBracketOverlay` draws the ordinary income tax bracket lines on the small Ordinary income tax chart (at most the top 3 when the lines would crowd, see `crowdedBracketKeep` in `chartHelpers.js`), with the rate labels on the chart; `ordLabels` labels the taxable ordinary income chart's bracket lines at their right ends.
+`taxBracketOverlay` is registered but no longer used by the small Ordinary income tax chart; `ordLabels` labels the taxable ordinary income chart's bracket lines at their right ends.
 
 ### 6.3 `ssChart.js` — Social Security start-age breakeven
 Reads: `js/compute/whatIf.js`'s `computeSSScenario` for a fixed set of candidate ages (`VZ_SS_AGES =
@@ -593,7 +593,7 @@ and NIIT detail if nonzero.
 **"view IRMAA as tax" checkbox** (header, next to Rescale; flag `viewIrmaaAsTax`): when checked, an extra `IRMAA surcharge` dataset (`expIrmaa`, null in years with none) stacks above the tax stack as a black dashed line with fill off, the legend gains a dashed entry, the main popup adds `Total tax + IRMAA`, and the Y max is recomputed (`rescaleChart('tax')`) to include it.
 
 **Three-chart layout.** The section shows the primary chart (left, 2/3 width) plus two half-size charts stacked on the right (1/3 width; each half the primary's width and height, so all three are 1:1). Both small charts share the primary's X labels, locked Y scale (`chartYMax.tax`, one **Rescale** key) and aspect ratio, use sparser axis ticks, and have no legend/note. Their popups are external HTML tooltips that show the plan owner(s) and age (the primary's title lines) and then only that chart's own values (no totals; Show Details has no effect): the ordinary chart shows `Ordinary income tax` only, the qualified chart only its non-zero QDIV/LTCG/NIIT stack values. Canvases `#taxOrdChart` (`charts.taxOrd`) and `#taxQualChart` (`charts.taxQual`):
-- **Ordinary chart (top):** the ordinary-income-tax segment only (same color). `taxBracketOverlay` (in `overlayPlugin.js`) draws a dashed line at the cumulative ordinary tax owed at each bracket ceiling (`calcOrdTax(lim)`), MFJ lines until the filing-status switch age and Single lines after, each labeled only with the rate that applies above it (e.g. `22%`). The chart is titled **Ordinary income tax**. Lines/labels are black; the legend has a matching dashed "Ordinary income tax brackets" entry. If more than 3 bracket lines would crowd each other, only the top 3 are drawn (`crowdedBracketKeep`, `chartHelpers.js`); the MAGI chart's IRMAA lines follow the same rule.
+- **Ordinary chart (top):** the ordinary-income-tax segment only (same color). No bracket lines are drawn on this chart (the `taxBracketOverlay` plugin is no longer attached to it). The chart is titled **Ordinary income tax**.
 - **Qualified chart (bottom):** every non-ordinary segment — QDIV tiers, LTCG tiers, then NIIT — same colors and stacking order as the primary.
 
 ### 6.6b `print.js` — Print button

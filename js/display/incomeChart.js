@@ -31,8 +31,8 @@ function buildIncomeLegend(){
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
   document.getElementById('incomeLegend').innerHTML =
     keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
-    legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(OVERLAY_COLOR)) +
-    legendItem('Ordinary tax brackets (rate above each line, shown on taxable ordinary income chart)', null, legendDashStyle(OVERLAY_COLOR)) +
+    legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(BRACKET_COLOR)) +
+    legendItem('Ordinary tax brackets (rate above each line, shown on taxable ordinary income chart)', null, legendDashStyle(BRACKET_COLOR)) +
     legendItem('Deduction stacked on taxable ordinary income (shown on taxable ordinary income chart)', null, legendDashStyle(DEDUCTION_COLOR));
 }
 function buildIncomeChart(){
@@ -257,7 +257,7 @@ function buildIncomeChart(){
     if(Math.min(...vals)>=Y_MAX||!brkKeep.has(j)) continue;   // off the chart's scale, or dropped by the crowding limit
     const rate=Math.round(MFJ_ORD[j+1].r*100)+'%';
     ordDs.push({data:alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
-      borderDash:[7,4], borderColor:OVERLAY_COLOR, stack:'ol'+j, order:0});
+      borderDash:[7,4], borderColor:BRACKET_COLOR, stack:'ol'+j, order:0});
   }
   // Red dashed line: the deduction stacked on top of the taxable ordinary income, i.e. taxable ordinary income + the deduction absorbed (the same
   // "Deduction" the popup shows) = the year's gross ordinary income (`ordIncome`). The gap between the top of the stack and the line is the deduction.

@@ -50,5 +50,6 @@ function renderAll(){
 
 window.addEventListener('DOMContentLoaded', function(){
   if(!loadAutosave()){ state=defaultState(); }
+  try{ localStorage.removeItem('retirementPlannerCompare_v1'); }catch(e){}   // leftover from the removed Compare feature
   renderAll();
 });

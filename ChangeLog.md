@@ -351,3 +351,13 @@
 140. MAGI chart: the dashed IRMAA bracket lines are drawn only while a living person is on or about to be on Medicare (age 63+, since a year's MAGI sets the premium two years later), instead of across the whole chart.
 
 141. Export to Excel is now a live model: new **Inputs** sheet (every assumption / input, with named cells for inflation, first year, passing ages, SCGL and the future-NIIT assumption) and **Tax tables** sheet (brackets, deductions, SS thresholds, qualified tiers, NIIT, IRMAA as named ranges). **Projection by year** keeps the app's solved income / expense-funding values but computes totals, taxable SS, AGI, deductions, ordinary / qualified tax, NIIT, Total Tax, effective rate, IRMAA, expense totals and balances with Excel formulas (row 3 marks each column formula vs app value, plus a funding check). Account sheets gain roll-forward formulas (portfolio gain / next balance, IRA / Roth EOY balance incl. stretch years). Ages are exported unrounded. Checked by recalculating in LibreOffice against the app's numbers.
+
+142. **Base vs Compare plan.** New top-bar buttons *Duplicate as Compare* (snapshot of the current inputs) and *Load Compare file*; the Compare plan is run through the same projection (read-only, kept in localStorage). A Compare bar under the top bar shows both plans, *Clear Compare*, a scorecard (lifetime income tax, IRMAA, Roth conversions, assets at the end, unfunded years) with Compare − Base deltas colored good / bad, and a list of changed inputs. A dotted magenta line on the Annual Household Income, Total Income Tax, Household Expenses and Asset Value (main and IDGT) charts shows the Compare plan's total, matched by projection year (`compareLine` plugin; hooked in `upsertLineChart`). New file `js/display/compare.js`.
+
+143. Compare bar: removed the 5-row scorecard table (lifetime tax, IRMAA, conversions, end assets, unfunded years); the bar keeps the plan chips, Clear Compare and the changed-inputs list.
+
+144. Total Income Tax section: removed the dashed ordinary-tax bracket lines (and their legend entry) from the small Ordinary income tax chart.
+
+145. MAGI chart IRMAA lines and the taxable ordinary income chart's bracket lines (with their labels and legend swatches) are now bright green (`BRACKET_COLOR`, `chartHelpers.js`).
+
+146. Removed the Compare feature: the Duplicate as Compare / Load Compare file buttons, the compare bar, the chart overlays, `js/display/compare.js` and its CSS. A leftover saved Compare plan in browser storage is cleared at startup.

@@ -49,7 +49,7 @@ const incomeOverlayPlugin={
       lines.forEach(ln=>{
         const yPx=y.getPixelForValue(ln.magi);
         if(yPx<top||yPx>bottom) return;
-        const lineCol = OVERLAY_COLOR;
+        const lineCol = BRACKET_COLOR;
         ctx.beginPath(); ctx.setLineDash([8,5]); ctx.lineWidth=1.4; ctx.strokeStyle=lineCol;
         ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke(); ctx.setLineDash([]);
         bucket.push({y:yPx-5,x:Math.min(right,xb)-3,text:ln.pct!=null ? `$${(ln.magi/1000).toFixed(0)}k +${ln.pct}%` : `IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,font:(ln.pct!=null?'9px':'10px')+' DM Sans,sans-serif'});
@@ -122,7 +122,7 @@ const ordLabelPlugin={
       if(li<0) return;
       const py=y.getPixelForValue(ds.data[li]); if(py<chartArea.top||py>chartArea.bottom) return;
       const px=Math.min(chartArea.right-2, x.getPixelForValue(li));
-      items.push({y:py-7, x:px-2, text:ds.ordLabel, color:OVERLAY_COLOR, font:'10px DM Sans,sans-serif'});
+      items.push({y:py-7, x:px-2, text:ds.ordLabel, color:BRACKET_COLOR, font:'10px DM Sans,sans-serif'});
     });
     ctx.save();
     declutterLabels(ctx, items, chartArea.top+6, chartArea.bottom-6, 11);
