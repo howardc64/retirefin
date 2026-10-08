@@ -273,7 +273,7 @@
   "aumFee": {
     "enabled": true,
     "mode": "pct",
-    "value": 1
+    "value": 0.9
   },
   "futureTax": {
     "enabled": true,

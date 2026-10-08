@@ -44,7 +44,7 @@ function buildTSSChart(){
       if(showDetails) lines.push(mrow('  Provisional Income (PI)', fmt(r.provisional)+'/yr'));
       lines.push(mrow('  Social Security Tax (SST)', fmt(r.sst)+'/yr'));
       lines.push(mrow('  Social Security Tax Percentage (SST%)', sstPct.toFixed(1)+'%'));
-      lines.push(mrow('  Top Marginal Rate', (r.marginalRate*100).toFixed(1)+'%'));
+      lines.push(mrow('  Marginal Rate (ordinary income)', (r.marginalRate*100).toFixed(1)+'%'));
       return lines;
     }
   };

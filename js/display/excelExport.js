@@ -60,12 +60,42 @@ function xlsxFml(f,cached,z,text){
   const c=(text||cached==='')?{t:'s',f,v:String(cached==null?'':cached)}:{t:'n',f,v:(typeof cached==='number'&&isFinite(cached))?cached:0};
   if(z) c.z=z; return c;
 }
-function xlsxFinish(sh,widths){
+// Characters a number occupies once Excel applies format `z` (dollar sign, thousands commas, decimals, % sign, minus sign).
+function xlsxFmtLen(v,z){
+  if(typeof v!=='number'||!isFinite(v)) return 0;
+  if(!z) return String(Math.round(v*1000)/1000).length;
+  const dec=((z.match(/\.(0+)/)||[])[1]||'').length, pctCell=z.includes('%'), pctScaled=pctCell&&!z.includes('"%"');
+  const x=Math.abs(pctScaled?v*100:v);
+  const body=z.includes(',')?x.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec}):x.toFixed(dec);
+  return body.length+(z.includes('$')?1:0)+(pctCell?1:0)+(v<0?1:0);
+}
+// Column width = widest formatted number in the column (+ padding). A column with no numbers is sized to its longest text
+// (capped at 70); in a mixed column, text up to `mixedText` characters also counts. Title and header rows (`sh.skipRows`, row 0)
+// never set a width. `minW` keeps narrow columns usable.
+function xlsxAutoWidths(sh,minW,mixedText){
+  const num=[], text=[], skip=sh.skipRows||new Set();
+  Object.keys(sh.ws).forEach(a=>{
+    if(a[0]==='!') return;
+    const {r,c}=XLSX.utils.decode_cell(a), cell=sh.ws[a];
+    if(cell.t==='n') num[c]=Math.max(num[c]||0,xlsxFmtLen(cell.v,cell.z));
+    else if(r>0&&!skip.has(r)&&cell.v!=null) text[c]=Math.max(text[c]||0,String(cell.v).length);
+  });
+  const out=[];
+  for(let c=0;c<=sh.maxC;c++){
+    const w=(num[c]!=null)?Math.max(num[c],Math.min(text[c]||0,mixedText)):Math.min(70,text[c]||0);
+    out.push(Math.max(minW,w+2));
+  }
+  return out;
+}
+function xlsxFinish(sh,o){
+  o=o||{};
   sh.ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(sh.maxR,0),c:Math.max(sh.maxC,0)}});
-  if(widths) sh.ws['!cols']=widths.map(w=>({wch:w}));
+  sh.ws['!cols']=xlsxAutoWidths(sh,o.minW||10,o.mixedText||0).map(w=>({wch:w}));
   return sh.ws;
 }
-const XLSX_MONEY='#,##0', XLSX_PCT='0.0%', XLSX_AGE='0.0', XLSX_YEAR='0';
+// Number formats (width.decimals): dollars 9.2 ($1,234,567.89), ages and percents 3.1 (65.0, 12.5%), years / counts whole numbers.
+// Dollars are the default for any numeric table column that does not name another format.
+const XLSX_MONEY='$#,##0.00', XLSX_PCT='0.0%', XLSX_AGE='0.0', XLSX_YEAR='0', XLSX_COUNT='0', XLSX_PCTNUM='0.0"%"';
 
 // Generic table: row `top` = column type labels ("formula" / "app value"), top+1 = headers, data below.
 // col = {key, head, kind:'v'|'f', fmt, text, v:(row,idx)=>value, f:(X,idx,R)=>formula string or null (null → falls back to the value)}
@@ -73,6 +103,7 @@ function xlsxTable(sh, top, cols, rows, opts){
   opts=opts||{};
   const letter={}; cols.forEach((c,i)=>letter[c.key]=xlsxCol(i));
   const dataTop=top+2;
+  sh.skipRows=sh.skipRows||new Set(); sh.skipRows.add(top); sh.skipRows.add(top+1);   // header rows never set a column's width
   cols.forEach((c,i)=>{
     xlsxPut(sh,top,i,xlsxTxt(c.kind==='f'?'formula':'app value'));
     xlsxPut(sh,top+1,i,xlsxTxt(c.head));
@@ -81,12 +112,12 @@ function xlsxTable(sh, top, cols, rows, opts){
     const r=dataTop+idx, R=r+1;
     const X=(key,off)=>{ if(!letter[key]) throw new Error('xlsx: unknown column '+key); return letter[key]+(R+(off||0)); };
     cols.forEach((c,i)=>{
-      const val=c.v?c.v(row,idx):null;
+      const val=c.v?c.v(row,idx):null, z=c.fmt||XLSX_MONEY;
       let f=null;
       if(c.kind==='f'&&c.f) f=c.f(X,idx,R,row);
-      if(f) xlsxPut(sh,r,i,xlsxFml(f,val,c.fmt,c.text));
+      if(f) xlsxPut(sh,r,i,xlsxFml(f,val,z,c.text));
       else if(c.text) { const x=xlsxVal(val); if(x) xlsxPut(sh,r,i,x); }
-      else { const x=(typeof val==='number')?xlsxNum(val,c.fmt):xlsxVal(val,c.fmt); if(x) xlsxPut(sh,r,i,x); }
+      else { const x=(typeof val==='number')?xlsxNum(val,z):xlsxVal(val,z); if(x) xlsxPut(sh,r,i,x); }
     });
   });
   return {letter, dataTop, firstRow:dataTop+1, lastRow:dataTop+rows.length};
@@ -108,6 +139,7 @@ function xlsxTaxSheet(){
   scalar('Senior deduction phase-out starts, MFJ MAGI','SenThrMFJ',SENIOR_THRESH_MFJ,XLSX_MONEY);
   scalar('Senior deduction phase-out starts, single MAGI','SenThrSGL',SENIOR_THRESH_SGL,XLSX_MONEY);
   scalar('Senior deduction phase-out rate','SenRate',SENIOR_RATE,XLSX_PCT);
+  scalar('Marginal-rate step: extra non-SS ordinary income used to measure the marginal rate on ordinary income','MargBump',100,XLSX_MONEY);
   scalar('NIIT rate','NIIT_Rate',NIIT_RATE,XLSX_PCT);
   scalar('NIIT threshold, MFJ MAGI (current law, not indexed)','NIIT_MFJ',NIIT_THRESH_MFJ,XLSX_MONEY);
   scalar('NIIT threshold, single MAGI (current law, not indexed)','NIIT_SGL',NIIT_THRESH_SGL,XLSX_MONEY);
@@ -152,9 +184,23 @@ function xlsxTaxSheet(){
   const rng2=(c)=>`'Tax tables'!$${c}$${t2+1}:$${c}$${t2+m}`;
   names.push({Name:'IR_MFJ_Lo',Ref:rng2('A')},{Name:'IR_MFJ_S',Ref:rng2('B')},{Name:'IR_SGL_Lo',Ref:rng2('D')},{Name:'IR_SGL_S',Ref:rng2('E')},
     {Name:'IR_MFJ_1',Ref:`'Tax tables'!$A$${t2+1}`},{Name:'IR_SGL_1',Ref:`'Tax tables'!$D$${t2+1}`});
-  return {ws:xlsxFinish(sh,[58,16,16,4,20,14,16]), names};
+  return {ws:xlsxFinish(sh,{minW:14,mixedText:60}), names};
 }
 
+// Format for an Inputs-sheet number from its label: ages 3.1, percents 3.1 (values already in percent units), whole-number
+// years / months / counts, otherwise dollars 9.2.
+function xlsxLabelFmt(label){
+  const l=String(label).toLowerCase();
+  if(/\b(year|years|month|count)\b/.test(l)) return XLSX_COUNT;
+  if(/\bage\b/.test(l)) return XLSX_AGE;
+  if(/%|\b(pct|percent|yield|rate)\b/.test(l)) return XLSX_PCTNUM;
+  return XLSX_MONEY;
+}
+// Same idea for the raw field names dumped for annuities / rentals / real estate (camelCase keys).
+function xlsxFieldFmt(key){
+  const k=String(key).replace(/([a-z])([A-Z])/g,'$1 $2').toLowerCase();
+  return xlsxLabelFmt(k);
+}
 // ═══ Inputs sheet ════════════════════════════════════════════════════════════════════════════════
 // Every assumption / input of the saved plan, laid out label | value | note. `addr(name)` finds a cell for the account sheets.
 function xlsxInputsSheet(proj){
@@ -163,7 +209,7 @@ function xlsxInputsSheet(proj){
   const put=(label,value,o)=>{
     o=o||{};
     xlsxPut(sh,r,0,xlsxTxt(label));
-    const c=(typeof value==='number')?xlsxNum(value,o.fmt):xlsxVal(value,o.fmt);
+    const c=(typeof value==='number')?xlsxNum(value,o.fmt||xlsxLabelFmt(label)):xlsxVal(value,o.fmt);
     if(c) xlsxPut(sh,r,1,c);
     if(o.note) xlsxPut(sh,r,2,xlsxTxt(o.note));
     if(o.key) addr[o.key]=`Inputs!$B$${r+1}`;
@@ -186,7 +232,7 @@ function xlsxInputsSheet(proj){
   xlsxPut(sh,r,1,xlsxFml(`IF(${addr.scglOn.replace('Inputs!','')}="Yes",${addr.scgl.replace('Inputs!','')},0)`,st.scglEnabled===false?0:Math.max(0,Number(st.scgl)||0),XLSX_MONEY)); r++;
   put('Asset / basis swap',yn(!!st.basisSwap),{note:'Years before last passing: '+(st.basisSwapYears==null?BASIS_SWAP_YEARS_DEFAULT:st.basisSwapYears)});
   const aum=st.aumFee||{};
-  put('AUM fee enabled',yn(aum.enabled),{}); put('AUM fee mode',aum.mode==='pct'?'% of AUM balance':'Fixed $ / yr (today\'s $)'); put('AUM fee value',Number(aum.value)||0,{fmt:aum.mode==='pct'?'0.00':XLSX_MONEY});
+  put('AUM fee enabled',yn(aum.enabled),{}); put('AUM fee mode',aum.mode==='pct'?'% of AUM balance':'Fixed $ / yr (today\'s $)'); put('AUM fee value',Number(aum.value)||0,{fmt:aum.mode==='pct'?XLSX_PCTNUM:XLSX_MONEY});
   head('Future tax-law assumption (NIIT thresholds)');
   put('Enabled',yn(st.futureTax&&st.futureTax.enabled),{key:'futOn'});
   names.push({Name:'FutNIIT_On',Ref:`Inputs!$B$${r}`});
@@ -227,12 +273,12 @@ function xlsxInputsSheet(proj){
     const dump=(title,list)=>(list||[]).forEach((o,j)=>{
       put(`${title} ${j+1}`,o.name||'');
       Object.keys(o).forEach(k=>{ const v=o[k]; if(k==='id'||k==='hidden'||k==='name') return;
-        if(v&&typeof v==='object'){ Object.keys(v).forEach(k2=>{ if(typeof v[k2]!=='object') put(`  ${k}.${k2}`,v[k2]); }); }
-        else put(`  ${k}`,typeof v==='boolean'?yn(v):v); });
+        if(v&&typeof v==='object'){ Object.keys(v).forEach(k2=>{ if(typeof v[k2]!=='object') put(`  ${k}.${k2}`,v[k2],{fmt:xlsxFieldFmt(k2)}); }); }
+        else put(`  ${k}`,typeof v==='boolean'?yn(v):v,{fmt:xlsxFieldFmt(k)}); });
     });
     dump('Annuity',p.annuities); dump('Rental',p.rentals); dump('Real estate',p.realEstate);
   });
-  return {ws:xlsxFinish(sh,[52,20,70]), names, addr};
+  return {ws:xlsxFinish(sh,{minW:16,mixedText:30}), names, addr};
 }
 
 // Real growth rate (today's $) formula text for an account whose growth mode / value sit on the Inputs sheet.
@@ -251,7 +297,7 @@ function xlsxRealGrowthFormula(modeCell,valCell,change,inflation){
 function xlsxAccountHeader(sh,title,growth,startAddr,startVal){
   xlsxPut(sh,0,0,xlsxTxt(title));
   xlsxPut(sh,1,0,xlsxTxt('Real growth rate (today\'s $), from Inputs'));
-  xlsxPut(sh,1,1,xlsxFml(growth.f,growth.cached,'0.000%'));
+  xlsxPut(sh,1,1,xlsxFml(growth.f,growth.cached,XLSX_PCT));
   if(startAddr){ xlsxPut(sh,2,0,xlsxTxt('Starting balance (input)')); xlsxPut(sh,2,1,xlsxFml(startAddr,startVal,XLSX_MONEY)); }
 }
 function xlsxPortfolioSheet(proj,i,bi,inAddr){
@@ -264,8 +310,8 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
     {key:'year',head:'Year',fmt:XLSX_YEAR,v:r=>THIS_YEAR+r.k},
     {key:'age',head:`${person} age`,fmt:XLSX_AGE,v:r=>r.ages[i]},
     {key:'bal',head:'Balance (SOY)',v:r=>ent(r).balance},
-    {key:'gr',head:'Growth %',v:r=>round1(ent(r).growthPct)},
-    {key:'ngr',head:'Net growth %',v:r=>round1(ent(r).netGrowthPct!=null?ent(r).netGrowthPct:ent(r).growthPct)},
+    {key:'gr',head:'Growth %',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).growthPct)},
+    {key:'ngr',head:'Net growth %',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).netGrowthPct!=null?ent(r).netGrowthPct:ent(r).growthPct)},
     {key:'fee',head:'AUM fee share',v:r=>ent(r).feeDrag},
     {key:'ltcg',head:'Realized LTCG (gross, before SCGL)',v:r=>ent(r).ltcg},
     {key:'basis',head:'Cost basis (SOY)',v:r=>ent(r).tracked?ent(r).basis:''},
@@ -283,7 +329,7 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
       f:X=>`MAX(0,${X('bal')}*(1+$B$2)-${X('divu')}-${X('sold')}-${X('te')}+${X('exc')})`}
   ];
   const t=xlsxTable(sh,4,cols,rowsIn);
-  return {sh, ws:xlsxFinish(sh,[8,10,16,10,10,12,16,16,16,10,14,14,14,14,14,14,22]), t, cols, type:'pf', i, bi, balCol:'bal', gainCol:'gain', idgt:!!b.idgt, name:null};
+  return {sh, ws:xlsxFinish(sh), t, cols, type:'pf', i, bi, balCol:'bal', gainCol:'gain', idgt:!!b.idgt, name:null};
 }
 function xlsxIraRothSheet(proj,i,isRoth,inAddr){
   const person=displayPersonName(proj.people[i],i), acct=isRoth?proj.people[i].roth:proj.people[i].ira, inf=proj.inflation||state.inflation;
@@ -318,7 +364,7 @@ function xlsxIraRothSheet(proj,i,isRoth,inAddr){
     {key:'heirs',head:'After last passing (heirs)',text:true,v:x=>x.heirs?'Yes':''}
   ];
   const t=xlsxTable(sh,4,cols,items);
-  return {sh, ws:xlsxFinish(sh,[8,10,12,22,22,26,14]), t, cols, type:isRoth?'roth':'ira', i, balCol:'bal', name:null};
+  return {sh, ws:xlsxFinish(sh), t, cols, type:isRoth?'roth':'ira', i, balCol:'bal', name:null};
 }
 function xlsxAnnuitySheet(proj,i,ai){
   const person=displayPersonName(proj.people[i],i);
@@ -411,21 +457,27 @@ function xlsxMainColumns(proj,acctSheets){
   // — expenses —
   V('expLiving','Living expenses',r=>v(r.expLiving));
   per('ltcCostByPerson','LTC cost','ltcC');
-  V('ltcN','LTC started (count of people)',r=>v(r.ltcStarted));
+  V('ltcN','LTC started (count of people)',r=>v(r.ltcStarted),XLSX_COUNT);
   F('expLtc','Long Term Care expense (total)',r=>v(r.expLtc),X=>sumF(X,'ltcC'));
   V('aumBal','AUM balance (start of year)',r=>v(r.aumBalance));
   V('aumFee','AUM fee, total charged',r=>v(r.aumFee));
   F('expAum','AUM fee paid by household (non-IDGT)',r=>v(r.expAum),X=>X('aumFee'));
   // — tax chain —
+  // Formula builders shared by the tax chain and by the SST / marginal-rate hypotheticals below, so each uses exactly the same equations.
+  const tssFml=(X,p)=>{ const ss=X('ssT'), f=X('f');
+    const mfj=`IF(${p}>SS_MFJ_2*${f},MIN(SS_MFJ_Amt*${f}+SS_Hi*(${p}-SS_MFJ_2*${f}),SS_Hi*${ss}),IF(${p}>SS_MFJ_1*${f},MIN(SS_Lo*(${p}-SS_MFJ_1*${f}),SS_Lo*${ss}),0))`;
+    const sgl=`IF(${p}>SS_SGL_2*${f},MIN(SS_SGL_Amt*${f}+SS_Hi*(${p}-SS_SGL_2*${f}),SS_Hi*${ss}),IF(${p}>SS_SGL_1*${f},MIN(SS_Lo*(${p}-SS_SGL_1*${f}),SS_Lo*${ss}),0))`;
+    return `MAX(0,IF(${M(X)},${mfj},${sgl}))`; };
+  const senFml=(X,agi)=>`IF(${X('senN')}>0,${X('senN')}*MAX(0,SenDed*${X('f')}-SenRate*MAX(0,${agi}-IF(${M(X)},SenThrMFJ,SenThrSGL)*${X('f')})),0)`;
+  const ordTaxFml=(X,t)=>`IF(${M(X)},SUMPRODUCT((${t}>MFJ_Lo)*(${t}-MFJ_Lo)*MFJ_dR),SUMPRODUCT((${t}>SGL_Lo)*(${t}-SGL_Lo)*SGL_dR))`;
+  const qualTaxFml=(X,t,q)=>{
+    const tier=(l1,l2)=>`QD_R2*MAX(0,MIN(${t}+${q},${l2})-MAX(${t},${l1}))+QD_R3*MAX(0,${t}+${q}-MAX(${t},${l2}))`;
+    return `IF(${q}<=0,0,IF(${M(X)},${tier('QD_MFJ_1','QD_MFJ_2')},${tier('QD_SGL_1','QD_SGL_2')}))`; };
   F('nonSS','Ordinary income excluding Social Security (wage + pension + rental + annuity + RMD + ODIV + conversion + IRA expense draw)',r=>r.nonSSOrdinary,
     X=>`${X('wageT')}+${X('penT')}+${X('rentT')}+${X('annT')}+${X('rmdT')}+${X('odivNQ')}+${X('convT')}+${X('iraExT')}`);
   F('prov','Provisional income (non-SS income incl. QDIV, net LTCG, tax-exempt + 50% of SS)',r=>r.provisional,
     X=>`${X('nonSS')}+${X('qdiv')}+${X('ltcg')}+${X('teT')}+${X('annTET')}+0.5*${X('ssT')}`);
-  F('tss','Taxable Social Security (SS)',r=>r.taxableSS,X=>{
-    const p=X('prov'), ss=X('ssT'), f=X('f');
-    const mfj=`IF(${p}>SS_MFJ_2*${f},MIN(SS_MFJ_Amt*${f}+SS_Hi*(${p}-SS_MFJ_2*${f}),SS_Hi*${ss}),IF(${p}>SS_MFJ_1*${f},MIN(SS_Lo*(${p}-SS_MFJ_1*${f}),SS_Lo*${ss}),0))`;
-    const sgl=`IF(${p}>SS_SGL_2*${f},MIN(SS_SGL_Amt*${f}+SS_Hi*(${p}-SS_SGL_2*${f}),SS_Hi*${ss}),IF(${p}>SS_SGL_1*${f},MIN(SS_Lo*(${p}-SS_SGL_1*${f}),SS_Lo*${ss}),0))`;
-    return `MAX(0,IF(${M(X)},${mfj},${sgl}))`; });
+  F('tss','Taxable Social Security (SS)',r=>r.taxableSS,X=>tssFml(X,X('prov')));
   F('ordInc','Ordinary income before deduction (red line on the Taxable Ordinary Income chart)',r=>v(r.ordIncome),X=>`${X('nonSS')}+${X('tss')}`);
   F('agi','Adjusted gross income (AGI)',r=>r.agi,X=>`${X('ordInc')}+${X('qdiv')}+${X('ltcg')}`);
   F('magi','MAGI for IRMAA (AGI + tax-exempt income)',r=>r.magi,X=>`${X('agi')}+${X('teT')}+${X('annTET')}`);
@@ -433,8 +485,8 @@ function xlsxMainColumns(proj,acctSheets){
   F('floor','7.5% AGI floor',r=>v(r.agiFloor),X=>`ItemFloor*MAX(0,${X('agi')})`);
   F('item','Itemized deductions (LTC cost above 7.5% AGI floor)',r=>v(r.itemized),X=>`MAX(0,${X('expLtc')}-${X('floor')})`);
   F('ded','Deduction used (standard or itemized)',r=>r.std,X=>`MAX(${X('std')},${X('item')})`);
-  V('senN','Senior-deduction eligible people (living, age 65+, tax years 2025–2028)',r=>v(r.seniorEligible));
-  F('sen','Enhanced senior deduction (Schedule 1-A)',r=>v(r.seniorDeduction),X=>`IF(${X('senN')}>0,${X('senN')}*MAX(0,SenDed*${X('f')}-SenRate*MAX(0,${X('agi')}-IF(${M(X)},SenThrMFJ,SenThrSGL)*${X('f')})),0)`);
+  V('senN','Senior-deduction eligible people (living, age 65+, tax years 2025–2028)',r=>v(r.seniorEligible),XLSX_COUNT);
+  F('sen','Enhanced senior deduction (Schedule 1-A)',r=>v(r.seniorDeduction),X=>senFml(X,X('agi')));
   F('ordTI','Ordinary taxable income (as on the Taxable Ordinary Income chart)',r=>r.ordTI,X=>`MAX(0,${X('ordInc')}-${X('ded')}-${X('sen')})`);
   F('absorbed','Deduction absorbed by ordinary income',r=>Math.max(0,v(r.ordIncome)-v(r.ordTI)),X=>`MAX(0,${X('ordInc')}-${X('ordTI')})`);
   F('qual','Qualified income (QDIV + LTCG net of SCGL)',r=>v(r.qualIncome),X=>`${X('qdiv')}+${X('ltcg')}`);
@@ -442,23 +494,48 @@ function xlsxMainColumns(proj,acctSheets){
   V('noConvOrd','Ordinary taxable income, no conversion (a bracket start tests this)',r=>r.noConvOrdTI==null?'':r.noConvOrdTI);
   V('noConvItem','Itemized deductions, no conversion (an itemized start tests this)',r=>r.noConvItemized==null?'':r.noConvItemized);
   for(let i=0;i<n;i++) add({key:'trig_'+i,head:(married?`${displayPersonName(proj.people[i],i)} `:'')+'Roth conversion trigger met this year (trigger starts only)',kind:'v',text:true,v:r=>r.convTriggerStartedByPerson[i]?'Yes':''});
-  F('ordTax','Ordinary tax',r=>r.ordTax,X=>{ const t=X('ordTI');
-    return `IF(${M(X)},SUMPRODUCT((${t}>MFJ_Lo)*(${t}-MFJ_Lo)*MFJ_dR),SUMPRODUCT((${t}>SGL_Lo)*(${t}-SGL_Lo)*SGL_dR))`; });
-  F('qualTax','Qualified tax (QDIV+LTCG)',r=>r.qualTax,X=>{ const t=X('ordTI'), q=X('qual');
-    const tier=(l1,l2)=>`QD_R2*MAX(0,MIN(${t}+${q},${l2})-MAX(${t},${l1}))+QD_R3*MAX(0,${t}+${q}-MAX(${t},${l2}))`;
-    return `IF(${q}<=0,0,IF(${M(X)},${tier('QD_MFJ_1','QD_MFJ_2')},${tier('QD_SGL_1','QD_SGL_2')}))`; });
-  V('sst','Social Security Tax (SST) — incremental tax from taxing SS (needs a hypothetical re-run: app value)',r=>r.sst);
-  V('marg','Marginal tax rate (numerical derivative in the app: app value)',r=>pct(r.marginalRate),XLSX_PCT);
+  F('ordTax','Ordinary tax',r=>r.ordTax,X=>ordTaxFml(X,X('ordTI')));
+  // Taxable Qualified Income chart: its two dashed lines are the qualified tax brackets themselves (the 0% / 15% limits for the filing status in force).
+  // Qualified income is stacked on top of taxable ordinary income, so the room each tier has left is the limit minus taxable ordinary income;
+  // the amounts below split qualified income across the tiers (the qualified tax column prices the same split).
+  const qLim=(idx,r)=>(r.filing==='married'?MFJ_QDIV:SGL_QDIV)[idx].lim;
+  F('qLine0','Qualified bracket: 0% tier ends (lower dashed line on the Taxable Qualified Income chart)',r=>qLim(0,r),X=>`IF(${M(X)},QD_MFJ_1,QD_SGL_1)`);
+  F('qLine15','Qualified bracket: 15% tier ends (upper dashed line on that chart)',r=>qLim(1,r),X=>`IF(${M(X)},QD_MFJ_2,QD_SGL_2)`);
+  F('qRoom0','Room left for qualified income in the 0% tier = 0% tier limit − taxable ordinary income, floored at 0',r=>Math.max(0,qLim(0,r)-v(r.ordTI)),X=>`MAX(0,${X('qLine0')}-${X('ordTI')})`);
+  F('qRoom15','Room left for qualified income up to the end of the 15% tier = 15% tier limit − taxable ordinary income, floored at 0',r=>Math.max(0,qLim(1,r)-v(r.ordTI)),X=>`MAX(0,${X('qLine15')}-${X('ordTI')})`);
+  F('qAt0','Qualified income taxed at 0%',r=>Math.min(v(r.qualIncome),Math.max(0,qLim(0,r)-v(r.ordTI))),X=>`MIN(${X('qual')},${X('qRoom0')})`);
+  F('qAt15','Qualified income taxed at 15%',r=>Math.max(0,Math.min(v(r.qualIncome),Math.max(0,qLim(1,r)-v(r.ordTI)))-Math.min(v(r.qualIncome),Math.max(0,qLim(0,r)-v(r.ordTI)))),X=>`MIN(${X('qual')},${X('qRoom15')})-${X('qAt0')}`);
+  F('qAt20','Qualified income taxed at 20%',r=>Math.max(0,v(r.qualIncome)-Math.min(v(r.qualIncome),Math.max(0,qLim(1,r)-v(r.ordTI)))),X=>`${X('qual')}-MIN(${X('qual')},${X('qRoom15')})`);
+  F('qualTax','Qualified tax (QDIV+LTCG)',r=>r.qualTax,X=>qualTaxFml(X,X('ordTI'),X('qual')));
+  F('incTax','Income tax before foreign tax credit (ordinary + qualified)',r=>r.ordTax+r.qualTax,X=>`${X('ordTax')}+${X('qualTax')}`);
+  // Social Security Tax (SST) = income tax (ordinary + qualified, before FTC, no NIIT) minus the same tax in a hypothetical where none of the SS is taxed
+  // (non-SS income, qualified income, filing status and the deduction held fixed; the senior deduction re-evaluated at that lower AGI).
+  F('sstTI','SST hypothetical: ordinary taxable income with no SS taxed',r=>r.sstOrdTI,
+    X=>`MAX(0,${X('nonSS')}-${X('ded')}-${senFml(X,`(${X('nonSS')}+${X('qual')})`)})`);
+  F('sstTax','SST hypothetical: ordinary + qualified tax with no SS taxed',r=>r.sstTaxNoSS,
+    X=>`${ordTaxFml(X,X('sstTI'))}+${qualTaxFml(X,X('sstTI'),X('qual'))}`);
+  F('sst','Social Security Tax (SST) = income tax − income tax with no SS taxed (floored at 0)',r=>r.sst,X=>`MAX(0,${X('incTax')}-${X('sstTax')})`);
+  // Marginal tax rate = (tax with MargBump more non-SS ordinary income − tax) / MargBump, re-running taxable SS and the senior deduction at the higher income.
+  F('mProv','Marginal rate: provisional income + step',r=>r.mProv,X=>`${X('prov')}+MargBump`);
+  F('mTSS','Marginal rate: taxable SS at the higher income',r=>r.mTSS,X=>tssFml(X,X('mProv')));
+  F('mTI','Marginal rate: ordinary taxable income at the higher income',r=>r.mTI,
+    X=>`MAX(0,${X('nonSS')}+MargBump+${X('mTSS')}-${X('ded')}-${senFml(X,`(${X('nonSS')}+MargBump+${X('mTSS')}+${X('qual')})`)})`);
+  F('mTax','Marginal rate: ordinary + qualified tax at the higher income',r=>r.mTax,
+    X=>`${ordTaxFml(X,X('mTI'))}+${qualTaxFml(X,X('mTI'),X('qual'))}`);
+  F('marg','Marginal tax rate on ORDINARY income = (tax at higher income − tax) / step, floored at 0 (includes the SS torpedo and senior-deduction phase-out; not the rate on the next dollar of qualified income)',r=>pct(r.marginalRate),
+    X=>`MAX(0,(${X('mTax')}-${X('incTax')})/MargBump)`,XLSX_PCT);
+  F('margQ','  of which: ordinary income pushing qualified income into a higher tier',r=>pct(r.marginalQual),
+    X=>`MAX(0,(${qualTaxFml(X,X('mTI'),X('qual'))}-${X('qualTax')})/MargBump)`,XLSX_PCT);
+  F('margO','  of which: ordinary brackets (incl. SS torpedo and senior-deduction phase-out)',r=>pct(r.marginalOrd),X=>`${X('marg')}-${X('margQ')}`,XLSX_PCT);
   F('nii','Net investment income (NII)',r=>r.niiIncome,X=>`${X('odivNQ')}+${X('qdiv')}+${X('ltcg')}+${X('annNII')}`);
   F('niit','NIIT (3.8%)',r=>r.niit,X=>{
     const th=`IF(AND(FutNIIT_On="Yes",${X('year')}>=FutNIIT_Start),IF(${M(X)},FutNIIT_MFJ,FutNIIT_SGL),IF(${M(X)},NIIT_MFJ,NIIT_SGL)*${X('f')})`;
     return `NIIT_Rate*MIN(MAX(0,${X('nii')}),MAX(0,${X('agi')}-${th}))`; });
-  F('incTax','Income tax before foreign tax credit (ordinary + qualified)',r=>r.ordTax+r.qualTax,X=>`${X('ordTax')}+${X('qualTax')}`);
   F('tt','Total Tax (TT) = MAX(0, income tax − foreign tax credit) + NIIT',r=>r.totalTax,X=>`MAX(0,${X('incTax')}-${X('ftc')})+${X('niit')}`);
   F('eff','Effective tax rate',r=>pct(r.agi>0?r.totalTax/r.agi:0),X=>`IF(${X('agi')}>0,${X('tt')}/${X('agi')},0)`,XLSX_PCT);
   // — IRMAA: MAGI two years back × living people 65+ —
   F('enr','People on Medicare (alive, age 65+)',r=>r.ages.reduce((c,a,i)=>c+((r.alive[i]&&a>=65)?1:0),0),X=>{
-    const t=[]; for(let i=0;i<n;i++) t.push(`(${X('age_'+i)}>=65)*(${X('age_'+i)}<Pass_${i+1})`); return t.join('+'); });
+    const t=[]; for(let i=0;i<n;i++) t.push(`(${X('age_'+i)}>=65)*(${X('age_'+i)}<Pass_${i+1})`); return t.join('+'); },XLSX_COUNT);
   F('irmaa','Household IRMAA surcharge (expense) = tier of MAGI from 2 years earlier × people on Medicare',r=>v(r.irmaaSurcharge),(X,idx)=>{
     if(idx<2) return '0';
     const m=X('magi',-2);
@@ -514,15 +591,18 @@ function xlsxBuildWorkbook(proj){
   const main=xlsxSheet();
   xlsxPut(main,0,0,xlsxTxt('Projection by year (today\'s $). Row 4 says whether a column is an Excel formula or a value solved by the app; formulas read the Inputs and Tax tables sheets and the account sheets.'));
   const t=xlsxTable(main,2,cols,proj.rows);
-  const widths=cols.map(c=>Math.max(11,Math.min(30,Math.round(c.head.length/3)+6)));
-  const sheets=[{name:'Inputs',ws:inputs.ws},{name:'Tax tables',ws:tax.ws},{name:'Projection by year',ws:xlsxFinish(main,widths),_t:t,_cols:cols}];
+  const sheets=[{name:'Inputs',ws:inputs.ws},{name:'Tax tables',ws:tax.ws},{name:'Projection by year',ws:xlsxFinish(main),_t:t,_cols:cols}];
   acct.forEach(s=>sheets.push({name:s.name,ws:s.type==='annuity'?xlsxAoa(s.rows):s.ws}));
   return {sheets, names:inputs.names.concat(tax.names)};
 }
+// Annuity sheet: row 0 = headers, then one row per live year (Year, age, then dollar amounts), formatted like the other sheets.
 function xlsxAoa(rows){
-  const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=rows[0].map(h=>({wch:Math.max(10,Math.min(32,String(h).length+2))}));
-  return ws;
+  const sh=xlsxSheet();
+  rows.forEach((row,r)=>row.forEach((v,c)=>{
+    if(r===0) xlsxPut(sh,r,c,xlsxTxt(v));
+    else if(typeof v==='number') xlsxPut(sh,r,c,xlsxNum(v,c===0?XLSX_YEAR:c===1?XLSX_AGE:XLSX_MONEY));
+  }));
+  return xlsxFinish(sh);
 }
 
 function exportToExcel(){

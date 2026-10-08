@@ -33,7 +33,8 @@ function buildIncomeLegend(){
     keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
     legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(BRACKET_COLOR)) +
     legendItem('Ordinary tax brackets (rate above each line, shown on taxable ordinary income chart)', null, legendDashStyle(BRACKET_COLOR)) +
-    legendItem('Deduction stacked on taxable ordinary income (shown on taxable ordinary income chart)', null, legendDashStyle(DEDUCTION_COLOR));
+    legendItem('Deduction stacked on taxable ordinary income (shown on taxable ordinary income chart)', null, legendDashStyle(DEDUCTION_COLOR)) +
+    legendItem('Qualified tax brackets (rate above each line, shown on taxable qualified income chart)', null, legendDashStyle(BRACKET_COLOR));
 }
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -148,7 +149,8 @@ function buildIncomeChart(){
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
-        tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
+        // External (HTML) tooltip: the primary is now half the section width, and the built-in canvas popup is clipped at the canvas edge.
+        tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
@@ -218,8 +220,8 @@ function buildIncomeChart(){
       interaction:{mode:'index',intersect:false},
       plugins:{ legend:{display:false}, magiOverlay:magiOv, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(magiTip)} },
       scales:{
-        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('MAGI (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:10}},
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('MAGI (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:7,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
     })});
 
@@ -287,8 +289,55 @@ function buildIncomeChart(){
       interaction:{mode:'index',intersect:false},
       plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(ordTip)} },
       scales:{
-        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Taxable ordinary income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:10}},
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Taxable ordinary income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:7,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+      }
+    })});
+
+  // ── Fourth equal-size chart: taxable QUALIFIED income (QDIV + LTCG net of SCGL) ──
+  // Only the qualified income is stacked (QDIV, LTCG, in the primary's colors); ordinary income is not drawn. The dashed lines are the qualified
+  // tax brackets themselves: the 0% / 15% limits for the filing status in force (MFJ_QDIV / SGL_QDIV `lim`), each labeled with the rate that applies above it. A line above the chart's Y scale is not
+  // drawn. Same X labels, Y scale and 1:1 ratio as the other charts. The popup lists every qualified component with its color.
+  const qualKeys=['qdiv','ltcg'];
+  const qualSeries={ qdiv:rows.map(r=>r.qdiv||0), ltcg:rows.map(r=>r.ltcg||0) };
+  const qualAligned={}; qualKeys.forEach(k=>{ qualAligned[k]=alignToAges(ages, qualSeries[k], labels); });
+  const qualDs=qualKeys.map(k=>({
+    label:INC_LABELS[k], data:qualAligned[k],
+    borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
+    borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'qual', order:3
+  }));
+  const nQ=MFJ_QDIV.length-1;   // the top tier (20%) has no upper limit, so the last line is where the 15% tier ends
+  for(let j=0;j<nQ;j++){
+    const vals=rows.map(r=>(r.filing==='married'?MFJ_QDIV:SGL_QDIV)[j].lim);   // the qualified bracket limit itself, for the filing status in force
+    if(Math.min(...vals)>=Y_MAX) continue;   // off the chart's scale
+    const rate=Math.round(MFJ_QDIV[j+1].r*100)+'%';
+    qualDs.push({data:alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
+      borderDash:[7,4], borderColor:BRACKET_COLOR, stack:'ql'+j, order:0});
+  }
+  const qualTip={
+    title:tooltipCallbacks.title,   // owners + ages
+    // One colored line per qualified component (the tier lines have no label of their own).
+    label:ctx=>{
+      if(ctx.raw==null||ctx.raw<0.5||qualKeys[ctx.datasetIndex]==null) return null;
+      return mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr');
+    },
+    footer:items=>{
+      const r=rowByAge[labels[items[0]?items[0].dataIndex:0]]; if(!r) return [];
+      const lines=[''];
+      if((r.scglUsed||0)>0.5) lines.push(mrow('  LTCG realized (gross, before SCGL)', fmt(r.ltcgGross!=null?r.ltcgGross:(r.ltcg||0)+(r.scglUsed||0))+'/yr'), mrow('  SCGL used', '\u2212'+fmt(r.scglUsed)+'/yr'));
+      lines.push(mrow('Qualified income', fmt(r.qualIncome||0)+'/yr'));
+      if((r.qualTax||0)>0.5) lines.push(mrow('Qualified tax', fmt(r.qualTax)+'/yr'));
+      return lines;
+    }
+  };
+  upsertLineChart('incomeQual',{canvasId:'incomeQualChart', labels, datasets:qualDs, yMax:Y_MAX, tooltip:qualTip,
+    createOptions:()=>({
+      ...CHART_BASE,
+      interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(qualTip)} },
+      scales:{
+        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:10}},
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Taxable qualified income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:7,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
       }
     })});
 }

@@ -363,3 +363,20 @@
 146. Removed the Compare feature: the Duplicate as Compare / Load Compare file buttons, the compare bar, the chart overlays, `js/display/compare.js` and its CSS. A leftover saved Compare plan in browser storage is cleared at startup.
 
 147. Cleanup: removed dead code — the unused `taxBracketOverlay` plugin, `legendLineStyle`, the never-populated `#detailPanel` markup and its print CSS.
+
+148. Excel export is easier to read: dollars `$#,##0.00`, ages and percents one decimal, years / counts whole numbers (every numeric table column defaults to dollars); column widths follow the widest formatted number; the annuity sheets are formatted like the others.
+149. Compare is back as **A/B scenarios** (`js/display/scenarios.js`): Duplicate as B / Load file as B, and a ⇄ button that flips the inputs and every chart between the two plans. The dotted comparison line on the charts is gone.
+
+150. A/B: removed the top-bar switch button (the A / B chips do the same) and stopped destroying the charts on a flip, so they animate from one plan to the other instead of redrawing from y=0.
+
+151. Total Income Tax chart: removed the marginal tax rate dashed line (the popup still lists the marginal rate). Annual Household Income: the three charts are now four equal-size charts in a 2 × 2 grid; the new fourth chart shows taxable qualified income (QDIV + LTCG) stacked on grey taxable ordinary income, with dashed lines at the 0% / 15% tier limits labeled with the rate above.
+
+152. Taxable qualified income chart: ordinary income is no longer drawn; the tier lines are now the room left for qualified income (tier limit − taxable ordinary income); the popup shows every qualified component with its color (plus gross LTCG / SCGL used, qualified income and qualified tax). Annual Household Income primary chart: HTML tooltip, so the popup is no longer clipped on the right. Excel: new Projection-by-year columns for the two tier lines and the qualified income taxed at 0% / 15% / 20%. Formulas page: new qualified-chart equations.
+
+153. Taxable qualified income chart: the dashed lines are now the qualified tax brackets themselves (`MFJ_QDIV` / `SGL_QDIV` limits, labeled with the rate above), no longer the room left after taxable ordinary income; only qualified income (QDIV + LTCG) is stacked. Legend entry renamed "Qualified tax brackets"; Formulas page and ARCHITECTURE.md updated.
+
+154. Excel export: **SST and the marginal tax rate are live formulas again** (they were pasted app values). New columns hold the no-SS hypothetical (`sstTI`, `sstTax`, `sst`) and the +$100 re-run (`mProv`, `mTSS`, `mTI`, `mTax`, `marg`; step is the `MargBump` cell on Tax tables), built from shared formula builders (`tssFml`, `senFml`, `ordTaxFml`, `qualTaxFml`) so they use the same equations as the main tax chain. `computeSSTAndMarginal` now also returns those intermediates (stored on each row) as cached values. New columns `qLine0` / `qLine15` give the qualified bracket limits drawn on the qualified chart. Formulas page: taxable ordinary income is floored at 0 and total TI = ordinary TI + QDIV + LTCG; effective tax rate (TT ÷ AGI) added; SST/marginal paragraph mentions the Excel columns. Checked with a Node harness: the workbook was recalculated in LibreOffice and every formula cell (~1,860 per scenario: married, bracket-conversion, LTC, single) matches the app's value to the cent.
+
+155. The marginal tax rate is labeled as the marginal rate on **ordinary income** everywhere (Total Tax popup, Taxable SS / SST popup, Excel column and step cell, Formulas page); the Formulas page notes that no marginal rate is calculated for qualified income.
+
+156. Marginal tax rate popup (Total Income Tax) splits the rate into "from ordinary brackets" and "from pushing qualified income into a higher tier" when the second part is non-zero (e.g. 32% bracket + 5% = 37%); the same two parts are Excel columns `margQ` / `margO`; Formulas page explains it.

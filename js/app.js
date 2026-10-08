@@ -9,6 +9,7 @@ let lastProjection=null;
 function recompute(){
   lastProjection = computeProjection();
   renderCharts();
+  renderAbBar();     // A/B scenario bar (scenarios.js): names and the input differences, refreshed after every edit
 }
 const recomputeDebounced = debounce(recompute, 80);
 const saveDebounced = debounce(autosave, 500);
@@ -50,6 +51,6 @@ function renderAll(){
 
 window.addEventListener('DOMContentLoaded', function(){
   if(!loadAutosave()){ state=defaultState(); }
-  try{ localStorage.removeItem('retirementPlannerCompare_v1'); }catch(e){}   // leftover from the removed Compare feature
+  abRestore();       // the other A/B scenario, if one was saved (scenarios.js)
   renderAll();
 });

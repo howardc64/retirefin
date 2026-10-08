@@ -65,11 +65,12 @@ function computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, 
   const sst = Math.max(0, actualTotalTax - (ordTaxNoSS+qualTaxNoSS));
 
   const bump=100; // $100 numerical-derivative step, normalized back to a per-$1 rate
-  const {taxableSS:taxSS2}=computeTaxableSS(nonSSOrdinary+bump+qdiv+ltcg+teIncome, totalSS, filing, f);   // QDIV, LTCG and tax-exempt interest all count toward provisional income
+  const {taxableSS:taxSS2,provisional:provM}=computeTaxableSS(nonSSOrdinary+bump+qdiv+ltcg+teIncome, totalSS, filing, f);   // QDIV, LTCG and tax-exempt interest all count toward provisional income
   const ordTI2=Math.max(0, nonSSOrdinary+bump+taxSS2-std-(seniorFn?seniorFn(nonSSOrdinary+bump+taxSS2+qdiv+ltcg):0));
   const tax2=calcOrdTax(ordTI2, ordBrk)+calcQualTax(ordTI2, qdiv+ltcg, qBrk);
   const marginalRate=Math.max(0,(tax2-actualTotalTax)/bump);
-  return {sst, marginalRate};
+  // The hypotheticals' intermediate values are returned too, so the Excel export can show them as cached values next to its live formulas.
+  return {sst, marginalRate, sstOrdTI:ordTInoSS, sstTaxNoSS:ordTaxNoSS+qualTaxNoSS, mProv:provM, mTSS:taxSS2, mTI:ordTI2, mTax:tax2};
 }
 // Enhanced deduction for seniors (Schedule 1-A Part V, lines 31–37). Per eligible individual it is
 //   max( 0, $6,000 − 6% × max( 0, MAGI − $75,000 ($150,000 joint) ) ),

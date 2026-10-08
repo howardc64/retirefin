@@ -190,17 +190,18 @@ ${fpWhere('The base is applied in full; the IRS uses the smaller of the base and
 <p><strong>SST</strong> is <em>not</em> the taxable-SS dollar amount — it's the incremental tax that including taxable SS actually generates, holding non-SS income, filing status and qualified income fixed:</p>
 ${fpEq(`SST = Tax<sub>actual</sub> − Tax<sub>no SS taxed</sub>`)}
 ${fpWhere('Tax here is ordinary tax + qualified tax only, before the foreign tax credit and without NIIT, so a change in NIIT or FTC is never counted as tax on Social Security. The marginal rate below uses the same basis.')}
-<p><strong>Marginal rate / "torpedo effect".</strong> The true marginal rate on the next dollar of ordinary income is a small numerical derivative — add $100 of ordinary income, then re-run the taxable-SS and tax calculations:</p>
-${fpEq(`Marginal rate = ${fpFr('Tax(ordinary income + $100) − Tax(ordinary income)','$100')}`)}
-${fpWhere('Each re-run recomputes provisional income (which includes QDIV, LTCG and tax-exempt income) and the enhanced senior deduction at the higher income, so the marginal rate also picks up the extra 6% per eligible person while the senior deduction is phasing out.')}
-<p>Because an extra dollar of income can push more Social Security into taxability — and that newly-taxable SS is itself taxed — this marginal rate can run meaningfully above the statutory bracket rate. This compounding effect is what's meant by the "torpedo effect."</p>
+<p><strong>Marginal rate on ordinary income / "torpedo effect".</strong> The true marginal rate on the next dollar of ordinary income is a small numerical derivative — add $100 of ordinary income, then re-run the taxable-SS and tax calculations:</p>
+${fpEq(`Marginal rate<sub>ordinary income</sub> = ${fpFr('Tax(ordinary income + $100) − Tax(ordinary income)','$100')}`)}
+${fpWhere('Each re-run recomputes provisional income (which includes QDIV, LTCG and tax-exempt income) and the enhanced senior deduction at the higher income, so the marginal rate also picks up the extra 6% per eligible person while the senior deduction is phasing out. The Excel export carries both the SST and the marginal-rate hypotheticals as live formulas (the no-SS and +$100 columns next to Qualified tax), using the same equations.')}
+<p>Because an extra dollar of income can push more Social Security into taxability — and that newly-taxable SS is itself taxed — this marginal rate can run meaningfully above the statutory bracket rate. The marginal rate can also exceed the top ordinary bracket rate for another reason: qualified income is stacked on top of ordinary income, so an extra dollar of ordinary income pushes a dollar of QDIV/LTCG up into the next tier (0% → 15% or 15% → 20%), adding that 5–15% to the bracket rate (for example a 32% bracket + 5% = 37%). The Total Income Tax popup shows the two parts separately. This is the marginal rate on ordinary income only; the rate on the next dollar of qualified income (QDIV or LTCG) is not calculated here — it is the 0% / 15% / 20% tier that income ends in, plus any NIIT. This compounding effect is what's meant by the "torpedo effect."</p>
 
 <h3>Total Tax (TT)</h3>
 <p>Income is built up in stages:</p>
 ${fpEq(
   `Ordinary income = wages + pension + rental + taxable annuity payouts + IRA RMD + pre-tax IRA withdraw + pre-tax IRA withdraw (for expenses) + (ODIV − QDIV)`,
   `AGI = ordinary income + taxable SS + QDIV + LTCG<sub>net of SCGL</sub>`,
-  `TI = AGI − max(standard deduction, itemized deductions) − enhanced senior deduction`
+  `Taxable ordinary income = max( 0,&ensp;ordinary income + taxable SS − max(standard deduction, itemized deductions) − enhanced senior deduction )`,
+  `TI = taxable ordinary income + QDIV + LTCG<sub>net of SCGL</sub>`
 )}
 ${fpWhere('The standard deduction is the married or single amount, based on that year\'s filing status; itemized deductions are the Long Term Care cost above 7.5% of AGI, and whichever is larger is used. The enhanced senior deduction (next paragraph) is taken on top of either one and lowers taxable income but not AGI. Rental in the ordinary-income line is the taxable rental income as entered (see Rental income and depreciation, below).')}
 <p><strong>Enhanced deduction for seniors (Schedule 1-A, Part V).</strong> Under current law (tax years 2025 through 2028 only) each person who is 65 or older by the end of the tax year — for 2025 that means born before January 2, 1961, for 2026 before January 2, 1962, and so on — gets up to $6,000, taken whether or not deductions are itemized. It is reduced by 6% of modified AGI (MAGI, taken as AGI) above $75,000 single / $150,000 married filing jointly, and never below $0. On a joint return each eligible spouse gets the same reduced amount:</p>
@@ -250,7 +251,10 @@ ${fpEq(
 )}
 
 <p>Putting it together:</p>
-${fpEq(`TT = max( 0,&ensp;ordinary tax + qualified tax − FTC ) + NIIT`)}
+${fpEq(
+  `TT = max( 0,&ensp;ordinary tax + qualified tax − FTC ) + NIIT`,
+  `Effective tax rate = ${fpFr('TT','AGI')}&ensp;(0 when AGI ≤ 0)`
+)}
 
 <h3>Brokerage Portfolios</h3>
 <p><strong>Dividends.</strong></p>
@@ -351,6 +355,12 @@ ${fpEq(
   `Total taxable income = taxable ordinary income + QDIV + LTCG<sub>net of SCGL</sub>`
 )}
 ${fpWhere('The deduction is the standard or itemized deduction plus the senior deduction. On the chart it is taken off the bottom of the stack, so each ordinary band is that source\'s taxable part and those bands add up to the taxable ordinary income; The dashed lines are the ordinary tax brackets: each marks where a bracket starts and is labeled with the rate that applies above it, so the stack can be read against them directly. A red dashed line above the stack marks taxable ordinary income + the deduction absorbed, i.e. ordinary income before the deduction, so the gap between the stack and the red line is the deduction. The Roth conversion "below ordinary bracket" limit tests this same taxable ordinary income. QDIV and LTCG are taxed at their own rates, stacked on top of it in the qualified tax calculation; total taxable income is shown in the main income popup (Show Details) and in the Excel export.')}
+<p>The taxable qualified income chart (bottom right of Annual Household Income) stacks only the qualified income, QDIV and LTCG<sub>net of SCGL</sub> in their usual colors. Ordinary income is not drawn. The two dashed lines are the qualified tax brackets themselves, for that year\'s filing status:</p>
+${fpEq(
+  `Qualified income = QDIV + LTCG<sub>net of SCGL</sub>`,
+  `Qualified tax = 0% / 15% / 20% of the qualified income that falls in each qualified bracket, stacked on top of taxable ordinary income`
+)}
+${fpWhere('The lines are the qualified dividend / long-term capital gains bracket limits above (today\'s dollars, MFJ until the filing-status switch, Single after), each labeled with the rate that applies above it; a line above the chart\'s scale is not drawn. Taxable ordinary income still fills the brackets first when the tax is calculated, so the amount actually taxed at each rate is on the Excel Projection by year sheet.')}
 <p>On the Total Income Tax chart, <em>view IRMAA as tax</em> adds the household IRMAA surcharge paid that year (the expense above) on top of the tax stack, so the dashed line is <em>Total tax + IRMAA surcharge</em>. It is a display option only and never changes the projection.</p>
 
 <p><strong>Annual balance change.</strong></p>

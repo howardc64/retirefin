@@ -1,19 +1,19 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / TOTAL INCOME TAX CHART — stacked ordinary/QDIV/LTCG tax
-// with effective/marginal rate overlay lines (spec §9.4).
+// with an effective-rate overlay line (spec §9.4); the marginal rate is in the popup only.
 // ═══════════════════════════════════════════════════════════════
 const VZ_TAX = { ord:'#C8600A', qdiv0:'#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',
-                 ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#B0163E', effRate:'#E8291C', marginalRate:'#1FA92C', ftc:'#1F5FE0' };
+                 ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#B0163E', effRate:'#E8291C', ftc:'#1F5FE0' };
 const TAX_LEGEND=[
   ['ord','Ordinary income tax'], ['qdiv0','QDIV 0%'], ['qdiv15','QDIV 15%'], ['qdiv20','QDIV 20%'],
   ['ltcg0','LTCG 0%'], ['ltcg15','LTCG 15%'], ['ltcg20','LTCG 20%'],
   ['niit','NIIT 3.8% (+ on top of QDIV/LTCG)'],
   ['ftc','Foreign tax credit (stacked above total tax, dashed)'],
-  ['effRate','Effective tax rate (right axis, dashed)'], ['marginalRate','Marginal tax rate (right axis, dashed)']
+  ['effRate','Effective tax rate (right axis, dashed)']
 ];
 function buildTaxLegend(){
-  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.map(([k,label])=>legendItem(label, VZ_TAX[k], (k==='ftc'||k==='effRate'||k==='marginalRate')?legendDashStyle(VZ_TAX[k]):undefined)).join('') +
+  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.map(([k,label])=>legendItem(label, VZ_TAX[k], (k==='ftc'||k==='effRate')?legendDashStyle(VZ_TAX[k]):undefined)).join('') +
     (viewIrmaaAsTax ? legendItem('IRMAA surcharge (stacked above total tax, dashed)', null, legendDashStyle(OVERLAY_COLOR)) : '');
 }
 function buildTaxChart(){
@@ -45,15 +45,10 @@ function buildTaxChart(){
   const alignedL=lTiers.map(arr=>alignToAges(ages,arr,labels));
   const alignedNiit=alignToAges(ages,niitArr,labels);
   const alignedFtc=alignToAges(ages,ftcArr,labels);
-  // §9.4: "Draw thick dashed line for effective tax rate. Draw thick dashed line for marginal
-  // tax rate." Both on the right-hand % axis, overlaid on top of the $ stack (but below the
-  // tooltip). Effective rate = TT / AGI; marginal rate reuses the same top-marginal-rate-on-the
-  // -next-dollar figure as the TSS chart (it accounts for the SS torpedo effect, so it can run
-  // above the statutory bracket rate).
+  // §9.4: thick dashed line for the effective tax rate (TT / AGI) on the right-hand % axis, overlaid on top of the $ stack (but below the
+  // tooltip). The marginal rate is shown in the popup only, not as a line.
   const effRateArr=rows.map(r=>r.agi>0 ? r.totalTax/r.agi*100 : 0);
   const alignedEff=alignToAges(ages,effRateArr,labels);
-  const marginalArr=rows.map(r=>(r.marginalRate||0)*100);
-  const alignedMarginal=alignToAges(ages,marginalArr,labels);
 
   // "view IRMAA as tax": the IRMAA surcharge paid that year (null when none) stacks on top of the tax stack as a dashed line.
   const alignedIrmaa=alignToAges(ages, rows.map(r=>r.expIrmaa>0?r.expIrmaa:null), labels);
@@ -90,7 +85,6 @@ function buildTaxChart(){
     // §9.4: rate lines are overlaid "on top of other graph objects (but below tooltip)" — a lower
     // Chart.js `order` value draws on top of higher ones, so these get order:1/0 vs. order:2 above.
     {label:'Effective tax rate', data:alignedEff, borderColor:VZ_TAX.effRate, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:1},
-    {label:'Marginal tax rate', data:alignedMarginal, borderColor:VZ_TAX.marginalRate, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:0}
   ];
 
   if(viewIrmaaAsTax){
@@ -117,7 +111,9 @@ function buildTaxChart(){
       // all three always shown. "If show_details, show TI, all income components, standard
       // deduction, foreign tax credit."
       const lines=['', mrow('Effective tax rate', effRate.toFixed(1)+'%')];
-      lines.push(mrow('Marginal tax rate', ((r.marginalRate||0)*100).toFixed(1)+'%'));
+      lines.push(mrow('Marginal tax rate (ordinary income)', ((r.marginalRate||0)*100).toFixed(1)+'%'));
+      // When extra ordinary income also pushes qualified income (QDIV/LTCG) into a higher 0/15/20% tier, show that part separately so the total can exceed the ordinary bracket rate.
+      if((r.marginalQual||0)>0.0005) lines.push(mrow('  from ordinary brackets', ((r.marginalOrd||0)*100).toFixed(1)+'%'), mrow('  from pushing qualified income into a higher tier', ((r.marginalQual||0)*100).toFixed(1)+'%'));
       lines.push(mrow('Total tax (TT)', fmt(r.totalTax)+'/yr'));
       if(viewIrmaaAsTax && r.expIrmaa>0) lines.push(mrow('Total tax + IRMAA', fmt(r.totalTax+r.expIrmaa)+'/yr'));
       if(showDetails){
@@ -162,8 +158,8 @@ function buildTaxChart(){
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Total tax (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID},
-        // §9.4: effective/marginal tax-rate lines share their own right-hand % scale, independent of the $ stack.
-        y1:{position:'right',min:0,max:100,title:axisTitle('Tax rate (effective / marginal)'),ticks:{...AXIS_TICKS,callback:v=>v+'%'},grid:{display:false}}
+        // §9.4: the effective tax-rate line shares their own right-hand % scale, independent of the $ stack.
+        y1:{position:'right',min:0,max:100,title:axisTitle('Effective tax rate'),ticks:{...AXIS_TICKS,callback:v=>v+'%'},grid:{display:false}}
       }
     })});
   buildTaxLegend();

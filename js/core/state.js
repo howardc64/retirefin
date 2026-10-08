@@ -282,6 +282,7 @@ let state = defaultState();
 function autosave(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch(e){ console.error('Autosave failed',e); }
+  if(typeof abSave==='function') abSave();   // the other A/B scenario is kept alongside (scenarios.js)
 }
 function loadAutosave(){
   try{
