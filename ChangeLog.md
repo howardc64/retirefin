@@ -361,3 +361,5 @@
 145. MAGI chart IRMAA lines and the taxable ordinary income chart's bracket lines (with their labels and legend swatches) are now bright green (`BRACKET_COLOR`, `chartHelpers.js`).
 
 146. Removed the Compare feature: the Duplicate as Compare / Load Compare file buttons, the compare bar, the chart overlays, `js/display/compare.js` and its CSS. A leftover saved Compare plan in browser storage is cleared at startup.
+
+147. Cleanup: removed dead code — the unused `taxBracketOverlay` plugin, `legendLineStyle`, the never-populated `#detailPanel` markup and its print CSS.

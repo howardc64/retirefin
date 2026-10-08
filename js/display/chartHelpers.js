@@ -190,10 +190,6 @@ function crowdedBracketKeep(valueLists, yMax, keep=3, gapFrac=0.05){
 function legendDashStyle(color){
   return `background:repeating-linear-gradient(90deg,${color} 0 5px,transparent 5px 8px);height:2px;border-radius:0`;
 }
-// Thin solid-line swatch (matches the thin solid overlay lines, e.g. tax-rate lines).
-function legendLineStyle(color){
-  return `background:${color};height:2px;border-radius:0`;
-}
 function legendItem(text, color, style){
   return `<span class="li"><span class="ls" style="${style||('background:'+color)}"></span>${text}</span>`;
 }

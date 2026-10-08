@@ -108,13 +108,6 @@ tbody tr:last-child td{border-bottom:none;}
 
 footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint);border-top:1px solid var(--border);background:var(--surface);line-height:1.8;}
 
-#detailPanel{display:none;}
-@media print{
-  body.printing-detail > header, body.printing-detail > main > *:not(#detailWrap), body.printing-detail > footer{display:none !important;}
-  body.printing-detail #detailPanel{display:block !important;}
-  body.printing-detail{background:#fff;}
-}
-
 /* These collapse based on the *column's own rendered width* (container query), not the
    viewport — the input column is only ~35% of page width, so a viewport breakpoint alone
    let two-column layouts overflow and clip their own content well before 700px viewports.
