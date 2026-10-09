@@ -1,6 +1,6 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// DISPLAY / EXCEL EXPORT — "Export to Excel" button (next to Notes)
+// DISPLAY / EXCEL EXPORT — "Export Excel" button (next to Notes)
 // downloads the plan as a .xlsx workbook that is a LIVE model, not just a table of numbers:
 //   • "Inputs" sheet — every assumption and input value (household, Social Security, pension, portfolios, IRAs, LTC, fees…).
 //     Inflation, first year, passing ages, SCGL and the future-NIIT assumption are named cells the formulas use.

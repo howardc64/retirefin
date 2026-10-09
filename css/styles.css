@@ -278,7 +278,6 @@ body.printing-all canvas.print-swapped{display:none !important;}
 .unfunded-alert small{display:block;margin-top:2px;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0;}
 
 /* A/B scenarios (scenarios.js) */
-.ab-bar{margin:8px 14px;padding:10px 12px;border:1px solid #e3b5c8;background:#fdf3f7;border-radius:8px;font-size:13px}
 .ab-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
 .ab-chip{padding:4px 11px;border-radius:14px;border:1px solid #cfd8d6;background:#eef2f1;font:inherit;cursor:pointer}
 .ab-chip.ab-B{background:#fbe3ec;border-color:#e3b5c8}
@@ -291,7 +290,6 @@ body.printing-all canvas.print-swapped{display:none !important;}
 .ab-table th,.ab-table td{padding:3px 10px;border-bottom:1px solid #ecd5de;text-align:right}
 .ab-table th:first-child,.ab-table td:first-child{text-align:left}
 .ab-diff summary{cursor:pointer;font-weight:600;margin-bottom:4px}
-@media print{.ab-bar button{display:none}}
 
 /* ── Input Element Info (js/input/inputInfo.js): description popup + custom drop-down list ── */
 #inputTip{position:fixed;z-index:10001;pointer-events:none;border:1px solid;border-radius:6px;padding:6px 8px;font:12px/1.4 'DM Sans',sans-serif;max-width:320px;white-space:normal;opacity:0;transition:opacity .1s;}
@@ -300,3 +298,17 @@ body.printing-all canvas.print-swapped{display:none !important;}
 #iiMenu div:hover{background:var(--border);}
 #iiMenu div.sel{font-weight:600;}
 #iiMenu div.dis{opacity:.45;cursor:default;}
+
+/* Scenario card (scenarios.js) and Notes popup (userNotes.js) */
+.scn-card{position:fixed;top:64px;right:14px;z-index:10000;width:min(480px,calc(100vw - 28px));max-height:80vh;overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.22);padding:12px 14px;font-size:13px}
+.scn-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}
+.scn-name{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.scn-name input{flex:1;min-width:0;font:inherit;padding:3px 6px}
+.scn-scroll{overflow-x:auto}
+#scenarioBtn.on{box-shadow:0 0 0 2px #0f6e56 inset}
+.scn-card .btn[disabled]{opacity:.45;cursor:not-allowed}
+.un-overlay{position:fixed;inset:0;z-index:10003;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
+.un-card{background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 10px 32px rgba(0,0,0,.3);width:min(640px,92vw);padding:14px}
+.un-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.un-card textarea{width:100%;min-height:50vh;box-sizing:border-box;font:14px/1.45 'DM Sans',sans-serif;padding:8px;resize:vertical;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:6px}
+@media print{.scn-card,.un-overlay{display:none !important}}

@@ -1,7 +1,7 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / MD PAGE — shared Markdown → HTML viewer used by the
-// "Usage" and "Notes" buttons (see usagePage.js / notesPage.js).
+// "Usage" and "Tips" buttons (see usagePage.js / notesPage.js).
 //
 // openMdPage(file, label) opens a new tab, fetch()es the Markdown
 // file (e.g. misc/Usage.md), converts it to HTML at the moment of
@@ -47,7 +47,7 @@ async function openMdPage(file, label){
 // document (headings, bold/italic, inline code, fenced code blocks, links, lists, blockquotes,
 // horizontal rules, paragraphs, and bullet / numbered lists nested by indentation). Not a full CommonMark implementation; if a misc/*.md file needs a
 // Markdown feature this doesn't handle, extend this function rather than reaching for a CDN library
-// so the Notes and Usage buttons keep working offline once the page itself has loaded.
+// so the Tips and Usage buttons keep working offline once the page itself has loaded.
 function mdToHtml(md){
   const esc = s => escHtml(s);
   // Inline formatting, applied after block-level structure below has consumed a line's raw text.

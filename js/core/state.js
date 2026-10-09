@@ -124,6 +124,7 @@ function defaultHiddenSections(hidden){
 function defaultState(){
   return{
     filingStatus:'married',
+    notes:'',   // free-text user notes (Notes button, js/display/userNotes.js); saved with the plan file
     inflation:0.03,
     people:[defaultPerson(0), defaultPerson(1)],
     passing:{p1:85,p2:90},
@@ -286,7 +287,7 @@ let state = defaultState();
 function autosave(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch(e){ console.error('Autosave failed',e); }
-  if(typeof abSave==='function') abSave();   // the other A/B scenario is kept alongside (scenarios.js)
+  if(typeof scnSave==='function') scnSave();   // the other scenarios are kept alongside (scenarios.js)
 }
 function loadAutosave(){
   try{
@@ -332,7 +333,7 @@ function resetState(){
   flashMsg('Reset to defaults.');
 }
 async function saveToFile(){
-  const dataStr=JSON.stringify(state,null,2);
+  const dataStr=JSON.stringify(typeof scnFileData==='function'?scnFileData():state,null,2);   // every scenario goes into the file (scenarios.js)
   if(window.showSaveFilePicker){
     try{
       const handle=await window.showSaveFilePicker({
@@ -367,6 +368,7 @@ function applyLoadedFileText(text){
   destroyCharts();             // discard every visual/data closure from the old plan
   state=defaultState();        // reset before restoring, per spec
   state=hydrateState(parsed);  // then apply the restored file on top of that clean default (its Hide flags are kept as saved)
+  if(typeof scnLoadFromFile==='function') scnLoadFromFile(parsed);   // the file's other scenarios (or just A) replace the current set
   resetChartYMax();
   renderAll();
   autosave();

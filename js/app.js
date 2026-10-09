@@ -9,7 +9,7 @@ let lastProjection=null;
 function recompute(){
   lastProjection = computeProjection();
   renderCharts();
-  renderAbBar();     // A/B scenario bar (scenarios.js): names and the input differences, refreshed after every edit
+  renderScenarioCard();   // Scenario card (scenarios.js): refreshed after every edit while it is open
 }
 const recomputeDebounced = debounce(recompute, 80);
 const saveDebounced = debounce(autosave, 500);
@@ -52,6 +52,6 @@ function renderAll(){
 
 window.addEventListener('DOMContentLoaded', function(){
   if(!loadAutosave()){ state=defaultState(); }
-  abRestore();       // the other A/B scenario, if one was saved (scenarios.js)
+  scnRestore();      // the other scenarios, if any were saved (scenarios.js)
   renderAll();
 });

@@ -13,7 +13,7 @@ This page explains how to work with the planner. Everything is entered in **toda
 - **Tax modeling**: federal brackets, taxable Social Security, long-term gains, NIIT, IRMAA and the senior deduction.
 - **Charts** for Social Security claiming age, annual income, taxes, expenses and asset value (with adjustable withdraw cost).
 - **Drag to reorder** the income cards (spouses move together); the order is saved with the plan.
-- **Save / load** plans, **Export to Excel**, a **Formulas** reference and an optional **chat** to ask about your plan.
+- **Save / load** plans, **Export Excel**, a **Formulas** reference and an optional **chat** to ask about your plan.
 
 ## Getting started
 
@@ -31,17 +31,18 @@ Most items have an **age range** (when the amount starts and stops) and an **ann
 
 ## The top buttons
 
-- **Usage** — this page. **Notes** and **Formulas** open the notes and the calculation reference.
-- **A/B scenarios** — **Duplicate as B** copies the plan on screen into a second scenario (or **Load file as B** brings in a saved plan). Edit one, then click the **A** or **B** chip in the bar under the top bar to flip: every input switches to that plan and the charts animate to its values, on the same chart scale. The bar under the top bar lists the inputs that differ. **Remove** drops the other scenario.
-- **Save to file** — saves the whole plan as a file. **Load file** brings a saved plan back (or loads a sample plan if any are available).
+- **Usage** — this page. **Tips** and **Formulas** open the tips and the calculation reference.
+- **Notes** — opens a text box for your own notes about the plan. They are saved in the plan file when you click **Save**, and come back when you load it. Each scenario has its own notes.
+- **Scenario** — opens a card for working with several versions of a plan. The first is **A**. **New scenario** makes a copy of the one on screen and shows it, so your next edits go to the copy; click any scenario's chip to switch to it (every input changes and the charts animate to its values, on the same chart scale). **Delete scenario** removes the one on screen (one at a time; the last one can't be deleted). The card also names each scenario and lists the inputs that differ between them. **Save** writes every scenario into the file and **Load file** brings them all back.
+- **Save** — saves the whole plan, with all its scenarios and notes, as a file. **Load file** brings a saved plan back (or loads a sample plan if any are available).
 - **Reset to defaults** — clears the plan back to its starting values.
-- **Export to Excel** — downloads the full year-by-year projection (the "Projection by year" sheet) plus one sheet per account (portfolios, IRAs, annuities and each **real estate** property, with the property's value, cost basis, and any sale's gain, exemption, tax and amount sent to the portfolio; the main sheet totals real estate value and unrealized gain). It includes the Annual Household Income popup's *Total income*, the ordinary income before deduction, the deduction, ordinary / qualified / total taxable income, and the no-conversion figures and "trigger met" flag used by the Roth conversion start triggers. State income tax is exported for the selected state only (California's brackets, deduction and credits, or Washington's capital-gains tax); with state tax off, no state tables or columns are written.
+- **Export Excel** — downloads the full year-by-year projection (the "Projection by year" sheet) plus one sheet per account (portfolios, IRAs, annuities and each **real estate** property, with the property's value, cost basis, and any sale's gain, exemption, tax and amount sent to the portfolio; the main sheet totals real estate value and unrealized gain). It includes the Annual Household Income popup's *Total income*, the ordinary income before deduction, the deduction, ordinary / qualified / total taxable income, and the no-conversion figures and "trigger met" flag used by the Roth conversion start triggers. State income tax is exported for the selected state only (California's brackets, deduction and credits, or Washington's capital-gains tax); with state tax off, no state tables or columns are written.
 - **Input Element Info** — checked by default. Hovering an input (a box, slider, checkbox, radio button, button or its label) in *Household Setup*, *Income & Assets*, the chart sections (Hide boxes, Rescale, the Asset Value cost sliders) or the header toggles shows a short description of it. Drop-down menus open as a list in which each choice shows its own description as you move the cursor over it.
 - **Chart Element Info** — checked by default. Hovering a chart then shows a short description of the element under the cursor (an income or expense band, a dashed bracket, IRMAA, deduction or cost-basis line, a Social Security claiming-age line, the LTC bar, the IRA stretch window) instead of that year's numbers. Uncheck it to get the usual value popups; **Popup Details** applies to those.
 - **Popup Details** — adds the line-by-line breakdown to the hover popups on the main charts. The small charts beside Annual Household Income, Total Income Tax and Asset Value show the plan owner(s) and age, then only their own values.
 - **Popup background** — the slider to the right of *Popup Details* sets how light or dark every chart popup is, from a see-through white (left) to a see-through black (right), so the chart underneath stays visible; the text switches to dark on a light background. It is remembered in your browser.
 
-The Usage, Notes and Formulas pages open in a new tab. Usage and Notes read their text from the `misc` folder when you click, so they show whatever those files currently say. This works when the app is served over `http(s)`; if you opened it as a local `file://` page the browser may block it, and the new tab will say so.
+The Usage, Tips and Formulas pages open in a new tab. Usage and Tips read their text from the `misc` folder when you click, so they show whatever those files currently say. This works when the app is served over `http(s)`; if you opened it as a local `file://` page the browser may block it, and the new tab will say so.
 
 ## Reading the charts
 

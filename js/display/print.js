@@ -1,6 +1,6 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// DISPLAY / PRINT — "Print" button (right of Export to Excel).
+// DISPLAY / PRINT — "Print" button (right of Export Excel).
 // Prints the page as if every Hide checkbox (the section Hides and the per-card Hides)
 // were unchecked, WITHOUT changing what the user sees on screen or anything in `state`:
 // everything below happens inside the browser's beforeprint event and is undone in

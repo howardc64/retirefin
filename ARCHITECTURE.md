@@ -67,10 +67,10 @@ js/
                 brokerage.js  realEstate.js  ira.js  roth.js  incomeForms.js
   display/      chartHelpers.js  chartInfo.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  footer.js  print.js
-                formulasPage.js  mdPage.js  notesPage.js  usagePage.js  excelExport.js  scenarios.js  chat.js
+                formulasPage.js  mdPage.js  notesPage.js  usagePage.js  excelExport.js  scenarios.js  userNotes.js  chat.js
   app.js
 misc/      Usage.md            (how to use the app; rendered to HTML by the Usage button, §6.10)
-           Note4User.md        (user-facing notes; rendered to HTML by the Notes button, §6.10)
+           Note4User.md        (user-facing tips; rendered to HTML by the Tips button, §6.10)
 Samples/   *.json  manifest.json (example saved plans; each .json is one entry in the Load file menu, §5.6)
 ```
 
@@ -600,8 +600,11 @@ and NIIT detail if nonzero.
 - **Ordinary chart (top):** the ordinary-income-tax segment only (same color). No bracket lines are drawn on this chart. The chart is titled **Ordinary income tax**.
 - **Qualified chart (bottom):** every non-ordinary segment — QDIV tiers, LTCG tiers, then NIIT — same colors and stacking order as the primary.
 
-### 6.6a `scenarios.js` — A/B scenarios
-Two plans, **A** and **B**, and a button that flips between them. The scenario on screen is always `state`; the other is a snapshot in `abOther` (`abActive` says which letter is on screen). Top-bar buttons (rendered into `#abTop` by `renderAbBar()`): **Duplicate as B/A** (the other scenario becomes a copy of the screen plan), **Load file as B/A** (a saved plan file becomes the other scenario) (there is no separate switch button: the A / B chips in the bar do the flipping). `abSwitch()` stores the plan on screen as `abOther`, loads the other into `state`, keeps `state.ui` (layout, devalue sliders) from the viewer, and calls `renderAll()` so every input form is rebuilt. The charts are deliberately not destroyed: `upsertLineChart` updates them in place, so Chart.js animates the lines from one plan's values to the other's instead of redrawing from y=0 (a chart whose dataset count differs between the plans, e.g. one vs two people, falls back to a rebuild for that chart). Then it autosaves. The chart y-axis maxima (`chartYMax`) are not reset on a flip, so the two plans are drawn on the same scale. No lines are drawn on the charts for the other plan. The bar under the top bar (`#abBar`) has A / B chips (click the off-screen one to flip), **Remove B/A**, and a collapsible list of every input that differs (`abDifferences()`, which ignores `ui`, ids and Hide flags). `abSave()` (called from `autosave()`) keeps `{active, other, names}` in localStorage under `retirementPlannerAB_v1`; `abRestore()` runs at boot. Nothing here changes how a plan is computed.
+### 6.6a `scenarios.js` — Scenarios
+Any number of plans (**A**, **B**, **C** … up to 26) behind one **🆎 Scenario** top-bar button (`#scenarioBtn`, label shows the scenario on screen, e.g. "Scenario A"; the first scenario is always A). The scenario on screen is always `state`; every other one is a snapshot in `scnSnaps[id]`; `scnOrder` is the display order, `scnActive` the id on screen, `scnNames` the optional names. The button toggles a floating card (`#scnCard`, built by `renderScenarioCard()`, which `recompute()` calls after every edit; Esc or ✕ closes it, it does not dim the page so the chart animation stays visible). Card contents: a chip per scenario (click one → `scnSwitch(id)`), **➕ New scenario** (`scnCreate()`: a copy of the scenario on screen, which is then shown), **🗑 Delete scenario X** (`scnDelete()`: deletes the one on screen after a confirm, one at a time, disabled when only one exists; the previous scenario in order is shown), a name box (`scnRename`), and — with 2+ scenarios — a collapsible list of every input that differs, one column per scenario (`scnDifferences()`, which ignores `ui`, `notes`, ids and Hide flags). `scnSwitch()` stores the plan on screen, loads the chosen one into `state`, keeps `state.ui` (layout, devalue sliders) from the viewer, and calls `renderAll()` so every input form is rebuilt. The charts are deliberately not destroyed: `upsertLineChart` updates them in place, so Chart.js animates the lines from one plan's values to the other's (a chart whose dataset count differs between the plans falls back to a rebuild for that chart). The chart y-axis maxima (`chartYMax`) are not reset on a switch. `scnSave()` (called from `autosave()`) keeps `{active, order, names, snaps}` in localStorage under `retirementPlannerScenarios_v2` (removed while only one scenario exists); `scnRestore()` runs at boot and migrates the old two-scenario `retirementPlannerAB_v1` save once. **Save** writes every scenario: `saveToFile()` serializes `scnFileData()` — the plain plan when there is one scenario, otherwise the scenario on screen plus a `scenarios` key `{active, order, names, snaps}`; `applyLoadedFileText()` calls `scnLoadFromFile(parsed)`, which replaces the whole scenario set with the file's (or with a single A when the file has none). `hydrateState` drops the `scenarios` key from the main plan. Nothing here changes how a plan is computed.
+
+### 6.6c `userNotes.js` — Notes
+`openUserNotes()` — the **📝 Notes** button (right of **Tips**) opens a popup with a text box bound to `state.notes` (default `''` in `defaultState()`), so the text is saved in the plan file by **Save**, restored on load, autosaved, reset by **Reset to defaults**, and belongs to the scenario on screen. **Done**, Esc or a click outside closes it.
 
 ### 6.6b `print.js` — Print button
 **🖨️ Print** sits right of Export to Excel and calls `window.print()`. Printing behaves as if every Hide checkbox (section Hides and per-card Hides) were unchecked, with no visible or saved change. `beforeprint`: removes `.sec-hidden`, opens collapsed `.item-body` cards, adds `body.printing-all`, then for every chart in `charts{}` builds a fresh non-animated copy of its config on an off-screen canvas at the print size, copies its pixels onto a plain canvas and shows that in place of the live `<canvas>` (live charts are never resized or redrawn, so no animation/resize timing can blank them; an `<img>` data-URL snapshot isn't used because it decodes asynchronously). `afterprint` undoes all of it. `state` is never touched, so Ctrl/Cmd+P gives the same result. Print layout rules (`body.printing-all …` in `css/styles.css`, deliberately not inside `@media print` because they must apply before print media does): single column; panes flow; income-card grid drops subgrid (it overlapped cards when fragmented); charts 480px wide so title+legend+chart fit one landscape page; buttons/Hide boxes hidden.
@@ -681,8 +684,8 @@ if you change a formula in §4, update its description on this page in the same 
 **at the moment of opening** with the small converter `mdToHtml()` (headings, bold/italic, inline code, fenced code, links, bullet/numbered lists **nested by indentation** (2+ spaces or a tab per level; `-` `*` `+` `•` markers; indented lines under an item continue it),
 blockquotes, rules, paragraphs — extend that function rather than adding a CDN library, so it keeps working offline), wraps it in
 `mdPageHtml(title, body, file, label)` and `document.write`s it; when `fetch` is blocked (a `file://` page) it writes an explanation instead.
-`usagePage.js` → `openUsagePage()` — the **Usage** button (topbar, immediately left of **Save to file**) shows `misc/Usage.md`.
-`notesPage.js` → `openNotesPage()` — the **Notes** button (right of **Formulas**) shows `misc/Note4User.md`.
+`usagePage.js` → `openUsagePage()` — the **Usage** button (topbar, immediately left of **Save**) shows `misc/Usage.md`.
+`notesPage.js` → `openNotesPage()` — the **Tips** button (right of **Formulas**) shows `misc/Note4User.md`.
 Editing either `.md` file needs no code change — the next click shows the new text.
 
 ### 6.11 `excelExport.js`
@@ -694,7 +697,7 @@ Projection-by-year columns for the Taxable Qualified Income chart (before `Quali
 
 Number formats: dollars `$#,##0.00` (9.2), ages `0.0` and percents `0.0%` (3.1; percent-unit numbers such as growth % use `0.0"%"`), years and counts `0`; inflation keeps 2 decimals (its slider moves in 0.25% steps). A numeric table column with no format named defaults to dollars. Column widths are computed (`xlsxAutoWidths`, `xlsxFmtLen`) from the widest formatted number in each column; text-only columns use their longest text (max 70); title and header rows never set a width, so long headers are clipped (SheetJS community edition cannot wrap cells).
 
-`exportToExcel()` — the **📊 Export to Excel** button (topbar, right of **Notes**) downloads the plan as a
+`exportToExcel()` — the **📊 Export Excel** button (topbar, right of **Notes**) downloads the plan as a
 **live-formula `.xlsx` model** via the SheetJS (`XLSX`) library (pinned CDN `<script>` in `index.html`).
 `xlsxBuildWorkbook(proj)` builds every sheet (also used by a Node test harness); the workbook sets `fullCalcOnLoad`.
 Sheets, in order (a property gets its own `(real estate)` sheet, `xlsxRealEstateSheet`: value, cost basis, unrealized gain, end-of-year value and, in a sale year, basis at sale, exemption, taxable gain, tax and the amount forwarded; the main sheet's `reVal` / `reGainU` columns sum them by Year; the Inputs sheet lists each property's value, basis, exemption, growth, joint flag and sell settings):
@@ -775,8 +778,8 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
 ### 7.2 `index.html`
 - Page markup only: styling lives in `css/styles.css` (linked in `<head>`), behavior in `js/`.
 - Layout: independent-scrolling input column (left, one pane per person) and output column (right,
-  the charts) — see §1 for the overall shape. The topbar holds, in order: **Save to file**, **Load file ▾**
-  (dropdown, §5.6), **Reset to defaults**, **Usage** (§6.10), **Formulas** (§6.9), **Notes** (§6.10), **Export to Excel**
+  the charts) — see §1 for the overall shape. The topbar holds, in order: **Save**, **Load file ▾**
+  (dropdown, §5.6), **Reset to defaults**, **Usage** (§6.10), **Formulas** (§6.9), **Tips** (§6.10), **Notes** (§6.6c), **Export Excel**
   (§6.11), and the `show_details` checkbox.
 - **Script load order** (dependency-driven — a file may only use a name defined by a file *earlier* in
   this list):
