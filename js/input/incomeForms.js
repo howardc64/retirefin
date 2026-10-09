@@ -34,6 +34,7 @@ function renderIncomeForms(){
   // state-derived one — e.g. a Hide box that is checked while its card is open.
   incomeEl.innerHTML=html.replace(/<input /g,'<input autocomplete="off" ');
   initIncomeDnd(incomeEl);
+  if(typeof renderWithdrawOrderPanel==='function') renderWithdrawOrderPanel();   // its asset list follows the portfolios / properties just built
 }
 
 // ── Drag to reorder the income-source cards ──

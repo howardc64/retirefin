@@ -265,7 +265,8 @@ function buildAssetChartFor(cfg){
         if(e){
           lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
           // Sold at the end of this year: the gain is realized LTCG, its tax comes out of the sale, and the rest moves to the designated portfolio.
-          if(e.sale) lines.push(mrow('      Sold at year end: gain taxed as LTCG', fmt(e.sale.gain)+(e.sale.exempt>0?' (after '+fmt(e.sale.exempt)+' exemption)':'')+' → tax '+fmt(e.sale.tax), W), mrow('        moves to portfolio (100% basis)', fmt(e.sale.net), W));
+          if(e.sale&&e.sale.shortfall) lines.push(mrow('      Sold at start of year to cover expenses', fmt(e.sale.value)+' → gain '+fmt(e.sale.gain)+(e.sale.exempt>0?' (after '+fmt(e.sale.exempt)+' exemption)':'')+', tax added '+fmt(e.sale.tax), W), mrow('        pays expenses', fmt(e.sale.applied), W), mrow('        moves to portfolio (100% basis)', fmt(e.sale.net), W));
+          else if(e.sale) lines.push(mrow('      Sold at year end: gain taxed as LTCG', fmt(e.sale.gain)+(e.sale.exempt>0?' (after '+fmt(e.sale.exempt)+' exemption)':'')+' → tax '+fmt(e.sale.tax), W), mrow('        moves to portfolio (100% basis)', fmt(e.sale.net), W));
           if(showDetails){
             lines.push(mrow('      Unrealized gain', fmt(e.unrealizedGain||0)+' ('+(e.balance>0?e.unrealizedGain/e.balance*100:0).toFixed(0)+'% of value)', W));
             if(e.steppedUp) lines.push(mrow('      Basis stepped up at death', 'reset to value', W));

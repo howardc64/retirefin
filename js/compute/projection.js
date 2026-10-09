@@ -345,6 +345,23 @@ function computeProjection(){
   // inflation considerations apply (it's a fixed today's-$ pool, not itself inflation-adjusted).
   let scglRemaining=state.scglEnabled===false?0:Math.max(0,Number(state.scgl)||0);   // unchecked Enable → no SCGL
 
+  // ── Expense-shortfall withdrawal order (Assumptions → "Expense shortfall withdrawal order") ──
+  // Off (default): the built-in order — pay-expenses portfolios pro rata, then the pre-tax IRAs, then the Roth IRAs. On: the user's steps
+  // are tried one at a time in order, each drawing what is still needed from its one asset; an asset that is not listed is never drawn on.
+  // Asset keys: 'pf:<portfolio id>', 'ira:<person id>', 'roth:<person id>', 're:<property id>'. A key that no longer exists (or belongs to a
+  // person not in the household) is skipped, as is a repeat.
+  const woIdx={};
+  people.forEach((p,i)=>{
+    (p.brokerage||[]).forEach((b,bi)=>{ if(b&&b.id!=null) woIdx['pf:'+b.id]={t:'pf',i,bi}; });
+    woIdx['ira:'+p.id]={t:'ira',i}; woIdx['roth:'+p.id]={t:'roth',i};
+    (p.realEstate||[]).forEach((r,ri)=>{ if(r&&r.id!=null) woIdx['re:'+r.id]={t:'re',i,ri}; });
+  });
+  const woSteps=(state.withdrawOrder&&state.withdrawOrder.enabled)?(()=>{
+    const seen={}, out=[];
+    (state.withdrawOrder.steps||[]).forEach(s=>{ const key=s&&s.asset; if(key&&woIdx[key]&&!seen[key]){ seen[key]=1; out.push(woIdx[key]); } });
+    return out;
+  })():null;
+
   const sumArr=a=>a.reduce((x,y)=>x+y,0);
   const rows=[];
   for(let k=0;k<=yearsToProject;k++){
@@ -672,6 +689,23 @@ function computeProjection(){
       reSales.push({i, ri, ti:pick.ti, bi:pick.bi, name:saleLabel(r,ri), valEnd, basEnd, ownersAlive, exempt, gain:Math.max(0,valEnd-exempt-basEnd), tax:0, net:valEnd});
     }));
     const reGainTotal=reSales.reduce((a,x)=>a+x.gain,0);
+    // Real estate sold to cover an expense shortfall (a 'sell' step in the withdrawal order). The whole property is sold at the START of this year at its
+    // start-of-year value, so the proceeds are available for this year's expenses: (1) the basis is stepped up to value if the owner has passed; (2) the gain
+    // over the (inflation-eroded) basis and the exemption is realized LTCG this year, taxed with everything else (the tax is an ordinary household expense,
+    // paid by the same waterfall); (3) what the shortfall does not use goes to the designated portfolio at a 100% basis (it is in the balance from next year;
+    // with no portfolio to take it, it leaves the model). A property with a scheduled sale this year (age / LTC / passing) is left to that sale.
+    function reShortInfo(i,ri){
+      const r=(people[i].realEstate||[])[ri], st=reState[i][ri];
+      if(!r||r.enabled===false||st.dead||st.sold||!(st.bal>0)) return null;
+      const spouseAlive=married&&people.length===2&&alive[1-i];
+      if(!alive[i]&&!(r.bene&&spouseAlive)) return null;
+      if(reSales.some(x=>x.i===i&&x.ri===ri)) return null;
+      const value=st.bal, basis=clamp((!alive[i]&&!st.stepped)?st.bal:st.basis, 0, value);
+      const ownersAlive=(alive[i]?1:0)+((r.bene&&married&&people.length===2&&alive[1-i])?1:0);
+      const exempt=Math.max(0,Number(r.exempt)||0)/Math.pow(1+inflation,k)*ownersAlive;
+      const pick=pickSaleTarget(i,r,aliveNext);
+      return {i, ri, ti:pick?pick.ti:null, bi:pick?pick.bi:null, name:saleLabel(r,ri), value, basis, exempt, ownersAlive, gain:Math.max(0,value-exempt-basis)};
+    }
     // One pass of the funding waterfall for a given income-tax expense `taxExp`. Resets and refills every pool
     // portfolio's divUsed / sold / ltcg and returns the funding split.
     function runWaterfall(taxExp){
@@ -686,7 +720,7 @@ function computeProjection(){
       expNeed-=expFromDiv;
       // (3) asset sales, shared pro rata to balance; a portfolio that runs out hands its remainder to the others
       const needBeforeSales=expNeed;
-      let cand=poolPf.filter(x=>x.avail-x.divUsed-x.te>0.005), guard=0;   // tax-exempt income is paid out of the same total return, so it is reserved before any sale
+      let cand=woSteps?[]:poolPf.filter(x=>x.avail-x.divUsed-x.te>0.005), guard=0;   // (with a withdrawal order, the steps below do the selling)   // tax-exempt income is paid out of the same total return, so it is reserved before any sale
       while(expNeed>0.005 && cand.length && guard++<8){
         const B=cand.reduce((a,x)=>a+x.bal,0); let given=0; const next=[];
         cand.forEach(x=>{
@@ -695,29 +729,61 @@ function computeProjection(){
         });
         expNeed-=given; cand=next;
       }
-      const expFromSales=needBeforeSales-Math.max(0,expNeed);
       // (4) pre-tax IRA, then (5) Roth IRA, for what the portfolios could not cover. Each is shared pro rata to balance across the
       // people's accounts. A pre-tax IRA withdraw is ordinary income (taxOn adds it, and the tax-expense iteration grosses it up); a Roth IRA
       // sale is tax-free. Converted dollars have left the pre-tax IRA and sit in the Roth IRA the same year.
       const iraAvail=iraStart.map((b,i)=>Math.max(0,b-(convByPerson[i]||0)));
       const rothAvail=rothStart.map((b,i)=>b+(convByPerson[i]||0));
       const drawPro=(avail,need)=>{ const tot=avail.reduce((a,b)=>a+b,0), amt=Math.min(Math.max(0,need),tot); return avail.map(v=>tot>0?amt*v/tot:0); };
-      const iraExpByPerson=drawPro(iraAvail, expNeed);
-      const expFromIra=iraExpByPerson.reduce((a,b)=>a+b,0);
-      expNeed-=expFromIra;
-      const rothExpByPerson=drawPro(rothAvail, expNeed);
-      const expFromRoth=rothExpByPerson.reduce((a,b)=>a+b,0);
-      expNeed-=expFromRoth;
+      let expFromSales, iraExpByPerson, rothExpByPerson, expFromIra, expFromRoth, expFromRe=0, reShort=[];
+      if(!woSteps){
+        expFromSales=needBeforeSales-Math.max(0,expNeed);
+        iraExpByPerson=drawPro(iraAvail, expNeed);
+        expFromIra=iraExpByPerson.reduce((a,b)=>a+b,0);
+        expNeed-=expFromIra;
+        rothExpByPerson=drawPro(rothAvail, expNeed);
+        expFromRoth=rothExpByPerson.reduce((a,b)=>a+b,0);
+        expNeed-=expFromRoth;
+      }else{
+        // The user's withdrawal order replaces (3)–(5) and the pro-rata sharing: the shortfall that dividends left is taken from the listed assets one at a
+        // time, in order, each as far as it can go. Tax follows the asset: a portfolio sale realizes LTCG on its gain share (and must be a Living expense & income portfolio — payExp, as
+        // always); a pre-tax IRA draw is ordinary income; a Roth IRA draw is tax-free; a property is sold whole (see reShortInfo).
+        poolPf.forEach(x=>{ x.sold=0; });
+        expNeed=needBeforeSales;
+        iraExpByPerson=people.map(()=>0); rothExpByPerson=people.map(()=>0);
+        let sales=0;
+        for(const s of woSteps){
+          if(!(expNeed>0.005)) break;
+          if(s.t==='pf'){
+            const x=pfx[s.i][s.bi]; if(!x||!x.active||!x.payExp) continue;
+            const amt=Math.min(expNeed, Math.max(0,x.avail-x.divUsed-x.te-x.sold));
+            x.sold+=amt; sales+=amt; expNeed-=amt;
+          }else if(s.t==='ira'){
+            const amt=Math.min(expNeed, iraAvail[s.i]); iraExpByPerson[s.i]+=amt; expNeed-=amt;
+          }else if(s.t==='roth'){
+            const amt=Math.min(expNeed, rothAvail[s.i]); rothExpByPerson[s.i]+=amt; expNeed-=amt;
+          }else{
+            const c=reShortInfo(s.i,s.ri); if(!c) continue;
+            const applied=Math.min(expNeed, c.value);
+            expNeed-=applied; expFromRe+=applied;
+            reShort.push(Object.assign({}, c, {applied, excess:c.value-applied}));
+          }
+        }
+        expFromSales=sales;
+        expFromIra=iraExpByPerson.reduce((a,b)=>a+b,0);
+        expFromRoth=rothExpByPerson.reduce((a,b)=>a+b,0);
+      }
       const expUnfunded=Math.max(0,expNeed);
       // Realized LTCG = sold × gain fraction, for every portfolio (IDGT included, on its own sales).
       poolPf.forEach(x=>{ x.ltcg=x.sold*x.f; });
-      let ltcgGross=reGainTotal; pfx.forEach(list=>list.forEach(x=>{ if(x) ltcgGross+=x.ltcg; }));   // portfolio sales' LTCG + the gain on a property sold this year (step 2)
-      return {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expUnfunded, ltcgGross, iraExpByPerson, rothExpByPerson};
+      const reShortGain=reShort.reduce((a,x)=>a+x.gain,0);
+      let ltcgGross=reGainTotal+reShortGain; pfx.forEach(list=>list.forEach(x=>{ if(x) ltcgGross+=x.ltcg; }));   // portfolio sales' LTCG + the gain on a property sold this year (step 2)
+      return {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, ltcgGross, iraExpByPerson, rothExpByPerson, reShort, reShortGain};
     }
     // The year's tax given gross realized LTCG. Spec §8.3: available SCGL (suspended capital-gain loss
     // carryforward) eliminates realized LTCG dollar-for-dollar, before tax, so only the net-of-SCGL amount is taxed.
     // Pure (does not consume the SCGL pool) — the pool is drawn down once, after the iteration converges.
-    function taxOn(ltcgGross, conv, iraExp){
+    function taxOn(ltcgGross, conv, iraExp, reGainAll){
       const nonSSOrdinary=nonSSBase+conv+(iraExp||0);   // ordinary income excluding Social Security, including this year's Roth conversion and any pre-tax IRA withdraw for expenses
       const scglUsed=Math.min(scglRemaining,Math.max(0,ltcgGross));
       const ltcg=Math.max(0,ltcgGross-scglUsed); // net-of-SCGL LTCG — what's actually taxed/displayed
@@ -743,7 +809,7 @@ function computeProjection(){
       // §9.4: foreign tax credit offsets the ordinary+qualified tax (not NIIT), floored at 0.
       const totalTax=Math.max(0, incomeTax-foreignTaxCredit)+niit;
       // State tax (not part of totalTax). Washington taxes only portfolio gains, so a property sale's gain (and the SCGL it uses first) is left out.
-      const stateTax=stCode?computeStateTax(stCode,{agi, taxableSS, ltcgPortfolio:Math.max(0,ltcgGross-reGainTotal-scglUsed), filing, nAlive:stN, nSenior:stSenior, f:ssThresholdFactor}):0;
+      const stateTax=stCode?computeStateTax(stCode,{agi, taxableSS, ltcgPortfolio:Math.max(0,ltcgGross-(reGainAll==null?reGainTotal:reGainAll)-scglUsed), filing, nAlive:stN, nSenior:stSenior, f:ssThresholdFactor}):0;
       return {stateTax, scglUsed, ltcg, qualIncome, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax};
     }
 
@@ -757,9 +823,10 @@ function computeProjection(){
     function solveTax(convTotal){
       let it=0, ok=false, w, t, saleTax=0;
       while(it<TAX_MAX_ITERS){
-        w=runWaterfall(taxIn); t=taxOn(w.ltcgGross, convTotal, w.expFromIra); it++;
+        w=runWaterfall(taxIn); t=taxOn(w.ltcgGross, convTotal, w.expFromIra, reGainTotal+w.reShortGain); it++;
         // The tax a property sale adds (this year's tax with the gain minus without it) is paid out of the sale, so the waterfall funds only the rest.
-        saleTax=reGainTotal>0?Math.max(0,(t.totalTax+t.stateTax)-(()=>{ const u=taxOn(w.ltcgGross-reGainTotal, convTotal, w.expFromIra); return u.totalTax+u.stateTax; })()):0;
+        // (A property sold to cover a shortfall is not netted here: its tax is an ordinary expense, paid by the same waterfall.)
+        saleTax=reGainTotal>0?Math.max(0,(t.totalTax+t.stateTax)-(()=>{ const u=taxOn(w.ltcgGross-reGainTotal, convTotal, w.expFromIra, w.reShortGain); return u.totalTax+u.stateTax; })()):0;
         const funded=t.totalTax+t.stateTax-saleTax;
         if(Math.abs(funded-taxIn)<TAX_TOL){ ok=true; break; }
         taxIn=funded;
@@ -865,7 +932,7 @@ function computeProjection(){
     const nonSSOrdinary = nonSSBase+rothConvTotal+iraExpTotal;
     // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
     const expTax=taxIn;
-    const {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expUnfunded}=wf;
+    const {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded}=wf;
     const {scglUsed, ltcg, qualIncome, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, stateTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax}=tx;
     const ltcgGross=wf.ltcgGross;
     scglRemaining=Math.max(0,scglRemaining-scglUsed);
@@ -880,7 +947,7 @@ function computeProjection(){
     const excessReinvested=reinvBase>0?excessIncome:0;
     // Per-person gross LTCG, then prorate the SCGL shield across people/portfolios so the per-person breakdown
     // (used by the income chart's tooltip) still sums to the net total above.
-    const ltcgByPersonGross=people.map((p,i)=>{ let t=0; pfx[i].forEach(x=>{ if(x) t+=x.ltcg; }); reSales.forEach(x=>{ if(x.i===i) t+=x.gain; }); return t; });
+    const ltcgByPersonGross=people.map((p,i)=>{ let t=0; pfx[i].forEach(x=>{ if(x) t+=x.ltcg; }); reSales.forEach(x=>{ if(x.i===i) t+=x.gain; }); wf.reShort.forEach(x=>{ if(x.i===i) t+=x.gain; }); return t; });
     const shieldFrac = ltcgGross>0 ? scglUsed/ltcgGross : 0;
     const ltcgByPerson = ltcgByPersonGross.map(v=>v*(1-shieldFrac));
     const {sst,marginalRate,sstOrdTI,sstTaxNoSS,mProv,mTSS,mTI,mTax} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor, seniorOf, teIncome+annuityTE);
@@ -927,6 +994,12 @@ function computeProjection(){
       entry.netGrowthPct = ((st.bal/bal)-1)*100;
     }));
 
+    // Properties sold at the start of this year to cover the shortfall: show them in the asset chart's sale line, and share the tax their gain added
+    // (this year's tax with the gain minus without it, informational) across them by gain.
+    const shortGainTotal=wf.reShortGain;
+    let shortTax=0;
+    if(shortGainTotal>0){ const u=taxOn(ltcgGross-shortGainTotal, rothConvTotal, wf.expFromIra, reGainTotal); shortTax=Math.max(0,(tx.totalTax+tx.stateTax)-(u.totalTax+u.stateTax)); }
+    const reShortSales=wf.reShort.map(x=>Object.assign({}, x, {valEnd:x.value, basEnd:x.basis, tax:shortGainTotal>0?shortTax*x.gain/shortGainTotal:0, net:x.excess, atStart:true, shortfall:true}));
     // Real estate, start-of-year values (today's $) for the asset chart, then roll each property forward one year.
     const realEstateByPerson=people.map((p,i)=>(p.realEstate||[]).map((r,ri)=>{
       const st=reState[i][ri], on=!!r&&r.enabled!==false;
@@ -940,7 +1013,7 @@ function computeProjection(){
       return {id:r.id, name:(r.name&&r.name.trim())||('Property '+(ri+1)), balance:bal,
         basis:bal>0?Math.min(st.basis,bal):0, unrealizedGain:bal>0?Math.max(0,bal-st.basis):0,
         steppedUp:bal>0&&st.steppedNow, growthPct:realGrowth(r.growth,inflation)*100,
-        sale:(reSales.find(x=>x.i===i&&x.ri===ri)||null)};   // sold at the end of THIS year: {valEnd, basEnd, gain, tax, net, to}
+        sale:(reSales.find(x=>x.i===i&&x.ri===ri)||reShortSales.find(x=>x.i===i&&x.ri===ri)||null)};   // sold at the end of THIS year: {valEnd, basEnd, gain, tax, net, to}
     }));
     people.forEach((p,i)=>(p.realEstate||[]).forEach((r,ri)=>{
       const st=reState[i][ri], e=realEstateByPerson[i][ri];
@@ -950,6 +1023,16 @@ function computeProjection(){
     }));
     // Property sales made at the end of this year (step 3): the value after the sale tax, at a 100% basis, joins the designated portfolio (added after that
     // portfolio's own roll-forward above, so it is in the balance from the start of next year); the property is gone.
+    // A property sold to cover a shortfall (start of the year): the part of the proceeds the shortfall did not use joins the designated portfolio.
+    reShortSales.forEach(x=>{
+      const st=reState[x.i][x.ri];
+      if(x.ti!=null&&x.excess>0.005){
+        const T=pfState[x.ti][x.bi];
+        T.bal+=x.excess; T.basis+=x.excess;
+        T.saleIn=(T.saleIn||[]).concat([{name:x.name, value:x.excess, basis:x.excess, gain:x.gain, tax:x.tax}]);
+      }
+      st.sold=true; st.dead=true; st.bal=0; st.basis=0;
+    });
     reSales.forEach(x=>{
       const st=reState[x.i][x.ri], T=pfState[x.ti][x.bi];
       T.bal+=x.net; T.basis+=x.net;
@@ -963,14 +1046,14 @@ function computeProjection(){
       k, age0: idxP0!=null? ages[idxP0]:ages[0],
       ages, alive, filing,
       wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson, rentalDep, rentalDepByPerson, teIncome, teByPerson, annuity, annuityTE, annuityByPerson, annuityTEByPerson, annuitiesByPerson, annuityBalance,
-      odiv, qdiv, odivNQ, ltcg, ltcgGross, reSaleGain:reGainTotal, reSaleTax, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
+      odiv, qdiv, odivNQ, ltcg, ltcgGross, reSaleGain:reGainTotal+shortGainTotal, reSaleTax, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
       iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, realEstateByPerson, embeddedGain, embeddedGainIdgt,
       nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, ltcStarted, ltcCostByPerson, noConvOrdTI, noConvItemized, convTriggerStartedByPerson:iraSim.map(s=>s.startedK===k), agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate, marginalOrd, marginalQual, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mTax,
       niiIncome, niit,
       irmaaSurcharge,
-      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
+      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
       convTrials,
       totalTax, stateTax, stateCode:stCode, agi, magi:agi+teIncome+annuityTE
     });

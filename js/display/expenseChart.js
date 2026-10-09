@@ -73,6 +73,7 @@ function buildExpenseChart(){
       lines.push(mrow('  paid by asset sales', fmt(r.expFromSales)+'/yr'));
       if(r.expFromIra>0.5) lines.push(mrow('  paid by pre-tax IRA', fmt(r.expFromIra)+'/yr'));
       if(r.expFromRoth>0.5) lines.push(mrow('  paid by Roth IRA', fmt(r.expFromRoth)+'/yr'));
+      if(r.expFromRe>0.5) lines.push(mrow('  paid by property sale', fmt(r.expFromRe)+'/yr'));
       if(r.expUnfunded>1) lines.push(mrow('  unfunded shortfall', fmt(r.expUnfunded)+'/yr'));
       if(r.excessReinvested>1) lines.push(mrow('Excess income reinvested', fmt(r.excessReinvested)+'/yr'));
       if(showDetails){

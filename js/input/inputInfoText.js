@@ -33,6 +33,7 @@ const II_FIELDS=[
   // ── Card Enable / Hide / buttons
   [/^ENABLE:SCGL$/,'c','Include the SCGL carryforward in the projection. Your amount is kept when unchecked.'],
   [/^ENABLE:AUM fee$/,'c','Charge the AUM fee on the balances of portfolios marked AUM.'],
+  [/^ENABLE:Expense shortfall withdrawal order$/,'c','Use the order below, instead of the built-in one, to decide which assets pay expenses that income and dividends do not cover.'],
   [/^ENABLE:Asset \/ basis swap$/,'c','Model swapping assets between the Living-expense and IDGT portfolios.'],
   [/^ENABLE:State income tax$/,'c','Include state income tax in the projection.'],
   [/^ENABLE:Long Term Care/,'c','Model Long Term Care costs and the change in living expenses once care starts.'],

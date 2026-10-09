@@ -272,6 +272,8 @@ function xlsxInputsSheet(proj){
   names.push({Name:'SCGL_Start',Ref:`Inputs!$B$${r+1}`});
   xlsxPut(sh,r,0,xlsxTxt('SCGL used by the projection (0 when not enabled)'));
   xlsxPut(sh,r,1,xlsxFml(`IF(${addr.scglOn.replace('Inputs!','')}="Yes",${addr.scgl.replace('Inputs!','')},0)`,st.scglEnabled===false?0:Math.max(0,Number(st.scgl)||0),XLSX_MONEY)); r++;
+  { const wo=st.withdrawOrder||{}, lab={}; withdrawAssets().forEach(a=>{ lab[a.key]=a.label; });
+    put('Expense shortfall withdrawal order',yn(!!wo.enabled),{note:wo.enabled?((wo.steps||[]).map((x,i)=>(i+1)+'. '+(lab[x.asset]||'(missing)')).join('; ')||'(no steps)'):'built-in order'}); }
   put('Asset / basis swap',yn(!!st.basisSwap),{note:'Years before last passing: '+(st.basisSwapYears==null?BASIS_SWAP_YEARS_DEFAULT:st.basisSwapYears)});
   const aum=st.aumFee||{};
   put('AUM fee enabled',yn(aum.enabled),{}); put('AUM fee mode',aum.mode==='pct'?'% of AUM balance':'Fixed $ / yr (today\'s $)'); put('AUM fee value',Number(aum.value)||0,{fmt:aum.mode==='pct'?XLSX_PCTNUM:XLSX_MONEY});
@@ -664,8 +666,9 @@ function xlsxMainColumns(proj,acctSheets){
   V('expFromSales','Expenses paid by asset sales',r=>v(r.expFromSales));
   V('expFromIra','Expenses paid by pre-tax IRA',r=>v(r.expFromIra));
   V('expFromRoth','Expenses paid by Roth IRA (untaxed)',r=>v(r.expFromRoth));
+  V('expFromRe','Expenses paid by a property sold to cover the shortfall',r=>v(r.expFromRe));
   V('unf','Expenses unfunded',r=>v(r.expUnfunded));
-  F('chk','Funding check: total expenses − all funding sources (≈ 0)',r=>0,X=>`${X('expTot')}-${X('expFromInc')}-${X('expFromDiv')}-${X('expFromSales')}-${X('expFromIra')}-${X('expFromRoth')}-${X('unf')}`);
+  F('chk','Funding check: total expenses − all funding sources (≈ 0)',r=>0,X=>`${X('expTot')}-${X('expFromInc')}-${X('expFromDiv')}-${X('expFromSales')}-${X('expFromIra')}-${X('expFromRoth')}-${X('expFromRe')}-${X('unf')}`);
   V('excess','Excess income (after all expenses)',r=>v(r.excessIncome));
   V('excessRe','Excess income reinvested',r=>v(r.excessReinvested));
   // — balances: pulled from the account sheets by Year —

@@ -68,6 +68,81 @@ function onAumFeeMode(mode){
   renderAumFee(); recompute(); saveDebounced();
 }
 
+// Expense shortfall withdrawal order (Assumptions panel, below the AUM fee). Off: the built-in order. On: an ordered list of steps, each naming ONE asset;
+// when household income and dividends do not cover the year's expenses, the steps are tried top to bottom, each taking what is still needed from its asset
+// (projection.js, runWaterfall). Assets not listed are never drawn on. Step keys: 'pf:<portfolio id>' | 'ira:<person id>' | 'roth:<person id>' | 're:<property id>'.
+const WO_TAX_NOTE={
+  pf:'Sold: the gain share of the sale is realized long-term capital gain (SCGL, qualified brackets, NIIT and Social Security taxation all apply). Not available for IDGT portfolios, which never pay expenses.',
+  ira:'Withdrawn: taxed as ordinary income (the tax on it is itself an expense, so slightly more is drawn).',
+  roth:'Withdrawn: tax-free.',
+  re:'Sold whole at the start of the year (a sell event): the gain over the basis and exemption is realized long-term capital gain; whatever the shortfall does not use moves to the property\'s designated portfolio.'
+};
+function withdrawAssets(){
+  const n=state.filingStatus==='married'?2:1, out=[];
+  (state.people||[]).slice(0,n).forEach((p,i)=>{
+    const who=displayPersonName(p,i);
+    (p.brokerage||[]).forEach((b,bi)=>out.push({key:'pf:'+b.id, type:'pf', label:who+' — '+((b.name&&b.name.trim())||('Portfolio '+(bi+1)))+(b.idgt?' (IDGT)':''),
+      warn:b.enabled===false?'This portfolio is not enabled — the step is skipped.':(!b.payExp?'An IDGT portfolio does not pay expenses — the step is skipped.':'')}));
+    out.push({key:'ira:'+p.id, type:'ira', label:who+' — Pre-tax IRA / 401(k)', warn:(p.ira&&p.ira.enabled)?'':'This account is not enabled — the step is skipped.'});
+    out.push({key:'roth:'+p.id, type:'roth', label:who+' — Roth IRA', warn:(p.roth&&p.roth.enabled)?'':'This account is not enabled — the step is skipped.'});
+    (p.realEstate||[]).forEach((r,ri)=>out.push({key:'re:'+r.id, type:'re', label:who+' — '+((r.name&&r.name.trim())||('Property '+(ri+1)))+' (sell)',
+      warn:r.enabled===false?'This property is not enabled — the step is skipped.':''}));
+  });
+  return out;
+}
+// The built-in order as steps: every portfolio that pays expenses, then the pre-tax IRAs, then the Roth IRAs (no real estate).
+function defaultWithdrawKeys(){
+  const list=withdrawAssets();
+  const pf=list.filter(a=>a.type==='pf'&&!a.warn).map(a=>a.key);
+  return pf.concat(list.filter(a=>a.type==='ira'&&!a.warn).map(a=>a.key), list.filter(a=>a.type==='roth'&&!a.warn).map(a=>a.key));
+}
+function woState(){ if(!state.withdrawOrder||!Array.isArray(state.withdrawOrder.steps)) state.withdrawOrder={enabled:!!(state.withdrawOrder&&state.withdrawOrder.enabled), steps:[]}; return state.withdrawOrder; }
+function renderWithdrawOrderPanel(){
+  const el=document.getElementById('withdrawPanel'); if(!el) return;
+  const wo=woState(), assets=withdrawAssets(), byKey={}; assets.forEach(a=>{ byKey[a.key]=a; });
+  const used={}; wo.steps.forEach(s=>{ used[s.asset]=(used[s.asset]||0)+1; });
+  const dis=wo.enabled?'':' disabled';
+  const rows=wo.steps.map((s,i)=>{
+    const a=byKey[s.asset];
+    const opts=(a?'':`<option value="${escAttr(s.asset)}" selected>(no longer available)</option>`)+
+      assets.map(x=>`<option value="${escAttr(x.key)}" ${x.key===s.asset?'selected':''} ${(used[x.key]&&x.key!==s.asset)?'disabled':''}>${escHtml(x.label)}</option>`).join('');
+    const note=a?(a.warn||WO_TAX_NOTE[a.type]):'This asset no longer exists, or belongs to a person not in the plan — the step is skipped. Pick another asset or delete the step.';
+    const bad=!a||!!a.warn;
+    return `<div class="field full" style="margin-bottom:6px">
+      <div class="arow"><span style="flex:0 0 18px;font-weight:600;font-size:12px">${i+1}.</span>
+        <select style="flex:1 1 0;width:auto;min-width:0" aria-label="Withdrawal step ${i+1}" onchange="onWithdrawStepAsset(${i},this.value)"${dis}>${opts}</select>
+        <button type="button" class="btn" style="padding:2px 7px" title="Move up" ${(i===0||!wo.enabled)?'disabled':''} onclick="moveWithdrawStep(${i},-1)">▲</button>
+        <button type="button" class="btn" style="padding:2px 7px" title="Move down" ${(i===wo.steps.length-1||!wo.enabled)?'disabled':''} onclick="moveWithdrawStep(${i},1)">▼</button>
+        <button type="button" class="btn btn-danger" style="padding:2px 7px" title="Delete this step"${dis} onclick="removeWithdrawStep(${i})">✕</button></div>
+      <div class="item-note" style="margin:2px 0 0 24px;${bad?'color:#b45309':''}">${escHtml(note)}</div></div>`;
+  }).join('');
+  const free=assets.some(a=>!used[a.key]);
+  const body=`<div class="item-note" style="margin-top:-2px">When household income and dividends do not cover the year's expenses (living, LTC, IRMAA, AUM fee and income tax), the shortfall is taken from these assets <strong>in this order</strong>, each step taking what is still needed from its one asset until the shortfall is met. Assets not listed are never drawn on. With this box unchecked the built-in order is used: Living expense &amp; income portfolios (shared pro rata), then the pre-tax IRAs, then the Roth IRAs.</div>
+    ${rows||'<div class="item-note">No steps yet — the shortfall would go unfunded. Add a step to choose where it comes from.</div>'}
+    <div class="field full"><div class="arow">
+      <button type="button" class="btn" ${(wo.enabled&&free)?'':'disabled'} onclick="addWithdrawStep()">＋ Add step</button>
+      <button type="button" class="btn" ${wo.enabled?'':'disabled'} title="Replace the steps with the built-in order" onclick="resetWithdrawSteps()">Reset to built-in order</button></div></div>
+    <div class="item-note"><strong>Selling real estate</strong> is a sale of the whole property, even if only a little is needed: its gain is taxed as long-term capital gain in the year of the sale, the sale happens at the start of the year at that year's value, and the property is gone afterwards.</div>`;
+  el.innerHTML=assumpCard('order','Expense shortfall withdrawal order','withdrawOrder.enabled',!!wo.enabled,body);
+}
+// Re-draw unless the person is working inside the card (a re-draw would close the open drop-down); used after every recompute so asset names stay current.
+function refreshWithdrawOrderPanel(){
+  const el=document.getElementById('withdrawPanel'), a=document.activeElement;
+  if(el&&a&&el.contains(a)&&a.tagName!=='BODY') return;
+  renderWithdrawOrderPanel();
+}
+function woChanged(){ renderWithdrawOrderPanel(); recompute(); saveDebounced(); }
+function onWithdrawOrderEnabled(){ const wo=woState(); if(wo.enabled&&!wo.steps.length) wo.steps=defaultWithdrawKeys().map(k=>({id:uid(),asset:k})); renderWithdrawOrderPanel(); }
+function onWithdrawStepAsset(i,key){ const wo=woState(); if(wo.steps[i]){ wo.steps[i].asset=key; woChanged(); } }
+function addWithdrawStep(){
+  const wo=woState(), used={}; wo.steps.forEach(s=>{ used[s.asset]=1; });
+  const next=withdrawAssets().find(a=>!used[a.key]); if(!next) return;
+  wo.steps.push({id:uid(),asset:next.key}); woChanged();
+}
+function removeWithdrawStep(i){ woState().steps.splice(i,1); woChanged(); }
+function moveWithdrawStep(i,d){ const st=woState().steps, j=i+d; if(j<0||j>=st.length) return; const t=st[i]; st[i]=st[j]; st[j]=t; woChanged(); }
+function resetWithdrawSteps(){ woState().steps=defaultWithdrawKeys().map(k=>({id:uid(),asset:k})); woChanged(); }
+
 // Asset / basis swap card (Enable / Hide like the others; off by default). One input: how many years before the last passing to swap (the swap after the
 // first passing, for a married household, needs no value). See projection.js, "Asset / basis swap".
 function renderSwapPanel(){

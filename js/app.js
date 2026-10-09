@@ -9,6 +9,7 @@ let lastProjection=null;
 function recompute(){
   lastProjection = computeProjection();
   renderCharts();
+  refreshWithdrawOrderPanel();   // asset names in the withdrawal-order card (assumptions.js)
   renderScenarioCard();   // Scenario card (scenarios.js): refreshed after every edit while it is open
 }
 const recomputeDebounced = debounce(recompute, 80);
@@ -39,6 +40,7 @@ function renderAll(){
   syncDevalueSliders();
   renderScglPanel();
   renderAumFee();
+  renderWithdrawOrderPanel();
   renderFutureTaxPanel();
   renderSwapPanel();
   renderStateTaxPanel();
