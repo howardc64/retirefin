@@ -123,6 +123,14 @@ function xlsxTable(sh, top, cols, rows, opts){
   return {letter, dataTop, firstRow:dataTop+1, lastRow:dataTop+rows.length};
 }
 
+// The state whose tax applies to this plan: 'CA' / 'WA', or null when state income tax is off. The workbook carries ONLY this
+// state's tables, inputs and projection columns.
+function xlsxSelectedState(){
+  const t=state.stateTax;
+  if(!t||!t.enabled) return null;
+  return t.state==='WA'?'WA':'CA';
+}
+
 // ═══ Tax tables sheet ════════════════════════════════════════════════════════════════════════════
 // Returns {ws, names[]} — every scalar and bracket array is a defined name the Projection formulas use.
 function xlsxTaxSheet(){
@@ -184,6 +192,40 @@ function xlsxTaxSheet(){
   const rng2=(c)=>`'Tax tables'!$${c}$${t2+1}:$${c}$${t2+m}`;
   names.push({Name:'IR_MFJ_Lo',Ref:rng2('A')},{Name:'IR_MFJ_S',Ref:rng2('B')},{Name:'IR_SGL_Lo',Ref:rng2('D')},{Name:'IR_SGL_S',Ref:rng2('E')},
     {Name:'IR_MFJ_1',Ref:`'Tax tables'!$A$${t2+1}`},{Name:'IR_SGL_1',Ref:`'Tax tables'!$D$${t2+1}`});
+  r++;
+  const selSt=xlsxSelectedState();
+  if(selSt==='CA'){
+    title('State income tax (Inputs: State income tax). California: 2025 brackets, state standard deduction and credits. Held flat in today\'s $ (the state indexes them); only the Mental Health Services threshold is deflated.');
+    scalar('California standard deduction, married (MFJ)','CA_Std_MFJ',CA_STD_MFJ,XLSX_MONEY);
+    scalar('California standard deduction, single','CA_Std_SGL',CA_STD_SGL,XLSX_MONEY);
+    scalar('California personal exemption credit, per living person','CA_Cred',CA_PERSONAL_CREDIT,XLSX_MONEY);
+    scalar('California senior (65+) exemption credit, per living person','CA_SrCred',CA_SENIOR_CREDIT,XLSX_MONEY);
+    scalar('California Mental Health Services surcharge starts at taxable income','CA_MH_Thr',CA_MH_THRESH,XLSX_MONEY,'Not indexed: deflated to today\'s $ in the projection');
+    scalar('California Mental Health Services surcharge rate','CA_MH_Rate',CA_MH_RATE,XLSX_PCT);
+  } else if(selSt==='WA'){
+    title('State income tax (Inputs: State income tax). Washington: capital-gains excise tax. Held flat in today\'s $ (the state indexes them); only the second-tier threshold is deflated.');
+    scalar('Washington capital-gains deduction (one per household)','WA_Ded',WA_CG_DEDUCTION,XLSX_MONEY);
+    scalar('Washington capital-gains rate, first tier','WA_R1',WA_CG_RATE,XLSX_PCT);
+    scalar('Washington second tier starts at taxable gain','WA_T2',WA_CG_TIER2,XLSX_MONEY,'Not indexed: deflated to today\'s $ in the projection');
+    scalar('Washington capital-gains rate, second tier','WA_R2',WA_CG_RATE2,XLSX_PCT);
+  }
+  if(selSt==='CA'){
+    r++;
+    title('California brackets: lower edge of each bracket and the rate step the tax formula sums');
+    ['MFJ bracket starts','MFJ rate','MFJ rate step','','Single bracket starts','Single rate','Single rate step'].forEach((h,i)=>{ if(h) xlsxPut(sh,r,i,xlsxTxt(h)); }); r++;
+    const nc=CA_ORD_MFJ.length, topC=r;
+    for(let j=0;j<nc;j++){
+      const R=r+1;
+      xlsxPut(sh,r,0,xlsxNum(j===0?0:CA_ORD_MFJ[j-1].lim,XLSX_MONEY)); xlsxPut(sh,r,1,xlsxNum(CA_ORD_MFJ[j].r,XLSX_PCT));
+      xlsxPut(sh,r,2,j===0?xlsxFml(`B${R}`,CA_ORD_MFJ[j].r,XLSX_PCT):xlsxFml(`B${R}-B${R-1}`,CA_ORD_MFJ[j].r-CA_ORD_MFJ[j-1].r,XLSX_PCT));
+      xlsxPut(sh,r,4,xlsxNum(j===0?0:CA_ORD_SGL[j-1].lim,XLSX_MONEY)); xlsxPut(sh,r,5,xlsxNum(CA_ORD_SGL[j].r,XLSX_PCT));
+      xlsxPut(sh,r,6,j===0?xlsxFml(`F${R}`,CA_ORD_SGL[j].r,XLSX_PCT):xlsxFml(`F${R}-F${R-1}`,CA_ORD_SGL[j].r-CA_ORD_SGL[j-1].r,XLSX_PCT));
+      r++;
+    }
+    const rngC=(c)=>`'Tax tables'!$${c}$${topC+1}:$${c}$${topC+nc}`;
+    names.push({Name:'CA_MFJ_Lo',Ref:rngC('A')},{Name:'CA_MFJ_dR',Ref:rngC('C')},{Name:'CA_SGL_Lo',Ref:rngC('E')},{Name:'CA_SGL_dR',Ref:rngC('G')});
+
+  }
   return {ws:xlsxFinish(sh,{minW:14,mixedText:60}), names};
 }
 
@@ -233,6 +275,9 @@ function xlsxInputsSheet(proj){
   put('Asset / basis swap',yn(!!st.basisSwap),{note:'Years before last passing: '+(st.basisSwapYears==null?BASIS_SWAP_YEARS_DEFAULT:st.basisSwapYears)});
   const aum=st.aumFee||{};
   put('AUM fee enabled',yn(aum.enabled),{}); put('AUM fee mode',aum.mode==='pct'?'% of AUM balance':'Fixed $ / yr (today\'s $)'); put('AUM fee value',Number(aum.value)||0,{fmt:aum.mode==='pct'?XLSX_PCTNUM:XLSX_MONEY});
+  head('State income tax');
+  put('State income tax enabled',yn(st.stateTax&&st.stateTax.enabled),{name:'State_On'});
+  if(xlsxSelectedState()) put('State',xlsxSelectedState()==='WA'?'Washington':'California');
   head('Future tax-law assumption (NIIT thresholds)');
   put('Enabled',yn(st.futureTax&&st.futureTax.enabled),{key:'futOn'});
   names.push({Name:'FutNIIT_On',Ref:`Inputs!$B$${r}`});
@@ -276,7 +321,19 @@ function xlsxInputsSheet(proj){
         if(v&&typeof v==='object'){ Object.keys(v).forEach(k2=>{ if(typeof v[k2]!=='object') put(`  ${k}.${k2}`,v[k2],{fmt:xlsxFieldFmt(k2)}); }); }
         else put(`  ${k}`,typeof v==='boolean'?yn(v):v,{fmt:xlsxFieldFmt(k)}); });
     });
-    dump('Annuity',p.annuities); dump('Rental',p.rentals); dump('Real estate',p.realEstate);
+    dump('Annuity',p.annuities); dump('Rental',p.rentals);
+    (p.realEstate||[]).forEach((r,ri)=>{
+      const lab=`Real estate ${ri+1}: ${(r.name&&r.name.trim())||'(unnamed)'}`, mode=r.sellMode||'never';
+      const sellTo=(()=>{ if(!r.sellTo) return 'Automatic (owner\'s first non-IDGT portfolio)'; let nm='(portfolio no longer exists)'; st.people.forEach((q,ti)=>(q.brokerage||[]).forEach(b=>{ if(b.id===r.sellTo) nm=`${displayPersonName(q,ti)} — ${(b.name&&b.name.trim())||'Portfolio'}`; })); return nm; })();
+      put(lab,yn(r.enabled!==false)); put('  value',Number(r.balance)||0,{fmt:XLSX_MONEY,key:`re${i}_${ri}Val`});
+      put('  cost basis',reBasisEntered(r)?Number(r.basis):'(blank = no unrealized gain)',{fmt:XLSX_MONEY,key:`re${i}_${ri}Basis`});
+      put('  exemption per owner alive at a sale',Number(r.exempt)||0,{fmt:XLSX_MONEY,key:`re${i}_${ri}Exempt`,note:'Fixed nominal amount: erodes with inflation in today\'s $, like the cost basis'});
+      put('  growth mode',r.growth&&r.growth.mode,{key:`re${i}_${ri}GMode`}); put('  growth value (% nominal, or offset %)',r.growth?Number(r.growth.value)||0:0,{key:`re${i}_${ri}GVal`});
+      put('  jointly owned with spouse (continues to the survivor)',yn(r.bene));
+      put('  sell',({never:'Never',ltc:'When the last person starts LTC',passing:'At the last person\'s passing',age:'At the owner\'s age'})[mode]||mode);
+      if(mode==='age') put('  sell at owner age',Number(r.sellAge)||0);
+      if(mode!=='never') put('  sale proceeds go to',sellTo,{note:'After the sale tax, at a 100% cost basis'});
+    });
   });
   return {ws:xlsxFinish(sh,{minW:16,mixedText:30}), names, addr};
 }
@@ -319,6 +376,7 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
     {key:'bpct',head:'Basis % of balance',kind:'f',fmt:XLSX_PCT,v:r=>(ent(r).tracked&&ent(r).balance>0)?ent(r).basis/ent(r).balance:'',f:X=>`IF(OR(${X('basis')}="",${X('bal')}<=0),"",${X('basis')}/${X('bal')})`},
     {key:'up',head:'Stepped up this year',text:true,v:r=>ent(r).steppedUp?'Yes':''},
     {key:'swap',head:'Swapped with IDGT this year (value)',v:r=>ent(r).swapAmt>0?ent(r).swapAmt:''},
+    {key:'reIn',head:'Real estate sold into this portfolio this year (value; its cost basis moves in too)',v:r=>{ const t=(ent(r).reSaleIn||[]).reduce((x,y)=>x+y.value,0); return t>0?t:''; }},
     {key:'divu',head:'Dividends used for expenses',v:r=>ent(r).divUsed},
     {key:'divr',head:'Dividends reinvested',v:r=>ent(r).divReinvested},
     {key:'sold',head:'Shares sold',v:r=>ent(r).sold},
@@ -329,7 +387,35 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
       f:X=>`MAX(0,${X('bal')}*(1+$B$2)-${X('divu')}-${X('sold')}-${X('te')}+${X('exc')})`}
   ];
   const t=xlsxTable(sh,4,cols,rowsIn);
-  return {sh, ws:xlsxFinish(sh), t, cols, type:'pf', i, bi, balCol:'bal', gainCol:'gain', idgt:!!b.idgt, name:null};
+  return {sh, ws:xlsxFinish(sh), t, cols, items:rowsIn, type:'pf', i, bi, balCol:'bal', gainCol:'gain', idgt:!!b.idgt, name:null};
+}
+// One sheet per property: the value and cost basis each year, and — in the year it is sold — the gain, exemption, tax and the amount forwarded to the portfolio.
+function xlsxRealEstateSheet(proj,i,ri,inAddr){
+  const person=displayPersonName(proj.people[i],i), r0=proj.people[i].realEstate[ri];
+  const sh=xlsxSheet();
+  xlsxAccountHeader(sh,`${person} – real estate: ${(r0.name&&r0.name.trim())||('Property '+(ri+1))}`,xlsxRealGrowthFormula(inAddr[`re${i}_${ri}GMode`],inAddr[`re${i}_${ri}GVal`],r0.growth,proj.inflation||state.inflation),inAddr[`re${i}_${ri}Val`],Number(r0.balance)||0);
+  const ent=r=>r.realEstateByPerson[i][ri];
+  const rowsIn=proj.rows.filter(r=>{ const e=r.realEstateByPerson[i]&&r.realEstateByPerson[i][ri]; return e&&e.balance>0; });
+  const sale=r=>ent(r).sale;
+  const cols=[
+    {key:'year',head:'Year',fmt:XLSX_YEAR,v:r=>THIS_YEAR+r.k},
+    {key:'age',head:`${person} age`,fmt:XLSX_AGE,v:r=>r.ages[i]},
+    {key:'bal',head:'Value (SOY)',v:r=>ent(r).balance},
+    {key:'gr',head:'Growth % (real)',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).growthPct)},
+    {key:'basis',head:'Cost basis (SOY)',v:r=>ent(r).basis},
+    {key:'gain',head:'Unrealized gain (SOY)',kind:'f',v:r=>Math.max(0,ent(r).balance-ent(r).basis),f:X=>`MAX(0,${X('bal')}-${X('basis')})`},
+    {key:'bpct',head:'Basis % of value',kind:'f',fmt:XLSX_PCT,v:r=>ent(r).balance>0?ent(r).basis/ent(r).balance:'',f:X=>`IF(${X('bal')}<=0,"",${X('basis')}/${X('bal')})`},
+    {key:'up',head:'Basis stepped up this year (owner passed)',text:true,v:r=>ent(r).steppedUp?'Yes':''},
+    {key:'eoy',head:'Value at end of year = SOY × (1 + growth)',kind:'f',v:r=>ent(r).balance*(1+ent(r).growthPct/100),f:X=>`${X('bal')}*(1+$B$2)`},
+    {key:'sold',head:'Sold at the end of this year',text:true,v:r=>sale(r)?'Yes':''},
+    {key:'sBas',head:'Cost basis at the sale (after the passing step-up, eroded by inflation)',v:r=>sale(r)?sale(r).basEnd:''},
+    {key:'sEx',head:'Exemption used (per owner, eroded by inflation × owners alive)',v:r=>sale(r)?sale(r).exempt:''},
+    {key:'sGain',head:'Taxable gain = value − exemption − basis (floored at 0; realized LTCG)',kind:'f',v:r=>sale(r)?sale(r).gain:'',f:X=>`IF(${X('sold')}="Yes",MAX(0,${X('eoy')}-${X('sEx')}-${X('sBas')}),"")`},
+    {key:'sTax',head:'Tax added by the sale, federal + state (paid out of the sale)',v:r=>sale(r)?sale(r).tax:''},
+    {key:'sNet',head:'Forwarded to the portfolio = value − tax, at a 100% cost basis',kind:'f',v:r=>sale(r)?sale(r).net:'',f:X=>`IF(${X('sold')}="Yes",${X('eoy')}-${X('sTax')},"")`}
+  ];
+  const t=xlsxTable(sh,4,cols,rowsIn);
+  return {sh, ws:xlsxFinish(sh), t, cols, items:rowsIn, type:'re', i, ri, balCol:'bal', gainCol:'gain', name:null};
 }
 function xlsxIraRothSheet(proj,i,isRoth,inAddr){
   const person=displayPersonName(proj.people[i],i), acct=isRoth?proj.people[i].roth:proj.people[i].ira, inf=proj.inflation||state.inflation;
@@ -392,6 +478,10 @@ function xlsxAccountSheets(proj,inAddr){
       if(a.enabled===false||!(Number(a.value)>0)) return;
       out.push({type:'annuity', name:xlsxSheetName(`${person} - ${(a.name&&a.name.trim())||('Annuity '+(ai+1))} (annuity)`,used), rows:xlsxAnnuitySheet(proj,i,ai)});
     });
+    (p.realEstate||[]).forEach((r,ri)=>{
+      if(r.enabled===false||!(Number(r.balance)>0)) return;
+      const sh=xlsxRealEstateSheet(proj,i,ri,inAddr); sh.name=xlsxSheetName(`${person} - ${(r.name&&r.name.trim())||('Property '+(ri+1))} (real estate)`,used); out.push(sh);
+    });
     if(p.ira&&p.ira.enabled){ const sh=xlsxIraRothSheet(proj,i,false,inAddr); sh.name=xlsxSheetName(`${person} - Pre-tax IRA`,used); out.push(sh); }
     if(p.roth&&p.roth.enabled){ const sh=xlsxIraRothSheet(proj,i,true,inAddr); sh.name=xlsxSheetName(`${person} - Roth IRA`,used); out.push(sh); }
   });
@@ -450,6 +540,8 @@ function xlsxMainColumns(proj,acctSheets){
   V('odivNQ','Ordinary dividends (ODIV−QDIV)',r=>r.odivNQ);
   V('qdiv','Qualified dividends (QDIV)',r=>r.qdiv);
   V('ltcgG','LTCG realized, gross (before SCGL)',r=>r.ltcgGross);
+  V('reGain','  of which: gain on a property sold this year (taxed as LTCG)',r=>v(r.reSaleGain));
+  V('reTax','Tax added by that property sale, federal + state (paid out of the sale, not by household expenses)',r=>v(r.reSaleTax));
   V('scglU','SCGL used',r=>r.scglUsed);
   F('scglR','SCGL remaining (today\'s $)',r=>r.scglRemaining,(X,idx)=>`MAX(0,${idx===0?'SCGL_Start':X('scglR',-1)}-${X('scglU')})`);
   F('ltcg','LTCG, net of SCGL (taxed)',r=>r.ltcg,X=>`MAX(0,${X('ltcgG')}-${X('scglU')})`);
@@ -540,7 +632,29 @@ function xlsxMainColumns(proj,acctSheets){
     if(idx<2) return '0';
     const m=X('magi',-2);
     return `${X('enr')}*IF(${M(X)},IF(${m}<IR_MFJ_1,0,LOOKUP(${m},IR_MFJ_Lo,IR_MFJ_S)),IF(${m}<IR_SGL_1,0,LOOKUP(${m},IR_SGL_Lo,IR_SGL_S)))`; });
-  F('expTax','Income tax paid as expense (tax drag)',r=>v(r.expTax),X=>X('tt'));
+  // — State income tax (Inputs: State income tax; not part of TT, paid as a household expense) —
+  const selState=xlsxSelectedState();
+  if(selState==='CA'){
+    F('stN','People alive (state tax: personal credits)',r=>r.alive.reduce((c,a)=>c+(a?1:0),0),X=>{
+      const t=[]; for(let i=0;i<n;i++) t.push(`(${X('age_'+i)}<Pass_${i+1})`); return t.join('+'); },XLSX_COUNT);
+    const caTIv=r=>Math.max(0,r.agi-r.taxableSS-(r.filing==='married'?CA_STD_MFJ:CA_STD_SGL));
+    F('caTI','California taxable income = AGI − taxable SS − state standard deduction',caTIv,X=>`MAX(0,${X('agi')}-${X('tss')}-IF(${M(X)},CA_Std_MFJ,CA_Std_SGL))`);
+    F('stateTax','California income tax (not part of TT; paid as a household expense)',r=>v(r.stateTax),X=>{
+      const t=X('caTI'), f=X('f');
+      const ca=`MAX(0,IF(${M(X)},SUMPRODUCT((${t}>CA_MFJ_Lo)*(${t}-CA_MFJ_Lo)*CA_MFJ_dR),SUMPRODUCT((${t}>CA_SGL_Lo)*(${t}-CA_SGL_Lo)*CA_SGL_dR))+CA_MH_Rate*MAX(0,${t}-CA_MH_Thr*${f})-CA_Cred*${X('stN')}-CA_SrCred*${X('enr')})`;
+      return `IF(State_On="Yes",${ca},0)`; });
+  } else if(selState==='WA'){
+    F('waGain','Washington taxable capital gain = portfolio LTCG (gross − property-sale gain − SCGL used) − deduction',
+      r=>Math.max(0,(r.ltcgGross||0)-(r.reSaleGain||0)-(r.scglUsed||0)-WA_CG_DEDUCTION),
+      X=>`MAX(0,${X('ltcgG')}-${X('reGain')}-${X('scglU')}-WA_Ded)`);
+    F('stateTax','Washington capital-gains tax (not part of TT; paid as a household expense)',r=>v(r.stateTax),X=>{
+      const f=X('f'), g=X('waGain');
+      const wa=`WA_R1*MIN(${g},WA_T2*${f})+WA_R2*MAX(0,${g}-WA_T2*${f})`;
+      return `IF(State_On="Yes",${wa},0)`; });
+  } else {
+    F('stateTax','State income tax (off)',r=>0,X=>'0');
+  }
+  F('expTax','Income tax paid as expense (tax drag) = total tax + state tax − tax paid out of a property sale',r=>v(r.expTax),X=>`${X('tt')}+${X('stateTax')}-${X('reTax')}`);
   F('expTot','Total household expenses = living + LTC + IRMAA + AUM fee + income tax',r=>v(r.expTotal),X=>`${X('expLiving')}+${X('expLtc')}+${X('irmaa')}+${X('expAum')}+${X('expTax')}`);
   F('totInc','Total income (as on Annual Household Income chart: every band incl. dividends, LTCG, IRA/Roth withdraws, depreciation)',r=>chartTotalIncome(r),
     X=>`${X('penT')}+${X('annT')}+${X('annTET')}+${X('wageT')}+${X('convT')}+${X('rmdT')}+${X('iraExT')}+${X('rentT')}+${X('rentDep')}+${X('teT')}+${X('expFromRoth')}+${X('qdiv')}+${X('odivNQ')}+${X('ltcg')}+${X('ssT')}`);
@@ -573,6 +687,11 @@ function xlsxMainColumns(proj,acctSheets){
   pfAdd('bI','Brokerage balance, IDGT (SOY)',r=>sumPortfolios(r,true,'balance'),pfI,'bal');
   pfAdd('gN','Unrealized gain, non-IDGT (SOY)',r=>v(r.embeddedGain),pfN,'gain');
   pfAdd('gI','Unrealized gain, IDGT (SOY)',r=>v(r.embeddedGainIdgt),pfI,'gain');
+  // Real estate: summed from the property sheets by Year (a property that is sold or has left the plan has no row after that).
+  const reSheets=acctSheets.filter(s=>s.type==='re');
+  const reSum=(r,f)=>r.realEstateByPerson.reduce((a,l)=>a+(l||[]).reduce((b,e)=>b+(e?f(e):0),0),0);
+  pfAdd('reVal','Real estate value (SOY)',r=>reSum(r,e=>e.balance),reSheets,'bal');
+  pfAdd('reGainU','Real estate unrealized gain (SOY)',r=>reSum(r,e=>Math.max(0,e.balance-e.basis)),reSheets,'gain');
   return cols;
 }
 // Sum of every stacked band on the Annual Household Income chart (same fields as INC_KEYS in incomeChart.js).
@@ -592,7 +711,7 @@ function xlsxBuildWorkbook(proj){
   xlsxPut(main,0,0,xlsxTxt('Projection by year (today\'s $). Row 4 says whether a column is an Excel formula or a value solved by the app; formulas read the Inputs and Tax tables sheets and the account sheets.'));
   const t=xlsxTable(main,2,cols,proj.rows);
   const sheets=[{name:'Inputs',ws:inputs.ws},{name:'Tax tables',ws:tax.ws},{name:'Projection by year',ws:xlsxFinish(main),_t:t,_cols:cols}];
-  acct.forEach(s=>sheets.push({name:s.name,ws:s.type==='annuity'?xlsxAoa(s.rows):s.ws}));
+  acct.forEach(s=>sheets.push({name:s.name,ws:s.type==='annuity'?xlsxAoa(s.rows):s.ws,_t:s.t,_cols:s.cols,_items:s.items}));
   return {sheets, names:inputs.names.concat(tax.names)};
 }
 // Annuity sheet: row 0 = headers, then one row per live year (Year, age, then dollar amounts), formatted like the other sheets.

@@ -65,7 +65,7 @@ js/
   input/        controls.js  household.js  assumptions.js  loadMenu.js
                 wage.js  socialSecurity.js  pension.js  rental.js
                 brokerage.js  realEstate.js  ira.js  roth.js  incomeForms.js
-  display/      chartHelpers.js  overlayPlugin.js
+  display/      chartHelpers.js  chartInfo.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  footer.js  print.js
                 formulasPage.js  mdPage.js  notesPage.js  usagePage.js  excelExport.js  scenarios.js  chat.js
   app.js
@@ -484,7 +484,7 @@ for the whole "Brokerage portfolio income" card.
 | `pension.js` | Pension | `agedItemCard` — amount, age range, change (the fixed option is worded **Fixed $ (no COLA)** here via `renderChangeRow`'s `fixedLabel`; elsewhere **Fixed $ (no growth)**), survivor benefit |
 | `rental.js` | Rental income | One card with **＋ Add**; each rental property is a sub-card (name, taxable amount, annual depreciation, age range, annual change, survivor flag, Enable / Hide / **Remove**), like brokerage portfolios; `addRental` / `removeRental` / `onRentalName` in `incomeForms.js` |
 | `brokerage.js` | Brokerage portfolio(s) | Add/remove multiple; **each portfolio has its own Enable + Hide header** (name, **age range (start/end) directly below the name**, **start balance**, growth (default inflation+4%), ODIV yield % (default 1.5%), QDIV % of ODIV (default 70%), foreign asset % + foreign tax credit % (default 0.25%) — always active, independent of the AUM box and IDGT flag —, IDGT flag, **AUM checkbox** (counts this balance toward the AUM fee base), **Pay expenses checkbox** (`payExp`, default **off**; only checked portfolios' dividends and sales fund household expenses), **Reinvest excess income checkbox** (`reinvest`, default **off**; receives leftover household income after all expenses, §4.6), **optional cost basis (% of start balance, 0–100; blank = no unrealized gain today)** right under the balance, there is **no** fee, IRMAA, tax drag or withdrawal field on the card (fee and IRMAA are household-level, §5.3) (living expenses are household-level, §5.3), and LTCG has **no input**: the panel just notes that expenses are paid household income → dividends → asset sales, and that sales realize gain from the cost basis —, age range, survivor benefit). A new portfolio's `name` starts blank; both the card title and the name field's placeholder fall back to position-based "Portfolio N", and `onPortfolioName` patches the title live as you type (no re-render, so focus is kept). The outer "Brokerage portfolio income" card itself has no enable/hide of its own — it's just a container with an Add button, collapsed via the older `toggleItem` (no persisted state, since there's no single flag to persist for a container of several independently-enabled portfolios). |
-| `realEstate.js` | Real estate | One card with **＋ Add**; each property is a sub-card (name, value (incl. exemptions), optional cost basis in $, annual change default *Tracks inflation*, *Joint owned with spouse*, Enable / Hide / **Remove**). No portfolio type, yields, foreign credit, AUM box or age range. `addRealEstate` / `removeRealEstate` / `onRealEstateName` / `onRealEstateBasis` in `incomeForms.js`; each row and stretch row carries `realEstateByPerson[person][property] = {balance, basis, unrealizedGain, steppedUp, growthPct}` for the asset chart |
+| `realEstate.js` | Real estate | One card with **＋ Add**; each property is a sub-card (name, value, optional cost basis in $, annual change default *Tracks inflation*, *Joint owned with spouse*, **Exemption per owner** (`exempt`, a fixed nominal amount, so `exempt`/(1+inflation)^(k+1) in today's $ at a year-end sale like the basis: taxable gain = value − that × owners alive − basis), **Sell** (`sellMode` never | ltc | passing | age, `sellAge`, `sellTo` portfolio id; `reSellFields` / `onRealEstateSell`), Enable / Hide / **Remove**). No portfolio type, yields, foreign credit, AUM box or age range. `addRealEstate` / `removeRealEstate` / `onRealEstateName` / `onRealEstateBasis` in `incomeForms.js`; each row and stretch row carries `realEstateByPerson[person][property] = {balance, basis, unrealizedGain, steppedUp, growthPct, sold, soldValue, soldBasis}` for the asset chart. A sale (`reSaleRow` in `computeProjection`) goes in three steps: basis stepped up if the owner passed; the gain is added to `ltcgGross` (`reGainTotal`, so it is taxed through `taxOn` with the SCGL shield) and the tax it adds (`reSaleTax` = TT with − TT without the gain, computed in `solveTax`) is paid out of the sale, so the waterfall funds only `totalTax − reSaleTax` (`expTax`); the net value is added to the target portfolio's `pfState` (`bal`, `basis`, 100% basis) and the property is dead. Age / LTC sales (`reSales`) are made at year-end and arrive next year (`saleIn` → the portfolio entry's `reSaleIn`); a 'passing' sale is at the start of the last row, stepped up, no gain. Rows carry `reSaleGain` / `reSaleTax`; the property entry carries `sale:{valEnd,basEnd,gain,tax,net}` |
 | `ira.js` | Pre-tax IRA / 401(k) | Balance, age range (default start = RMD age), growth (default inflation+3%), survivor benefit, **IRA stretch** checkbox, **Annual Roth conversion** (dropdown: **$/yr, today's $** = paired slider + number, range 0 → balance, initial 0, `onIraBalance` re-ranges it and clamps the value when the balance is lowered; or **Below IRMAA & ordinary income tax brackets** = two discrete sliders side by side (`convSliderHtml` / `onConvStop`), ordinary bracket and IRMAA bracket (Part B %), `onConvMode` re-renders) and **Conversion start** (dropdown: **RMD start (age N)** default, Now, Custom age; the paired age slider shows only for Custom; conversions begin at the later of the chosen age and the current age, §4.6) |
 | `roth.js` | Roth IRA | Balance, growth (default inflation+3%), survivor benefit — no withdrawal fields; grows, fed by the linked IRA's conversion, and is withdrawn only as the last-resort expense source (after the pre-tax IRA) |
 
@@ -687,6 +687,8 @@ Editing either `.md` file needs no code change — the next click shows the new 
 
 ### 6.11 `excelExport.js`
 
+**State tax in the workbook.** `xlsxSelectedState()` returns `'CA'`, `'WA'` or `null` (state tax off). Only that state's scalars, brackets (CA), Projection columns (`stN`/`caTI` for CA, `waGain` for WA) and a single `stateTax` formula are written; the `State_Code` name no longer exists (Inputs shows the state's name as text, `State_On` stays).
+
 (Annuities: summary-sheet columns for taxable / tax-exempt payouts, account value, the taxable part embedded in it and the passing benefit with its split; plus one sheet per enabled annuity via `xlsxAnnuitySheet`.)
 Projection-by-year columns for the Taxable Qualified Income chart (before `Qualified tax`): `qLine0` / `qLine15` (the qualified bracket limits by filing status — the chart's two dashed lines; `QD_MFJ_1/2`, `QD_SGL_1/2` names), `qRoom0` / `qRoom15` (limit − `ordTI`, floored at 0) and `qAt0` / `qAt15` / `qAt20` (qualified income in each tier; they sum to `qual` and price to `Qualified tax`). The Formulas page documents the same equations.
 
@@ -695,7 +697,7 @@ Number formats: dollars `$#,##0.00` (9.2), ages `0.0` and percents `0.0%` (3.1; 
 `exportToExcel()` — the **📊 Export to Excel** button (topbar, right of **Notes**) downloads the plan as a
 **live-formula `.xlsx` model** via the SheetJS (`XLSX`) library (pinned CDN `<script>` in `index.html`).
 `xlsxBuildWorkbook(proj)` builds every sheet (also used by a Node test harness); the workbook sets `fullCalcOnLoad`.
-Sheets, in order:
+Sheets, in order (a property gets its own `(real estate)` sheet, `xlsxRealEstateSheet`: value, cost basis, unrealized gain, end-of-year value and, in a sale year, basis at sale, exemption, taxable gain, tax and the amount forwarded; the main sheet's `reVal` / `reGainU` columns sum them by Year; the Inputs sheet lists each property's value, basis, exemption, growth, joint flag and sell settings):
 - **Inputs** — every assumption and input value of the saved plan (household, inflation, living, SCGL, AUM fee, future-NIIT,
   LTC, and per person: birth, passing age, wage, Social Security, pension, pre-tax IRA, Roth, every portfolio, annuity, rental,
   real estate). Named cells used by formulas: `BaseYear`, `Inflation`, `SCGL_Start`, `Pass_1`/`Pass_2`, `FutNIIT_On/Start/SGL/MFJ`.
@@ -783,7 +785,7 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
   input/controls → input/household → input/assumptions → input/wage → input/socialSecurity →
   input/pension → input/rental → input/brokerage → input/ira → input/roth → input/incomeForms →
   input/loadMenu →
-  display/chartHelpers → display/overlayPlugin → display/ssChart → display/incomeChart →
+  display/chartHelpers → display/chartInfo → display/overlayPlugin → display/ssChart → display/incomeChart →
   display/tssChart → display/taxChart → display/expenseChart → display/assetChart → display/footer →
   display/formulasPage → display/mdPage → display/notesPage → display/usagePage → display/excelExport → display/chat → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
@@ -822,6 +824,7 @@ These apply everywhere, not to one file — listed once here instead of repeated
   **Single source of truth:** every Hide checkbox and the card/section it collapses are derived from `state`;
   nothing reads the checkbox's own DOM state back.
 - **`show_details`.** A single global flag (`chartHelpers.js`) every chart's tooltip reads live —
+- **Chart Element Info.** A second global flag, `chartInfo` (`chartInfo.js`, checkbox left of Show Details). While on, `externalTooltip` draws nothing and `chartInfo.js` shows a text description of the hovered element (found from pointer height; text looked up by dataset label / `vzKind` / `ordLabel`) in the same `#extTooltip` div. A new dataset kind or label needs a matching entry in `ciDescribe`.
   toggling it needs no chart rebuild, just re-hovering.
 - **Locked scales + Rescale.** Every chart's Y axis (and the SS/income charts' X axis) is locked so
   moving a slider doesn't make the chart jump; a per-chart "Rescale" control clears that lock so the

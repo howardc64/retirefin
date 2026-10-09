@@ -56,7 +56,10 @@ function defaultBrokeragePortfolio(balance, n){
 // spouse. The basis is a fixed nominal amount, so in today's $ it erodes with inflation, and steps up to value when the owner passes (to the
 // surviving spouse if jointly owned; otherwise the property leaves the plan, like a brokerage portfolio).
 function defaultRealEstate(n){
-  return {id:uid(), enabled:true, hidden:false, name:'', balance:0, basis:null, growth:defaultChange('inflation',0), bene:false};
+  // exempt: gain excluded from tax per living owner when sold, today's $ (e.g. the $250,000 home-sale exclusion); a jointly owned property counts both owners while both live.
+  // sellMode: when the property is sold ('never' default | 'ltc' = the year the last person starts LTC | 'passing' = the year of the last passing | 'age' = the owner reaches `sellAge`);
+  // sellTo: id of the brokerage portfolio that receives the value and cost basis ('' = automatic: the owner's first non-IDGT portfolio, then the spouse's).
+  return {id:uid(), enabled:true, hidden:false, name:'', balance:0, basis:null, exempt:0, growth:defaultChange('inflation',0), bene:false, sellMode:'never', sellAge:80, sellTo:''};
 }
 function reBasisEntered(r){ return !!r && r.basis!=null && r.basis!=='' && Number.isFinite(Number(r.basis)); }
 // Annuity (per person, any number): `value` = current account value (today's $), `premium` = cost basis / premium paid ($, blank = value,
@@ -129,8 +132,9 @@ function defaultState(){
     scgl:0, scglEnabled:true,   // SCGL carryforward; scglEnabled=false makes the projection ignore it (the amount is kept)
     ltc:{enabled:false, people:[{startAge:85,cost:100000},{startAge:85,cost:100000}], living1:null, living2:LTC_LIVING2_DEFAULT},   // Long Term Care: per person start age (own age) and cost; household living expenses from the 1st / 2nd LTC start (today's $)
     aumFee:{enabled:true, mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
+    stateTax:{enabled:false, state:'CA'},   // State income tax (Assumptions): 'CA' or 'WA'; off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{incomeOrder:INCOME_CARD_KEYS.slice(), hiddenSections:defaultHiddenSections(), assumpHide:{scgl:false,aum:false,swap:false,ltc:true,future:true}, ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
+    ui:{incomeOrder:INCOME_CARD_KEYS.slice(), hiddenSections:defaultHiddenSections(), assumpHide:{scgl:false,aum:false,swap:false,state:false,ltc:true,future:true}, ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
@@ -183,7 +187,7 @@ function hydrateState(loaded){
   fillLegacyHide(loaded);
   const out=merge(loaded, base);
   // Saves from before the Assumptions cards had Hide: LTC / speculative cards were open only while enabled — keep that.
-  if(loaded && !(loaded.ui && loaded.ui.assumpHide)) out.ui={...out.ui, assumpHide:{scgl:false, aum:false, swap:false, ltc:!(out.ltc&&out.ltc.enabled), future:!(out.futureTax&&out.futureTax.enabled)}};
+  if(loaded && !(loaded.ui && loaded.ui.assumpHide)) out.ui={...out.ui, assumpHide:{scgl:false, aum:false, swap:false, state:false, ltc:!(out.ltc&&out.ltc.enabled), future:!(out.futureTax&&out.futureTax.enabled)}};
   if(loaded && !(loaded.ui && loaded.ui.hiddenSections)) out.ui={...out.ui, hiddenSections:defaultHiddenSections(false)};
   // Older saves had a per-portfolio "Withdrawal" (`living`) and "tax drag %" — both are gone. Carry the
   // withdrawals over as the household living expenses so an old plan keeps roughly the same spending.

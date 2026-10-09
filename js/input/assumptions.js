@@ -60,6 +60,7 @@ function syncAssumpEnable(){
   set(['scglInput'], state.scglEnabled!==false);
   set(['aumFeeMode','aumFeeValue'], !(state.aumFee&&state.aumFee.enabled===false));
   set(['swapYears'], !!state.basisSwap);
+  set(['stateTaxSel'], !!(state.stateTax&&state.stateTax.enabled));
 }
 function onAumFeeMode(mode){
   setPath('aumFee.mode', mode);
@@ -77,6 +78,19 @@ function renderSwapPanel(){
   document.getElementById('swapPanel').innerHTML=assumpCard('swap','Asset / basis swap','basisSwap',!!state.basisSwap,body);
   syncAssumpEnable();
 }
+// State income tax card (Enable / Hide like the others; off by default). One choice: California or Washington. The tax is paid as a household
+// expense (like federal tax) and is drawn on the Total Income Tax chart as a green dashed line stacked above the tax bands.
+function renderStateTaxPanel(){
+  const st=state.stateTax||{enabled:false,state:'CA'};
+  const opts=STATE_TAX_OPTIONS.map(([c,n])=>`<option value="${c}" ${st.state===c?'selected':''}>${n}</option>`).join('');
+  const body=`<div class="field full"><label>State</label>
+      <select id="stateTaxSel" onchange="onStateTaxSelect(this.value)">${opts}</select></div>
+    <div class="item-note"><strong>California</strong>: the 2025 state brackets (1%–12.3%, plus 1% over $1M) on federal AGI less taxable Social Security (California does not tax it) and the state standard deduction, less the personal and age-65 exemption credits; capital gains are taxed as ordinary income. <strong>Washington</strong>: no income tax, but a capital-gains excise tax of 7% on realized long-term gains from portfolio sales above $278,000 a year (one deduction per couple) and 9.9% on the part of the taxable gain above $1M; real estate and retirement accounts are exempt. State figures are held flat in today's $ (the states index them). The tax is paid as a household expense, like federal tax, and is not part of Total Tax (TT) or the effective rate.</div>`;
+  document.getElementById('stateTaxPanel').innerHTML=assumpCard('state','State income tax','stateTax.enabled',!!st.enabled,body);
+  syncAssumpEnable();
+}
+function onStateTaxSelect(code){ setPath('stateTax.state', code); chartYMax.tax=null; recompute(); saveDebounced(); }
+
 // Long Term Care (Assumptions panel): per person start age (own age) + cost + new living expenses once LTC starts.
 function renderLtcPanel(){
   const l=state.ltc||{}, n=state.filingStatus==='married'?2:1;

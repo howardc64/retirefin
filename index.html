@@ -29,6 +29,9 @@
     <button class="btn" onclick="openNotesPage()">Notes</button>
     <button class="btn" onclick="exportToExcel()">📊 Export to Excel</button>
     <button class="btn" onclick="printPage()">🖨️ Print</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;" title="When checked, hovering a chart shows a description of the chart element under the cursor instead of the usual values">
+      <input type="checkbox" id="chartInfoToggle" checked onchange="setChartInfo(this.checked)">Chart Element Info
+    </label>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;">
       <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Show Details in Popup
     </label>
@@ -69,6 +72,7 @@
   <div id="scglPanel" style="margin-top:14px"></div>
   <div id="aumPanel" style="margin-top:14px"></div>
   <div id="swapPanel" style="margin-top:14px"></div>
+  <div id="stateTaxPanel" style="margin-top:14px"></div>
   <div id="ltcPanel" style="margin-top:14px"></div>
   <div id="futureTaxPanel" style="margin-top:14px"></div>
 </div>
@@ -284,6 +288,7 @@
 
 <!-- display -->
 <script src="js/display/chartHelpers.js"></script>
+<script src="js/display/chartInfo.js"></script>
 <script src="js/display/overlayPlugin.js"></script>
 <script src="js/display/ssChart.js"></script>
 <script src="js/display/incomeChart.js"></script>

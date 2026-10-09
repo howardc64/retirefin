@@ -4,7 +4,7 @@
 // with an effective-rate overlay line (spec §9.4); the marginal rate is in the popup only.
 // ═══════════════════════════════════════════════════════════════
 const VZ_TAX = { ord:'#C8600A', qdiv0:'#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',
-                 ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#B0163E', effRate:'#E8291C', ftc:'#1F5FE0' };
+                 ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#B0163E', effRate:'#E8291C', ftc:'#1F5FE0', state:'#2E9E44' };
 const TAX_LEGEND=[
   ['ord','Ordinary income tax'], ['qdiv0','QDIV 0%'], ['qdiv15','QDIV 15%'], ['qdiv20','QDIV 20%'],
   ['ltcg0','LTCG 0%'], ['ltcg15','LTCG 15%'], ['ltcg20','LTCG 20%'],
@@ -12,9 +12,11 @@ const TAX_LEGEND=[
   ['ftc','Foreign tax credit (stacked above total tax, dashed)'],
   ['effRate','Effective tax rate (right axis, dashed)']
 ];
-function buildTaxLegend(){
-  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.map(([k,label])=>legendItem(label, VZ_TAX[k], (k==='ftc'||k==='effRate')?legendDashStyle(VZ_TAX[k]):undefined)).join('') +
-    (viewIrmaaAsTax ? legendItem('IRMAA surcharge (stacked above total tax, dashed)', null, legendDashStyle(OVERLAY_COLOR)) : '');
+// `show` maps a legend key to whether that series is above 0 in some year; entries for data that is zero everywhere are left out.
+function buildTaxLegend(show, showIrmaa, stateLabel){
+  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.filter(([k])=>!show||show[k]).map(([k,label])=>legendItem(label, VZ_TAX[k], (k==='ftc'||k==='effRate')?legendDashStyle(VZ_TAX[k]):undefined)).join('') +
+    (stateLabel ? legendItem(stateLabel+' (stacked above total tax, dashed)', VZ_TAX.state, legendDashStyle(VZ_TAX.state)) : '') +
+    (viewIrmaaAsTax&&showIrmaa!==false ? legendItem('IRMAA surcharge (stacked above total tax, dashed)', null, legendDashStyle(OVERLAY_COLOR)) : '');
 }
 function buildTaxChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -56,13 +58,19 @@ function buildTaxChart(){
   const stackTop=labels.map((_,i)=>{
     let t=alignedOrd[i]||0; alignedQ.forEach(a=>t+=a[i]||0); alignedL.forEach(a=>t+=a[i]||0); return t+(alignedNiit[i]||0);
   });
-  const alignedIrmaaTop=alignedIrmaa.map((v,i)=>v>0?stackTop[i]+v:null);
+  // State tax (Assumptions → State tax): its own dashed green line at tax stack + state tax — absolute height in its own stack group, so it never sits on the foreign tax credit line.
+  const stateName=(STATE_TAX_OPTIONS.find(o=>o[0]===(state.stateTax&&state.stateTax.state))||[0,'State'])[1];
+  const alignedState=alignToAges(ages, rows.map(r=>r.stateTax>0?r.stateTax:null), labels);
+  const alignedStateTop=alignedState.map((v,i)=>v>0?stackTop[i]+v:null);
+  // IRMAA, when shown, stacks above the state tax line so the two dashed lines never overlap.
+  const alignedIrmaaTop=alignedIrmaa.map((v,i)=>v>0?stackTop[i]+(alignedState[i]||0)+v:null);
   const Y_MAX=lockedYMax('tax', ()=>{
     let maxV=0;
     for(let i=0;i<labels.length;i++){
       let t=alignedOrd[i]||0; alignedQ.forEach(a=>t+=a[i]||0); alignedL.forEach(a=>t+=a[i]||0); t+=alignedNiit[i]||0;
       t+=alignedFtc[i]||0;
       maxV=Math.max(maxV,t);
+      if(alignedStateTop[i]!=null) maxV=Math.max(maxV,alignedStateTop[i]);
       if(viewIrmaaAsTax && alignedIrmaaTop[i]!=null) maxV=Math.max(maxV,alignedIrmaaTop[i]);
     }
     return Math.ceil(Math.max(maxV,1)/2000)*2000+4000;
@@ -87,6 +95,9 @@ function buildTaxChart(){
     {label:'Effective tax rate', data:alignedEff, borderColor:VZ_TAX.effRate, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:1},
   ];
 
+  if(alignedState.some(v=>v>0)){
+    datasets.push({label:'State income tax ('+stateName+')', data:alignedStateTop, irmaaAmt:alignedState, borderColor:VZ_TAX.state, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'state', order:2});   // irmaaAmt = what the popup reports (the dataset values are heights)
+  }
   if(viewIrmaaAsTax){
     const c=OVERLAY_COLOR;
     // Own stack id so it is plotted at an absolute height (tax stack + IRMAA), not on top of the foreign tax credit line; irmaaAmt is what the popup reports.
@@ -115,6 +126,7 @@ function buildTaxChart(){
       // When extra ordinary income also pushes qualified income (QDIV/LTCG) into a higher 0/15/20% tier, show that part separately so the total can exceed the ordinary bracket rate.
       if((r.marginalQual||0)>0.0005) lines.push(mrow('  from ordinary brackets', ((r.marginalOrd||0)*100).toFixed(1)+'%'), mrow('  from pushing qualified income into a higher tier', ((r.marginalQual||0)*100).toFixed(1)+'%'));
       lines.push(mrow('Total tax (TT)', fmt(r.totalTax)+'/yr'));
+      if(r.stateTax>0) lines.push(mrow('Total tax + state tax', fmt(r.totalTax+r.stateTax)+'/yr'));   // the state tax itself is already listed above as a series
       if(viewIrmaaAsTax && r.expIrmaa>0) lines.push(mrow('Total tax + IRMAA', fmt(r.totalTax+r.expIrmaa)+'/yr'));
       if(showDetails){
         lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
@@ -162,7 +174,9 @@ function buildTaxChart(){
         y1:{position:'right',min:0,max:100,title:axisTitle('Effective tax rate'),ticks:{...AXIS_TICKS,callback:v=>v+'%'},grid:{display:false}}
       }
     })});
-  buildTaxLegend();
+  buildTaxLegend({ord:hasValue(ordArr), qdiv0:hasValue(qTiers[0]), qdiv15:hasValue(qTiers[1]), qdiv20:hasValue(qTiers[2]),
+    ltcg0:hasValue(lTiers[0]), ltcg15:hasValue(lTiers[1]), ltcg20:hasValue(lTiers[2]), niit:hasValue(niitArr), ftc:hasValue(ftcArr), effRate:hasValue(effRateArr)},
+    hasValue(alignedIrmaa), alignedState.some(v=>v>0)?'State income tax ('+stateName+')':null);
 
   // ── Two half-size companion charts (right side): ordinary vs. qualified/NIIT tax ──
   // Same labels, same locked Y scale (Y_MAX) and same 1:1 aspect ratio as the primary chart; the

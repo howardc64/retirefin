@@ -111,3 +111,42 @@ const stretchTintPlugin={
   }
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('stretchTint')) Chart.register(stretchTintPlugin);
+
+// Long Term Care periods, drawn above the plot area of every time-based chart (all except the Social Security start-age chart): a medium
+// grey bar for the years anyone is on LTC (from the LTC start age until that person passes), a black bar for the years two people overlap,
+// and an "LTC" label above the bar. No legend entry. Nothing is drawn (and no space reserved) unless the LTC assumption is enabled and
+// at least one LTC year falls on the chart. The bar sits in the chart's top layout padding (see ltcTopPad / upsertLineChart).
+const LTC_BAR_H=6, LTC_PAD=22;
+// How many people are on LTC in each year of `labels` (the age axis): 0, 1 or 2.
+function ltcCounts(labels){
+  const l=state.ltc, rows=lastProjection&&lastProjection.rows;
+  if(!l||!l.enabled||!rows||!labels) return null;
+  const byAge={}; rows.forEach(r=>{ byAge[Math.round(r.age0)]=r; });
+  const out=labels.map(a=>{
+    const r=byAge[a]; if(!r||!r.ages||!r.alive) return 0;
+    let n=0; r.ages.forEach((age,i)=>{ const L=l.people&&l.people[i]; if(L && r.alive[i] && age>=(Number(L.startAge)||0)) n++; });
+    return n;
+  });
+  return out.some(n=>n>0)?out:null;
+}
+function ltcTopPad(chart){ return ltcCounts(chart.data.labels)?LTC_PAD:0; }
+const ltcBarPlugin={
+  id:'ltcBar',
+  afterDatasetsDraw(chart,args,opts){
+    if(!opts) return;
+    const counts=ltcCounts(chart.data.labels); if(!counts) return;
+    const {ctx,chartArea:{left,right,top},scales:{x}}=chart; if(!x) return;
+    const n=counts.length, step=n>1?(x.getPixelForValue(1)-x.getPixelForValue(0)):0;
+    // Horizontal span of years i0..i1 (each year owns half a step either side of its point), kept inside the plot area.
+    const span=(i0,i1)=>[Math.max(left,x.getPixelForValue(i0)-step/2), Math.min(right,x.getPixelForValue(i1)+step/2)];
+    const runs=(min)=>{ const r=[]; let s=-1; for(let i=0;i<=n;i++){ const on=i<n&&counts[i]>=min; if(on&&s<0) s=i; if(!on&&s>=0){ r.push([s,i-1]); s=-1; } } return r; };
+    const y0=top-LTC_BAR_H-3;
+    ctx.save();
+    const draw=(min,color)=>runs(min).forEach(([a,b])=>{ const [xa,xb]=span(a,b); if(xb>xa){ ctx.fillStyle=color; ctx.fillRect(xa,y0,xb-xa,LTC_BAR_H); } });
+    draw(1,'#9a9a9a'); draw(2,'#000');
+    ctx.font='bold 10px DM Sans,sans-serif'; ctx.fillStyle='#444'; ctx.textBaseline='bottom'; ctx.textAlign='center';
+    runs(1).forEach(([a,b])=>{ const [xa,xb]=span(a,b); if(xb>xa) ctx.fillText('LTC',(xa+xb)/2,y0-2); });
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('ltcBar')) Chart.register(ltcBarPlugin);

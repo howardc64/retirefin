@@ -191,6 +191,11 @@ function onRealEstateName(pid,ri,val,inputEl){
   if(title) title.textContent=val.trim()||('Property '+(ri+1));
   recomputeDebounced(); saveDebounced();
 }
+function onRealEstateSell(pid,ri,field,val){
+  setPath(pid+'.realEstate.'+ri+'.'+field, val);
+  renderIncomeForms();   // the age and portfolio rows show only for the sell modes that need them
+  recompute(); saveDebounced();
+}
 function addRealEstate(i){
   if(!Array.isArray(state.people[i].realEstate)) state.people[i].realEstate=[];
   state.people[i].realEstate.push(defaultRealEstate(state.people[i].realEstate.length+1));

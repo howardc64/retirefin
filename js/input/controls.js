@@ -63,7 +63,8 @@ function toggleItem(headerEl){
 function onEnableToggle(path, checked){
   setPath(path, checked);
   // SCGL / AUM fee inputs are greyed while their Enable box is off.
-  if(path==='scglEnabled'||path==='aumFee.enabled'||path==='basisSwap') syncAssumpEnable();
+  if(path==='scglEnabled'||path==='aumFee.enabled'||path==='basisSwap'||path==='stateTax.enabled') syncAssumpEnable();
+  if(path==='stateTax.enabled') chartYMax.tax=null;   // re-fit the Total Income Tax chart so the new state-tax line is in view
   recompute(); saveDebounced();
 }
 // Hide = purely a display-space convenience: collapses the card body without touching whether

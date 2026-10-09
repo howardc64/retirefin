@@ -122,27 +122,28 @@ function buildAssetChartFor(cfg){
     if(s.type==='portfolio'){ const e=entryOf(s,r); return f-((e&&e.tracked)?(e.unrealizedGain||0):0)*d.ltcg; }
     return f;
   };
-  // Dashed line: total cost basis of this chart's portfolios (a portfolio that doesn't track basis counts at full value =
-  // no gain). It is NOT devalued, so the gap between it and the top of the brokerage bands is the unrealized gain.
-  // It is drawn only in rows where the applicable LTCG devalue is 0%: any LTCG devalue pulls the band toward 100% basis
-  // (at 100% the band's top IS the basis), so the line would no longer mark the top of the unrealized gain.
-  const hasPf=series.some(s=>s.type==='portfolio');
-  const basisOf=r=>{
-    if(dv[r.stretchYear?1:0].ltcg>0) return null;
-    let t=0, any=false;
-    series.forEach(s=>{
-      if(s.type!=='portfolio') return;
-      const e=entryOf(s,r); if(!e||!(e.balance>0)) return;
-      t+=e.tracked?(e.basis||0):e.balance; any=true;
-    });
-    return any?t:null;
-  };
-  // Value (face, before any withdraw cost) of this chart's portfolios in a row — the denominator for the dashed line's cost basis %.
-  const pfValueOf=r=>{ let t=0; series.forEach(s=>{ if(s.type!=='portfolio') return; const e=entryOf(s,r); if(e&&e.balance>0) t+=e.balance; }); return t; };
+  // Dashed lines: one cost-basis line inside EACH tracked portfolio's band (a portfolio's basis resets when its own owner passes, so each steps up at its own
+  // time). It is NOT devalued, so the gap between the line and the top of its band is that portfolio's unrealized gain. Like the real estate lines, a band's
+  // height is its value, so the line plots at (top of everything stacked below the band) + (cost basis). It is drawn only in rows where the applicable LTCG
+  // devalue is 0%: any LTCG devalue pulls the band toward 100% basis (at 100% the band's top IS the basis), so the line would no longer mark the top of the gain.
   const aligned=series.map(s=>alignToAges(ages, allRows.map(r=>valueOf(s,r)), labels));
   const alignedFace=series.map(s=>alignToAges(ages, allRows.map(r=>faceOf(s,r)), labels));
-  const alignedBasis=hasPf?alignToAges(ages, allRows.map(basisOf), labels):null;
-  const showBasis=!!alignedBasis && alignedBasis.some(v=>v!=null);   // no line (and no legend key) when every row is LTCG-devalued
+  const hasPf=series.some(s=>s.type==='portfolio');
+  const pfBasis=[];   // [{si, basis:[$ per label], line:[plotted height per label]}]
+  series.forEach((s,si)=>{
+    if(s.type!=='portfolio') return;
+    const basis=alignToAges(ages, allRows.map(r=>{
+      if(dv[r.stretchYear?1:0].ltcg>0) return null;
+      const e=entryOf(s,r); return (e&&e.balance>0&&e.tracked)?(e.basis||0):null;
+    }), labels);
+    const line=basis.map((b,idx)=>{
+      if(b==null) return null;
+      let below=0; for(let j=0;j<si;j++){ const v=aligned[j][idx]; if(v!=null) below+=v; }
+      return below+b;
+    });
+    if(line.some(v=>v!=null)) pfBasis.push({si, basis, line});
+  });
+  const showBasis=pfBasis.length>0;   // no lines (and no legend key) when every row is LTCG-devalued
   // Real estate cost basis: one dotted line inside each property's band. Real estate is not devalued, so the line always shows. A band's
   // height is its value, so the line plots at (top of everything stacked below the band) + (cost basis), i.e. basis % of the way up the band.
   const reBasis=[];   // [{si, basis:[$ per label], line:[plotted height per label]}]
@@ -177,23 +178,25 @@ function buildAssetChartFor(cfg){
   const datasets=series.map((s,si)=>{
     const color=ASSET_COLORS[si%ASSET_COLORS.length];
     return {
-      label:seriesLabel(s,si), data:aligned[si],
+      label:seriesLabel(s,si), vzKind:s.type, data:aligned[si],
       borderColor:color, backgroundColor:color+'bb',
       borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'pf', order:1
     };
   });
-  // Dashed cost-basis line, in its own stack group so it plots at its own value rather than on top of the bands; order 0 = drawn on top.
-  if(showBasis) datasets.push({
-    label:'Brokerage cost basis', data:alignedBasis,
-    borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:2.5, borderDash:[8,5],
-    pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'basis', order:0
-  });
+  // Dashed cost-basis lines (one per portfolio), each in its own stack group so it plots at its own value rather than on top of the bands; order 0 = drawn on top.
   // Datasets after the bands are cost-basis lines; `extra` says which kind each one is (same order as the datasets pushed here).
   const extra=[];
-  if(showBasis) extra.push({kind:'pf'});
+  pfBasis.forEach(pb=>{
+    datasets.push({
+      label:seriesLabel(series[pb.si],pb.si)+' cost basis', vzKind:'pfBasis', data:pb.line,
+      borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:2.5, borderDash:[8,5],
+      pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'basis-pf-'+pb.si, order:0
+    });
+    extra.push({kind:'pf', si:pb.si, basis:pb.basis});
+  });
   reBasis.forEach(rb=>{
     datasets.push({
-      label:seriesLabel(series[rb.si],rb.si)+' cost basis', data:rb.line,
+      label:seriesLabel(series[rb.si],rb.si)+' cost basis', vzKind:'reBasis', data:rb.line,
       borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:2.5, borderDash:[1,5], borderCapStyle:'round',
       pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'basis-re-'+rb.si, order:0   // its own stack group, so it plots at its own height rather than on top of the bands
     });
@@ -228,12 +231,10 @@ function buildAssetChartFor(cfg){
           if(b==null) return null;
           return [mrow('  '+ctx.dataset.label+' (dotted line)', fmt(b)+(e&&e.balance>0?' ('+(b/e.balance*100).toFixed(0)+'% of value)':''), W)];
         }
-        if(ctx.raw<1) return null;
-        const rb=rowByAge[labels[ctx.dataIndex]], tv=rb?pfValueOf(rb):0;
-        // Name the portfolio in front: the one portfolio on this chart, or a generic name when the line totals several.
-        const pfs=series.filter(x=>x.type==='portfolio');
-        const pfName=pfs.length===1?seriesLabel(pfs[0],series.indexOf(pfs[0])):'Portfolios';
-        return [mrow('  '+pfName+' cost basis (dashed line)', fmt(ctx.raw)+(tv>0?' ('+(ctx.raw/tv*100).toFixed(0)+'% of value)':''), W)];
+        // Portfolio basis line: read the cost basis itself (the line plots at a stacked height), then show it in $ and as a % of that portfolio's value.
+        const b=m.basis[ctx.dataIndex], rr=rowByAge[labels[ctx.dataIndex]], e=rr?entryOf(series[m.si],rr):null;
+        if(b==null) return null;
+        return [mrow('  '+ctx.dataset.label+' (dashed line)', fmt(b)+(e&&e.balance>0?' ('+(b/e.balance*100).toFixed(0)+'% of value)':''), W)];
       }
       if(ctx.raw<1) return null;
       const lines=[mrow('  '+ctx.dataset.label, fmt(ctx.raw), W)];
@@ -263,6 +264,8 @@ function buildAssetChartFor(cfg){
         const e=reEntry(s,r);
         if(e){
           lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
+          // Sold at the end of this year: the gain is realized LTCG, its tax comes out of the sale, and the rest moves to the designated portfolio.
+          if(e.sale) lines.push(mrow('      Sold at year end: gain taxed as LTCG', fmt(e.sale.gain)+(e.sale.exempt>0?' (after '+fmt(e.sale.exempt)+' exemption)':'')+' → tax '+fmt(e.sale.tax), W), mrow('        moves to portfolio (100% basis)', fmt(e.sale.net), W));
           if(showDetails){
             lines.push(mrow('      Unrealized gain', fmt(e.unrealizedGain||0)+' ('+(e.balance>0?e.unrealizedGain/e.balance*100:0).toFixed(0)+'% of value)', W));
             if(e.steppedUp) lines.push(mrow('      Basis stepped up at death', 'reset to value', W));
@@ -277,6 +280,11 @@ function buildAssetChartFor(cfg){
           const paid=(e.divUsed||0)+(e.sold||0);
           if(paid>0) lines.push(mrow('      Annual growth (net of expenses paid)', (e.netGrowthPct||0).toFixed(1)+'%', W));
           lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
+          // Real estate sold into this portfolio at the start of this year (value and cost basis both move in).
+          (e.reSaleIn||[]).forEach(x=>{
+            lines.push(mrow('      Sold into portfolio: '+x.name, fmt(x.value)+' after tax, at a 100% basis', W));
+            if(x.gain>0) lines.push(mrow('        gain taxed as LTCG', fmt(x.gain)+' → tax '+fmt(x.tax), W));
+          });
           // Cost basis as a % of this portfolio's value (100% = no unrealized gain; shown for portfolios that track basis).
           if(e.tracked && e.balance>0) lines.push(mrow('      Cost basis (% of value)', ((e.basis||0)/e.balance*100).toFixed(0)+'%', W));
           if(showDetails){
@@ -315,7 +323,7 @@ function buildAssetChartFor(cfg){
       plugins:{
         legend:{display:false},
         stretchTint:stretchOpts||false,
-        tooltip:{...TIP_STYLE,multiKeyBackground:'transparent',callbacks:justifyTip(tooltipCallbacks)}
+        tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(tooltipCallbacks)}   // external HTML popup: the built-in canvas popup is clipped at the canvas edge
       },
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
@@ -324,8 +332,8 @@ function buildAssetChartFor(cfg){
     })});
   if(!cfg.idgt) buildRothConvChart({proj, rows, allRows, labels, ages, rowByAge, series, seriesLabel});
   legendEl.innerHTML = series.map((s,si)=>
-    legendItem(escHtml(seriesLabel(s,si)), ASSET_COLORS[si%ASSET_COLORS.length])
-  ).join('') + (showBasis ? legendItem('Cost basis (dashed) — brokerage above it is unrealized gain', null, 'border-top:2px dashed #1f1f1f;background:transparent;height:2px;margin-top:4px') : '')
+    hasValue(alignedFace[si]) ? legendItem(escHtml(seriesLabel(s,si)), ASSET_COLORS[si%ASSET_COLORS.length]) : ''   // no entry for an asset that is $0 in every year
+  ).join('') + (showBasis ? legendItem('Cost basis (dashed, one per portfolio) — brokerage above it is unrealized gain', null, 'border-top:2px dashed #1f1f1f;background:transparent;height:2px;margin-top:4px') : '')
     + (reBasis.length ? legendItem('Cost basis (dotted) — real estate above it is unrealized gain', null, 'border-top:2px dotted #1f1f1f;background:transparent;height:2px;margin-top:4px') : '');
 
   // Embedded (unrealized) gain in the plan's final year, across this chart's tracked portfolios.

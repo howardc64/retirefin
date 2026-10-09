@@ -92,3 +92,27 @@ function computeNIIT(nii, magi, filing, f=1, futureTax, year){
   const excess=Math.max(0, magi-thresh);
   return NIIT_RATE*Math.min(Math.max(0,nii), excess);
 }
+
+// State income tax for the year (today's $). `code` is 'CA' or 'WA' (anything else = 0).
+//   p.agi, p.taxableSS  — federal AGI and the taxable Social Security inside it (California excludes Social Security)
+//   p.ltcgPortfolio     — realized long-term gain from portfolio sales, net of SCGL, excluding real estate (the Washington base)
+//   p.filing, p.nAlive, p.nSenior — filing status, living people, living people aged 65+
+//   p.f                 — 1/(1+inflation)^k: the un-indexed statutory $1,000,000 thresholds are deflated by it
+// California: tax on (AGI − taxable SS − standard deduction) from the California brackets, + 1% over $1M, − personal and senior credits.
+// Washington: 7% / 9.9% capital-gains excise tax on portfolio LTCG above the deduction.
+function computeStateTax(code, p){
+  if(code==='CA'){
+    const married=p.filing==='married';
+    const ti=Math.max(0, p.agi-p.taxableSS-(married?CA_STD_MFJ:CA_STD_SGL));
+    let tax=calcOrdTax(ti, married?CA_ORD_MFJ:CA_ORD_SGL);
+    tax+=CA_MH_RATE*Math.max(0, ti-CA_MH_THRESH*p.f);
+    tax-=CA_PERSONAL_CREDIT*p.nAlive+CA_SENIOR_CREDIT*p.nSenior;
+    return Math.max(0,tax);
+  }
+  if(code==='WA'){
+    const taxable=Math.max(0, p.ltcgPortfolio-WA_CG_DEDUCTION);
+    const t2=WA_CG_TIER2*p.f;
+    return WA_CG_RATE*Math.min(taxable,t2)+WA_CG_RATE2*Math.max(0,taxable-t2);
+  }
+  return 0;
+}

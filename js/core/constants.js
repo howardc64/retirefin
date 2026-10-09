@@ -56,6 +56,21 @@ const IRMAA_SGL=[{magi:109000,label:'T1',surch:1148},{magi:137000,label:'T2',sur
 // flat in today's-dollar terms (no deflation): the scenario being modeled is a future law that
 // sets an inflation-indexed threshold, unlike current law's frozen nominal one.
 const NIIT_RATE=0.038, NIIT_THRESH_MFJ=250000, NIIT_THRESH_SGL=200000;
+// ── State income tax (Assumptions → State tax). Latest published figures (tax year 2025), treated as today's $ and held flat in
+// today's $ like the federal tables (they are inflation-indexed by the states). Options offered in the panel: California, Washington.
+const STATE_TAX_OPTIONS=[['CA','California'],['WA','Washington']];
+// California: Schedule X / Y brackets (MFJ limits are exactly double the single ones), standard deduction and exemption credits (FTB, 2025).
+// California does not tax Social Security and taxes capital gains as ordinary income. A 1% Mental Health Services surcharge applies to
+// taxable income over $1,000,000 (all filing statuses; fixed by statute, not indexed).
+const CA_ORD_SGL=[{lim:11079,r:.01},{lim:26264,r:.02},{lim:41452,r:.04},{lim:57542,r:.06},{lim:72724,r:.08},{lim:371479,r:.093},{lim:445771,r:.103},{lim:742953,r:.113},{lim:Infinity,r:.123}];
+const CA_ORD_MFJ=CA_ORD_SGL.map(b=>({lim:b.lim*2,r:b.r}));
+const CA_STD_SGL=5706, CA_STD_MFJ=11412;
+const CA_PERSONAL_CREDIT=153, CA_SENIOR_CREDIT=153;   // per person; the senior credit is for age 65+ (the income phase-out of these credits is not modeled)
+const CA_MH_THRESH=1000000, CA_MH_RATE=0.01;
+// Washington: no income tax, but a capital-gains excise tax on long-term gains from stocks, bonds and similar assets (not real estate, not
+// retirement accounts): 7% on the gain above an annual deduction ($278,000 for 2025, indexed, one deduction per married couple), and 9.9% on the
+// part of the taxable gain above $1,000,000 (that $1M is not indexed).
+const WA_CG_DEDUCTION=278000, WA_CG_RATE=0.07, WA_CG_TIER2=1000000, WA_CG_RATE2=0.099;
 // IRS Uniform Lifetime Table (ages 72-105); ages below 72 are a linear approximation
 // used only if the user chooses to start IRA withdrawals earlier than their RMD age.
 const RMD_TABLE={72:27.4,73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,

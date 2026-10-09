@@ -54,6 +54,7 @@ const TIP_STYLE={
 // This renders the same lines (already padded by justifyTip, in one monospace font) into a floating <div> that can
 // extend past the canvas edge, and flips to the left of the cursor when it would run off the window.
 function externalTooltip(context){
+  if(typeof chartInfo!=='undefined'&&chartInfo) return;   // Chart Element Info mode: chartInfo.js owns the popup
   const {chart,tooltip}=context;
   let el=document.getElementById('extTooltip');
   if(!el){
@@ -63,6 +64,7 @@ function externalTooltip(context){
     document.body.appendChild(el);
   }
   const th=tipTheme(); el.style.background=th.bg; el.style.color=th.fg; el.style.borderColor=th.border;
+  el.style.whiteSpace='pre'; el.style.maxWidth='none';   // (Chart Element Info mode wraps its text)
   const GLIDE='opacity .12s, left .3s cubic-bezier(.25,1,.5,1), top .3s cubic-bezier(.25,1,.5,1)';
   if(!tooltip||tooltip.opacity===0){ el.style.transition='opacity .12s'; el.style.opacity=0; el._shown=false; return; }
   const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -139,6 +141,8 @@ function popupPersonAgeLines(proj,r){
   });
 }
 // Align a series of {age,value} points onto an integer-age label axis (nulls where no data)
+// True when a plotted series has any value that shows (more than half a dollar, nulls count as 0). Legends use it to leave out entries for data that is zero everywhere.
+function hasValue(arr){ return Array.isArray(arr)&&arr.some(v=>Math.abs(Number(v)||0)>0.5); }
 function alignToAges(ages, values, labels){
   const map={};
   ages.forEach((a,i)=>{ const r=Math.round(a); if(!(r in map)) map[r]=values[i]; });
@@ -241,11 +245,17 @@ function upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, create
   if(chart){
     updateChartInPlace(chart, labels, datasets);
     chart.options.scales.y.max=yMax;
+    if(key!=='ss') chart.options.layout={...(chart.options.layout||{}), padding:{...((chart.options.layout||{}).padding||{}), top:ltcTopPad(chart)}};   // room for the LTC bar (0 when none)
     if(refresh) refresh(chart.options);
     chart.options.plugins.tooltip.callbacks=justifyTip(tooltip);
     chart.update(window.liveDrag?'none':undefined);
   } else {
-    charts[key]=new Chart(document.getElementById(canvasId),{type:'line',data:{labels,datasets},options:createOptions()});
+    const opts=createOptions();
+    if(key!=='ss'){   // every time-based chart carries the LTC bar (plugin 'ltcBar') and reserves room for it above the plot area
+      opts.plugins={...(opts.plugins||{}), ltcBar:true};
+      opts.layout={...(opts.layout||{}), padding:{...((opts.layout||{}).padding||{}), top:ltcTopPad({data:{labels}})}};
+    }
+    charts[key]=new Chart(document.getElementById(canvasId),{type:'line',data:{labels,datasets},options:opts});
   }
   return charts[key];
 }

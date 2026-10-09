@@ -271,7 +271,7 @@ ${fpWhere('Growth is total return, so, like dividends, the tax-exempt income is 
 
 <p><strong>Household expense funding waterfall.</strong> The household's expenses are:</p>
 ${fpEq(`Expenses = living expenses + LTC expense + IRMAA surcharge + AUM fee + income tax`)}
-${fpWhere('Living expenses is a flat today\'s-dollar amount (it switches to the 1st / 2nd LTC living expenses as each LTC starts). The LTC expense is the sum of the LTC costs (today\'s $) of each person whose LTC has started and who is still living; it is paid like every other expense. The IRMAA surcharge and income tax (tax drag, the year\'s Total Tax) are always household expenses. The AUM fee is charged on the portfolios whose AUM box is checked (below); the whole AUM fee is a household expense like the rest, so it is paid only by <em>Living expense &amp; income</em> portfolios.')}
+${fpWhere('Living expenses is a flat today\'s-dollar amount (it switches to the 1st / 2nd LTC living expenses as each LTC starts). The LTC expense is the sum of the LTC costs (today\'s $) of each person whose LTC has started and who is still living; it is paid like every other expense. The IRMAA surcharge and income tax (tax drag: the year\'s Total Tax, plus state income tax when that assumption is on) are always household expenses. The AUM fee is charged on the portfolios whose AUM box is checked (below); the whole AUM fee is a household expense like the rest, so it is paid only by <em>Living expense &amp; income</em> portfolios.')}
 <p>They are paid in this order: (1) household income (wages, Social Security, pension, rental and its depreciation add-back, tax-exempt income, annuity payouts, IRA RMDs); (2) the dividends (ODIV) of the <em>Living expense &amp; income</em> portfolios, shared pro rata, with any dividend not needed reinvested; (3) selling those portfolios\' assets, shared pro rata to balance; (4) if the portfolios are exhausted, withdrawing from pre-tax IRA, shared pro rata to the IRA balances; (5) then withdrawing from the Roth IRA, shared pro rata to the Roth balances, for whatever is still left. Each brokerage portfolio has a <em>Portfolio type</em>: <em>Living expense &amp; income</em> (the default) pays household expenses and receives excess income; an <em>IDGT</em> contributes neither dividends nor sales to household expenses, receives no excess income and reinvests all its dividends.</p>
 ${fpEq(
   `Paid by income = min( Expenses, household income )`,
@@ -307,7 +307,7 @@ ${fpEq(
   `gain fraction <em>f</em> = max( 0,&ensp;${fpFr('value − basis','value')} )`,
   `LTCG = Sold × <em>f</em>`
 )}
-<p><strong>Tax ↔ LTCG circularity.</strong> Income tax is an expense, so selling shares to pay it realizes more LTCG, which raises the tax. The model solves this by fixed-point iteration each year: start from last year's tax, run the waterfall, recompute the tax, and repeat until the tax moves by less than half a cent (at most 60 rounds; typically 6–8):</p>
+<p><strong>Tax ↔ LTCG circularity.</strong> Income tax is an expense, so selling shares to pay it realizes more LTCG, which raises the tax. The model solves this by fixed-point iteration each year: start from last year's tax (federal + state), run the waterfall, recompute the tax, and repeat until the tax moves by less than half a cent (at most 60 rounds; typically 6–8):</p>
 ${fpEq(
   `T<sub>0</sub> = prior-year Total Tax`,
   `T<sub>n+1</sub> = Tax( LTCG, IRA withdraw ( Waterfall( living + LTC + IRMAA + AUM fee + T<sub>n</sub> ) ) )`,
@@ -324,9 +324,9 @@ ${fpEq(
   `pre-tax IRA band = balance × ( 1 − ordinary income withdraw cost % )`,
   `annuity band = balance − ordinary income withdraw cost % × taxable part of the balance`,
   `Roth IRA band = balance   (no withdraw cost)`,
-  `real estate band = value   (no withdraw cost; already entered after tax)`
+  `real estate band = value   (no withdraw cost slider is applied)`
 )}
-<p>Because the withdraw cost removes a share of the gain but leaves basis untouched, a 100% LTCG withdraw cost puts the top of the brokerage band exactly at cost basis. The dashed cost-basis line is therefore drawn only in years where the applicable LTCG withdraw cost is 0%; at any LTCG withdraw cost above 0% the line is removed (and so is its legend key).</p>
+<p>Because the withdraw cost removes a share of the gain but leaves basis untouched, a 100% LTCG withdraw cost puts the top of the brokerage band exactly at cost basis. Each brokerage portfolio has its own dashed cost-basis line inside its band (a portfolio\'s basis steps up when its own owner passes, so each line steps at its own time). The dashed cost-basis line is therefore drawn only in years where the applicable LTCG withdraw cost is 0%; at any LTCG withdraw cost above 0% the line is removed (and so is its legend key).</p>
 
 <p><strong>AUM fee.</strong> The AUM balance is the sum of the start-of-year balances of every enabled, funded Living expense &amp; income brokerage portfolio inside its age range whose AUM box is checked (IDGT portfolios, pre-tax IRAs and Roth IRAs are never charged). The fee is a percentage of it, or a fixed dollar amount:</p>
 ${fpEq(
@@ -362,6 +362,7 @@ ${fpEq(
 )}
 ${fpWhere('The lines are the qualified dividend / long-term capital gains bracket limits above (today\'s dollars, MFJ until the filing-status switch, Single after), each labeled with the rate that applies above it; a line above the chart\'s scale is not drawn. Taxable ordinary income still fills the brackets first when the tax is calculated, so the amount actually taxed at each rate is on the Excel Projection by year sheet.')}
 <p>On the Total Income Tax chart, <em>view IRMAA as tax</em> adds the household IRMAA surcharge paid that year (the expense above) on top of the tax stack, so the dashed line is <em>Total tax + IRMAA surcharge</em>. It is a display option only and never changes the projection.</p>
+<p><strong>State income tax</strong> (Assumptions, off by default). <em>California:</em> state taxable income = AGI − taxable Social Security − state standard deduction ($5,706 single / $11,412 married); tax from the 2025 California brackets (MFJ limits double the single ones), plus 1% of taxable income over $1,000,000 (deflated like the other un-indexed thresholds), less $153 per living person and $153 per living person aged 65+. <em>Washington:</em> 7% of realized portfolio LTCG (net of SCGL, excluding real estate) above $278,000, plus 9.9% on the part of that taxable gain above $1,000,000. The state tax is paid as a household expense together with federal tax, but it is not part of Total Tax (TT) or the effective tax rate; on the chart it is a green dashed line at <em>tax stack + state tax</em> (the IRMAA line, when shown, sits above it). The Excel export carries it as live formulas (the State income tax rows, with the California and Washington tables on the Tax tables sheet and the on/off and state choice on the Inputs sheet). Long Term Care periods are marked on every time-based chart by a grey bar (anyone on LTC) that turns black where two LTC periods overlap; this is display only.</p>
 
 <p><strong>Annual balance change.</strong></p>
 ${fpEq(
@@ -370,7 +371,7 @@ ${fpEq(
 <p>Household income pays expenses first, so a portfolio is only drawn down when income falls short. A portfolio outside its age range just compounds: it pays no dividends and is not sold.</p>
 
 <h3>Real Estate</h3>
-<p>Each person can hold any number of properties (Add / Remove on the Real estate card). A property is a passive asset: it has no dividends, tax-exempt income, foreign tax credit, AUM fee or portfolio type, is never sold to pay expenses, and so has no effect on income, expenses or tax. Its value is entered in today's dollars <em>after tax, with any gain covered by an exemption counted in full</em>; the app computes no tax on it. Let <em>V</em> be the start-of-year value, the amount plotted on the Asset Value chart:</p>
+<p>Each person can hold any number of properties (Add / Remove on the Real estate card). A property is a passive asset: it has no dividends, tax-exempt income, foreign tax credit, AUM fee or portfolio type, is never sold to pay expenses, and so has no effect on income, expenses or tax until it is sold (the optional Sell setting, below). Its value is entered in today's dollars; the app computes no tax on it unless it is sold. Let <em>V</em> be the start-of-year value, the amount plotted on the Asset Value chart:</p>
 ${fpEq(
   `V<sub>0</sub> = value entered`,
   `V<sub>next</sub> = V × ( 1 + real growth )`
@@ -384,7 +385,14 @@ ${fpEq(
   `basis % = ${fpFr('basis','<em>V</em>')}`
 )}
 <p>When the owner passes and the property is <em>Joint owned with spouse</em>, the surviving spouse keeps it and its basis steps up to its value (gain becomes $0); otherwise the property leaves the plan at that point. A property still held at the last passing carries on through the post-passing years like a non-IDGT portfolio: its basis is stepped up to value at the passing and then erodes with inflation.</p>
-<p><strong>Asset Value chart.</strong> Real estate is stacked above the brokerage portfolios and below the IRAs. It is not reduced by either withdraw cost slider, because the value is already after tax. The dotted cost-basis line inside each property's band plots at:</p>
+<p><strong>Selling a property (optional).</strong> Each property has a Sell setting: <em>Never</em> (default), <em>When the last person starts LTC</em> (the year the later of the people\'s LTC start ages is reached; never if long-term care is off), <em>At the last person\'s passing</em> (sold at the start of the final year, already stepped up), or <em>At an age</em> (the first year the owner is at least that age). A sale follows three steps, in this order:</p>
+${fpEq(
+  `1. Basis = V if the owner has passed (stepped up at the passing), else the cost basis`,
+  `2. Gain = max( 0,&ensp;V − exemption × owners alive − basis ) is realized LTCG that year;&ensp;Sale tax = (TT + state tax)<sub>with the gain</sub> − (TT + state tax)<sub>without it</sub>&ensp;(the state part is 0 unless State income tax is on; California taxes the gain as ordinary income, Washington\'s capital-gains tax excludes real estate, so it adds nothing there)`,
+  `3. Forwarded to the designated portfolio: V − Sale tax, with a cost basis of the same amount (100%)`
+)}
+${fpWhere('V is the value at the sale. The exemption is the per-owner amount entered on the property (for example the $250,000 home-sale exclusion). It is a fixed nominal amount, so like the cost basis it erodes with inflation in today\'s dollars (the amount entered ÷ (1 + inflation)<sup>years</sup>), and it is counted for each owner alive that year: the owner, plus the spouse when the property is jointly owned. The gain goes through the household\'s tax like portfolio LTCG (SCGL shield first, then the qualified brackets, NIIT and the Social Security effect), so the sale tax is the extra tax it causes; that tax is paid out of the sale, not by household expenses. An age or LTC sale is made at the end of its year at that year\'s end value, so the portfolio has the money from the next year; a passing sale is at the start of the final year with no gain. The designated portfolio is the one chosen on the property, else the owner\'s first non-IDGT portfolio, then the spouse\'s (if none can receive it, the property is kept). A jointly owned property is sold only while the owner or the spouse is alive.')}
+<p><strong>Asset Value chart.</strong> Real estate is stacked above the brokerage portfolios and below the IRAs. It is not reduced by either withdraw cost slider. The dotted cost-basis line inside each property's band plots at:</p>
 ${fpEq(`line height = top of everything stacked below the band + basis`)}
 <p>so it sits at the basis % of the way up the band, and the part of the band above it is the unrealized gain.</p>
 

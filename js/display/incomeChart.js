@@ -24,13 +24,14 @@ function updateIncomeLabels(proj){
   INC_LABELS.ssP0 = p0Name(proj)+"'s Social Security (SS)";
   INC_LABELS.ssOther = proj.married ? displayPersonName(proj.people[1-proj.idxP0],1-proj.idxP0)+"'s Social Security (SS) / survivor" : '';
 }
-function buildIncomeLegend(){
+// `shownKeys` (from buildIncomeChart): the income sources that are above $0 in some year; only those get a legend entry.
+function buildIncomeLegend(shownKeys){
   if(!lastProjection) return;
   const proj=lastProjection;
   updateIncomeLabels(proj);
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
   document.getElementById('incomeLegend').innerHTML =
-    keys.map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
+    keys.filter(k=>!shownKeys||shownKeys.includes(k)).map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
     legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(BRACKET_COLOR)) +
     legendItem('Ordinary tax brackets (rate above each line, shown on taxable ordinary income chart)', null, legendDashStyle(BRACKET_COLOR)) +
     legendItem('Deduction stacked on taxable ordinary income (shown on taxable ordinary income chart)', null, legendDashStyle(DEDUCTION_COLOR)) +
@@ -157,7 +158,7 @@ function buildIncomeChart(){
         y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Annual income (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
       }
     })});
-  buildIncomeLegend();
+  buildIncomeLegend(keys.filter(k=>hasValue(seriesByKey[k])));
 
   // ── Half-size companion chart (right side): household MAGI stack with IRMAA tier lines ──
   // Same labels (X scale), same locked Y scale (Y_MAX) and same 1:1 aspect ratio as the primary chart,
