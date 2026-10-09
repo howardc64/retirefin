@@ -29,11 +29,14 @@
     <button class="btn" onclick="openNotesPage()">Notes</button>
     <button class="btn" onclick="exportToExcel()">📊 Export to Excel</button>
     <button class="btn" onclick="printPage()">🖨️ Print</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;" title="When checked, hovering an input in Household Setup or Income &amp; Assets shows a description of that input, and each choice in a drop-down menu shows its own description">
+      <input type="checkbox" id="inputInfoToggle" checked onchange="setInputInfo(this.checked)">Input Element Info
+    </label>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;" title="When checked, hovering a chart shows a description of the chart element under the cursor instead of the usual values">
       <input type="checkbox" id="chartInfoToggle" checked onchange="setChartInfo(this.checked)">Chart Element Info
     </label>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;">
-      <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Show Details in Popup
+      <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Popup Details
     </label>
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-muted);" title="Popup background: light (see-through white) to dark (see-through black)">
       Popup background <span>light</span><input type="range" id="tipBgSlider" min="0" max="100" step="1" value="85" style="width:90px" oninput="setTipBg(this.value)"><span>dark</span>
@@ -285,6 +288,8 @@
 <script src="js/input/roth.js"></script>
 <script src="js/input/incomeForms.js"></script>
 <script src="js/input/loadMenu.js"></script>
+<script src="js/input/inputInfoText.js"></script>
+<script src="js/input/inputInfo.js"></script>
 
 <!-- display -->
 <script src="js/display/chartHelpers.js"></script>

@@ -108,7 +108,7 @@ function buildIncomeChart(){
       const r=rowByAge[labels[idx]]; if(!r) return[];
       const total=keys.reduce((s,k)=>s+(aligned[k][idx]||0),0);
       // §8.3: total income and remaining SCGL always shown; filing status and AGI are shown only
-      // when Show Details in Popup is on.
+      // when Popup Details is on.
       const lines=['',mrow('Total income',fmt(total)+'/yr')];
       if(r.scglRemaining>0||r.scglUsed>0) lines.push(mrow("Suspended Capital-Gain Loss (SCGL) remaining (today's $)", fmt(r.scglRemaining)));
       if(showDetails){
@@ -200,7 +200,7 @@ function buildIncomeChart(){
     borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'magi'
   }));
   // Popup shows the plan owner(s) and age, then only the MAGI value and the IRMAA surcharge for the tier that MAGI reaches (nothing else, regardless
-  // of Show Details in Popup); every other value is in the primary chart's popup.
+  // of Popup Details); every other value is in the primary chart's popup.
   const magiTip={
     title:tooltipCallbacks.title,   // owners + ages, as on the primary
     label:()=>null,

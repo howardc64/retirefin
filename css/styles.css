@@ -292,3 +292,11 @@ body.printing-all canvas.print-swapped{display:none !important;}
 .ab-table th:first-child,.ab-table td:first-child{text-align:left}
 .ab-diff summary{cursor:pointer;font-weight:600;margin-bottom:4px}
 @media print{.ab-bar button{display:none}}
+
+/* ── Input Element Info (js/input/inputInfo.js): description popup + custom drop-down list ── */
+#inputTip{position:fixed;z-index:10001;pointer-events:none;border:1px solid;border-radius:6px;padding:6px 8px;font:12px/1.4 'DM Sans',sans-serif;max-width:320px;white-space:normal;opacity:0;transition:opacity .1s;}
+#iiMenu{position:fixed;z-index:10002;overflow-y:auto;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.18);padding:3px 0;}
+#iiMenu div{padding:5px 10px;cursor:pointer;white-space:normal;}
+#iiMenu div:hover{background:var(--border);}
+#iiMenu div.sel{font-weight:600;}
+#iiMenu div.dis{opacity:.45;cursor:default;}

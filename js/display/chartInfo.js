@@ -1,6 +1,6 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// DISPLAY / CHART ELEMENT INFO — the "Chart Element Info" checkbox (header, left of "Show Details in Popup").
+// DISPLAY / CHART ELEMENT INFO — the "Chart Element Info" checkbox (header, left of "Popup Details").
 // When checked, hovering a chart shows a popup that DESCRIBES the chart element under the cursor (a stacked band, a dashed
 // line, a Social Security claiming-age line…) instead of the usual per-year values. The usual popup (chartHelpers.js
 // externalTooltip) does nothing while this is on; this file draws into the same floating #extTooltip <div>, so it follows
@@ -119,7 +119,7 @@ function ciElementAt(chart, e){
   const bands=[];
   chart.data.datasets.forEach((ds,di)=>{
     const meta=chart.getDatasetMeta(di);
-    if(!meta||meta.hidden||chart.isDatasetVisible&&!chart.isDatasetVisible(di)) return;
+    if(ds.irmaaOff||!meta||meta.hidden||chart.isDatasetVisible&&!chart.isDatasetVisible(di)) return;
     const pts=meta.data;
     if(ds.fill){
       // Height of the band's top edge at the pointer's x, interpolated between the two neighbouring years (steep edges).
