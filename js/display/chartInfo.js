@@ -146,7 +146,7 @@ function ciElementAt(chart, e){
   return null;
 }
 
-// ── Overlay-drawn elements (not datasets): LTC bar, IRMAA tier lines, IRA stretch window ─────────────────────────────────
+// ── Overlay-drawn elements (not datasets): LTC bar, IRMAA tier lines, IRA stretch bar ─────────────────────────────────
 function ciOverlayAt(key, chart, e, datasetHit){
   const rect=chart.canvas.getBoundingClientRect();
   const px=(e.clientX-rect.left)*(chart.width/rect.width), py=(e.clientY-rect.top)*(chart.height/rect.height);
@@ -155,6 +155,10 @@ function ciOverlayAt(key, chart, e, datasetHit){
   const n=(chart.data.labels||[]).length; if(!n) return null;
   const idx=Math.max(0,Math.min(n-1,Math.round(xs.getValueForPixel(px))));
   // Long Term Care bar: sits in the padding above the plot area of every time-based chart.
+  if(py<area.top && py>=area.top-LTC_PAD){
+    const so=stretchBarOpts(chart);
+    if(so && idx>=so.fromIdx) return ciStretchInfo();
+  }
   if(py<area.top && py>=area.top-LTC_PAD && typeof ltcCounts==='function'){
     const c=ltcCounts(chart.data.labels);
     if(c&&c[idx]>0){
@@ -183,13 +187,9 @@ function ciOverlayAt(key, chart, e, datasetHit){
   }
   return null;
 }
-function ciStretchAt(chart,e){
-  const o=chart.options.plugins&&chart.options.plugins.stretchTint;
-  if(!o||typeof o!=='object'||o.fromIdx==null) return null;
-  const rect=chart.canvas.getBoundingClientRect(), px=(e.clientX-rect.left)*(chart.width/rect.width), xs=chart.scales.x;
-  const a=chart.chartArea; if(!xs||!a||px<Math.max(a.left,xs.getPixelForValue(o.fromIdx))||px>a.right) return null;
-  return {name:'IRA stretch window', color:'#787878',
-    text:'The grey-tinted years come after the household\'s last passing. Only IRAs with the "IRA stretch" box checked (and holdings that are not IDGT) carry on, compounding at their own growth rate for up to 10 more years while heirs hold them. No RMDs, withdrawals or heir taxes are modeled.'};
+function ciStretchInfo(){
+  return {name:'10 year IRA stretch', color:'#c0392b',
+    text:'The red bar marks the years after the household\'s last passing. Only IRAs with the "IRA stretch" box checked (and holdings that are not IDGT) carry on, compounding at their own growth rate for up to 10 more years while heirs hold them. No RMDs, withdrawals or heir taxes are modeled.'};
 }
 
 // ── Popup ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ function ciShow(e){
         const color=f.ds.borderColor&&typeof f.ds.borderColor==='string'?f.ds.borderColor:null;
         const name=String(f.ds.ordLabel?(hit.key==='incomeQual'?'Qualified tax bracket line: ':'Ordinary tax bracket line: ')+f.ds.ordLabel:f.ds.label);
         info={name,text,color};
-      } else if(!f) info=ciStretchAt(hit.chart,e);
+      }
     }
   }
   if(!info) return ciHide();

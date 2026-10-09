@@ -89,24 +89,23 @@ const ordLabelPlugin={
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('ordLabels')) Chart.register(ordLabelPlugin);
 
-// Asset Value chart: light grey tint behind the IRA stretch window (the years after the household's last passing, when only
-// stretched IRAs / non-IDGT holdings carry on), labeled at its top. Options: {fromIdx, label}; no options = nothing drawn.
+// Asset Value chart: a red bar above the plot area (same row, height and horizontal alignment as the LTC bars, see ltcBar below) over the
+// IRA stretch window, i.e. the years after the household's last passing, labeled above the bar. Options: {fromIdx, label}; no options = nothing
+// drawn. The bar sits in the chart's top layout padding (see ltcTopPad / upsertLineChart).
+const STRETCH_BAR_COLOR='#c0392b';
+function stretchBarOpts(chart){ const o=chart&&chart.options&&chart.options.plugins&&chart.options.plugins.stretchTint; return (o&&typeof o==='object'&&o.fromIdx!=null)?o:null; }
 const stretchTintPlugin={
   id:'stretchTint',
-  beforeDatasetsDraw(chart,args,opts){
-    if(!opts||opts.fromIdx==null) return;
-    const {ctx,chartArea:{left,right,top,bottom},scales:{x}}=chart; if(!x) return;
-    const xa=Math.max(left,x.getPixelForValue(opts.fromIdx)); if(xa>=right) return;
-    ctx.save(); ctx.fillStyle='rgba(120,120,120,.16)'; ctx.fillRect(xa,top,right-xa,bottom-top); ctx.restore();
-  },
   afterDatasetsDraw(chart,args,opts){
-    if(!opts||opts.fromIdx==null||!opts.label) return;
+    if(!opts||opts.fromIdx==null) return;
     const {ctx,chartArea:{left,right,top},scales:{x}}=chart; if(!x) return;
-    const xa=Math.max(left,x.getPixelForValue(opts.fromIdx)); if(xa>=right) return;
-    ctx.save(); ctx.font='11px DM Sans,sans-serif'; ctx.fillStyle='#555'; ctx.textBaseline='top';
-    const w=ctx.measureText(opts.label).width, fits=w+8<=right-xa;
-    ctx.textAlign=fits?'center':'right';
-    ctx.fillText(opts.label, fits?(xa+right)/2:right-4, top+4);
+    const n=chart.data.labels.length, step=n>1?(x.getPixelForValue(1)-x.getPixelForValue(0)):0;
+    const xa=Math.max(left,x.getPixelForValue(opts.fromIdx)-step/2), xb=Math.min(right,x.getPixelForValue(n-1)+step/2);
+    if(xb<=xa) return;
+    const y0=top-LTC_BAR_H-3;
+    ctx.save();
+    ctx.fillStyle=STRETCH_BAR_COLOR; ctx.fillRect(xa,y0,xb-xa,LTC_BAR_H);
+    if(opts.label){ ctx.font='bold 10px DM Sans,sans-serif'; ctx.fillStyle='#444'; ctx.textBaseline='bottom'; ctx.textAlign='center'; ctx.fillText(opts.label,(xa+xb)/2,y0-2); }
     ctx.restore();
   }
 };
@@ -129,7 +128,7 @@ function ltcCounts(labels){
   });
   return out.some(n=>n>0)?out:null;
 }
-function ltcTopPad(chart){ return ltcCounts(chart.data.labels)?LTC_PAD:0; }
+function ltcTopPad(chart){ return (ltcCounts(chart.data.labels)||stretchBarOpts(chart))?LTC_PAD:0; }
 const ltcBarPlugin={
   id:'ltcBar',
   afterDatasetsDraw(chart,args,opts){

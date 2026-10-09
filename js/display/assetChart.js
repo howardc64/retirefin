@@ -179,7 +179,7 @@ function buildAssetChartFor(cfg){
     const color=ASSET_COLORS[si%ASSET_COLORS.length];
     return {
       label:seriesLabel(s,si), vzKind:s.type, data:aligned[si],
-      borderColor:color, backgroundColor:color+'bb',
+      borderColor:color, backgroundColor:hexOverWhite(color,0xbb/255),   // opaque (the old look blended over white): translucent fills piled up wherever bands overlap, so a band changed shade when the bands above it ended
       borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'pf', order:1
     };
   });
@@ -314,8 +314,8 @@ function buildAssetChartFor(cfg){
     }
   };
 
-  // Grey tint + label behind the stretch window (main chart only): starts at the first stretch year's age on the axis.
-  const stretchOpts=stretch.length?{fromIdx:Math.max(0,labels.indexOf(Math.round(stretch[0].age0))), label:STRETCH_YEARS+' year stretched IRA window'}:null;
+  // Red bar + label above the stretch window (main chart only): starts at the first stretch year's age on the axis.
+  const stretchOpts=stretch.length?{fromIdx:Math.max(0,labels.indexOf(Math.round(stretch[0].age0))), label:STRETCH_YEARS+' year IRA stretch'}:null;
   upsertLineChart(cfg.key,{canvasId:cfg.canvasId, labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
     refresh:o=>{ o.plugins.stretchTint=stretchOpts||false; },
     createOptions:()=>({
@@ -394,7 +394,7 @@ function buildRothConvChart(ctx){
     return Math.max(10000, Math.ceil(tot/10000)*10000);
   });
   const datasets=convSeries.map((cs,ci)=>({
-    label:cs.label, data:data[ci], borderColor:cs.color, backgroundColor:cs.color+'bb',
+    label:cs.label, data:data[ci], borderColor:cs.color, backgroundColor:hexOverWhite(cs.color,0xbb/255),
     borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'conv', order:1
   }));
   const tip={

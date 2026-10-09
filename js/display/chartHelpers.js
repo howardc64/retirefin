@@ -246,15 +246,15 @@ function upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, create
   if(chart){
     updateChartInPlace(chart, labels, datasets);
     chart.options.scales.y.max=yMax;
-    if(key!=='ss') chart.options.layout={...(chart.options.layout||{}), padding:{...((chart.options.layout||{}).padding||{}), top:ltcTopPad(chart)}};   // room for the LTC bar (0 when none)
-    if(refresh) refresh(chart.options);
+    if(refresh) refresh(chart.options);   // before the padding, which also reserves room for the stretch bar
+    if(key!=='ss') chart.options.layout={...(chart.options.layout||{}), padding:{...((chart.options.layout||{}).padding||{}), top:ltcTopPad(chart)}};   // room for the LTC / stretch bar (0 when none)
     chart.options.plugins.tooltip.callbacks=justifyTip(tooltip);
     chart.update(window.liveDrag?'none':undefined);
   } else {
     const opts=createOptions();
     if(key!=='ss'){   // every time-based chart carries the LTC bar (plugin 'ltcBar') and reserves room for it above the plot area
       opts.plugins={...(opts.plugins||{}), ltcBar:true};
-      opts.layout={...(opts.layout||{}), padding:{...((opts.layout||{}).padding||{}), top:ltcTopPad({data:{labels}})}};
+      opts.layout={...(opts.layout||{}), padding:{...((opts.layout||{}).padding||{}), top:ltcTopPad({data:{labels},options:opts})}};
     }
     charts[key]=new Chart(document.getElementById(canvasId),{type:'line',data:{labels,datasets},options:opts});
   }
