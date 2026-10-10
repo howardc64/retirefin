@@ -25,6 +25,8 @@ const IRMAA_PART_B_INCREASE=[40,100,160,220,240];
 const CONV_ORD_STOPS=[0,10,12,22,24,32,35,37,null];
 const CONV_IRMAA_STOPS=[0,...IRMAA_PART_B_INCREASE,null];
 // Roth-conversion START trigger "when the ordinary tax bracket is below x%": the discrete brackets the slider can pick (no 0 / no-limit stop).
+// Brokerage-withdraw "fill the LTCG bracket" slider stops (rate of the bracket whose top the withdraw fills; 20 = top bracket = no limit).
+const LTCG_STOPS=[0,15,20];
 const CONV_START_BRACKET_STOPS=[10,12,22,24,32,35,37];
 function convStopIndex(stops, v){
   if(v==null||v==='') return stops.length-1;

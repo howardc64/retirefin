@@ -47,7 +47,16 @@ function defaultBrokeragePortfolio(balance, n){
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25,withdraws:[]};
+}
+// Brokerage withdraw (any number per non-IDGT portfolio): a scheduled sale from the portfolio whose proceeds are household cash income
+// (they pay expenses first; any excess is reinvested like other excess income) and whose gain is realized LTCG.
+//   start: startMode 'age' (this owner's age) | 'spouse' (the spouse's age; married only) at `startAge`.
+//   end:   endMode 'age' | 'spouse' at `endAge` (the withdraw stops the year that person reaches it), or 'pass' (runs while the portfolio is held).
+//   size:  mode 'amount' = sell `amount` a year (today's $) | 'bracket' = sell as much as fits with taxable income (ordinary + qualified) staying
+//          within the chosen LTCG bracket, `ltcgPct` a stop of LTCG_STOPS = [0,15,20] (20 = top bracket = no limit: sells the whole balance).
+function defaultWithdraw(startAge){
+  return {id:uid(), enabled:true, startMode:'age', startAge:Math.max(0,Math.floor(Number(startAge)||0)), endMode:'pass', endAge:95, mode:'amount', amount:10000, ltcgPct:0};
 }
 // Real estate asset (per person, any number): a passive asset with no income stream — no dividends, tax-exempt yield, foreign credit, AUM fee,
 // type (IDGT) or expense funding. `balance` = value today ($, today's $) entered AFTER TAX, counting any gain covered by an exemption (e.g. the

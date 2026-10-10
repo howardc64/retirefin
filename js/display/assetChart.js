@@ -299,7 +299,8 @@ function buildAssetChartFor(cfg){
         if(e){
           // Net-of-expenses growth % (the actual balance change once dividends used and shares sold come out)
           // is shown whenever the portfolio paid anything that year, then gross growth %.
-          const paid=(e.divUsed||0)+(e.sold||0);
+          const paid=(e.divUsed||0)+(e.sold||0)+(e.withdrawn||0);
+          if(e.withdrawn>0.5) lines.push(mrow('      Withdrawn (household cash income)', fmt(e.withdrawn), W));
           if(paid>0) lines.push(mrow('      Annual growth (net of expenses paid)', (e.netGrowthPct||0).toFixed(1)+'%', W));
           lines.push(mrow('      Annual growth (real)', (e.growthPct||0).toFixed(1)+'%', W));
           // Real estate sold into this portfolio at the start of this year (value and cost basis both move in).

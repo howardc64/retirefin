@@ -143,8 +143,23 @@ BrokeragePortfolio = {
   aum: boolean,              // default false; forced false for IDGT — this portfolio's balance counts toward the AUM balance the household AUM fee (`state.aumFee`) is charged on. Older saves' per-portfolio `expense`/`fee`/`irmaa` are dropped by `hydrateState` (a portfolio that had a fee on becomes `aum: true`; the household `aumFee` takes the first % fee found, or the sum of fixed fees)
   basisPct: number | null,   // cost basis as a % of the start balance (0–100). null/blank = not entered. Older saves' dollar `basis` is converted to a % in `hydrateState`. Every portfolio is tracked (§4.6); a blank basis means no unrealized gain today. Realized LTCG has no input: it is always derived from basis (§4.6). Older saves' `ltcg`/`ltcgMode`, per-portfolio `taxDrag` and `living` withdrawal are dropped on load (the withdrawals are summed into `state.living` by `hydrateState`)
   foreignPct: number,        // % of portfolio that's foreign assets — always active, ungated
-  ftcPct: number             // foreign tax credit %, default 0.25 — always active, ungated
+  ftcPct: number,            // foreign tax credit %, default 0.25 — always active, ungated
+  withdraws: [Withdraw, ...] // 0 or more scheduled sales from this portfolio (non-IDGT only; ignored for IDGT) — see below
 }
+
+Withdraw = {
+  id, enabled: boolean,
+  startMode: 'age' | 'spouse', startAge: number,          // starts the first year the owner's age (or the spouse's age; married only, else treated as 'age') reaches startAge
+  endMode: 'age' | 'spouse' | 'pass', endAge: number,     // ends the year that person reaches endAge; 'pass' = runs for as long as the portfolio is held (no endAge)
+  mode: 'amount' | 'bracket',
+  amount: number,                                         // 'amount': gross sale, today's $ per year
+  ltcgPct: 0 | 15 | 20                                    // 'bracket': stop of LTCG_STOPS (core/constants.js); 20 = no limit (sells all that is free)
+}
+// A withdraw only applies while its portfolio is live, enabled and inside its own age range. Its proceeds are household cash income
+// (`cashIncome`, so they pay expenses first, ahead of dividends and asset sales; any excess is reinvested per the portfolio's `reinvest` flag, which may be
+// the same portfolio — i.e. a gain-harvest that resets basis). The sale realizes LTCG on the portfolio's gain share and removes basis like any sale (§4.6).
+// 'bracket' withdraws are solved after the Roth conversions: the largest sale for which taxable ordinary income + qualified income (QDIV + net LTCG) stays
+// within the top of the chosen LTCG bracket (MFJ_QDIV / SGL_QDIV). Row fields: `brokerageWd`, `brokerageWdByPerson`, portfolio entry `withdrawn`.
 ```
 
 **`enabled` vs. `hidden` (every income item above has both — see §5.1):** `enabled` controls whether

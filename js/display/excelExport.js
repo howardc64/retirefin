@@ -316,6 +316,7 @@ function xlsxInputsSheet(proj){
       put('  dividend yield %',Number(b.yield)||0); put('  qualified share of dividends %',Number(b.qdivPct)||0); put('  tax-exempt yield %',Number(b.teYield)||0);
       put('  cost basis % of balance',b.basisPct==null||b.basisPct===''?'(blank = no gain)':Number(b.basisPct)); put('  foreign-income %',Number(b.foreignPct)||0); put('  foreign tax credit %',Number(b.ftcPct)||0);
       put('  type',b.type); put('  pays household expenses',yn(b.payExp)); put('  reinvests excess income',yn(b.reinvest)); put('  counts toward AUM fee',yn(b.aum)); put('  joint with spouse / inherited',yn(b.bene));
+      (b.withdraws||[]).forEach((w,wi)=>{ const ref=m=>m==='spouse'?"spouse's age":'age'; put(`  withdraw ${wi+1}`,yn(w.enabled!==false)); put('    start',`${ref(w.startMode)} ${Number(w.startAge)||0}`); put('    end',w.endMode==='pass'?'passing (while held)':`${ref(w.endMode)} ${Number(w.endAge)||0}`); put('    size',w.mode==='bracket'?`fill the ${w.ltcgPct>=20?'20% (no limit)':(w.ltcgPct>=15?'15%':'0%')} LTCG bracket`:`$${Math.round(Number(w.amount)||0).toLocaleString()} / yr (today's $)`); });
     });
     const dump=(title,list)=>(list||[]).forEach((o,j)=>{
       put(`${title} ${j+1}`,o.name||'');
@@ -382,11 +383,12 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
     {key:'divu',head:'Dividends used for expenses',v:r=>ent(r).divUsed},
     {key:'divr',head:'Dividends reinvested',v:r=>ent(r).divReinvested},
     {key:'sold',head:'Shares sold',v:r=>ent(r).sold},
+    {key:'wdr',head:'Brokerage withdraws (sold; proceeds are household cash income)',v:r=>ent(r).withdrawn||0},
     {key:'exc',head:'Excess income reinvested',v:r=>ent(r).excessReinvested||0},
     {key:'te',head:'Tax-exempt income paid',v:r=>ent(r).taxExempt||0},
-    {key:'roll',head:'Rolled-forward next-year balance = SOY × (1 + growth) − dividends used − shares sold − tax-exempt paid + excess reinvested',kind:'f',
-      v:(r,idx)=>{ const e=ent(r); return Math.max(0,e.balance*(1+realGrowth(b.growth,proj.inflation||state.inflation))-e.divUsed-e.sold-(e.taxExempt||0)+(e.excessReinvested||0)); },
-      f:X=>`MAX(0,${X('bal')}*(1+$B$2)-${X('divu')}-${X('sold')}-${X('te')}+${X('exc')})`}
+    {key:'roll',head:'Rolled-forward next-year balance = SOY × (1 + growth) − dividends used − shares sold − withdraws − tax-exempt paid + excess reinvested',kind:'f',
+      v:(r,idx)=>{ const e=ent(r); return Math.max(0,e.balance*(1+realGrowth(b.growth,proj.inflation||state.inflation))-e.divUsed-e.sold-(e.withdrawn||0)-(e.taxExempt||0)+(e.excessReinvested||0)); },
+      f:X=>`MAX(0,${X('bal')}*(1+$B$2)-${X('divu')}-${X('sold')}-${X('wdr')}-${X('te')}+${X('exc')})`}
   ];
   const t=xlsxTable(sh,4,cols,rowsIn);
   return {sh, ws:xlsxFinish(sh), t, cols, items:rowsIn, type:'pf', i, bi, balCol:'bal', gainCol:'gain', idgt:!!b.idgt, name:null};
@@ -660,7 +662,7 @@ function xlsxMainColumns(proj,acctSheets){
   F('expTot','Total household expenses = living + LTC + IRMAA + AUM fee + income tax',r=>v(r.expTotal),X=>`${X('expLiving')}+${X('expLtc')}+${X('irmaa')}+${X('expAum')}+${X('expTax')}`);
   F('totInc','Total income (as on Annual Household Income chart: every band incl. dividends, LTCG, IRA/Roth withdraws, depreciation)',r=>chartTotalIncome(r),
     X=>`${X('penT')}+${X('annT')}+${X('annTET')}+${X('wageT')}+${X('convT')}+${X('rmdT')}+${X('iraExT')}+${X('rentT')}+${X('rentDep')}+${X('teT')}+${X('expFromRoth')}+${X('qdiv')}+${X('odivNQ')}+${X('ltcg')}+${X('ssT')}`);
-  V('cash','Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+annuity+RMD)',r=>v(r.cashIncome));
+  V('cash','Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+annuity+RMD+brokerage withdraws)',r=>v(r.cashIncome));
   F('expFromInc','Expenses paid by household income',r=>v(r.expFromIncome),X=>`MIN(${X('expTot')},${X('cash')})`);
   V('expFromDiv','Expenses paid by dividends',r=>v(r.expFromDiv));
   V('expFromSales','Expenses paid by asset sales',r=>v(r.expFromSales));

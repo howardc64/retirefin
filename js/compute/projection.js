@@ -588,7 +588,8 @@ function computeProjection(){
       return a+Math.min(v.te||0, avail);
     },0));
     const teIncome=teByPerson.reduce((a,b)=>a+b,0);
-    const cashIncome = sumArr(wageByPerson)+totalSS+pension+rental+rentalDep+teIncome+annuity+annuityTE+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
+    const cashBase = sumArr(wageByPerson)+totalSS+pension+rental+rentalDep+teIncome+annuity+annuityTE+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
+    let cashIncome=cashBase;   // + this year's brokerage withdraws (set at the top of every waterfall pass, see runWaterfall)
     // Per-portfolio working entries. Only live, funded portfolios have one.
     const pfx=people.map(()=>[]);
     const poolPf=[];   // portfolios inside their age range with "Pay expenses" checked — the only sources for household expenses
@@ -600,11 +601,31 @@ function computeProjection(){
       const feeShare=aumBalance>0?aumFee*aumBase[i][bi]/aumBalance:0;   // this portfolio's share of the AUM fee
       const feeD=feeShare;   // informational: the AUM fee charged on this balance (paid by the pool, not by this portfolio)
       const x={active:v.active, idgt:!!b.idgt, payExp:!!b.payExp, reinvest:!!b.reinvest, feeShare, bal, g, avail, feeD, odiv:v.odiv, te:Math.min(v.te||0, avail),
-               f:st.tracked?pfGainFraction(bal,st.basis):0, divUsed:0, sold:0, ltcg:0, excessIn:0};
+               f:st.tracked?pfGainFraction(bal,st.basis):0, divUsed:0, sold:0, wd:0, ltcg:0, excessIn:0};
       pfx[i][bi]=x;
       // Only portfolios with "Pay expenses" checked contribute dividends and asset sales to household expenses.
       if(x.active && x.payExp) poolPf.push(x);
     }));
+    // Brokerage withdraws (Brokerage card → Withdraws): scheduled sales from a live, in-range, non-IDGT portfolio. The proceeds are household cash income (they
+    // pay expenses first; any excess is reinvested like other excess income) and the sale realizes LTCG on the portfolio's gain share. A withdraw runs from its
+    // start to its end by the owner's age or the spouse's age (the year that person reaches the end age is the first year without it), or 'pass' = while the
+    // portfolio is held. 'amount' withdraws are a fixed today's-$ sale; 'bracket' withdraws are sized by the bracket solve below. Capped at what the portfolio holds.
+    const wdList=[];
+    people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
+      const x=pfx[i][bi]; if(!x||!x.active||x.idgt) return;
+      (b.withdraws||[]).forEach((w,wi)=>{
+        if(!w||w.enabled===false) return;
+        const refOf=m=>(m==='spouse'&&married&&people.length===2)?1-i:i;
+        if(curAges[refOf(w.startMode)]+k<(Number(w.startAge)||0)) return;
+        if(w.endMode!=='pass'&&curAges[refOf(w.endMode)]+k>=(Number(w.endAge)||0)) return;
+        wdList.push({x, i, bi, wi, mode:w.mode==='bracket'?'bracket':'amount', amt:0,
+                     want:w.mode==='bracket'?0:Math.max(0,Number(w.amount)||0), pct:Number.isFinite(Number(w.ltcgPct))?Number(w.ltcgPct):0});
+      });
+    }));
+    // Share of a portfolio's tax-exempt-reserved balance still free for withdraws: what it holds after growth, less its tax-exempt payout and other withdraws.
+    const wdRoom=e=>Math.max(0, e.x.avail-e.x.te-wdList.reduce((a,o)=>a+(o!==e&&o.x===e.x?o.amt:0),0));
+    function setWd(e,v){ e.amt=Math.min(Math.max(0,v),wdRoom(e)); e.x.wd=wdList.reduce((a,o)=>a+(o.x===e.x?o.amt:0),0); }
+    wdList.forEach(e=>{ if(e.mode==='amount') setWd(e,e.want); });
 
     // Dividends / foreign tax credit per person — independent of the waterfall and of LTCG.
     const brokerageByPerson=people.map((p,i)=>{
@@ -711,20 +732,23 @@ function computeProjection(){
     function runWaterfall(taxExp){
       const expTotal=expLiving+expLtc+expIrmaa+expAum+taxExp;
       poolPf.forEach(x=>{ x.divUsed=0; x.sold=0; x.ltcg=0; });
+      const wdCash=wdList.reduce((a,e)=>a+e.amt,0);
+      cashIncome=cashBase+wdCash;   // withdraw proceeds are household cash income
       const expFromIncome=Math.min(expTotal,cashIncome);
       let expNeed=expTotal-expFromIncome;
       // (2) dividends, shared pro rata to each portfolio's ODIV
-      const poolOdiv=poolPf.reduce((a,x)=>a+x.odiv,0);
+      const divRoom=x=>Math.max(0,Math.min(x.odiv, x.avail-x.te-x.wd));   // a withdraw leaves less than the full dividend to take
+      const poolOdiv=poolPf.reduce((a,x)=>a+divRoom(x),0);
       const expFromDiv=Math.min(poolOdiv,expNeed);
-      if(poolOdiv>0) poolPf.forEach(x=>{ x.divUsed=expFromDiv*x.odiv/poolOdiv; });
+      if(poolOdiv>0) poolPf.forEach(x=>{ x.divUsed=expFromDiv*divRoom(x)/poolOdiv; });
       expNeed-=expFromDiv;
       // (3) asset sales, shared pro rata to balance; a portfolio that runs out hands its remainder to the others
       const needBeforeSales=expNeed;
-      let cand=woSteps?[]:poolPf.filter(x=>x.avail-x.divUsed-x.te>0.005), guard=0;   // (with a withdrawal order, the steps below do the selling)   // tax-exempt income is paid out of the same total return, so it is reserved before any sale
+      let cand=woSteps?[]:poolPf.filter(x=>x.avail-x.divUsed-x.te-x.wd>0.005), guard=0;   // (with a withdrawal order, the steps below do the selling)   // tax-exempt income is paid out of the same total return, so it is reserved before any sale
       while(expNeed>0.005 && cand.length && guard++<8){
         const B=cand.reduce((a,x)=>a+x.bal,0); let given=0; const next=[];
         cand.forEach(x=>{
-          const room=Math.max(0,x.avail-x.divUsed-x.te-x.sold), amt=Math.min(expNeed*x.bal/B, room);
+          const room=Math.max(0,x.avail-x.divUsed-x.te-x.wd-x.sold), amt=Math.min(expNeed*x.bal/B, room);
           x.sold+=amt; given+=amt; if(room-amt>0.005) next.push(x);
         });
         expNeed-=given; cand=next;
@@ -756,7 +780,7 @@ function computeProjection(){
           if(!(expNeed>0.005)) break;
           if(s.t==='pf'){
             const x=pfx[s.i][s.bi]; if(!x||!x.active||!x.payExp) continue;
-            const amt=Math.min(expNeed, Math.max(0,x.avail-x.divUsed-x.te-x.sold));
+            const amt=Math.min(expNeed, Math.max(0,x.avail-x.divUsed-x.te-x.wd-x.sold));
             x.sold+=amt; sales+=amt; expNeed-=amt;
           }else if(s.t==='ira'){
             const amt=Math.min(expNeed, iraAvail[s.i]); iraExpByPerson[s.i]+=amt; expNeed-=amt;
@@ -775,10 +799,10 @@ function computeProjection(){
       }
       const expUnfunded=Math.max(0,expNeed);
       // Realized LTCG = sold × gain fraction, for every portfolio (IDGT included, on its own sales).
-      poolPf.forEach(x=>{ x.ltcg=x.sold*x.f; });
+      pfx.forEach(list=>list.forEach(x=>{ if(x) x.ltcg=(x.sold+x.wd)*x.f; }));   // a withdraw is a sale like any other
       const reShortGain=reShort.reduce((a,x)=>a+x.gain,0);
       let ltcgGross=reGainTotal+reShortGain; pfx.forEach(list=>list.forEach(x=>{ if(x) ltcgGross+=x.ltcg; }));   // portfolio sales' LTCG + the gain on a property sold this year (step 2)
-      return {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, ltcgGross, iraExpByPerson, rothExpByPerson, reShort, reShortGain};
+      return {wdCash, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, ltcgGross, iraExpByPerson, rothExpByPerson, reShort, reShortGain};
     }
     // The year's tax given gross realized LTCG. Spec §8.3: available SCGL (suspended capital-gain loss
     // carryforward) eliminates realized LTCG dollar-for-dollar, before tax, so only the net-of-SCGL amount is taxed.
@@ -923,6 +947,31 @@ function computeProjection(){
     });
     const rothConvByPerson=convByPerson.slice();
     const rothConvTotal=convTotalOf();
+    // ── Brokerage withdraws sized by an LTCG bracket ──
+    // After the Roth conversions are settled, each 'bracket' withdraw (in portfolio order) sells the largest amount w for which the year's taxable income
+    // (ordinary taxable income + qualified income: QDIV + net LTCG) stays within the top of the chosen LTCG bracket (0% / 15%; 20% = no limit = sell all that is
+    // free). Like the conversion search, every trial w runs the full tax ↔ LTCG iteration, because w moves the LTCG, the tax, and the asset sales that tax funds.
+    wdList.forEach(e=>{
+      if(e.mode!=='bracket') return;
+      const j=e.pct>=20?-1:(e.pct>=15?1:0), top=j<0?Infinity:qBrk[j].lim;
+      const hi=wdRoom(e);
+      if(!(hi>0)) return;
+      if(!isFinite(top)){ setWd(e,hi); return; }
+      const slack=w=>{ setWd(e,w); const r=solveTax(rothConvTotal); return top-(r.tx.ordTI+r.tx.qualIncome); };
+      let a=0, fa=slack(0);
+      if(fa<0){ setWd(e,0); return; }                       // already over the bracket before selling anything
+      let b=hi, fb=slack(b);
+      if(fb>=0){ setWd(e,hi); return; }                      // everything free fits
+      let side=0;
+      for(let n=0;n<60&&b-a>0.01;n++){
+        let c=a+(b-a)*fa/(fa-fb);
+        if(!(c>a&&c<b)||n%4===3) c=(a+b)/2;
+        const fc=slack(c);
+        if(fc>=0){ a=c; fa=fc; if(side===1) fb/=2; side=1; if(fc<0.005) break; }
+        else { b=c; fb=fc; if(side===-1) fa/=2; side=-1; }
+      }
+      setWd(e,a);                                           // the largest amount known to fit
+    });
     const fin=solveTax(rothConvTotal);
     const wf=fin.wf, tx=fin.tx, taxIters=fin.iters, taxConverged=fin.converged, reSaleTax=fin.saleTax;
     // Advance the IRA / Roth balances one year now that this year's expense draws are known (conversion and draw both leave the pre-tax IRA;
@@ -963,7 +1012,7 @@ function computeProjection(){
         // Cost-basis tracking (spec §4.6, cost basis) — start-of-year values, after any step-up this year.
         tracked, basis:tracked?st.basis:null, unrealizedGain:tracked?Math.max(0,bal-st.basis):null, steppedUp:tracked&&!!st.steppedNow, swapAmt:tracked?(st.swapAmt||0):0,
         reSaleIn:st.saleIn||[],   // properties sold into this portfolio (value after the sale tax, and its basis), received at the start of this year
-        divUsed:0, divReinvested:0, sold:0, excessReinvested:0, taxExempt:0, reinvest:!!b.reinvest   // expense waterfall (filled in the roll-forward below): dividends used, dividends reinvested, shares sold
+        divUsed:0, divReinvested:0, sold:0, withdrawn:0, excessReinvested:0, taxExempt:0, reinvest:!!b.reinvest   // expense waterfall (filled in the roll-forward below): dividends used, dividends reinvested, shares sold
       };
     }));
     pfState.forEach(list=>list.forEach(t=>{ t.saleIn=[]; }));   // consumed above; sales made at the end of this year are added below and show up next year
@@ -982,13 +1031,13 @@ function computeProjection(){
     people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
       const st=pfState[i][bi], bal=pfBalNow[i][bi], x=pfx[i][bi];
       if(st.dead||!(bal>0)||!x){ st.bal=0; st.basis=0; return; }
-      st.bal=Math.max(0, x.avail-x.divUsed-x.sold-x.te+x.excessIn);   // tax-exempt income is paid out to the household   // excess income is added at year-end, like the sales come out
+      st.bal=Math.max(0, x.avail-x.divUsed-x.sold-x.wd-x.te+x.excessIn);   // tax-exempt income is paid out to the household   // excess income is added at year-end, like the sales come out
       const reinvested=Math.max(0,x.odiv-x.divUsed);
       // Reinvested dividends and reinvested excess income are after-tax money put in, so both add cost basis.
-      if(st.tracked) st.basis=clamp((st.basis-x.sold*(1-x.f)+reinvested+x.excessIn)/(1+inflation), 0, st.bal);
+      if(st.tracked) st.basis=clamp((st.basis-(x.sold+x.wd)*(1-x.f)+reinvested+x.excessIn)/(1+inflation), 0, st.bal);
       const entry=portfoliosByPerson[i][bi];
       entry.feeDrag=x.feeD; entry.growthPct=x.g*100;
-      entry.divUsed=x.divUsed; entry.divReinvested=reinvested; entry.sold=x.sold; entry.excessReinvested=x.excessIn; entry.taxExempt=x.te;
+      entry.divUsed=x.divUsed; entry.divReinvested=reinvested; entry.sold=x.sold; entry.withdrawn=x.wd; entry.excessReinvested=x.excessIn; entry.taxExempt=x.te;
       entry.ltcg=x.ltcg;   // the exact (pre-SCGL) gain realized and taxed this year
       // Net growth after expenses paid from this portfolio (dividends used + shares sold) — actual balance change.
       entry.netGrowthPct = ((st.bal/bal)-1)*100;
@@ -1053,7 +1102,7 @@ function computeProjection(){
       sst, marginalRate, marginalOrd, marginalQual, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mTax,
       niiIncome, niit,
       irmaaSurcharge,
-      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, excessIncome, excessReinvested, taxIters, taxConverged,
+      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, brokerageWd:wf.wdCash, brokerageWdByPerson:people.map((p,i)=>wdList.reduce((a,e)=>a+(e.i===i?e.amt:0),0)), excessIncome, excessReinvested, taxIters, taxConverged,
       convTrials,
       totalTax, stateTax, stateCode:stCode, agi, magi:agi+teIncome+annuityTE
     });

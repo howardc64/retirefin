@@ -74,7 +74,6 @@ function scnSwitch(id){
   state=incoming;
   renderAll();                            // rebuilds every input form; the charts are NOT destroyed, so renderCharts updates them in place and Chart.js animates the lines between the two plans' values
   autosave();
-  flashMsg('Showing '+scnLabel(id)+'.');
 }
 // New scenario: a copy of the plan on screen, which is then shown so the next edits go to the new one.
 function scnCreate(){
@@ -87,7 +86,6 @@ function scnCreate(){
   const copy=scnCopy(state); copy.ui=state.ui;
   scnActive=id; state=copy;
   renderAll(); autosave();
-  flashMsg('Scenario '+id+' created as a copy of '+from+'. Edits now apply to '+id+'.');
 }
 // Delete the scenario on screen (one at a time); the first remaining scenario takes its place on screen.
 function scnDelete(){
@@ -100,7 +98,6 @@ function scnDelete(){
   incoming.ui=state.ui;
   scnActive=next; state=incoming;
   renderAll(); autosave();
-  flashMsg('Scenario '+gone+' deleted. Showing '+scnLabel(next)+'.');
 }
 // Reset to defaults: every other scenario is removed and the plan on screen becomes the one scenario, A (called by resetState before it redraws).
 function scnReset(){
