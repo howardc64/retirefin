@@ -43,12 +43,14 @@ function renderAll(){
   renderWithdrawOrderPanel();
   renderFutureTaxPanel();
   renderSwapPanel();
+  renderPfWithdrawPanel();
   renderStateTaxPanel();
   renderLtcPanel();
   renderIncomeForms();
   renderFooter();
   expandAllSections();   // build the charts in visible containers …
   recompute();
+  syncAssumpHide();      // the three settings panels' Hide boxes (state.ui.assumpHide)
   syncSectionHide();     // … then put every section Hide checkbox/collapse into the state held in state.ui
 }
 

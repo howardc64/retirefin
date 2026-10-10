@@ -136,7 +136,7 @@ function buildIncomeChart(){
           if(r.expIrmaa>0) lines.push(mrow('  incl. IRMAA surcharge',fmt(r.expIrmaa)+'/yr'));
           if(r.expAum>0) lines.push(mrow('  incl. AUM fee',fmt(r.expAum)+'/yr'));
           lines.push(mrow('  paid by household income',fmt(r.expFromIncome)+'/yr'));
-          if(r.brokerageWd>0.5) lines.push(mrow('    incl. brokerage withdraws',fmt(r.brokerageWd)+'/yr'));
+          if(r.brokerageWd>0.5) lines.push(mrow('    incl. portfolio withdraw',fmt(r.brokerageWd)+'/yr'));
           lines.push(mrow('  paid by dividends',fmt(r.expFromDiv)+'/yr'));
           lines.push(mrow('  paid by asset sales',fmt(r.expFromSales)+'/yr'));
           if(r.expFromIra>0.5) lines.push(mrow('  paid by pre-tax IRA',fmt(r.expFromIra)+'/yr'));

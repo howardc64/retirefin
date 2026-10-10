@@ -345,7 +345,7 @@ function computeProjection(){
   // inflation considerations apply (it's a fixed today's-$ pool, not itself inflation-adjusted).
   let scglRemaining=state.scglEnabled===false?0:Math.max(0,Number(state.scgl)||0);   // unchecked Enable → no SCGL
 
-  // ── Expense-shortfall withdrawal order (Assumptions → "Expense shortfall withdrawal order") ──
+  // ── Expense-shortfall withdrawal order (Expenses panel → "Expense shortfall withdrawal order") ──
   // Off (default): the built-in order — pay-expenses portfolios pro rata, then the pre-tax IRAs, then the Roth IRAs. On: the user's steps
   // are tried one at a time in order, each drawing what is still needed from its one asset; an asset that is not listed is never drawn on.
   // Asset keys: 'pf:<portfolio id>', 'ira:<person id>', 'roth:<person id>', 're:<property id>'. A key that no longer exists (or belongs to a
@@ -501,7 +501,7 @@ function computeProjection(){
       }
       return st.dead?0:st.bal;
     }));
-    // Asset / basis swap (Assumptions, off by default). The IDGT's swap power lets the household trade assets of equal value with the IDGT, so the
+    // Asset / basis swap (Tax & Optimizations panel, off by default). The IDGT's swap power lets the household trade assets of equal value with the IDGT, so the
     // low-basis assets end up in the owner's estate (stepped up at the last passing) and the high-basis assets in the IDGT (carryover basis).
     // A swap of `S` of value moves the basis in proportion to the assets traded: the living portfolio gives up S × its basis ratio and takes S × the
     // IDGT's basis ratio, the IDGT the reverse, so total basis is unchanged and so are both balances (growth/dividends are unaffected).
@@ -606,22 +606,19 @@ function computeProjection(){
       // Only portfolios with "Pay expenses" checked contribute dividends and asset sales to household expenses.
       if(x.active && x.payExp) poolPf.push(x);
     }));
-    // Brokerage withdraws (Brokerage card → Withdraws): scheduled sales from a live, in-range, non-IDGT portfolio. The proceeds are household cash income (they
-    // pay expenses first; any excess is reinvested like other excess income) and the sale realizes LTCG on the portfolio's gain share. A withdraw runs from its
-    // start to its end by the owner's age or the spouse's age (the year that person reaches the end age is the first year without it), or 'pass' = while the
-    // portfolio is held. 'amount' withdraws are a fixed today's-$ sale; 'bracket' withdraws are sized by the bracket solve below. Capped at what the portfolio holds.
+    // Portfolio withdraw (Tax & Optimizations panel): when enabled, every live (enabled, in its own age range, funded), non-IDGT portfolio sells each year as much as
+    // fits with taxable income (ordinary + qualified: QDIV + net LTCG) staying within the chosen LTCG bracket (`state.pfWithdraw.ltcgPct`; 20 = no limit), sized by the
+    // bracket solve below, in portfolio order (a later portfolio only gets what room is left). There is no age window beyond the portfolio's own range. The proceeds are
+    // household cash income (they pay expenses first; any excess is reinvested like other excess income) and the sale realizes LTCG on the portfolio's gain share.
     const wdList=[];
-    people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
-      const x=pfx[i][bi]; if(!x||!x.active||x.idgt) return;
-      (b.withdraws||[]).forEach((w,wi)=>{
-        if(!w||w.enabled===false) return;
-        const refOf=m=>(m==='spouse'&&married&&people.length===2)?1-i:i;
-        if(curAges[refOf(w.startMode)]+k<(Number(w.startAge)||0)) return;
-        if(w.endMode!=='pass'&&curAges[refOf(w.endMode)]+k>=(Number(w.endAge)||0)) return;
-        wdList.push({x, i, bi, wi, mode:w.mode==='bracket'?'bracket':'amount', amt:0,
-                     want:w.mode==='bracket'?0:Math.max(0,Number(w.amount)||0), pct:Number.isFinite(Number(w.ltcgPct))?Number(w.ltcgPct):0});
-      });
-    }));
+    const pfw=state.pfWithdraw;
+    if(pfw&&pfw.enabled){
+      const pctW=Number.isFinite(Number(pfw.ltcgPct))?Number(pfw.ltcgPct):0;
+      people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
+        const x=pfx[i][bi]; if(!x||!x.active||x.idgt) return;
+        wdList.push({x, i, bi, wi:0, mode:'bracket', amt:0, want:0, pct:pctW});
+      }));
+    }
     // Share of a portfolio's tax-exempt-reserved balance still free for withdraws: what it holds after growth, less its tax-exempt payout and other withdraws.
     const wdRoom=e=>Math.max(0, e.x.avail-e.x.te-wdList.reduce((a,o)=>a+(o!==e&&o.x===e.x?o.amt:0),0));
     function setWd(e,v){ e.amt=Math.min(Math.max(0,v),wdRoom(e)); e.x.wd=wdList.reduce((a,o)=>a+(o.x===e.x?o.amt:0),0); }
@@ -678,7 +675,7 @@ function computeProjection(){
     const seniorN=(taxYear>=SENIOR_FIRST_YEAR&&taxYear<=SENIOR_LAST_YEAR)?people.reduce((n,p,i)=>n+((alive[i]&&(Number(p.birthYear)||0)+65<=taxYear)?1:0),0):0;
     const seniorOf=agiX=>computeSeniorDeduction(seniorN, agiX, filing, ssThresholdFactor);
     const ordBrk = filing==='married'?MFJ_ORD:SGL_ORD;
-    // State income tax (Assumptions → State tax): off unless enabled. Paid like federal tax (a household expense funded by the waterfall),
+    // State income tax (Tax & Optimizations panel): off unless enabled. Paid like federal tax (a household expense funded by the waterfall),
     // but kept apart from Total Tax (TT) so the Total Income Tax chart can stack it on top as its own line.
     const stCode=(state.stateTax&&state.stateTax.enabled)?state.stateTax.state:null;
     const stN=people.reduce((n,p,i)=>n+(alive[i]?1:0),0), stSenior=people.reduce((n,p,i)=>n+((alive[i]&&ages[i]>=65)?1:0),0);

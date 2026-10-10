@@ -78,7 +78,7 @@ function convStartTriggerHtml(pid, p){
   }
   if(mode==='ltc'){
     const on=!!(state.ltc&&state.ltc.enabled);
-    return note('Conversions start the year the first Long Term Care start age is reached, then continue every year.'+(on?'':' <strong>Long Term Care is not enabled in Assumptions, so conversions never start.</strong>'));
+    return note('Conversions start the year the first Long Term Care start age is reached, then continue every year.'+(on?'':' <strong>Long Term Care is not enabled in the Expenses panel, so conversions never start.</strong>'));
   }
   return '';
 }

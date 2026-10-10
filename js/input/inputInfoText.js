@@ -14,7 +14,7 @@ const II_FIELDS=[
   [/^Birth year$/,'n','Used to work out current age, the Social Security full retirement age and the RMD start age.'],
   [/^Birth month$/,'n','Used with the birth year for current age (to a fraction of a year) and for age-based start and end dates.'],
   [/^Current age$/,'n','Calculated from birth year and month and today\'s date. Read-only.'],
-  // ── Assumptions
+  // ── General / Expenses / Tax & Optimizations panels
   [/^Inflation rate/,'n','Yearly inflation. Amounts entered as "tracks inflation" grow at this rate, and it is also the Social Security cost-of-living adjustment (COLA). Charts are shown in today\'s dollars.'],
   [/passes at age$/,'n','Age at which this person is assumed to pass away. Their income stops (unless inherited by the spouse), and a surviving spouse files as single from the following year.'],
   [/^Living expenses \(household/,'n','Yearly household living expenses in today\'s dollars, paid from income first, then dividends, then asset sales or IRA withdrawals.'],
@@ -37,7 +37,9 @@ const II_FIELDS=[
   [/^ENABLE:Asset \/ basis swap$/,'c','Model swapping assets between the Living-expense and IDGT portfolios.'],
   [/^ENABLE:State income tax$/,'c','Include state income tax in the projection.'],
   [/^ENABLE:Long Term Care/,'c','Model Long Term Care costs and the change in living expenses once care starts.'],
-  [/^ENABLE:Model a speculative/,'c','Test a speculative change to the NIIT thresholds. Not current law; off by default.'],
+  [/^ENABLE:Speculative future exemptions/,'c','Test a speculative change to the NIIT thresholds. Not current law; off by default.'],
+  [/^ENABLE:Portfolio withdraw$/,'c','Sell from every non-IDGT portfolio each year as much as fits within the chosen LTCG bracket. Off by default.'],
+  [/^LTCG bracket to fill$/,'n','How much of each non-IDGT portfolio is sold each year: as much as fits with taxable income staying within this bracket (20% = no limit).'],
   [/^ENABLE:Wage/,'c','Include this person\'s wage / earned income in the projection.'],
   [/^ENABLE:Social Security/,'c','Include this person\'s Social Security benefit in the projection.'],
   [/^ENABLE:Pension/,'c','Include this person\'s pension in the projection.'],
@@ -81,7 +83,7 @@ const II_FIELDS=[
   [/^Tax-exempt yield/,'n','Yearly tax-exempt income (e.g. municipal-bond interest) as a percent of the balance. Not taxed, but counted for Social Security taxation and Medicare IRMAA.'],
   [/^Foreign asset %/,'n','Percent of the portfolio held in foreign assets, which pay foreign tax that can earn a credit.'],
   [/^Foreign tax credit/,'n','Foreign tax withheld as a percent of the foreign assets, taken as a credit against federal income tax.'],
-  [/^AUM \(/,'c','This portfolio\'s balance counts toward the AUM balance on which the household AUM fee (Assumptions) is charged.'],
+  [/^AUM \(/,'c','This portfolio\'s balance counts toward the AUM balance on which the household AUM fee (Expenses panel) is charged.'],
   [/^Pay expenses/,'c','This portfolio may be sold to pay household expenses.'],
   // ── Real estate
   [/^Property name$/,'n','Name used for this property in the cards and charts.'],

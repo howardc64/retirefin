@@ -62,8 +62,8 @@ function toggleItem(headerEl){
 // enabling/disabling never changes whether the card's body is visible.
 function onEnableToggle(path, checked){
   setPath(path, checked);
-  // SCGL / AUM fee inputs are greyed while their Enable box is off.
-  if(path==='scglEnabled'||path==='aumFee.enabled'||path==='basisSwap'||path==='stateTax.enabled') syncAssumpEnable();
+  // SCGL / AUM fee / portfolio-withdraw inputs are greyed while their Enable box is off.
+  if(path==='scglEnabled'||path==='aumFee.enabled'||path==='basisSwap'||path==='stateTax.enabled'||path==='pfWithdraw.enabled') syncAssumpEnable();
   if(path==='withdrawOrder.enabled') onWithdrawOrderEnabled();   // seeds the built-in order the first time it is switched on
   if(path==='stateTax.enabled') chartYMax.tax=null;   // re-fit the Total Income Tax chart so the new state-tax line is in view
   recompute(); saveDebounced();
@@ -91,13 +91,22 @@ function cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight){
     </div>`;
 }
 
-// Card for one Assumptions-panel item (SCGL, AUM fee, LTC, speculative model): the same Enable (left) / Hide (right) header
-// as the income cards. `key` selects the Hide flag in state.ui.assumpHide; 
-function assumpCard(key, title, enablePath, enabled, bodyHtml){
+// One feature inside one of the General / Expenses / Tax & Optimizations panels (General / Expenses / Tax & Optimizations): just an Enable checkbox and its body. There is no per-feature Hide —
+// Hide belongs to the card (state.ui.assumpHide.general | expenses | tax, see syncAssumpHide). Enable only decides whether the feature is used.
+function featureBlock(title, enablePath, enabled, bodyHtml){
+  return `<div class="assump-feat"><div class="item-head"><label><input type="checkbox" ${enabled?'checked':''} onclick="onEnableToggle('${enablePath}', this.checked)"> ${title}</label></div>
+    <div class="assump-feat-body">${bodyHtml||''}</div></div>`;
+}
+// Put each settings panel's Hide checkbox and open/closed body into the state held in state.ui.assumpHide.
+function syncAssumpHide(){
   if(!state.ui) state.ui={hiddenSections:defaultHiddenSections()};
   if(!state.ui.assumpHide) state.ui.assumpHide={};
-  const hidden=!!state.ui.assumpHide[key];
-  return `<div class="item" style="margin-bottom:0">${cardHeader(title, enablePath, enabled, 'ui.assumpHide.'+key, hidden)}${bodyHtml?`<div class="item-body ${hidden?'':'open'}">${bodyHtml}</div>`:''}</div>`;
+  [['general','assumpGeneral','hideGeneral'],['expenses','assumpExpenses','hideExpenses'],['tax','assumpTax','hideTax']].forEach(([k,cardId,cbId])=>{
+    const card=document.getElementById(cardId), cb=document.getElementById(cbId); if(!card||!cb) return;
+    const hidden=!!state.ui.assumpHide[k];
+    cb.checked=hidden;
+    const body=card.querySelector(':scope > .item-body'); if(body) body.classList.toggle('open',!hidden);
+  });
 }
 
 // Reusable "simple" card for an income item with age range + annual change (pension/rental style)
@@ -117,7 +126,7 @@ function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel, extraFiel
     </div>`;
 }
 
-// ── Section Hide checkbox (chart sections + Assumptions panel) ──
+// ── Section Hide checkbox (chart sections) ──
 // Display-only, but part of `state` (`state.ui.hiddenSections[key]`, key = the checkbox's `data-hide-key`), so it is saved to
 // file / autosave, restored on load and reset to the default (core/state.js) on Reset. Ticking Hide collapses everything below
 // the header (up to the next .sec-head) so only the header and its checkbox remain. Compute and charts keep updating while hidden.

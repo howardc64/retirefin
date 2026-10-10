@@ -33,7 +33,7 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
 // `reinvest` flag (default OFF): household income left over after ALL expenses are paid is reinvested, pro rata to start-of-year
 // balance, into the portfolios with it checked (added to balance and to cost basis at year-end). Older saves load with it off.
 // `aum` (default off; always off for IDGT): the portfolio's balance counts toward the AUM balance the household AUM fee is charged on
-// (`state.aumFee`, Assumptions panel). The fee, the household IRMAA surcharge, living expenses and income tax are all
+// (`state.aumFee`, Expenses panel). The fee, the household IRMAA surcharge, living expenses and income tax are all
 // funded by household income first, then portfolio dividends, then asset sales (which realize LTCG).
 // Cost-basis / unrealized-gain tracking (spec §4.6, cost basis). Every portfolio is tracked: household expenses
 // can force asset sales from any portfolio, and realized LTCG is always automatic (sale × unrealized-gain share),
@@ -47,16 +47,7 @@ function defaultBrokeragePortfolio(balance, n){
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25,withdraws:[]};
-}
-// Brokerage withdraw (any number per non-IDGT portfolio): a scheduled sale from the portfolio whose proceeds are household cash income
-// (they pay expenses first; any excess is reinvested like other excess income) and whose gain is realized LTCG.
-//   start: startMode 'age' (this owner's age) | 'spouse' (the spouse's age; married only) at `startAge`.
-//   end:   endMode 'age' | 'spouse' at `endAge` (the withdraw stops the year that person reaches it), or 'pass' (runs while the portfolio is held).
-//   size:  mode 'amount' = sell `amount` a year (today's $) | 'bracket' = sell as much as fits with taxable income (ordinary + qualified) staying
-//          within the chosen LTCG bracket, `ltcgPct` a stop of LTCG_STOPS = [0,15,20] (20 = top bracket = no limit: sells the whole balance).
-function defaultWithdraw(startAge){
-  return {id:uid(), enabled:true, startMode:'age', startAge:Math.max(0,Math.floor(Number(startAge)||0)), endMode:'pass', endAge:95, mode:'amount', amount:10000, ltcgPct:0};
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
 }
 // Real estate asset (per person, any number): a passive asset with no income stream — no dividends, tax-exempt yield, foreign credit, AUM fee,
 // type (IDGT) or expense funding. `balance` = value today ($, today's $) entered AFTER TAX, counting any gain covered by an exemption (e.g. the
@@ -108,11 +99,11 @@ function defaultPerson(idx){
     roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false}
   };
 }
-// Section Hide checkboxes (the 6 chart sections + the Assumptions panel). They are part of `state` (`state.ui.hiddenSections`)
+// Section Hide checkboxes (the 6 chart sections). They are part of `state` (`state.ui.hiddenSections`)
 // so they are saved to file, autosaved, restored on load and put back to these defaults on Reset — the DOM (checkbox + collapsed
 // section) is always derived from this object (controls.js: syncSectionHide). Keys match `data-hide-key` in index.html.
 // DEFAULT_SECTION_HIDDEN is what a fresh session / Reset to defaults starts with: true = every section starts checked + collapsed.
-const SECTION_HIDE_KEYS=['assumptions','ss','income','tss','tax','expenses','assets'];
+const SECTION_HIDE_KEYS=['ss','income','tss','tax','expenses','assets'];
 const DEFAULT_SECTION_HIDDEN=true;
 // Display order of the income-source cards (`state.ui.incomeOrder`), shared by every person column so married spouses reorder together.
 const INCOME_CARD_KEYS=['wage','ss','pension','rental','brokerage','realestate','annuity','ira','roth'];
@@ -138,14 +129,15 @@ function defaultState(){
     people:[defaultPerson(0), defaultPerson(1)],
     passing:{p1:85,p2:90},
     living:0,   // household living expenses per year, today's $ (funded income → dividends → asset sales)
-    basisSwap:false, basisSwapYears:BASIS_SWAP_YEARS_DEFAULT,   // Asset / basis swap (Assumptions): off by default. When on, living-expense portfolio assets (and their proportional basis) are swapped with IDGT assets after the first passing (married) and `basisSwapYears` years before the last passing (see projection.js)
+    basisSwap:false, basisSwapYears:BASIS_SWAP_YEARS_DEFAULT,   // Asset / basis swap (Tax & Optimizations panel): off by default. When on, living-expense portfolio assets (and their proportional basis) are swapped with IDGT assets after the first passing (married) and `basisSwapYears` years before the last passing (see projection.js)
     scgl:0, scglEnabled:true,   // SCGL carryforward; scglEnabled=false makes the projection ignore it (the amount is kept)
     ltc:{enabled:false, people:[{startAge:85,cost:100000},{startAge:85,cost:100000}], living1:null, living2:LTC_LIVING2_DEFAULT},   // Long Term Care: per person start age (own age) and cost; household living expenses from the 1st / 2nd LTC start (today's $)
-    withdrawOrder:{enabled:false, steps:[]},   // Expense-shortfall withdrawal order (Assumptions): off = the built-in order (pay-expenses portfolios, pre-tax IRA, Roth IRA). On = `steps` [{id, asset}] in order, asset = 'pf:<portfolio id>' | 'ira:<person id>' | 'roth:<person id>' | 're:<property id>' (see projection.js, runWaterfall)
+    withdrawOrder:{enabled:false, steps:[]},   // Expense-shortfall withdrawal order (Expenses panel): off = the built-in order (pay-expenses portfolios, pre-tax IRA, Roth IRA). On = `steps` [{id, asset}] in order, asset = 'pf:<portfolio id>' | 'ira:<person id>' | 'roth:<person id>' | 're:<property id>' (see projection.js, runWaterfall)
+    pfWithdraw:{enabled:false, ltcgPct:0},   // Portfolio withdraw (Tax & Optimizations): when on, EVERY non-IDGT portfolio sells each year as much as fits with taxable income (ordinary + qualified) staying within the LTCG bracket `ltcgPct` (a stop of LTCG_STOPS = [0,15,20]; 20 = no limit). Proceeds are household cash income; the gain share is realized LTCG. No age window beyond the portfolio's own range (projection.js, "Brokerage withdraws")
     aumFee:{enabled:true, mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
-    stateTax:{enabled:false, state:'CA'},   // State income tax (Assumptions): 'CA' or 'WA'; off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
+    stateTax:{enabled:false, state:'CA'},   // State income tax (Tax & Optimizations panel): 'CA' or 'WA'; off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), hiddenSections:defaultHiddenSections(), assumpHide:{scgl:false,aum:false,order:true,swap:false,state:false,ltc:true,future:true}, ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
+    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), hiddenSections:defaultHiddenSections(), assumpHide:{general:false,expenses:false,tax:false}, ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
@@ -197,8 +189,9 @@ function hydrateState(loaded){
   }
   fillLegacyHide(loaded);
   const out=merge(loaded, base);
-  // Saves from before the Assumptions cards had Hide: LTC / speculative cards were open only while enabled — keep that.
-  if(loaded && !(loaded.ui && loaded.ui.assumpHide)) out.ui={...out.ui, assumpHide:{scgl:false, aum:false, order:!(out.withdrawOrder&&out.withdrawOrder.enabled), swap:false, state:false, ltc:!(out.ltc&&out.ltc.enabled), future:!(out.futureTax&&out.futureTax.enabled)}};
+  // Saves from before the settings panels had Hide: LTC / speculative cards were open only while enabled — keep that.
+  // Saves from before the settings were split into the General / Expenses / Tax & Optimizations panels (they held per-feature Hide flags): all three cards start open.
+  if(loaded && !(loaded.ui && loaded.ui.assumpHide && loaded.ui.assumpHide.general!==undefined)) out.ui={...out.ui, assumpHide:{general:false, expenses:false, tax:false}};
   if(loaded && !(loaded.ui && loaded.ui.hiddenSections)) out.ui={...out.ui, hiddenSections:defaultHiddenSections(false)};
   // Older saves had a per-portfolio "Withdrawal" (`living`) and "tax drag %" — both are gone. Carry the
   // withdrawals over as the household living expenses so an old plan keeps roughly the same spending.
@@ -215,6 +208,13 @@ function hydrateState(loaded){
     const pct=all.find(b=>b.fee.mode!=='fixed');
     if(pct) out.aumFee={mode:'pct', value:Number(pct.fee.value)||0};
     else if(all.length) out.aumFee={mode:'fixed', value:all.reduce((t,b)=>t+(Number(b.fee.value)||0),0)};
+  }
+  // Older saves had scheduled withdraws on each portfolio (start / end age, amount or LTCG bracket). They are now one household "Portfolio withdraw" slider
+  // (Tax & Optimizations) that applies to every non-IDGT portfolio: the first enabled bracket withdraw found carries over (on, same bracket); fixed-amount ones are dropped.
+  if(loaded && loaded.pfWithdraw===undefined && Array.isArray(loaded.people)){
+    let found=null;
+    loaded.people.forEach(p=>{ if(p&&Array.isArray(p.brokerage)) p.brokerage.forEach(b=>{ if(!found&&b&&b.type!=='idgt'&&!b.idgt&&Array.isArray(b.withdraws)) found=b.withdraws.find(w=>w&&w.enabled!==false&&w.mode==='bracket')||null; }); });
+    if(found) out.pfWithdraw={enabled:true, ltcgPct:Number.isFinite(Number(found.ltcgPct))?Number(found.ltcgPct):0};
   }
   if(loaded && loaded.ltc && out.ltc && out.ltc.people && out.ltc.people[0]){
     if(loaded.ltc.startAge!==undefined && !Array.isArray(loaded.ltc.people)){

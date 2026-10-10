@@ -49,37 +49,52 @@
 <div class="layout">
 <div class="input-col">
 
-<!-- ═══ SETUP ═══ -->
-<div class="sec-head">Household Setup</div>
-<div class="panel">
-  <div class="panel-title">Filing status</div>
-  <div class="radiorow" style="margin-bottom:16px">
-    <label><input type="radio" name="filingStatus" value="single" onchange="onFilingChange()"> Single / widowed</label>
-    <label><input type="radio" name="filingStatus" value="married" onchange="onFilingChange()"> Married</label>
+<!-- ═══ SETTINGS: three panels (General / Expenses / Tax & Optimizations), each with one Hide box ═══ -->
+  <!-- Card 1: General -->
+  <div class="panel assump-card" id="assumpGeneral">
+    <div class="panel-title assump-title"><span>General</span><label class="hide-toggle" title="Collapse this card to save space — its values are still used"><input type="checkbox" id="hideGeneral" onclick="onHideToggle('ui.assumpHide.general', this.checked, this.closest('.assump-card'))"> Hide</label></div>
+    <div class="item-body open">
+      <div class="field full"><label>Filing status</label>
+        <div class="radiorow">
+          <label><input type="radio" name="filingStatus" value="single" onchange="onFilingChange()"> Single / widowed</label>
+          <label><input type="radio" name="filingStatus" value="married" onchange="onFilingChange()"> Married</label>
+        </div>
+      </div>
+      <div class="people-panes full" id="peopleSetup"></div>
+      <div class="slider-row full">
+        <div class="sl"><strong>Inflation rate</strong> (also used as Social Security (SS) COLA)</div>
+        <input type="range" id="inflationRate" min="0" max="6" step="0.25" value="3">
+        <div class="sv" id="inflationValLbl">3.00%</div>
+      </div>
+      <div id="passingSliders" class="full"></div>
+    </div>
   </div>
-  <div class="people-panes" id="peopleSetup"></div>
-</div>
 
-<div class="panel">
-  <div class="panel-title hideable"><span>Assumptions — drag to adjust</span><label class="hide-cb"><input type="checkbox" data-hide-key="assumptions" autocomplete="off" onchange="onSectionHide(this)">Hide</label></div>
-  <div class="slider-row">
-    <div class="sl"><strong>Inflation rate</strong> (also used as Social Security (SS) COLA)</div>
-    <input type="range" id="inflationRate" min="0" max="6" step="0.25" value="3">
-    <div class="sv" id="inflationValLbl">3.00%</div>
+  <!-- Card 2: Expenses -->
+  <div class="panel assump-card" id="assumpExpenses">
+    <div class="panel-title assump-title"><span>Expenses</span><label class="hide-toggle" title="Collapse this card to save space — its values are still used"><input type="checkbox" id="hideExpenses" onclick="onHideToggle('ui.assumpHide.expenses', this.checked, this.closest('.assump-card'))"> Hide</label></div>
+    <div class="item-body open">
+      <div class="field full">
+        <label>Living expenses (household, $/yr, today's $)</label>
+        <input type="number" class="money" id="livingInput" min="0" step="1000" value="0" oninput="onLivingInput(this.value)">
+      </div>
+      <div id="ltcPanel" class="full"></div>
+      <div id="withdrawPanel" class="full"></div>
+      <div id="aumPanel" class="full"></div>
+    </div>
   </div>
-  <div id="passingSliders"></div>
-  <div class="field full" style="margin-top:14px">
-    <label>Living expenses (household, $/yr, today's $)</label>
-    <input type="number" class="money" id="livingInput" min="0" step="1000" value="0" oninput="onLivingInput(this.value)">
+
+  <!-- Card 3: Tax &amp; Optimizations -->
+  <div class="panel assump-card" id="assumpTax">
+    <div class="panel-title assump-title"><span>Tax &amp; Optimizations</span><label class="hide-toggle" title="Collapse this card to save space — its values are still used"><input type="checkbox" id="hideTax" onclick="onHideToggle('ui.assumpHide.tax', this.checked, this.closest('.assump-card'))"> Hide</label></div>
+    <div class="item-body open">
+      <div id="stateTaxPanel" class="full"></div>
+      <div id="scglPanel" class="full"></div>
+      <div id="swapPanel" class="full"></div>
+      <div id="pfWithdrawPanel" class="full"></div>
+      <div id="futureTaxPanel" class="full"></div>
+    </div>
   </div>
-  <div id="scglPanel" style="margin-top:14px"></div>
-  <div id="aumPanel" style="margin-top:14px"></div>
-  <div id="withdrawPanel" style="margin-top:14px"></div>
-  <div id="swapPanel" style="margin-top:14px"></div>
-  <div id="stateTaxPanel" style="margin-top:14px"></div>
-  <div id="ltcPanel" style="margin-top:14px"></div>
-  <div id="futureTaxPanel" style="margin-top:14px"></div>
-</div>
 
 <!-- ═══ INCOME & ASSETS ═══ -->
 <div class="sec-head">Income &amp; Assets</div>

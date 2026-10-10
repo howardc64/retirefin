@@ -1,19 +1,20 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// INPUT / ASSUMPTIONS — speculative future tax-threshold scenario
-// (spec §4.5). Inflation and passing-age sliders live in household.js
-// since they're part of the same Assumptions panel. SCGL, the AUM fee, LTC and the speculative
-// scenario are each a card (assumpCard, controls.js) with an Enable checkbox on the left and a
-// Hide checkbox on the right: renderScglPanel(), renderAumFee(), renderLtcPanel(), renderFutureTaxPanel().
-// Enable (state.scglEnabled / aumFee.enabled / ltc.enabled / futureTax.enabled) decides whether the
-// item is used in the projection; Hide (state.ui.assumpHide[key]) only collapses the card body.
+// INPUT / ASSUMPTIONS — three cards, each with ONE Hide checkbox (state.ui.assumpHide.general | expenses | tax; index.html, syncAssumpHide in controls.js):
+//   General          inflation rate, passing ages (household.js)
+//   Expenses         living expenses, Long Term Care, expense-shortfall withdrawal order, AUM fee
+//   Tax & Optimizations  SCGL, asset / basis swap, speculative future exemptions and brackets, portfolio withdraw, state income tax
+// Every feature inside a card (featureBlock, controls.js) has its own Enable checkbox: Enable decides whether the feature is used in the projection
+// (state.scglEnabled / aumFee.enabled / ltc.enabled / futureTax.enabled / basisSwap / pfWithdraw.enabled / withdrawOrder.enabled / stateTax.enabled);
+// Hide only collapses the whole card. Renderers: renderScglPanel, renderSwapPanel, renderFutureTaxPanel, renderPfWithdrawPanel, renderStateTaxPanel,
+// renderLtcPanel, renderWithdrawOrderPanel, renderAumFee.
 // ═══════════════════════════════════════════════════════════════
 // Spec §4.5: a speculative, off-by-default "future tax threshold change" scenario. Currently only
 // covers the NIIT exemption threshold (start year + today's-$ threshold per filing status); Social
 // Security's taxation threshold is a deliberate placeholder ("Not implemented yet" in the spec).
 function renderFutureTaxPanel(){
   const ft=state.futureTax||{};
-  // The body is always rendered; Hide alone decides whether it is shown (like every other card), Enable only whether it is used.
+  // The body is always rendered; the card's Hide decides whether it is shown, Enable only whether the feature is used.
   let body='';
   {
     body=`<div class="item-note" style="margin-top:-2px">Speculative — not current law. Lets you test how the projection would change if Congress enacted a new threshold.</div>
@@ -24,9 +25,9 @@ function renderFutureTaxPanel(){
     <div class="field"><label>Married filing threshold (today's $)</label>
       <input type="number" class="money" min="0" step="5000" value="${ft.niitMarried}" oninput="onNumberInput('futureTax.niitMarried', this.value)"></div>`;
   }
-  document.getElementById('futureTaxPanel').innerHTML=assumpCard('future','Model a speculative future tax-threshold change','futureTax.enabled',!!ft.enabled,body);
+  document.getElementById('futureTaxPanel').innerHTML=featureBlock('Speculative future exemptions and brackets','futureTax.enabled',!!ft.enabled,body);
 }
-// AUM fee (household, Assumptions panel, below SCGL): charged on the AUM balance = the sum of the balances of every
+// AUM fee (household, Expenses card, last): charged on the AUM balance = the sum of the balances of every
 // portfolio whose AUM box is checked. Mode '% AUM balance' (value = percent) or 'Fixed $ / yr' (today's $).
 function renderAumFee(){
   const f=state.aumFee||{mode:'pct',value:0}, fixed=f.mode==='fixed';
@@ -40,18 +41,18 @@ function renderAumFee(){
       </div>
     </div>
     <div class="item-note">Advisory / management fee. <strong>AUM balance</strong> = the sum of the balances of every <em>Living expense &amp; income</em> brokerage portfolio that has its <em>AUM</em> box checked (never an IDGT, pre-tax IRA or Roth IRA; the portfolio must also be enabled, inside its age range and funded). The fee is that balance × the percentage, or a fixed dollar amount per year (entered in today's $, held flat in nominal terms so it shrinks in today's $ with inflation). It is an expense paid like living expenses — household income, then dividends, then asset sales — and is charged on the AUM portfolios pro rata to balance, but as an expense it is paid only by the portfolios with <em>Pay expenses</em> checked, not by the account it is charged on. The Medicare IRMAA surcharge is also always paid as a household expense, so it needs no setting here.</div>`;
-  document.getElementById('aumPanel').innerHTML=assumpCard('aum','AUM fee','aumFee.enabled',f.enabled!==false,body);
+  document.getElementById('aumPanel').innerHTML=featureBlock('AUM fee','aumFee.enabled',f.enabled!==false,body);
   const sel=document.getElementById('aumFeeMode'), inp=document.getElementById('aumFeeValue');
   sel.value=fixed?'fixed':'pct';
   inp.step=fixed?100:0.05;
   inp.value=f.value!=null?f.value:0;
   syncAssumpEnable();
 }
-// SCGL carryforward card (Enable / Hide like the others). The amount is kept while Enable is off but ignored by the projection.
+// SCGL carryforward (Tax & Optimizations card). The amount is kept while Enable is off but ignored by the projection.
 function renderScglPanel(){
   const body=`<div class="field full"><label>Suspended Capital-Gain Loss carryforward (SCGL, today's $)</label>
       <input type="number" class="money" id="scglInput" min="0" step="1000" value="${Number(state.scgl)||0}" oninput="onNumberInput('scgl', this.value)"></div>`;
-  document.getElementById('scglPanel').innerHTML=assumpCard('scgl','SCGL','scglEnabled',state.scglEnabled!==false,body);
+  document.getElementById('scglPanel').innerHTML=featureBlock('SCGL','scglEnabled',state.scglEnabled!==false,body);
   syncAssumpEnable();
 }
 // Grey out the SCGL / AUM inputs while their Enable box is unchecked (values are kept, just not used).
@@ -60,6 +61,7 @@ function syncAssumpEnable(){
   set(['scglInput'], state.scglEnabled!==false);
   set(['aumFeeMode','aumFeeValue'], !(state.aumFee&&state.aumFee.enabled===false));
   set(['swapYears'], !!state.basisSwap);
+  set(['pfWdSlider'], !!(state.pfWithdraw&&state.pfWithdraw.enabled));
   set(['stateTaxSel'], !!(state.stateTax&&state.stateTax.enabled));
 }
 function onAumFeeMode(mode){
@@ -68,7 +70,7 @@ function onAumFeeMode(mode){
   renderAumFee(); recompute(); saveDebounced();
 }
 
-// Expense shortfall withdrawal order (Assumptions panel, below the AUM fee). Off: the built-in order. On: an ordered list of steps, each naming ONE asset;
+// Expense shortfall withdrawal order (Expenses card, below Long Term Care). Off: the built-in order. On: an ordered list of steps, each naming ONE asset;
 // when household income and dividends do not cover the year's expenses, the steps are tried top to bottom, each taking what is still needed from its asset
 // (projection.js, runWaterfall). Assets not listed are never drawn on. Step keys: 'pf:<portfolio id>' | 'ira:<person id>' | 'roth:<person id>' | 're:<property id>'.
 const WO_TAX_NOTE={
@@ -123,7 +125,7 @@ function renderWithdrawOrderPanel(){
       <button type="button" class="btn" ${(wo.enabled&&free)?'':'disabled'} onclick="addWithdrawStep()">＋ Add step</button>
       <button type="button" class="btn" ${wo.enabled?'':'disabled'} title="Replace the steps with the built-in order" onclick="resetWithdrawSteps()">Reset to built-in order</button></div></div>
     <div class="item-note"><strong>Selling real estate</strong> is a sale of the whole property, even if only a little is needed: its gain is taxed as long-term capital gain in the year of the sale, the sale happens at the start of the year at that year's value, and the property is gone afterwards.</div>`;
-  el.innerHTML=assumpCard('order','Expense shortfall withdrawal order','withdrawOrder.enabled',!!wo.enabled,body);
+  el.innerHTML=featureBlock('Expense shortfall withdrawal order','withdrawOrder.enabled',!!wo.enabled,body);
 }
 // Re-draw unless the person is working inside the card (a re-draw would close the open drop-down); used after every recompute so asset names stay current.
 function refreshWithdrawOrderPanel(){
@@ -143,17 +145,17 @@ function removeWithdrawStep(i){ woState().steps.splice(i,1); woChanged(); }
 function moveWithdrawStep(i,d){ const st=woState().steps, j=i+d; if(j<0||j>=st.length) return; const t=st[i]; st[i]=st[j]; st[j]=t; woChanged(); }
 function resetWithdrawSteps(){ woState().steps=defaultWithdrawKeys().map(k=>({id:uid(),asset:k})); woChanged(); }
 
-// Asset / basis swap card (Enable / Hide like the others; off by default). One input: how many years before the last passing to swap (the swap after the
+// Asset / basis swap (Tax & Optimizations card; off by default). One input: how many years before the last passing to swap (the swap after the
 // first passing, for a married household, needs no value). See projection.js, "Asset / basis swap".
 function renderSwapPanel(){
   const yrs=Math.max(1,Math.round(Number(state.basisSwapYears)||BASIS_SWAP_YEARS_DEFAULT));
   const body=`<div class="field full"><label>Swap this many years before the last passing</label>
       <input type="number" id="swapYears" min="1" max="60" step="1" value="${yrs}" oninput="onNumberInput('basisSwapYears', this.value)"></div>
     <div class="item-note">Swaps <em>Living expense &amp; income</em> portfolio assets, value for value, with <em>IDGT</em> assets, and the basis moves in proportion to the assets traded: the IDGT ends up with the high-basis assets and the living portfolio with the low-basis ones, which step up at the last passing. It is done once, that many years before the last person passes (single or married). If married, it is also done the year after the first person passes, when that person's portfolio steps up (no value needed). A swap only happens where the IDGT's assets have a lower basis % than the living portfolio's; the amount is the smaller of the two values. A swap is between portfolios held by the same person: a portfolio marked <em>Joint owned with spouse</em> is held by the spouse once its owner has passed (one without it is gone, so it cannot be swapped).</div>`;
-  document.getElementById('swapPanel').innerHTML=assumpCard('swap','Asset / basis swap','basisSwap',!!state.basisSwap,body);
+  document.getElementById('swapPanel').innerHTML=featureBlock('Asset / basis swap','basisSwap',!!state.basisSwap,body);
   syncAssumpEnable();
 }
-// State income tax card (Enable / Hide like the others; off by default). One choice: California or Washington. The tax is paid as a household
+// State income tax (Tax & Optimizations card; off by default). One choice: California or Washington. The tax is paid as a household
 // expense (like federal tax) and is drawn on the Total Income Tax chart as a green dashed line stacked above the tax bands.
 function renderStateTaxPanel(){
   const st=state.stateTax||{enabled:false,state:'CA'};
@@ -161,15 +163,15 @@ function renderStateTaxPanel(){
   const body=`<div class="field full"><label>State</label>
       <select id="stateTaxSel" onchange="onStateTaxSelect(this.value)">${opts}</select></div>
     <div class="item-note"><strong>California</strong>: the 2025 state brackets (1%–12.3%, plus 1% over $1M) on federal AGI less taxable Social Security (California does not tax it) and the larger of the state standard deduction and the Long Term Care medical itemized deduction (cost above 7.5% of that income), less the personal and age-65 exemption credits; capital gains are taxed as ordinary income. <strong>Washington</strong>: no income tax, but a capital-gains excise tax of 7% on realized long-term gains from portfolio sales above $278,000 a year (one deduction per couple) and 9.9% on the part of the taxable gain above $1M; real estate and retirement accounts are exempt. State figures are held flat in today's $ (the states index them). The tax is paid as a household expense, like federal tax, and is not part of Total Tax (TT) or the effective rate.</div>`;
-  document.getElementById('stateTaxPanel').innerHTML=assumpCard('state','State income tax','stateTax.enabled',!!st.enabled,body);
+  document.getElementById('stateTaxPanel').innerHTML=featureBlock('State income tax','stateTax.enabled',!!st.enabled,body);
   syncAssumpEnable();
 }
 function onStateTaxSelect(code){ setPath('stateTax.state', code); chartYMax.tax=null; recompute(); saveDebounced(); }
 
-// Long Term Care (Assumptions panel): per person start age (own age) + cost + new living expenses once LTC starts.
+// Long Term Care (Expenses card, first feature after Living expenses): per person start age (own age) + cost + new living expenses once LTC starts.
 function renderLtcPanel(){
   const l=state.ltc||{}, n=state.filingStatus==='married'?2:1;
-  let html='';   // always rendered; Hide alone decides whether it is shown (Enable only decides whether it is used)
+  let html='';   // always rendered; the card's Hide decides whether it is shown (Enable only decides whether it is used)
   {
     for(let i=0;i<n;i++){
       const L=l.people[i], b=personAgeBounds(i), nm=escHtml(state.people[i].name||('Person '+(i+1)));
@@ -184,7 +186,7 @@ function renderLtcPanel(){
     if(n>1) html+=`<div class="field full"><label>2nd LTC living expenses ($/yr, today's $)</label>
       <input type="number" class="money" min="0" step="1000" value="${l.living2!=null?l.living2:LTC_LIVING2_DEFAULT}" oninput="onNumberInput('ltc.living2', this.value)"></div>`;
   }
-  document.getElementById('ltcPanel').innerHTML=assumpCard('ltc','Long Term Care (LTC)','ltc.enabled',!!l.enabled,html);
+  document.getElementById('ltcPanel').innerHTML=featureBlock('Long Term Care (LTC)','ltc.enabled',!!l.enabled,html);
 }
 
 // Living expenses input: while the 1st LTC living expenses has not been set by the user it follows this value.
@@ -192,4 +194,26 @@ function onLivingInput(val){
   onNumberInput('living', val);
   const el=document.getElementById('ltcLiving1');
   if(el && state.ltc && state.ltc.living1==null) el.value=ltcLiving1Default(state.filingStatus==='married');
+}
+
+// Portfolio withdraw (Tax & Optimizations card; off by default). One LTCG-bracket slider that applies to every non-IDGT portfolio: each year, in portfolio order,
+// each live (enabled, in its own age range, funded) portfolio sells as much as fits with taxable income staying within the chosen bracket (projection.js,
+// "Brokerage withdraws"). The proceeds are household cash income; the gain share is realized LTCG. No start / end age, no fixed amount.
+function renderPfWithdrawPanel(){
+  const w=state.pfWithdraw||{enabled:false,ltcgPct:0};
+  const idx=convStopIndex(LTCG_STOPS, w.ltcgPct), val=LTCG_STOPS[idx];
+  const body=`<div class="field full"><label style="font-weight:400;font-size:11px">LTCG bracket to fill</label>
+      <input type="range" id="pfWdSlider" min="0" max="${LTCG_STOPS.length-1}" step="1" value="${idx}" oninput="onPfWithdrawStop(this.value)">
+      <div class="cn" id="pfWdLbl" style="margin-top:2px">${ltcgStopText(val)}</div></div>
+    <div class="item-note">Applies to <strong>every portfolio that is not an IDGT</strong>. Each year a portfolio sells as much as fits with taxable income (ordinary + qualified dividends + LTCG) staying within the chosen bracket, after any Roth conversion; the portfolios are taken in order, so a later one only gets what room is left. It applies only while a portfolio is inside its own age range. The proceeds count as household cash income (paying expenses first, any excess reinvested) and the gain share of the sale is realized long-term capital gain.</div>`;
+  const el=document.getElementById('pfWithdrawPanel'); if(!el) return;
+  el.innerHTML=featureBlock('Portfolio withdraw','pfWithdraw.enabled',!!w.enabled,body);
+  syncAssumpEnable();
+}
+function onPfWithdrawStop(idx){
+  const v=LTCG_STOPS[+idx];
+  setPath('pfWithdraw.ltcgPct', v);
+  const el=document.getElementById('pfWdLbl'); if(el) el.textContent=ltcgStopText(v);
+  saveDebounced();
+  window.liveDrag=true; recompute(); window.liveDrag=false;
 }

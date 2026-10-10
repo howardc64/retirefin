@@ -131,7 +131,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
   .people-panes.two-col{grid-template-columns:1fr;}
 }
 
-/* ── Hide checkbox on chart sections and the Assumptions panel (display-only; kept in state.ui.hiddenSections, default checked) ── */
+/* ── Hide checkbox on chart sections (display-only; kept in state.ui.hiddenSections, default checked) ── */
 .hideable{display:flex;justify-content:space-between;align-items:center;gap:10px;}
 .hide-cb{display:flex;align-items:center;gap:5px;font-family:'DM Sans',system-ui,sans-serif;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-muted);cursor:pointer;flex-shrink:0;}
 .sec-hidden{display:none!important;}
@@ -317,3 +317,13 @@ body.printing-all canvas.print-swapped{display:none !important;}
 .save-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(12px);z-index:10005;background:#0f6e56;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
 .save-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media print{.save-toast{display:none !important}}
+
+/* Settings panels (General / Expenses / Tax & Optimizations): one Hide box per panel; each feature inside has its own Enable box. */
+.assump-title{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.assump-title .hide-toggle{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-muted);cursor:pointer;white-space:nowrap;}
+.assump-card > .item-body{margin-top:0;}
+.assump-feat{border-top:1px solid var(--border);padding-top:10px;margin-top:12px;}
+.item-body > .full:first-child > .assump-feat{border-top:none;padding-top:0;margin-top:0;}
+.assump-feat > .item-head{margin-bottom:6px;}
+.assump-feat-body{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;min-width:0;}
+.assump-feat-body .full{grid-column:1/-1;}

@@ -195,7 +195,7 @@ function xlsxTaxSheet(){
   r++;
   const selSt=xlsxSelectedState();
   if(selSt==='CA'){
-    title('State income tax (Inputs: State income tax). California: 2025 brackets, state standard deduction (or, when larger, the Long Term Care medical itemized deduction, computed in the State income tax rows) and credits. Held flat in today\'s $ (the state indexes them); only the Mental Health Services threshold is deflated.');
+    title('State income tax (Inputs: Tax & Optimizations). California: 2025 brackets, state standard deduction (or, when larger, the Long Term Care medical itemized deduction, computed in the State income tax rows) and credits. Held flat in today\'s $ (the state indexes them); only the Mental Health Services threshold is deflated.');
     scalar('California standard deduction, married (MFJ)','CA_Std_MFJ',CA_STD_MFJ,XLSX_MONEY);
     scalar('California standard deduction, single','CA_Std_SGL',CA_STD_SGL,XLSX_MONEY);
     scalar('California personal exemption credit, per living person','CA_Cred',CA_PERSONAL_CREDIT,XLSX_MONEY);
@@ -203,7 +203,7 @@ function xlsxTaxSheet(){
     scalar('California Mental Health Services surcharge starts at taxable income','CA_MH_Thr',CA_MH_THRESH,XLSX_MONEY,'Not indexed: deflated to today\'s $ in the projection');
     scalar('California Mental Health Services surcharge rate','CA_MH_Rate',CA_MH_RATE,XLSX_PCT);
   } else if(selSt==='WA'){
-    title('State income tax (Inputs: State income tax). Washington: capital-gains excise tax. Held flat in today\'s $ (the state indexes them); only the second-tier threshold is deflated.');
+    title('State income tax (Inputs: Tax & Optimizations). Washington: capital-gains excise tax. Held flat in today\'s $ (the state indexes them); only the second-tier threshold is deflated.');
     scalar('Washington capital-gains deduction (one per household)','WA_Ded',WA_CG_DEDUCTION,XLSX_MONEY);
     scalar('Washington capital-gains rate, first tier','WA_R1',WA_CG_RATE,XLSX_PCT);
     scalar('Washington second tier starts at taxable gain','WA_T2',WA_CG_TIER2,XLSX_MONEY,'Not indexed: deflated to today\'s $ in the projection');
@@ -262,36 +262,39 @@ function xlsxInputsSheet(proj){
   const yn=v=>v?'Yes':'No';
   xlsxPut(sh,r++,0,xlsxTxt('INPUTS & ASSUMPTIONS of the saved plan (all money in today\'s $). Cells marked as a name below are used by formulas in the other sheets; the rest document the plan the app solved.')); 
   xlsxPut(sh,r++,0,xlsxTxt('Changing a named cell here recalculates the formula columns, but the income / expense-funding / Roth-conversion amounts on "Projection by year" are the app\'s solved values: re-export after changing the plan in the app for those.'));
-  head('Household');
+  head('General (filing status, inflation; passing ages are under each person)');
   put('Filing status',st.filingStatus==='married'?'Married (MFJ)':'Single',{key:'filing'});
   put('Year 0 (first projected year)',THIS_YEAR,{name:'BaseYear',fmt:XLSX_YEAR});
   put('Inflation (SS COLA assumed equal)',st.inflation,{name:'Inflation',fmt:'0.00%',key:'inflation'});
+  head('Expenses');
   put('Household living expenses / yr',Number(st.living)||0,{fmt:XLSX_MONEY,key:'living'});
+  const ltc=st.ltc||{};
+  
+  put('LTC modeled',yn(ltc.enabled));
+  (ltc.people||[]).forEach((L,i)=>{ if(i>0&&st.filingStatus!=='married') return; put(`Person ${i+1}: LTC starts at age`,Number(L.startAge)||0); put(`Person ${i+1}: LTC cost / yr`,Number(L.cost)||0,{fmt:XLSX_MONEY}); });
+  put('Household living expenses once 1st LTC starts',Math.max(0,Number(ltc.living1!=null?ltc.living1:ltcLiving1Default(st.filingStatus==='married'))||0),{fmt:XLSX_MONEY});
+  put('Household living expenses once 2nd LTC starts',Number(ltc.living2)||0,{fmt:XLSX_MONEY});
+  { const wo=st.withdrawOrder||{}, lab={}; withdrawAssets().forEach(a=>{ lab[a.key]=a.label; });
+    put('Expense shortfall withdrawal order',yn(!!wo.enabled),{note:wo.enabled?((wo.steps||[]).map((x,i)=>(i+1)+'. '+(lab[x.asset]||'(missing)')).join('; ')||'(no steps)'):'built-in order'}); }
+  const aum=st.aumFee||{};
+  put('AUM fee enabled',yn(aum.enabled),{}); put('AUM fee mode',aum.mode==='pct'?'% of AUM balance':'Fixed $ / yr (today\'s $)'); put('AUM fee value',Number(aum.value)||0,{fmt:aum.mode==='pct'?XLSX_PCTNUM:XLSX_MONEY});
+  head('Tax & Optimizations');
+  // (State income tax)
+  put('State income tax enabled',yn(st.stateTax&&st.stateTax.enabled),{name:'State_On'});
+  if(xlsxSelectedState()) put('State',xlsxSelectedState()==='WA'?'Washington':'California');
   put('Suspended capital-gain loss (SCGL) pool enabled',yn(st.scglEnabled!==false),{key:'scglOn'});
   put('SCGL pool',Number(st.scgl)||0,{fmt:XLSX_MONEY,key:'scgl'});
   names.push({Name:'SCGL_Start',Ref:`Inputs!$B$${r+1}`});
   xlsxPut(sh,r,0,xlsxTxt('SCGL used by the projection (0 when not enabled)'));
   xlsxPut(sh,r,1,xlsxFml(`IF(${addr.scglOn.replace('Inputs!','')}="Yes",${addr.scgl.replace('Inputs!','')},0)`,st.scglEnabled===false?0:Math.max(0,Number(st.scgl)||0),XLSX_MONEY)); r++;
-  { const wo=st.withdrawOrder||{}, lab={}; withdrawAssets().forEach(a=>{ lab[a.key]=a.label; });
-    put('Expense shortfall withdrawal order',yn(!!wo.enabled),{note:wo.enabled?((wo.steps||[]).map((x,i)=>(i+1)+'. '+(lab[x.asset]||'(missing)')).join('; ')||'(no steps)'):'built-in order'}); }
   put('Asset / basis swap',yn(!!st.basisSwap),{note:'Years before last passing: '+(st.basisSwapYears==null?BASIS_SWAP_YEARS_DEFAULT:st.basisSwapYears)});
-  const aum=st.aumFee||{};
-  put('AUM fee enabled',yn(aum.enabled),{}); put('AUM fee mode',aum.mode==='pct'?'% of AUM balance':'Fixed $ / yr (today\'s $)'); put('AUM fee value',Number(aum.value)||0,{fmt:aum.mode==='pct'?XLSX_PCTNUM:XLSX_MONEY});
-  head('State income tax');
-  put('State income tax enabled',yn(st.stateTax&&st.stateTax.enabled),{name:'State_On'});
-  if(xlsxSelectedState()) put('State',xlsxSelectedState()==='WA'?'Washington':'California');
-  head('Future tax-law assumption (NIIT thresholds)');
-  put('Enabled',yn(st.futureTax&&st.futureTax.enabled),{key:'futOn'});
+  { const pw=st.pfWithdraw||{}; put('Portfolio withdraw (every non-IDGT portfolio)',yn(!!pw.enabled),{note:'Fills the '+(pw.ltcgPct>=20?'20% (no limit)':(pw.ltcgPct>=15?'15%':'0%'))+' LTCG bracket'}); }
+  
+  put('Speculative future exemptions and brackets (NIIT thresholds) enabled',yn(st.futureTax&&st.futureTax.enabled),{key:'futOn'});
   names.push({Name:'FutNIIT_On',Ref:`Inputs!$B$${r}`});
   put('NIIT change starts in year',Number(st.futureTax&&st.futureTax.niitStartYear)||0,{name:'FutNIIT_Start',fmt:XLSX_YEAR});
   put('NIIT threshold, single',Number(st.futureTax&&st.futureTax.niitSingle)||0,{name:'FutNIIT_SGL',fmt:XLSX_MONEY});
   put('NIIT threshold, married',Number(st.futureTax&&st.futureTax.niitMarried)||0,{name:'FutNIIT_MFJ',fmt:XLSX_MONEY});
-  const ltc=st.ltc||{};
-  head('Long Term Care');
-  put('LTC modeled',yn(ltc.enabled));
-  (ltc.people||[]).forEach((L,i)=>{ if(i>0&&st.filingStatus!=='married') return; put(`Person ${i+1}: LTC starts at age`,Number(L.startAge)||0); put(`Person ${i+1}: LTC cost / yr`,Number(L.cost)||0,{fmt:XLSX_MONEY}); });
-  put('Household living expenses once 1st LTC starts',Math.max(0,Number(ltc.living1!=null?ltc.living1:ltcLiving1Default(st.filingStatus==='married'))||0),{fmt:XLSX_MONEY});
-  put('Household living expenses once 2nd LTC starts',Number(ltc.living2)||0,{fmt:XLSX_MONEY});
 
   proj.people.forEach((p,i)=>{
     const nm=displayPersonName(p,i), pass=st.passing[p.id]!=null?st.passing[p.id]:95;
@@ -316,7 +319,6 @@ function xlsxInputsSheet(proj){
       put('  dividend yield %',Number(b.yield)||0); put('  qualified share of dividends %',Number(b.qdivPct)||0); put('  tax-exempt yield %',Number(b.teYield)||0);
       put('  cost basis % of balance',b.basisPct==null||b.basisPct===''?'(blank = no gain)':Number(b.basisPct)); put('  foreign-income %',Number(b.foreignPct)||0); put('  foreign tax credit %',Number(b.ftcPct)||0);
       put('  type',b.type); put('  pays household expenses',yn(b.payExp)); put('  reinvests excess income',yn(b.reinvest)); put('  counts toward AUM fee',yn(b.aum)); put('  joint with spouse / inherited',yn(b.bene));
-      (b.withdraws||[]).forEach((w,wi)=>{ const ref=m=>m==='spouse'?"spouse's age":'age'; put(`  withdraw ${wi+1}`,yn(w.enabled!==false)); put('    start',`${ref(w.startMode)} ${Number(w.startAge)||0}`); put('    end',w.endMode==='pass'?'passing (while held)':`${ref(w.endMode)} ${Number(w.endAge)||0}`); put('    size',w.mode==='bracket'?`fill the ${w.ltcgPct>=20?'20% (no limit)':(w.ltcgPct>=15?'15%':'0%')} LTCG bracket`:`$${Math.round(Number(w.amount)||0).toLocaleString()} / yr (today's $)`); });
     });
     const dump=(title,list)=>(list||[]).forEach((o,j)=>{
       put(`${title} ${j+1}`,o.name||'');
@@ -383,7 +385,7 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
     {key:'divu',head:'Dividends used for expenses',v:r=>ent(r).divUsed},
     {key:'divr',head:'Dividends reinvested',v:r=>ent(r).divReinvested},
     {key:'sold',head:'Shares sold',v:r=>ent(r).sold},
-    {key:'wdr',head:'Brokerage withdraws (sold; proceeds are household cash income)',v:r=>ent(r).withdrawn||0},
+    {key:'wdr',head:'Portfolio withdraw (sold; proceeds are household cash income)',v:r=>ent(r).withdrawn||0},
     {key:'exc',head:'Excess income reinvested',v:r=>ent(r).excessReinvested||0},
     {key:'te',head:'Tax-exempt income paid',v:r=>ent(r).taxExempt||0},
     {key:'roll',head:'Rolled-forward next-year balance = SOY × (1 + growth) − dividends used − shares sold − withdraws − tax-exempt paid + excess reinvested',kind:'f',
@@ -662,7 +664,7 @@ function xlsxMainColumns(proj,acctSheets){
   F('expTot','Total household expenses = living + LTC + IRMAA + AUM fee + income tax',r=>v(r.expTotal),X=>`${X('expLiving')}+${X('expLtc')}+${X('irmaa')}+${X('expAum')}+${X('expTax')}`);
   F('totInc','Total income (as on Annual Household Income chart: every band incl. dividends, LTCG, IRA/Roth withdraws, depreciation)',r=>chartTotalIncome(r),
     X=>`${X('penT')}+${X('annT')}+${X('annTET')}+${X('wageT')}+${X('convT')}+${X('rmdT')}+${X('iraExT')}+${X('rentT')}+${X('rentDep')}+${X('teT')}+${X('expFromRoth')}+${X('qdiv')}+${X('odivNQ')}+${X('ltcg')}+${X('ssT')}`);
-  V('cash','Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+annuity+RMD+brokerage withdraws)',r=>v(r.cashIncome));
+  V('cash','Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+annuity+RMD+portfolio withdraw)',r=>v(r.cashIncome));
   F('expFromInc','Expenses paid by household income',r=>v(r.expFromIncome),X=>`MIN(${X('expTot')},${X('cash')})`);
   V('expFromDiv','Expenses paid by dividends',r=>v(r.expFromDiv));
   V('expFromSales','Expenses paid by asset sales',r=>v(r.expFromSales));

@@ -58,7 +58,7 @@ const IRMAA_SGL=[{magi:109000,label:'T1',surch:1148},{magi:137000,label:'T2',sur
 // flat in today's-dollar terms (no deflation): the scenario being modeled is a future law that
 // sets an inflation-indexed threshold, unlike current law's frozen nominal one.
 const NIIT_RATE=0.038, NIIT_THRESH_MFJ=250000, NIIT_THRESH_SGL=200000;
-// ── State income tax (Assumptions → State tax). Latest published figures (tax year 2025), treated as today's $ and held flat in
+// ── State income tax (Tax & Optimizations panel). Latest published figures (tax year 2025), treated as today's $ and held flat in
 // today's $ like the federal tables (they are inflation-indexed by the states). Options offered in the panel: California, Washington.
 const STATE_TAX_OPTIONS=[['CA','California'],['WA','Washington']];
 // California: Schedule X / Y brackets (MFJ limits are exactly double the single ones), standard deduction and exemption credits (FTB, 2025).

@@ -58,7 +58,7 @@ function buildTaxChart(){
   const stackTop=labels.map((_,i)=>{
     let t=alignedOrd[i]||0; alignedQ.forEach(a=>t+=a[i]||0); alignedL.forEach(a=>t+=a[i]||0); return t+(alignedNiit[i]||0);
   });
-  // State tax (Assumptions → State tax): its own dashed green line at tax stack + state tax — absolute height in its own stack group, so it never sits on the foreign tax credit line.
+  // State tax (Tax & Optimizations panel → State income tax): its own dashed green line at tax stack + state tax — absolute height in its own stack group, so it never sits on the foreign tax credit line.
   const stateName=(STATE_TAX_OPTIONS.find(o=>o[0]===(state.stateTax&&state.stateTax.state))||[0,'State'])[1];
   const alignedState=alignToAges(ages, rows.map(r=>r.stateTax>0?r.stateTax:null), labels);
   const alignedStateTop=alignedState.map((v,i)=>v>0?stackTop[i]+v:null);
