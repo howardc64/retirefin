@@ -32,6 +32,7 @@ function buildIncomeLegend(shownKeys){
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
   document.getElementById('incomeLegend').innerHTML =
     keys.filter(k=>!shownKeys||shownKeys.includes(k)).map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
+    (proj.rows.some(r=>(r.scglRemaining||0)>0.5) ? legendItem('SCGL remaining (suspended capital-gain loss carryforward)', null, legendDashStyle(BRACKET_COLOR)) : '') +
     legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(BRACKET_COLOR)) +
     legendItem('Ordinary tax brackets (rate above each line, shown on taxable ordinary income chart)', null, legendDashStyle(BRACKET_COLOR,'dashdot')) +
     legendItem('Deduction stacked on taxable ordinary income (shown on taxable ordinary income chart)', null, legendDashStyle(DEDUCTION_COLOR)) +
@@ -60,8 +61,12 @@ function buildIncomeChart(){
   });
   const aligned={}; keys.forEach(k=>{ aligned[k]=alignToAges(ages, seriesByKey[k], labels); });
 
+  // SCGL carryforward still unused at the end of each year (today's $), drawn as a dashed ink line with a white halo, on top of the bands, while any is left.
+  const scglAligned=alignToAges(ages, rows.map(r=>(r.scglRemaining||0)>0.5?r.scglRemaining:null), labels);
+  const hasScgl=scglAligned.some(v=>v!=null);
   const Y_MAX=lockedYMax('income', ()=>{
     let maxT=0;
+    scglAligned.forEach(v=>{ if(v!=null) maxT=Math.max(maxT,v); });   // keep the line on the chart
     for(let i=0;i<labels.length;i++){
       let t=0, any=false;
       keys.forEach(k=>{ const v=aligned[k][i]; if(v!=null){ t+=v; any=true; } });
@@ -83,13 +88,15 @@ function buildIncomeChart(){
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
     borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'inc'
   }));
+  if(hasScgl) datasets.push({label:'SCGL remaining', data:scglAligned, ciStock:true, halo:true, borderColor:BRACKET_COLOR, backgroundColor:'transparent',
+    borderWidth:2.5, borderDash:[6,4], pointRadius:0, tension:0, fill:false, spanGaps:false, stack:'scgl', order:-1});   // own stack key keeps it off the income bands; order -1 draws it on top of them
 
   // Built fresh on every call (not just on first creation) so the tooltip never closes
   // over a stale rowByAge/labels/aligned from an earlier render after a slider change.
   const tooltipCallbacks={
     title:i=>{ const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]]; return r?popupPersonAgeLines(proj,r):[]; },
     label:ctx=>{
-      if(ctx.raw==null||ctx.raw===0) return null;
+      if(ctx.raw==null||ctx.raw===0||ctx.datasetIndex>=keys.length) return null;   // the SCGL line is reported by the footer
       const key=keys[ctx.datasetIndex];
       const r=rowByAge[labels[ctx.dataIndex]];
       const field=INC_BYPERSON_FIELD[key];

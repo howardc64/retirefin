@@ -32,6 +32,7 @@ const CI_INCOME=[
   [/^Roth IRA withdraw/, 'Money withdrawn from a Roth IRA to pay household expenses. Tax-free, so it adds nothing to AGI.'],
   [/^Qual\. dividends/, 'Qualified dividends (QDIV) paid by your brokerage portfolios. Taxed at the preferential 0% / 15% / 20% rates, and part of net investment income.'],
   [/^Ordinary dividends/, 'The non-qualified part of portfolio dividends (ordinary dividends minus qualified dividends). Taxed as ordinary income and part of net investment income.'],
+  [/^SCGL remaining/, "The suspended capital-gain loss (SCGL) carryforward still unused at the end of the year, in today's dollars. Realized long-term gains use it up dollar for dollar before they are taxed, so the line falls as gains are realized and ends when it is used up."],
   [/^Long-term gains/, 'Long-term capital gains realized when portfolio assets are sold (to pay expenses). Taxed at the preferential 0% / 15% / 20% rates, net of any short-term capital loss (SCGL) carry-forward used.']
 ];
 const CI_MAGI='This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the dashed IRMAA lines mark where each surcharge tier starts.';
@@ -266,7 +267,7 @@ function ciValueLine(key, f, chart){
   if(typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)<0.5&&!/^Effective tax rate/.test(String(f.ds.label))) return null;
   const age=' '+ciAgeText(chart.data.labels&&chart.data.labels[f.idx]);
   if(/^Effective tax rate/.test(String(f.ds.label))) return v>0?'Value'+age+': '+v.toFixed(1)+'%':null;
-  return 'Value'+age+': '+fmt(v)+(CI_STOCK_KEYS.includes(key)?'':'/yr');
+  return 'Value'+age+': '+fmt(v)+(CI_STOCK_KEYS.includes(key)||f.ds.ciStock?'':'/yr');
 }
 function ciShow(e){
   const hit=ciChartOf(e.target);
