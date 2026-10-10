@@ -98,12 +98,15 @@ function computeNIIT(nii, magi, filing, f=1, futureTax, year){
 //   p.ltcgPortfolio     — realized long-term gain from portfolio sales, net of SCGL, excluding real estate (the Washington base)
 //   p.filing, p.nAlive, p.nSenior — filing status, living people, living people aged 65+
 //   p.f                 — 1/(1+inflation)^k: the un-indexed statutory $1,000,000 thresholds are deflated by it
-// California: tax on (AGI − taxable SS − standard deduction) from the California brackets, + 1% over $1M, − personal and senior credits.
+// California: tax on (AGI − taxable SS − deduction) from the California brackets, where the deduction is the larger of the state standard deduction and the
+// medical itemized deduction (p.expLtc, the Long Term Care cost, above 7.5% of California AGI = AGI − taxable SS; California follows the federal medical-expense rule), + 1% over $1M, − personal and senior credits.
 // Washington: 7% / 9.9% capital-gains excise tax on portfolio LTCG above the deduction.
 function computeStateTax(code, p){
   if(code==='CA'){
     const married=p.filing==='married';
-    const ti=Math.max(0, p.agi-p.taxableSS-(married?CA_STD_MFJ:CA_STD_SGL));
+    const caAgi=Math.max(0, p.agi-p.taxableSS);
+    const medItemized=Math.max(0, (p.expLtc||0)-0.075*caAgi);
+    const ti=Math.max(0, caAgi-Math.max(married?CA_STD_MFJ:CA_STD_SGL, medItemized));
     let tax=calcOrdTax(ti, married?CA_ORD_MFJ:CA_ORD_SGL);
     tax+=CA_MH_RATE*Math.max(0, ti-CA_MH_THRESH*p.f);
     tax-=CA_PERSONAL_CREDIT*p.nAlive+CA_SENIOR_CREDIT*p.nSenior;

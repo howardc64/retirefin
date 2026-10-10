@@ -5,7 +5,7 @@
 // The others sit in `scnSnaps` as plain snapshots. Switching swaps them, rebuilds the input forms and re-draws every chart,
 // so comparing plans is a matter of switching and watching the charts animate between them (the chart y-axis scale is kept across a switch).
 // Layout settings (`state.ui`: hidden sections, devalue sliders…) belong to the viewer, not the plan, and stay put when switching.
-// The Scenario button opens a card: scenario chips (click one to show it), New scenario (a copy of the one on screen), Delete scenario (the one on screen, one at a time), a name box, and a collapsible list of every input that differs.
+// The Scenario button opens a popup card that floats over the page: scenario chips (click one to show it), New scenario (a copy of the one on screen), Delete scenario (the one on screen, one at a time), a name box, and a collapsible list of every input that differs.
 // The set is kept in localStorage and written into the plan file by Save. The first scenario is always A; the plan is the same as before until a second one is created.
 // Nothing here changes how a plan is computed.
 // ═══════════════════════════════════════════════════════════════
@@ -101,6 +101,11 @@ function scnDelete(){
   scnActive=next; state=incoming;
   renderAll(); autosave();
   flashMsg('Scenario '+gone+' deleted. Showing '+scnLabel(next)+'.');
+}
+// Reset to defaults: every other scenario is removed and the plan on screen becomes the one scenario, A (called by resetState before it redraws).
+function scnReset(){
+  scnOrder=['A']; scnActive='A'; scnSnaps={}; Object.keys(scnNames).forEach(k=>delete scnNames[k]);
+  scnSave();   // clears the stored scenario set
 }
 function scnRename(v){ scnNames[scnActive]=v.trim(); scnSave(); renderScenarioCard(); }
 // ── Plan file: Save writes every scenario, Load restores them all ──

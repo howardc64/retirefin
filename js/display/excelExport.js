@@ -195,7 +195,7 @@ function xlsxTaxSheet(){
   r++;
   const selSt=xlsxSelectedState();
   if(selSt==='CA'){
-    title('State income tax (Inputs: State income tax). California: 2025 brackets, state standard deduction and credits. Held flat in today\'s $ (the state indexes them); only the Mental Health Services threshold is deflated.');
+    title('State income tax (Inputs: State income tax). California: 2025 brackets, state standard deduction (or, when larger, the Long Term Care medical itemized deduction, computed in the State income tax rows) and credits. Held flat in today\'s $ (the state indexes them); only the Mental Health Services threshold is deflated.');
     scalar('California standard deduction, married (MFJ)','CA_Std_MFJ',CA_STD_MFJ,XLSX_MONEY);
     scalar('California standard deduction, single','CA_Std_SGL',CA_STD_SGL,XLSX_MONEY);
     scalar('California personal exemption credit, per living person','CA_Cred',CA_PERSONAL_CREDIT,XLSX_MONEY);
@@ -639,8 +639,8 @@ function xlsxMainColumns(proj,acctSheets){
   if(selState==='CA'){
     F('stN','People alive (state tax: personal credits)',r=>r.alive.reduce((c,a)=>c+(a?1:0),0),X=>{
       const t=[]; for(let i=0;i<n;i++) t.push(`(${X('age_'+i)}<Pass_${i+1})`); return t.join('+'); },XLSX_COUNT);
-    const caTIv=r=>Math.max(0,r.agi-r.taxableSS-(r.filing==='married'?CA_STD_MFJ:CA_STD_SGL));
-    F('caTI','California taxable income = AGI − taxable SS − state standard deduction',caTIv,X=>`MAX(0,${X('agi')}-${X('tss')}-IF(${M(X)},CA_Std_MFJ,CA_Std_SGL))`);
+    const caTIv=r=>{ const a=Math.max(0,r.agi-r.taxableSS); return Math.max(0,a-Math.max(r.filing==='married'?CA_STD_MFJ:CA_STD_SGL, Math.max(0,(r.expLtc||0)-0.075*a))); };
+    F('caTI','California taxable income = (AGI − taxable SS) − larger of state standard deduction and medical itemized deduction (LTC cost above 7.5% of that income)',caTIv,X=>{ const a=`MAX(0,${X('agi')}-${X('tss')})`; return `MAX(0,${a}-MAX(IF(${M(X)},CA_Std_MFJ,CA_Std_SGL),MAX(0,${X('expLtc')}-0.075*${a})))`; });
     F('stateTax','California income tax (not part of TT; paid as a household expense)',r=>v(r.stateTax),X=>{
       const t=X('caTI'), f=X('f');
       const ca=`MAX(0,IF(${M(X)},SUMPRODUCT((${t}>CA_MFJ_Lo)*(${t}-CA_MFJ_Lo)*CA_MFJ_dR),SUMPRODUCT((${t}>CA_SGL_Lo)*(${t}-CA_SGL_Lo)*CA_SGL_dR))+CA_MH_Rate*MAX(0,${t}-CA_MH_Thr*${f})-CA_Cred*${X('stN')}-CA_SrCred*${X('enr')})`;

@@ -74,6 +74,7 @@ async function loadSample(name){
     const res = await fetch(SAMPLES_DIR+encodeURIComponent(name), {cache:'no-store'});
     if(!res.ok) throw new Error('HTTP '+res.status);
     applyLoadedFileText(await res.text());
+    setSaveTarget(null,name);   // sample plans are never overwritten: Save asks where to save a copy
   }catch(err){
     alert('Could not load sample "'+name+'": '+(err&&err.message?err.message:err));
   }

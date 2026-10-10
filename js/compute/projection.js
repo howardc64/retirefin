@@ -809,7 +809,7 @@ function computeProjection(){
       // §9.4: foreign tax credit offsets the ordinary+qualified tax (not NIIT), floored at 0.
       const totalTax=Math.max(0, incomeTax-foreignTaxCredit)+niit;
       // State tax (not part of totalTax). Washington taxes only portfolio gains, so a property sale's gain (and the SCGL it uses first) is left out.
-      const stateTax=stCode?computeStateTax(stCode,{agi, taxableSS, ltcgPortfolio:Math.max(0,ltcgGross-(reGainAll==null?reGainTotal:reGainAll)-scglUsed), filing, nAlive:stN, nSenior:stSenior, f:ssThresholdFactor}):0;
+      const stateTax=stCode?computeStateTax(stCode,{agi, taxableSS, expLtc, ltcgPortfolio:Math.max(0,ltcgGross-(reGainAll==null?reGainTotal:reGainAll)-scglUsed), filing, nAlive:stN, nSenior:stSenior, f:ssThresholdFactor}):0;
       return {stateTax, scglUsed, ltcg, qualIncome, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax};
     }
 

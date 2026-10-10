@@ -300,7 +300,7 @@ body.printing-all canvas.print-swapped{display:none !important;}
 #iiMenu div.dis{opacity:.45;cursor:default;}
 
 /* Scenario card (scenarios.js) and Notes popup (userNotes.js) */
-.scn-card{position:fixed;top:64px;right:14px;z-index:10000;width:min(480px,calc(100vw - 28px));max-height:80vh;overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.22);padding:12px 14px;font-size:13px}
+.scn-card{position:fixed;top:64px;right:14px;z-index:10000;width:min(480px,calc(100vw - 28px));max-height:80vh;overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.22);padding:12px 14px;font-size:13px}   /* popup card floating over the page */
 .scn-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}
 .scn-name{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .scn-name input{flex:1;min-width:0;font:inherit;padding:3px 6px}
@@ -312,3 +312,8 @@ body.printing-all canvas.print-swapped{display:none !important;}
 .un-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .un-card textarea{width:100%;min-height:50vh;box-sizing:border-box;font:14px/1.45 'DM Sans',sans-serif;padding:8px;resize:vertical;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:6px}
 @media print{.scn-card,.un-overlay{display:none !important}}
+
+#saveBtn.saved{background:#0f6e56;border-color:#0f6e56;color:#fff}
+.save-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(12px);z-index:10005;background:#0f6e56;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+.save-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media print{.save-toast{display:none !important}}

@@ -16,7 +16,7 @@
   <p>Enter your household's financial details below, in today's dollars. Projections and charts will build on this data.</p>
   <div class="topbar">
     <button class="btn" onclick="openUsagePage()">Usage</button>
-    <button class="btn btn-primary" onclick="saveToFile()">💾 Save</button>
+    <button class="btn btn-primary" id="saveBtn" onclick="saveToFile()" title="Save the plan; asks where to save the first time">💾 Save</button>
     <div class="dropdown" id="loadDropdown">
       <button class="btn" id="loadMenuBtn" onclick="toggleLoadMenu(event)" aria-haspopup="true" aria-expanded="false">📂 Load file ▾</button>
       <div class="dropdown-menu" id="loadMenu" role="menu"></div>
@@ -26,7 +26,8 @@
     <button class="btn btn-danger" onclick="resetState()">Reset to defaults</button>
     <button class="btn" onclick="openFormulasPage()">Formulas</button>
     <button class="btn" onclick="openNotesPage()">Tips</button>
-    <button class="btn" onclick="openUserNotes()" title="Write your own notes about this plan; they are saved in the plan file">📝 Notes</button>
+    <button class="btn" onclick="openUserNotes('global')" title="Your own notes about the whole plan; the same whichever scenario is on screen, and saved in the plan file">📝 Notes</button>
+    <button class="btn" onclick="openUserNotes('scenario')" title="Your own notes about the scenario on screen; each scenario has its own, saved in the plan file">📝 Scenario Notes</button>
     <button class="btn" onclick="exportToExcel()">📊 Export Excel</button>
     <button class="btn" onclick="printPage()">🖨️ Print</button>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;" title="When checked, hovering an input in Household Setup or Income &amp; Assets shows a description of that input, and each choice in a drop-down menu shows its own description">
