@@ -168,15 +168,13 @@ function buildAssetChartFor(cfg){
     return Math.max(50000, Math.ceil(maxT/10000)*10000+10000);
   });
 
-  // Owner text for Chart Element Info: the holder's name, or both names when the portfolio / property is "Joint owned with spouse" (`bene`) in a married plan.
-  const ownerOf=s=>{
-    const p=proj.people[s.personIdx], me=displayPersonName(p,s.personIdx);
-    const item=s.type==='portfolio'?(p.brokerage||[])[s.bi]:s.type==='realestate'?(p.realEstate||[])[s.ri]:null;
-    if(item&&item.bene&&proj.married&&proj.people.length>1){
-      const oi=s.personIdx===0?1:0;
-      return me+' and '+displayPersonName(proj.people[oi],oi)+' (joint)';
-    }
-    return me;
+  // Ownership facts for Chart Element Info (the popup words it for the hovered year, see ciOwnerText in chartInfo.js): who holds the asset, whether a
+  // portfolio / property is "Joint owned with spouse" (both are owners while both live), and `bene` (it continues to the surviving spouse).
+  const ownerInfoOf=s=>{
+    const p=proj.people[s.personIdx];
+    const item=s.type==='portfolio'?(p.brokerage||[])[s.bi]:s.type==='realestate'?(p.realEstate||[])[s.ri]:s.type==='annuity'?(p.annuities||[])[s.ai]:(s.type==='ira'||s.type==='roth')?p[s.type]:null;
+    const bene=!!(item&&item.bene);
+    return {own:s.personIdx, bene, joint:bene&&(s.type==='portfolio'||s.type==='realestate')};
   };
   const seriesLabel=(s,si)=>{
     const personName=displayPersonName(proj.people[s.personIdx], s.personIdx);
@@ -188,7 +186,7 @@ function buildAssetChartFor(cfg){
   const datasets=series.map((s,si)=>{
     const color=ASSET_COLORS[si%ASSET_COLORS.length];
     return {
-      label:seriesLabel(s,si), vzKind:s.type, ciOwner:ownerOf(s), data:aligned[si],
+      label:seriesLabel(s,si), vzKind:s.type, ciOwnerInfo:ownerInfoOf(s), data:aligned[si],
       borderColor:color, backgroundColor:hexOverWhite(color,0xbb/255),   // opaque (the old look blended over white): translucent fills piled up wherever bands overlap, so a band changed shade when the bands above it ended
       borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'pf', order:1
     };
@@ -198,7 +196,7 @@ function buildAssetChartFor(cfg){
   const extra=[];
   pfBasis.forEach(pb=>{
     datasets.push({
-      label:seriesLabel(series[pb.si],pb.si)+' cost basis', vzKind:'pfBasis', ciOwner:ownerOf(series[pb.si]), data:pb.line, ciValues:pb.basis,   // data = plotted height (stack below + basis); ciValues = the cost basis itself, for Chart Element Info
+      label:seriesLabel(series[pb.si],pb.si)+' cost basis', vzKind:'pfBasis', ciOwnerInfo:ownerInfoOf(series[pb.si]), data:pb.line, ciValues:pb.basis,   // data = plotted height (stack below + basis); ciValues = the cost basis itself, for Chart Element Info
       borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:2.5, borderDash:[8,5],
       pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'basis-pf-'+pb.si, order:0
     });
@@ -206,7 +204,7 @@ function buildAssetChartFor(cfg){
   });
   reBasis.forEach(rb=>{
     datasets.push({
-      label:seriesLabel(series[rb.si],rb.si)+' cost basis', vzKind:'reBasis', ciOwner:ownerOf(series[rb.si]), data:rb.line, ciValues:rb.basis,
+      label:seriesLabel(series[rb.si],rb.si)+' cost basis', vzKind:'reBasis', ciOwnerInfo:ownerInfoOf(series[rb.si]), data:rb.line, ciValues:rb.basis,
       borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:2.5, borderDash:[1,5], borderCapStyle:'round',
       pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'basis-re-'+rb.si, order:0   // its own stack group, so it plots at its own height rather than on top of the bands
     });

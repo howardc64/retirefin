@@ -210,6 +210,34 @@ function ciChartOf(canvas){
 }
 // "at age 86 (Peter)": the age of the OLDEST person alive that year, with their name (married plans). When nobody is alive (the IRA stretch years)
 // it reads "3 years since Yen passed", naming whoever was the last to pass. Falls back to the axis age when the year's row is not found.
+function ciRowAt(label){
+  const proj=(typeof lastProjection!=='undefined')?lastProjection:null;
+  if(!proj||!proj.rows||!proj.rows.length||label==null||label==='') return null;
+  const all=proj.rows.concat(proj.stretch||[]);
+  const k=all.findIndex(r=>Math.round(r.age0)===Math.round(Number(label)));
+  return k<0?null:{proj,all,k};
+}
+// Owner line for the hovered year, tracking who holds the asset then. Jointly owned: both names while both are alive ("Owners: Peter and Yen (joint)"),
+// the survivor once one has passed ("Owner: Yen"), the heirs once both have passed ("Owner: heirs"). Not jointly owned: "Owner: Peter" while the
+// owner is alive; after the owner passes, "Owner: Yen" when the asset continues to the surviving spouse, else "Owner: heirs".
+function ciOwnerText(o,label){
+  const at=ciRowAt(label); if(!o) return '';
+  const proj=at?at.proj:(typeof lastProjection!=='undefined'?lastProjection:null); if(!proj) return '';
+  const nm=i=>displayPersonName(proj.people[i],i);
+  const two=!!proj.married&&proj.people.length>1, sp=two?(o.own===0?1:0):null;
+  const joint=!!o.joint&&two;
+  if(!at) return joint?'Owners: '+nm(o.own)+' and '+nm(sp)+' (joint)':'Owner: '+nm(o.own);
+  const r=at.all[at.k], alive=i=>!!(r.alive&&r.alive[i]);
+  if(joint){
+    if(alive(o.own)&&alive(sp)) return 'Owners: '+nm(o.own)+' and '+nm(sp)+' (joint)';
+    if(alive(o.own)) return 'Owner: '+nm(o.own);
+    if(alive(sp)) return 'Owner: '+nm(sp);
+    return 'Owner: heirs';
+  }
+  if(alive(o.own)) return 'Owner: '+nm(o.own);
+  if(two&&o.bene&&alive(sp)) return 'Owner: '+nm(sp);
+  return 'Owner: heirs';
+}
 function ciAgeText(label){
   const fallback=(label!=null&&label!=='')?'at age '+label:'';
   const proj=(typeof lastProjection!=='undefined')?lastProjection:null;
@@ -255,7 +283,7 @@ function ciShow(e){
       if(text){
         const color=f.ds.borderColor&&typeof f.ds.borderColor==='string'?f.ds.borderColor:null;
         const name=String(f.ds.ordLabel?(hit.key==='incomeQual'?'Qualified tax bracket line: ':'Ordinary tax bracket line: ')+f.ds.ordLabel:f.ds.label);
-        info={name,text,color,value:ciValueLine(hit.key,f,hit.chart),owner:f.ds.ciOwner||''};
+        info={name,text,color,value:ciValueLine(hit.key,f,hit.chart),owner:ciOwnerText(f.ds.ciOwnerInfo,hit.chart.data.labels&&hit.chart.data.labels[f.idx])};
       }
     }
   }
@@ -265,7 +293,7 @@ function ciShow(e){
   const {name,text,color,value,owner}=info;
   el.style.background=th.bg; el.style.color=th.fg; el.style.borderColor=th.border;
   el.style.whiteSpace='normal'; el.style.maxWidth='340px';
-  el.innerHTML=`<div style="position:relative;padding-left:14px;font-weight:bold;margin-bottom:3px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${esc(color)};border:1px solid ${th.fg};box-sizing:border-box;" data-sw></span>`:''}${esc(name)}</div>${owner?`<div style="margin-bottom:3px;">${esc((/ and /.test(owner)?'Owners: ':'Owner: ')+owner)}</div>`:''}${value?`<div style="font-weight:bold;margin-bottom:3px;">${esc(value)}</div>`:''}<div>${esc(text)}</div>`;
+  el.innerHTML=`<div style="position:relative;padding-left:14px;font-weight:bold;margin-bottom:3px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${esc(color)};border:1px solid ${th.fg};box-sizing:border-box;" data-sw></span>`:''}${esc(name)}</div>${owner?`<div style="margin-bottom:3px;">${esc(owner)}</div>`:''}${value?`<div style="font-weight:bold;margin-bottom:3px;">${esc(value)}</div>`:''}<div>${esc(text)}</div>`;
   el.style.opacity=1;
   const w=el.offsetWidth, h=el.offsetHeight;
   let left=e.clientX+14; if(left+w>window.innerWidth-8) left=e.clientX-14-w;
