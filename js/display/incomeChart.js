@@ -267,7 +267,8 @@ function buildIncomeChart(){
   // "Deduction" the popup shows) = the year's gross ordinary income (`ordIncome`). The gap between the top of the stack and the line is the deduction.
   // Left out (null) in years where no deduction is absorbed. Its own stack key keeps it from stacking on the bands.
   const dedLine=rows.map(r=>{ const d=Math.max(0,(r.ordIncome||0)-(r.ordTI||0)); return d>0.5 ? (r.ordTI||0)+d : null; });
-  ordDs.push({data:alignToAges(ages, dedLine, labels), label:'Deduction', borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
+  const dedAmt=rows.map(r=>{ const d=Math.max(0,(r.ordIncome||0)-(r.ordTI||0)); return d>0.5?d:null; });   // the deduction itself (the line is plotted at taxable ordinary income + it)
+  ordDs.push({data:alignToAges(ages, dedLine, labels), ciValues:alignToAges(ages, dedAmt, labels), label:'Deduction', borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
     borderDash:[7,4], borderColor:DEDUCTION_COLOR, stack:'ded', order:0});
   const nStack=ordKeys.length;
   const ordTip={

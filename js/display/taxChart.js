@@ -96,7 +96,7 @@ function buildTaxChart(){
   ];
 
   if(alignedState.some(v=>v>0)){
-    datasets.push({label:'State income tax ('+stateName+')', data:alignedStateTop, irmaaAmt:alignedState, borderColor:VZ_TAX.state, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'state', order:2});   // irmaaAmt = what the popup reports (the dataset values are heights)
+    datasets.push({label:'State income tax ('+stateName+')', data:alignedStateTop, irmaaAmt:alignedState, ciValues:alignedState, borderColor:VZ_TAX.state, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'state', order:2});   // irmaaAmt = what the popup reports (the dataset values are heights)
   }
   // The IRMAA line is always a dataset (when any IRMAA is paid) so that toggling "view IRMAA as tax" tweens it instead of rebuilding the chart:
   // off, it lies on the tax / state line it would stack on and is fully transparent; on, it slides up to tax + IRMAA and fades in.
@@ -104,7 +104,7 @@ function buildTaxChart(){
     const on=viewIrmaaAsTax;
     const alignedIrmaaBase=alignedIrmaa.map((v,i)=>v>0?stackTop[i]+(alignedState[i]||0):null);
     // Own stack id so it is plotted at an absolute height (tax stack + IRMAA), not on top of the foreign tax credit line; irmaaAmt is what the popup reports.
-    datasets.push({label:'IRMAA surcharge', data:on?alignedIrmaaTop:alignedIrmaaBase, irmaaAmt:alignedIrmaa, irmaaOff:!on, borderColor:on?OVERLAY_COLOR:IRMAA_LINE_OFF, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, pointHitRadius:on?12:0, tension:0.25, fill:false, spanGaps:false, stack:'irmaa', order:2});
+    datasets.push({label:'IRMAA surcharge', data:on?alignedIrmaaTop:alignedIrmaaBase, irmaaAmt:alignedIrmaa, ciValues:alignedIrmaa, irmaaOff:!on, borderColor:on?OVERLAY_COLOR:IRMAA_LINE_OFF, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, pointHitRadius:on?12:0, tension:0.25, fill:false, spanGaps:false, stack:'irmaa', order:2});
   }
 
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.
