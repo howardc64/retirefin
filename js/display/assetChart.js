@@ -3,7 +3,19 @@
 // DISPLAY / ASSET VALUE CHARTS — brokerage, real estate, IRA/Roth balances, and
 // a separate IDGT-only chart if any IDGT portfolios exist (spec §10).
 // ═══════════════════════════════════════════════════════════════
-const ASSET_COLORS=['#0f6e56','#2E86AB','#8E44AD','#D06A18','#C0392B','#3DB08A','#7B5EA7','#E85D9A','#1A5276','#B5891D'];
+// Asset colors: one hue family per person (first person blues, second greens), a different shade for each of that person's assets, so who holds
+// what reads at a glance, and a third family (amber / orange) for every real estate property whoever holds it. No band shares a hue with the red
+// IRA stretch bar or the red tax lines. Adjacent bands alternate between the families. Cycles after 6 assets per family; a plan with one person
+// and no property uses blues only.
+const ASSET_SHADES=[
+  ['#1B4F8A','#2E86C1','#85C1E9','#154360','#5DADE2','#AED6F1'],
+  ['#0B6B4F','#27AE60','#82E0AA','#14532D','#58D68D','#ABEBC6'],
+  ['#C26A0E','#E9A23B','#F5C77A','#8F4F08','#F0B35C','#FAE0B0']   // real estate
+];
+function assetSeriesColors(series){
+  const used={};
+  return series.map(s=>{ const pi=s.type==='realestate'?2:Math.min(1,s.personIdx||0), k=used[pi]=(used[pi]||0); used[pi]++; const sh=ASSET_SHADES[pi]; return sh[k%sh.length]; });
+}
 // A band's fill is its color at 0xbb alpha. The popup's color boxes need that same look but opaque (the box's own white backing is turned off so
 // the cost-basis key can be an empty dashed box), so blend the color over white here.
 function hexOverWhite(hex,a){
@@ -183,8 +195,9 @@ function buildAssetChartFor(cfg){
   // No gap at the last passing: a stretched band's line and fill run straight on from the last real year into the
   // first stretch year. Accounts that don't continue (IDGT, unchecked IRAs) are null in the stretch years, so
   // they simply end at the last real year and never reach into it.
+  const colorOf=assetSeriesColors(series);
   const datasets=series.map((s,si)=>{
-    const color=ASSET_COLORS[si%ASSET_COLORS.length];
+    const color=colorOf[si];
     return {
       label:seriesLabel(s,si), vzKind:s.type, ciOwnerInfo:ownerInfoOf(s), data:aligned[si],
       borderColor:color, backgroundColor:hexOverWhite(color,0xbb/255),   // opaque (the old look blended over white): translucent fills piled up wherever bands overlap, so a band changed shade when the bands above it ended
@@ -225,7 +238,7 @@ function buildAssetChartFor(cfg){
     // multiKeyBackground below); every cost-basis row gets a black dashed box with nothing inside it.
     labelColor:ctx=>{
       if(ctx.datasetIndex>=series.length) return {borderColor:'#000', backgroundColor:'transparent', borderWidth:2, borderDash:[3,2], borderRadius:0};
-      const c=ASSET_COLORS[ctx.datasetIndex%ASSET_COLORS.length];
+      const c=colorOf[ctx.datasetIndex];
       return {borderColor:c, backgroundColor:hexOverWhite(c,0xbb/255), borderWidth:3, borderRadius:0};
     },
     label:ctx=>{
@@ -341,7 +354,7 @@ function buildAssetChartFor(cfg){
     })});
   if(!cfg.idgt) buildRothConvChart({proj, rows, allRows, labels, ages, rowByAge, series, seriesLabel});
   legendEl.innerHTML = series.map((s,si)=>
-    hasValue(alignedFace[si]) ? legendItem(escHtml(seriesLabel(s,si)), ASSET_COLORS[si%ASSET_COLORS.length]) : ''   // no entry for an asset that is $0 in every year
+    hasValue(alignedFace[si]) ? legendItem(escHtml(seriesLabel(s,si)), colorOf[si]) : ''   // no entry for an asset that is $0 in every year
   ).join('') + (showBasis ? legendItem('Cost basis (dashed, one per portfolio) — brokerage above it is unrealized gain', null, 'border-top:2px dashed #1f1f1f;background:transparent;height:2px;margin-top:4px') : '')
     + (reBasis.length ? legendItem('Cost basis (dotted) — real estate above it is unrealized gain', null, 'border-top:2px dotted #1f1f1f;background:transparent;height:2px;margin-top:4px') : '');
 
@@ -386,7 +399,7 @@ function buildRothConvChart(ctx){
     const p=proj.people[s.personIdx];
     if(!(p.roth&&p.roth.enabled)) return;                                   // conversions need the Roth IRA turned on
     if(!(p.ira.convMode==='bracket' || Number(p.ira.conv)>0)) return;      // and a conversion set up
-    convSeries.push({personIdx:s.personIdx, color:ASSET_COLORS[si%ASSET_COLORS.length],
+    convSeries.push({personIdx:s.personIdx, color:assetSeriesColors(series)[si],
       label:proj.married?`${displayPersonName(p,s.personIdx)} \u2014 IRA conversion`:'IRA conversion'});
   });
   if(!convSeries.length){

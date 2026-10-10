@@ -8,7 +8,11 @@
 // ═══════════════════════════════════════════════════════════════
 // Color of every dashed reference line drawn over a chart (IRMAA tiers, ordinary-tax brackets) and of its legend swatch.
 const OVERLAY_COLOR='rgba(0,0,0,.9)';
-const BRACKET_COLOR='#00D100';   // bright green: IRMAA lines (MAGI chart) and ordinary bracket lines (taxable ordinary income chart)
+// Threshold / reference lines (IRMAA brackets, ordinary and qualified tax brackets) are not data, so they are drawn in ink with a white halo and told apart
+// by dash pattern, not by hue: they read on top of any band color, for color-blind readers too. Labels sit on small white pills.
+const BRACKET_COLOR='#1B1B1B';
+const BRACKET_HALO='rgba(255,255,255,.92)';
+const IRMAA_DASH=[9,5], ORD_DASH=[10,4,2,4], QUAL_DASH=[2,4];   // long dash / dash-dot / dotted
 const DEDUCTION_COLOR='#D62828';   // red dashed deduction line on the taxable ordinary income chart
 // §3 "show_details checkbox": when on, chart popups reveal the underlying calculation
 // components (provisional income, AGI, standard deduction, etc.) called out as
@@ -192,8 +196,11 @@ function crowdedBracketKeep(valueLists, yMax, keep=3, gapFrac=0.05){
 
 // Legend swatch + label. `style` overrides the default solid-color swatch (e.g. the dashed IRMAA key).
 // Dashed-line swatch (matches the dashed overlay lines on the charts).
-function legendDashStyle(color){
-  return `background:repeating-linear-gradient(90deg,${color} 0 5px,transparent 5px 8px);height:2px;border-radius:0`;
+function legendDashStyle(color,kind){   // kind: 'dash' (default), 'dashdot' or 'dot', matching the chart line's dash pattern
+  const g=kind==='dashdot'?`${color} 0 7px,transparent 7px 9px,${color} 9px 11px,transparent 11px 14px`
+         :kind==='dot'?`${color} 0 2px,transparent 2px 5px`
+         :`${color} 0 5px,transparent 5px 8px`;
+  return `background:repeating-linear-gradient(90deg,${g});height:2px;border-radius:0`;
 }
 function legendItem(text, color, style){
   return `<span class="li"><span class="ls" style="${style||('background:'+color)}"></span>${text}</span>`;

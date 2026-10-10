@@ -20,6 +20,13 @@ function declutterLabels(ctx, items, top, bottom, minGap){
   if(items[0].y < top) { const under=top-items[0].y; items.forEach(it=>it.y += under); }
   items.forEach(it=>{
     ctx.font=it.font; ctx.fillStyle=it.color; ctx.textAlign=it.align||'right'; ctx.textBaseline='middle';
+    if(it.pill){   // small white pill behind the label, so it reads on any band color
+      const w=ctx.measureText(it.text).width, al=it.align||'right', x0=al==='right'?it.x-w:(al==='center'?it.x-w/2:it.x);
+      ctx.save(); ctx.fillStyle='rgba(255,255,255,.88)';
+      const px=x0-3, py=it.y-6, pw=w+6, ph=12, r=5;
+      ctx.beginPath(); ctx.moveTo(px+r,py); ctx.lineTo(px+pw-r,py); ctx.quadraticCurveTo(px+pw,py,px+pw,py+r); ctx.lineTo(px+pw,py+ph-r); ctx.quadraticCurveTo(px+pw,py+ph,px+pw-r,py+ph); ctx.lineTo(px+r,py+ph); ctx.quadraticCurveTo(px,py+ph,px,py+ph-r); ctx.lineTo(px,py+r); ctx.quadraticCurveTo(px,py,px+r,py); ctx.fill(); ctx.restore();
+      ctx.fillStyle=it.color;
+    }
     if(it.halo){ ctx.lineWidth=3; ctx.lineJoin='round'; ctx.strokeStyle=it.halo; ctx.strokeText(it.text, it.x, it.y); }
     ctx.fillText(it.text, it.x, it.y);
   });
@@ -50,9 +57,11 @@ const incomeOverlayPlugin={
         const yPx=y.getPixelForValue(ln.magi);
         if(yPx<top||yPx>bottom) return;
         const lineCol = BRACKET_COLOR;
-        ctx.beginPath(); ctx.setLineDash([8,5]); ctx.lineWidth=1.4; ctx.strokeStyle=lineCol;
+        ctx.beginPath(); ctx.setLineDash(IRMAA_DASH); ctx.lineWidth=3.6; ctx.strokeStyle=BRACKET_HALO;   // white halo under the ink line
+        ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke();
+        ctx.beginPath(); ctx.lineWidth=1.6; ctx.strokeStyle=lineCol;
         ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke(); ctx.setLineDash([]);
-        bucket.push({y:yPx-5,x:Math.min(right,xb)-3,text:ln.pct!=null ? `$${(ln.magi/1000).toFixed(0)}k +${ln.pct}%` : `IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,font:(ln.pct!=null?'9px':'10px')+' DM Sans,sans-serif'});
+        bucket.push({y:yPx-5,x:Math.min(right,xb)-3,text:ln.pct!=null ? `$${(ln.magi/1000).toFixed(0)}k +${ln.pct}%` : `IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,pill:true,font:(ln.pct!=null?'9px':'10px')+' DM Sans,sans-serif'});
       });
     }
     drawLines(opts.irmaaMFJ,0,Math.min(swIdx,n)-1,leftLabels);
@@ -80,7 +89,7 @@ const ordLabelPlugin={
       if(li<0) return;
       const py=y.getPixelForValue(ds.data[li]); if(py<chartArea.top||py>chartArea.bottom) return;
       const px=Math.min(chartArea.right-2, x.getPixelForValue(li));
-      items.push({y:py-7, x:px-2, text:ds.ordLabel, color:BRACKET_COLOR, font:'10px DM Sans,sans-serif'});
+      items.push({y:py-7, x:px-2, text:ds.ordLabel, color:BRACKET_COLOR, pill:true, font:'10px DM Sans,sans-serif'});
     });
     ctx.save();
     declutterLabels(ctx, items, chartArea.top+6, chartArea.bottom-6, 11);
@@ -88,6 +97,30 @@ const ordLabelPlugin={
   }
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('ordLabels')) Chart.register(ordLabelPlugin);
+
+// White halo under a straight line dataset flagged `halo:true` (the bracket and deduction lines), drawn just before the line itself so the line
+// stays readable over any band color.
+const lineHaloPlugin={
+  id:'lineHalo',
+  beforeDatasetDraw(chart,args){
+    const ds=chart.data.datasets[args.index]; if(!ds||!ds.halo||!chart.isDatasetVisible(args.index)) return;
+    const {ctx,chartArea}=chart, meta=args.meta, curved=(ds.tension||0)>0;
+    if(curved&&meta.dataset&&meta.dataset.updateControlPoints){ try{ meta.dataset.updateControlPoints(chartArea, meta.iScale&&meta.iScale.axis); }catch(e){} }   // curve handles, so the halo follows a smoothed line exactly
+    ctx.save();
+    ctx.beginPath(); ctx.rect(chartArea.left,chartArea.top,chartArea.right-chartArea.left,chartArea.bottom-chartArea.top); ctx.clip();
+    ctx.lineWidth=(ds.borderWidth||2)+2.5; ctx.strokeStyle=BRACKET_HALO; ctx.lineJoin='round'; ctx.setLineDash(ds.borderDash||[]);
+    ctx.beginPath(); let prev=null;
+    meta.data.forEach(pt=>{
+      if(pt.skip||pt.y==null||isNaN(pt.y)){ prev=null; return; }
+      if(!prev) ctx.moveTo(pt.x,pt.y);
+      else if(curved&&prev.cp2x!=null&&pt.cp1x!=null) ctx.bezierCurveTo(prev.cp2x,prev.cp2y,pt.cp1x,pt.cp1y,pt.x,pt.y);
+      else ctx.lineTo(pt.x,pt.y);
+      prev=pt;
+    });
+    ctx.stroke(); ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('lineHalo')) Chart.register(lineHaloPlugin);
 
 // Asset Value chart: a red bar above the plot area (same row, height and horizontal alignment as the LTC bars, see ltcBar below) over the
 // IRA stretch window, i.e. the years after the household's last passing, labeled above the bar. Options: {fromIdx, label}; no options = nothing

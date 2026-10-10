@@ -33,9 +33,9 @@ function buildIncomeLegend(shownKeys){
   document.getElementById('incomeLegend').innerHTML =
     keys.filter(k=>!shownKeys||shownKeys.includes(k)).map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
     legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(BRACKET_COLOR)) +
-    legendItem('Ordinary tax brackets (rate above each line, shown on taxable ordinary income chart)', null, legendDashStyle(BRACKET_COLOR)) +
+    legendItem('Ordinary tax brackets (rate above each line, shown on taxable ordinary income chart)', null, legendDashStyle(BRACKET_COLOR,'dashdot')) +
     legendItem('Deduction stacked on taxable ordinary income (shown on taxable ordinary income chart)', null, legendDashStyle(DEDUCTION_COLOR)) +
-    legendItem('Qualified tax brackets (rate above each line, shown on taxable qualified income chart)', null, legendDashStyle(BRACKET_COLOR));
+    legendItem('Qualified tax brackets (rate above each line, shown on taxable qualified income chart)', null, legendDashStyle(BRACKET_COLOR,'dot'));
 }
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
@@ -261,7 +261,7 @@ function buildIncomeChart(){
     if(Math.min(...vals)>=Y_MAX||!brkKeep.has(j)) continue;   // off the chart's scale, or dropped by the crowding limit
     const rate=Math.round(MFJ_ORD[j+1].r*100)+'%';
     ordDs.push({data:alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
-      borderDash:[7,4], borderColor:BRACKET_COLOR, stack:'ol'+j, order:0});
+      borderDash:ORD_DASH, halo:true, borderColor:BRACKET_COLOR, stack:'ol'+j, order:0});
   }
   // Red dashed line: the deduction stacked on top of the taxable ordinary income, i.e. taxable ordinary income + the deduction absorbed (the same
   // "Deduction" the popup shows) = the year's gross ordinary income (`ordIncome`). The gap between the top of the stack and the line is the deduction.
@@ -269,7 +269,7 @@ function buildIncomeChart(){
   const dedLine=rows.map(r=>{ const d=Math.max(0,(r.ordIncome||0)-(r.ordTI||0)); return d>0.5 ? (r.ordTI||0)+d : null; });
   const dedAmt=rows.map(r=>{ const d=Math.max(0,(r.ordIncome||0)-(r.ordTI||0)); return d>0.5?d:null; });   // the deduction itself (the line is plotted at taxable ordinary income + it)
   ordDs.push({data:alignToAges(ages, dedLine, labels), ciValues:alignToAges(ages, dedAmt, labels), label:'Deduction', borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
-    borderDash:[7,4], borderColor:DEDUCTION_COLOR, stack:'ded', order:0});
+    borderDash:[7,4], halo:true, borderColor:DEDUCTION_COLOR, stack:'ded', order:0});
   const nStack=ordKeys.length;
   const ordTip={
     title:tooltipCallbacks.title,   // owners + ages
@@ -315,7 +315,7 @@ function buildIncomeChart(){
     if(Math.min(...vals)>=Y_MAX) continue;   // off the chart's scale
     const rate=Math.round(MFJ_QDIV[j+1].r*100)+'%';
     qualDs.push({data:alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
-      borderDash:[7,4], borderColor:BRACKET_COLOR, stack:'ql'+j, order:0});
+      borderDash:QUAL_DASH, halo:true, borderColor:BRACKET_COLOR, stack:'ql'+j, order:0});
   }
   const qualTip={
     title:tooltipCallbacks.title,   // owners + ages

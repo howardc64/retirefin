@@ -35,7 +35,7 @@ const CI_INCOME=[
   [/^Long-term gains/, 'Long-term capital gains realized when portfolio assets are sold (to pay expenses). Taxed at the preferential 0% / 15% / 20% rates, net of any short-term capital loss (SCGL) carry-forward used.']
 ];
 const CI_MAGI='This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the dashed IRMAA lines mark where each surcharge tier starts.';
-const CI_ORD='This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The dashed green lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.';
+const CI_ORD='This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The dash-dot dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.';
 const CI_EXP=[
   [/^Living expenses/, 'Household living expenses you entered, in today\'s dollars (reduced to the amount set for after the first Long Term Care starts, when LTC is modeled).'],
   [/^Long Term Care/, 'Long Term Care cost for each person while care is needed, as set in the LTC panel. It is the only expense that can be itemized (the part above 7.5% of AGI).'],

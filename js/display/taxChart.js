@@ -4,18 +4,18 @@
 // with an effective-rate overlay line (spec §9.4); the marginal rate is in the popup only.
 // ═══════════════════════════════════════════════════════════════
 const VZ_TAX = { ord:'#C8600A', qdiv0:'#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',
-                 ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#B0163E', effRate:'#E8291C', ftc:'#1F5FE0', state:'#2E9E44' };
+                 ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#D81B8A', effRate:'#1B1B1B', ftc:'#1F5FE0', state:'#00A8CC' };
 const TAX_LEGEND=[
   ['ord','Ordinary income tax'], ['qdiv0','QDIV 0%'], ['qdiv15','QDIV 15%'], ['qdiv20','QDIV 20%'],
   ['ltcg0','LTCG 0%'], ['ltcg15','LTCG 15%'], ['ltcg20','LTCG 20%'],
   ['niit','NIIT 3.8% (+ on top of QDIV/LTCG)'],
   ['ftc','Foreign tax credit (stacked above total tax, dashed)'],
-  ['effRate','Effective tax rate (right axis, dashed)']
+  ['effRate','Effective tax rate (right axis, dash-dot)']
 ];
 // `show` maps a legend key to whether that series is above 0 in some year; entries for data that is zero everywhere are left out.
 function buildTaxLegend(show, showIrmaa, stateLabel){
-  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.filter(([k])=>!show||show[k]).map(([k,label])=>legendItem(label, VZ_TAX[k], (k==='ftc'||k==='effRate')?legendDashStyle(VZ_TAX[k]):undefined)).join('') +
-    (stateLabel ? legendItem(stateLabel+' (stacked above total tax, dashed)', VZ_TAX.state, legendDashStyle(VZ_TAX.state)) : '') +
+  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.filter(([k])=>!show||show[k]).map(([k,label])=>legendItem(label, VZ_TAX[k], (k==='ftc')?legendDashStyle(VZ_TAX[k]):(k==='effRate'?legendDashStyle(VZ_TAX[k],'dashdot'):undefined))).join('') +
+    (stateLabel ? legendItem(stateLabel+' (stacked above total tax, dotted)', VZ_TAX.state, legendDashStyle(VZ_TAX.state,'dot')) : '') +
     (viewIrmaaAsTax&&showIrmaa!==false ? legendItem('IRMAA surcharge (stacked above total tax, dashed)', null, legendDashStyle(OVERLAY_COLOR)) : '');
 }
 function buildTaxChart(){
@@ -92,11 +92,11 @@ function buildTaxChart(){
     {label:'Foreign tax credit', data:alignedFtc, borderColor:VZ_TAX.ftc, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'tax', order:2},
     // §9.4: rate lines are overlaid "on top of other graph objects (but below tooltip)" — a lower
     // Chart.js `order` value draws on top of higher ones, so these get order:1/0 vs. order:2 above.
-    {label:'Effective tax rate', data:alignedEff, borderColor:VZ_TAX.effRate, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:1},
+    {label:'Effective tax rate', data:alignedEff, halo:true, borderColor:VZ_TAX.effRate, backgroundColor:'transparent', borderWidth:3, borderDash:[10,4,2,4], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:1},
   ];
 
   if(alignedState.some(v=>v>0)){
-    datasets.push({label:'State income tax ('+stateName+')', data:alignedStateTop, irmaaAmt:alignedState, ciValues:alignedState, borderColor:VZ_TAX.state, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'state', order:2});   // irmaaAmt = what the popup reports (the dataset values are heights)
+    datasets.push({label:'State income tax ('+stateName+')', data:alignedStateTop, irmaaAmt:alignedState, ciValues:alignedState, borderColor:VZ_TAX.state, backgroundColor:'transparent', borderWidth:3.5, borderDash:[3,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'state', order:2});   // irmaaAmt = what the popup reports (the dataset values are heights)
   }
   // The IRMAA line is always a dataset (when any IRMAA is paid) so that toggling "view IRMAA as tax" tweens it instead of rebuilding the chart:
   // off, it lies on the tax / state line it would stack on and is fully transparent; on, it slides up to tax + IRMAA and fades in.
