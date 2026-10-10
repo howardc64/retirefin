@@ -495,7 +495,10 @@ function computeProjection(){
       // the surviving spouse, a tracked, non-IDGT portfolio's basis resets to its value (unrealized
       // gain → 0). IDGT assets are outside the owner's estate, so they keep their carryover basis.
       st.steppedNow=false; st.swapAmt=0;
-      if(!alive[i] && !st.dead && st.tracked && !st.stepped){
+      // A jointly owned portfolio ("Joint owned with spouse") also steps up when the SPOUSE passes first (the owner is still alive): the
+      // whole balance is treated as jointly held, so the survivor gets a full step-up at either passing (community-property style).
+      const jointSpousePassed=!!b.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];
+      if((!alive[i]||jointSpousePassed) && !st.dead && st.tracked && !st.stepped){
         st.stepped=true;
         if(!b.idgt){ st.basis=st.bal; st.steppedNow=true; }
       }
@@ -698,7 +701,8 @@ function computeProjection(){
       if(!alive[i]&&!(r.bene&&spouseAlive)) return;
       const pick=pickSaleTarget(i,r,aliveNext); if(!pick) return;
       const valEnd=st.bal*(1+realGrowth(r.growth,inflation));
-      const basisNow=(!alive[i]&&!st.stepped)?st.bal:st.basis;          // (1) stepped up on the owner's passing
+      const jointSpouseGone=!!r.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];
+      const basisNow=((!alive[i]||jointSpouseGone)&&!st.stepped)?st.bal:st.basis;   // (1) stepped up on the owner's passing (or the spouse's, if jointly owned)
       const basEnd=clamp(basisNow/(1+inflation), 0, valEnd);
       // Exemption per living owner (this property's owner, plus the spouse when it is jointly owned). It is a fixed nominal amount, so like the cost basis it
       // erodes with inflation in today's $: the amount entered, divided by (1 + inflation) for each year up to this year's end.
@@ -718,7 +722,8 @@ function computeProjection(){
       const spouseAlive=married&&people.length===2&&alive[1-i];
       if(!alive[i]&&!(r.bene&&spouseAlive)) return null;
       if(reSales.some(x=>x.i===i&&x.ri===ri)) return null;
-      const value=st.bal, basis=clamp((!alive[i]&&!st.stepped)?st.bal:st.basis, 0, value);
+      const jointSpouseGone=!!r.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];
+      const value=st.bal, basis=clamp(((!alive[i]||jointSpouseGone)&&!st.stepped)?st.bal:st.basis, 0, value);
       const ownersAlive=(alive[i]?1:0)+((r.bene&&married&&people.length===2&&alive[1-i])?1:0);
       const exempt=Math.max(0,Number(r.exempt)||0)/Math.pow(1+inflation,k)*ownersAlive;
       const pick=pickSaleTarget(i,r,aliveNext);
@@ -1053,7 +1058,8 @@ function computeProjection(){
       if(on){
         const spouseAlive=married&&people.length===2&&alive[1-i];
         if(!alive[i]&&!(r.bene&&spouseAlive)) st.dead=true;
-        if(!alive[i]&&!st.dead&&!st.stepped){ st.stepped=true; st.basis=st.bal; st.steppedNow=true; }
+        const jointSpouseGone=!!r.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];   // jointly owned: steps up at the spouse's passing too
+        if((!alive[i]||jointSpouseGone)&&!st.dead&&!st.stepped){ st.stepped=true; st.basis=st.bal; st.steppedNow=true; }
       }
       const bal=(on&&!st.dead)?st.bal:0;
       return {id:r.id, name:(r.name&&r.name.trim())||('Property '+(ri+1)), balance:bal,

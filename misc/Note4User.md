@@ -54,7 +54,7 @@
 
 * **Just Average** A portfolio only tracks average basis %. In reality, asset lots are likely considered during withdrawal to maximize overall tax efficiency.
 * **Reinvestments** These are 100% basis added to basis tracking
-* **Step-up** Portfolio (non IDGT) basis changed to 100% on passing.
+* **Step-up** Portfolio (non IDGT) basis changed to 100% on passing. A portfolio marked jointly owned with spouse also steps up fully when the spouse passes first.
 * **Asset/Basis Swaps** Between owner’s portfolio and IDGTs. Very crude. Using only average basis % so no lot optimizations
   * However dominant asset/basis swap opportunity is after 1st person of married couple passes (fully stepped-up basis can be swapped with IDGT at this time).
   * Projection shows any asset generally will have similar basis % decrease over time. Therefore, not much asset/basis swap opportunities. Lot level optimization may improve the yield but is likely a minor benefit compared to 1st passing step-up.

@@ -66,7 +66,7 @@ const II_FIELDS=[
   [/^(Annual change|Credited growth)/,'s','How the amount changes each year in real (today\'s-dollar) terms: no growth, in step with inflation, inflation plus or minus a percentage, or a custom yearly percentage.'],
   [/^(Annual change|Credited growth)/,'n','Percentage used by the selected annual-change option (a spread over inflation, or the custom yearly rate).'],
   [/^Inherited by spouse$/,'c','If this person passes first, the surviving spouse receives this and it continues to count as household income or assets.'],
-  [/^Joint owned with spouse/,'c','Held jointly: if the owner passes first the spouse keeps it. If unchecked, it is gone when its owner passes.'],
+  [/^Joint owned with spouse/,'c','Held jointly: if the owner passes first the spouse keeps it. If unchecked, it is gone when its owner passes. Its cost basis steps up to value at the first passing of either spouse.'],
   // ── Social Security
   [/^Already started collecting/,'c','Check if benefits have already begun. You then enter the current monthly amount instead of the PIA and claiming age.'],
   [/^Current monthly benefit/,'n','The monthly Social Security benefit you receive now, in today\'s dollars.'],

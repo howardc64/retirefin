@@ -334,7 +334,7 @@ function xlsxInputsSheet(proj){
       put('  cost basis',reBasisEntered(r)?Number(r.basis):'(blank = no unrealized gain)',{fmt:XLSX_MONEY,key:`re${i}_${ri}Basis`});
       put('  exemption per owner alive at a sale',Number(r.exempt)||0,{fmt:XLSX_MONEY,key:`re${i}_${ri}Exempt`,note:'Fixed nominal amount: erodes with inflation in today\'s $, like the cost basis'});
       put('  growth mode',r.growth&&r.growth.mode,{key:`re${i}_${ri}GMode`}); put('  growth value (% nominal, or offset %)',r.growth?Number(r.growth.value)||0:0,{key:`re${i}_${ri}GVal`});
-      put('  jointly owned with spouse (continues to the survivor)',yn(r.bene));
+      put('  jointly owned with spouse (continues to the survivor; basis steps up at either passing)',yn(r.bene));
       put('  sell',({never:'Never',ltc:'When the last person starts LTC',passing:'At the last person\'s passing',age:'At the owner\'s age'})[mode]||mode);
       if(mode==='age') put('  sell at owner age',Number(r.sellAge)||0);
       if(mode!=='never') put('  sale proceeds go to',sellTo,{note:'After the sale tax, at a 100% cost basis'});
@@ -379,7 +379,7 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
     {key:'basis',head:'Cost basis (SOY)',v:r=>ent(r).tracked?ent(r).basis:''},
     {key:'gain',head:'Unrealized gain (SOY)',kind:'f',v:r=>ent(r).tracked?ent(r).unrealizedGain:'',f:X=>`IF(${X('basis')}="","",${X('bal')}-${X('basis')})`},
     {key:'bpct',head:'Basis % of balance',kind:'f',fmt:XLSX_PCT,v:r=>(ent(r).tracked&&ent(r).balance>0)?ent(r).basis/ent(r).balance:'',f:X=>`IF(OR(${X('basis')}="",${X('bal')}<=0),"",${X('basis')}/${X('bal')})`},
-    {key:'up',head:'Stepped up this year',text:true,v:r=>ent(r).steppedUp?'Yes':''},
+    {key:'up',head:'Stepped up this year (owner passed, or spouse passed if jointly owned)',text:true,v:r=>ent(r).steppedUp?'Yes':''},
     {key:'swap',head:'Swapped with IDGT this year (value)',v:r=>ent(r).swapAmt>0?ent(r).swapAmt:''},
     {key:'reIn',head:'Real estate sold into this portfolio this year (value; its cost basis moves in too)',v:r=>{ const t=(ent(r).reSaleIn||[]).reduce((x,y)=>x+y.value,0); return t>0?t:''; }},
     {key:'divu',head:'Dividends used for expenses',v:r=>ent(r).divUsed},
@@ -411,7 +411,7 @@ function xlsxRealEstateSheet(proj,i,ri,inAddr){
     {key:'basis',head:'Cost basis (SOY)',v:r=>ent(r).basis},
     {key:'gain',head:'Unrealized gain (SOY)',kind:'f',v:r=>Math.max(0,ent(r).balance-ent(r).basis),f:X=>`MAX(0,${X('bal')}-${X('basis')})`},
     {key:'bpct',head:'Basis % of value',kind:'f',fmt:XLSX_PCT,v:r=>ent(r).balance>0?ent(r).basis/ent(r).balance:'',f:X=>`IF(${X('bal')}<=0,"",${X('basis')}/${X('bal')})`},
-    {key:'up',head:'Basis stepped up this year (owner passed)',text:true,v:r=>ent(r).steppedUp?'Yes':''},
+    {key:'up',head:'Basis stepped up this year (owner passed, or spouse passed if jointly owned)',text:true,v:r=>ent(r).steppedUp?'Yes':''},
     {key:'eoy',head:'Value at end of year = SOY × (1 + growth)',kind:'f',v:r=>ent(r).balance*(1+ent(r).growthPct/100),f:X=>`${X('bal')}*(1+$B$2)`},
     {key:'sold',head:'Sold at the end of this year',text:true,v:r=>sale(r)?'Yes':''},
     {key:'sBas',head:'Cost basis at the sale (after the passing step-up, eroded by inflation)',v:r=>sale(r)?sale(r).basEnd:''},

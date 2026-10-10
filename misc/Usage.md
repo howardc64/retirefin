@@ -29,7 +29,7 @@ This page explains how to work with the planner. Everything is entered in **toda
 
 **Reordering cards:** drag the ⋮⋮ handle at the left of any income card (Social Security, wages, pension, rentals, brokerage, real estate, annuities, IRA, Roth) and drop it above or below another card. In a married plan both spouses' cards of that type move together. The order is saved with the plan and restored when you load it. (Drag and drop works with a mouse or pen; it is not available on touch screens.)
 
-Most items have an **age range** (when the amount starts and stops) and an **annual change** (how the amount grows or shrinks in real, today's-dollar terms). In a married plan, an owned item (rental, brokerage portfolio, real estate, annuity) can be marked **Joint owned with spouse** and an IRA (pre-tax or Roth) or a pension **Inherited by spouse**, so in both cases the spouse owns it (or receives it) after the first person passes.
+Most items have an **age range** (when the amount starts and stops) and an **annual change** (how the amount grows or shrinks in real, today's-dollar terms). In a married plan, an owned item (rental, brokerage portfolio, real estate, annuity) can be marked **Joint owned with spouse** (a jointly owned portfolio or property also gets a full basis step-up at either spouse's passing) and an IRA (pre-tax or Roth) or a pension **Inherited by spouse**, so in both cases the spouse owns it (or receives it) after the first person passes.
 
 ## The top buttons
 
@@ -110,7 +110,7 @@ The two rows of sliders above the Asset Value chart show roughly what the balanc
 - The **Before the last passing** pair applies to the years up to the last passing. The **After the last passing** pair applies to the years after it, using the heirs' anticipated tax brackets. All four default to 0%.
 - The **Real estate** bands are not reduced by either slider and their dotted cost-basis line is always drawn.
 - A chart's legend leaves out any entry whose data is $0 in every year (for example no Long Term Care, IRMAA or AUM fee entry when there are none), so only what is actually drawn is listed.
-- Each tracked portfolio has its own dashed **cost-basis line** inside its band (so each portfolio's step-up at its owner's passing shows at its own time). It is drawn only in years where the LTCG withdraw cost is 0%. Any LTCG withdraw cost moves the brokerage band toward 100% basis, so the line would no longer mark the top of the gain. In the hover popups of both asset charts, each brokerage portfolio that tracks cost basis shows its **cost basis as a % of its value** (100% means no unrealized gain), and each portfolio's dashed line row shows its own basis as a % of its value.
+- Each tracked portfolio has its own dashed **cost-basis line** inside its band (so each portfolio's step-up shows at its own time: its owner's passing, or the spouse's passing if it is *Joint owned with spouse*). It is drawn only in years where the LTCG withdraw cost is 0%. Any LTCG withdraw cost moves the brokerage band toward 100% basis, so the line would no longer mark the top of the gain. In the hover popups of both asset charts, each brokerage portfolio that tracks cost basis shows its **cost basis as a % of its value** (100% means no unrealized gain), and each portfolio's dashed line row shows its own basis as a % of its value.
 
 ## Tax features worth knowing
 
