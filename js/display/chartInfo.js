@@ -208,6 +208,38 @@ function ciChartOf(canvas){
   for(const k in charts){ const c=charts[k]; if(c&&c.canvas===canvas) return {key:k,chart:c}; }
   return null;
 }
+// "at age 86 (Peter)": the age of the OLDEST person alive that year, with their name (married plans). When nobody is alive (the IRA stretch years)
+// it reads "3 years since Yen passed", naming whoever was the last to pass. Falls back to the axis age when the year's row is not found.
+function ciAgeText(label){
+  const fallback=(label!=null&&label!=='')?'at age '+label:'';
+  const proj=(typeof lastProjection!=='undefined')?lastProjection:null;
+  if(!proj||!proj.rows||!proj.rows.length||label==null||label==='') return fallback;
+  const all=proj.rows.concat(proj.stretch||[]);
+  const k=all.findIndex(r=>Math.round(r.age0)===Math.round(Number(label)));
+  if(k<0) return fallback;
+  const nm=i=>proj.married?' ('+displayPersonName(proj.people[i],i)+')':'';
+  const aliveOf=r=>(r.alive||[]).map((a,i)=>a?i:-1).filter(i=>i>=0);
+  const oldest=(r,idxs)=>idxs.reduce((b,i)=>((r.ages[i]||0)>(r.ages[b]||0)?i:b),idxs[0]);
+  const al=aliveOf(all[k]);
+  if(al.length){ const b=oldest(all[k],al); const a=all[k].ages[b]; return 'at age '+(Number.isFinite(a)?Math.round(a):label)+nm(b); }
+  for(let j=k-1;j>=0;j--){
+    const aj=aliveOf(all[j]);
+    if(aj.length){ const n=k-j, b=oldest(all[j],aj); return n+(n===1?' year':' years')+' since '+(proj.married?displayPersonName(proj.people[b],b):'the last passing')+' passed'; }
+  }
+  return fallback;
+}
+// Value of the hovered element at the hovered year, shown under the name when the element has one (null/zero/missing → no line).
+// Rates are percents already; flows (income, tax, expense charts) are per year; balances (asset charts) and cumulative Social Security are not.
+const CI_STOCK_KEYS=['asset','idgt','ss'];
+function ciValueLine(key, f, chart){
+  const src=f&&f.ds&&(f.ds.ciValues||f.ds.data);   // ciValues: true values of a dataset whose plotted height is not its value (cost-basis lines)
+  const raw=src?src[f.idx]:null;
+  const v=(raw!=null&&typeof raw==='object')?raw.y:raw;
+  if(typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)<0.5&&!/^Effective tax rate/.test(String(f.ds.label))) return null;
+  const age=' '+ciAgeText(chart.data.labels&&chart.data.labels[f.idx]);
+  if(/^Effective tax rate/.test(String(f.ds.label))) return v>0?'Value'+age+': '+v.toFixed(1)+'%':null;
+  return 'Value'+age+': '+fmt(v)+(CI_STOCK_KEYS.includes(key)?'':'/yr');
+}
 function ciShow(e){
   const hit=ciChartOf(e.target);
   if(!hit) return ciHide();
@@ -223,17 +255,17 @@ function ciShow(e){
       if(text){
         const color=f.ds.borderColor&&typeof f.ds.borderColor==='string'?f.ds.borderColor:null;
         const name=String(f.ds.ordLabel?(hit.key==='incomeQual'?'Qualified tax bracket line: ':'Ordinary tax bracket line: ')+f.ds.ordLabel:f.ds.label);
-        info={name,text,color};
+        info={name,text,color,value:ciValueLine(hit.key,f,hit.chart),owner:f.ds.ciOwner||''};
       }
     }
   }
   if(!info) return ciHide();
   const el=ciEl(), th=tipTheme();
   const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const {name,text,color}=info;
+  const {name,text,color,value,owner}=info;
   el.style.background=th.bg; el.style.color=th.fg; el.style.borderColor=th.border;
   el.style.whiteSpace='normal'; el.style.maxWidth='340px';
-  el.innerHTML=`<div style="position:relative;padding-left:14px;font-weight:bold;margin-bottom:3px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${esc(color)};border:1px solid ${th.fg};box-sizing:border-box;" data-sw></span>`:''}${esc(name)}</div><div>${esc(text)}</div>`;
+  el.innerHTML=`<div style="position:relative;padding-left:14px;font-weight:bold;margin-bottom:3px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${esc(color)};border:1px solid ${th.fg};box-sizing:border-box;" data-sw></span>`:''}${esc(name)}</div>${owner?`<div style="margin-bottom:3px;">${esc((/ and /.test(owner)?'Owners: ':'Owner: ')+owner)}</div>`:''}${value?`<div style="font-weight:bold;margin-bottom:3px;">${esc(value)}</div>`:''}<div>${esc(text)}</div>`;
   el.style.opacity=1;
   const w=el.offsetWidth, h=el.offsetHeight;
   let left=e.clientX+14; if(left+w>window.innerWidth-8) left=e.clientX-14-w;
