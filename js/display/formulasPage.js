@@ -333,9 +333,38 @@ ${fpEq(
 )}
 <p>Each extra dollar of tax creates well under a dollar of new tax (only the gain share of a sale is LTCG, taxed at no more than about 24% with NIIT; a pre-tax IRA dollar is taxed at the ordinary rate, plus the Social Security torpedo, which stays below 100%), so the map is a contraction and converges. When pre-tax IRA is being withdrawn it converges more slowly, which is why the cap is 60 rounds. The Suspended Capital-Gain Loss (SCGL) pool is drawn down once, after the iteration settles.</p>
 
-<p><strong>Cost basis roll-forward.</strong> Each year:</p>
-${fpEq(`basis<sub>next</sub> = ${fpFr('basis − ( Sold + Withdrawn ) × (1 − <em>f</em>) + Reinvested dividends + Reinvested excess income','1 + inflation')}`)}
-<p>Sales remove basis in proportion to cost share, reinvested dividends and reinvested excess income add basis, and basis erodes with inflation because it is a fixed nominal amount. When the owner passes and the portfolio is <em>Joint owned with spouse</em> (so the surviving spouse keeps it), a non-IDGT portfolio's basis steps up to its value (gain becomes $0). A portfolio marked <em>Joint owned with spouse</em> also steps up when the <em>spouse</em> passes first, even though its owner is still alive: the whole balance is treated as jointly held, so the survivor gets a full step-up (as for community property; non-community joint tenancy would step up only half). It happens once. An IDGT keeps its original basis. With <em>Asset / basis swap</em> checked in the Tax &amp; Optimizations panel (off by default), <em>Living expense &amp; income</em> portfolio assets are swapped with IDGT assets of equal value, and the basis moves in proportion to the assets traded: for a swap of <em>S</em> = min(living value, IDGT value), with basis ratios <em>r<sub>L</sub></em> (living) and <em>r<sub>I</sub></em> (IDGT) = basis ÷ value, living basis − <em>S</em>(<em>r<sub>L</sub></em> − <em>r<sub>I</sub></em>) and IDGT basis + <em>S</em>(<em>r<sub>L</sub></em> − <em>r<sub>I</sub></em>), so total basis and both balances are unchanged. It is done only where <em>r<sub>I</sub></em> &lt; <em>r<sub>L</sub></em> (the IDGT\'s assets have the lower basis %), at the start of the year (A) after the first passing, when a living portfolio\'s basis has just stepped up (married; no setting), and (B) the number of years you enter before the last passing (single or married), lowest-basis IDGT first. A swap is between portfolios held by the same person: a portfolio is held by its owner while alive and, once the owner has passed, by the spouse if its <em>Joint owned with spouse</em> box is checked (otherwise it is gone and cannot be swapped). The living portfolio then holds the low-basis assets (which step up at the last passing) and realizes more gain if it sells to pay expenses. The balance itself is unaffected, since growth is total return. The asset charts report the unrealized gain remaining at the end of the plan.</p>
+<p><strong>Cost basis roll-forward.</strong> A cost basis is a fixed <em>nominal</em> dollar amount, but every figure here is in today's dollars, so each year the basis is first updated for what was sold and reinvested, then divided by ( 1 + inflation ). With <em>f</em> the gain fraction above, evaluated on the start-of-year value and basis:</p>
+${fpEq(
+  `Basis removed = ( Sold + Withdrawn ) × ( 1 − <em>f</em> ) = ( Sold + Withdrawn ) × ${fpFr('basis','value')}`,
+  `Basis added = Reinvested dividends + Reinvested excess income`,
+  `basis<sub>next</sub> = min( balance<sub>next</sub>,&ensp;max( 0,&ensp;${fpFr('basis − Basis removed + Basis added','1 + inflation')} ) )`
+)}
+${fpWhere('Sales remove basis in proportion to cost share (expenses paid from income or dividends remove none); reinvested dividends and excess income are after-tax money put in, so they add basis; the result is kept between $0 and the balance.')}
+<p><em>Today's-dollar conversion.</em> If <em>B</em><sub><em>t</em></sub> is the nominal basis in year <em>t</em> (a fixed amount that only changes by the sales and reinvestments above), the basis shown is:</p>
+${fpEq(
+  `basis<sub><em>t</em></sub> = ${fpFr('<em>B</em><sub><em>t</em></sub>','( 1 + inflation )<sup><em>t</em></sup>')}`,
+  `so one year later:&ensp;basis<sub><em>t</em>+1</sub> = ${fpFr('basis<sub><em>t</em></sub> − Basis removed + Basis added','1 + inflation')}`
+)}
+${fpWhere('The balance, in contrast, grows at the <em>real</em> growth rate (nominal growth deflated by inflation), so a portfolio that only grows with inflation keeps its balance flat in today\'s dollars while its basis shrinks by 1 ÷ ( 1 + inflation ) each year. That is why the unrealized gain share of a portfolio tends to rise over time.')}
+<p><em>Step-up at death.</em> At the start of the year, for a tracked portfolio that has not been stepped up before (it happens once):</p>
+${fpPw('basis',[
+  ['value','if the step-up applies'],
+  ['basis','otherwise (always for an IDGT)']
+])}
+${fpWhere('The step-up applies in the first year that the owner has passed and the portfolio continues to the surviving spouse (<em>Joint owned with spouse</em>), or the portfolio is jointly owned and the spouse has passed first. An IDGT keeps its original carryover basis.')}
+${fpWhere('For a jointly owned portfolio the whole balance is stepped up at either spouse\'s passing (as for community property; non-community joint tenancy would step up only half). A portfolio that does not continue to a spouse is gone when its owner passes. Property still held at the last passing is stepped up to value for the legacy years; its basis then erodes with inflation:')}
+${fpEq(
+  `value<sub><em>n</em></sub> = <em>V</em> × ( 1 + <em>g</em> )<sup><em>n</em></sup>`,
+  `basis<sub><em>n</em></sub> = min( value<sub><em>n</em></sub>,&ensp;${fpFr('<em>V</em> × ( 1 + <em>g</em> )','( 1 + inflation )<sup><em>n</em>−1</sup>')} )`
+)}
+${fpWhere('<em>V</em> is the balance at the last passing, <em>g</em> the portfolio\'s real growth rate and <em>n</em> = 1, 2, … the legacy years after it.')}
+<p><em>Asset / basis swap</em> (Tax &amp; Optimizations panel, off by default). A living-expense portfolio and an IDGT trade assets of equal value; the basis moves in proportion to the assets traded, so total basis and both balances are unchanged:</p>
+${fpEq(
+  `<em>S</em> = min( <em>V</em><sub>L</sub>,&ensp;<em>V</em><sub>I</sub> )&emsp;&emsp;<em>r</em><sub>L</sub> = ${fpFr('basis<sub>L</sub>','<em>V</em><sub>L</sub>')}&emsp;&emsp;<em>r</em><sub>I</sub> = ${fpFr('basis<sub>I</sub>','<em>V</em><sub>I</sub>')}`,
+  `basis<sub>L</sub> ← basis<sub>L</sub> − <em>S</em> × ( <em>r</em><sub>L</sub> − <em>r</em><sub>I</sub> )`,
+  `basis<sub>I</sub> ← basis<sub>I</sub> + <em>S</em> × ( <em>r</em><sub>L</sub> − <em>r</em><sub>I</sub> )`
+)}
+${fpWhere('<em>V</em><sub>L</sub> and <em>V</em><sub>I</sub> are the values of the living portfolio and the IDGT; the swap is made only where <em>r</em><sub>I</sub> &lt; <em>r</em><sub>L</sub> (the IDGT\'s assets have the lower basis %), lowest-basis IDGT first. It is done at the start of the year (A) after the first passing, when a living portfolio\'s basis has just stepped up (married; no setting), and (B) the number of years you enter before the last passing (single or married). A swap is between portfolios held by the same person: a portfolio is held by its owner while alive and, once the owner has passed, by the spouse if its <em>Joint owned with spouse</em> box is checked (otherwise it is gone and cannot be swapped). The living portfolio then holds the low-basis assets (which step up at the last passing) and realizes more gain if it sells to pay expenses. The asset charts report the unrealized gain remaining at the end of the plan.')}
 <p><strong>Asset Value chart withdraw cost (display only).</strong> Two slider pairs shrink the plotted bands toward an after-tax value; they never change the projection. The first pair applies to the years up to the last passing, the second pair to the stretch years after it; all four default to 0%:</p>
 ${fpEq(
   `brokerage band = balance − LTCG withdraw cost % × unrealized gain`,
@@ -380,7 +409,26 @@ ${fpEq(
 )}
 ${fpWhere('The lines are the qualified dividend / long-term capital gains bracket limits above (today\'s dollars, MFJ until the filing-status switch, Single after), each labeled with the rate that applies above it; a line above the chart\'s scale is not drawn. Taxable ordinary income still fills the brackets first when the tax is calculated, so the amount actually taxed at each rate is on the Excel Projection by year sheet.')}
 <p>On the Total Income Tax chart, <em>view IRMAA as tax</em> adds the household IRMAA surcharge paid that year (the expense above) on top of the tax stack, so the dashed line is <em>Total tax + IRMAA surcharge</em>. It is a display option only and never changes the projection.</p>
-<p><strong>State income tax</strong> (Tax &amp; Optimizations panel, off by default). <em>California:</em> state taxable income = AGI − taxable Social Security − the larger of the state standard deduction ($5,706 single / $11,412 married) and the medical itemized deduction (Long Term Care cost above 7.5% of AGI − taxable Social Security); tax from the 2025 California brackets (MFJ limits double the single ones), plus 1% of taxable income over $1,000,000 (deflated like the other un-indexed thresholds), less $153 per living person and $153 per living person aged 65+. <em>Washington:</em> 7% of realized portfolio LTCG (net of SCGL, excluding real estate) above $278,000, plus 9.9% on the part of that taxable gain above $1,000,000. The state tax is paid as a household expense together with federal tax, but it is not part of Total Tax (TT) or the effective tax rate; on the chart it is a cyan dotted line at <em>tax stack + state tax</em> (the IRMAA line, when shown, sits above it). The Excel export carries it as live formulas (the State income tax rows, with the California and Washington tables on the Tax tables sheet and the on/off and state choice on the Inputs sheet). Long Term Care periods are marked on every time-based chart by a grey bar (anyone on LTC) that turns black where two LTC periods overlap; this is display only.</p>
+<p><strong>State income tax</strong> (Tax &amp; Optimizations panel, off by default). Choose <em>California</em> or <em>Washington</em>; the result is the household's state tax for the year.</p>
+<p><em>California</em> taxes capital gains as ordinary income and does not tax Social Security:</p>
+${fpEq(
+  `AGI<sub>CA</sub> = max( 0,&ensp;AGI − taxable SS )`,
+  `Std = $11,412 (married) &ensp;|&ensp; $5,706 (single)`,
+  `Med = max( 0,&ensp;LTC − 7.5% × AGI<sub>CA</sub> )`,
+  `TI<sub>CA</sub> = max( 0,&ensp;AGI<sub>CA</sub> − max( Std, Med ) )`,
+  `Bracket tax = &Sigma;<sub><em>k</em></sub> <em>r</em><sub><em>k</em></sub> × max( 0,&ensp;min( TI<sub>CA</sub>, <em>L</em><sub><em>k</em></sub> ) − <em>L</em><sub><em>k</em>−1</sub> )`,
+  `Tax<sub>CA</sub> = max( 0,&ensp;Bracket tax &ensp;+&ensp; 1% × max( 0, TI<sub>CA</sub> − $1,000,000 × <em>f</em> ) &ensp;−&ensp; $153 × <em>N</em> &ensp;−&ensp; $153 × <em>N</em><sub>65+</sub> )`
+)}
+${fpWhere('AGI<sub>CA</sub> is federal AGI less the taxable Social Security. Med is the medical itemized deduction, which here is the Long Term Care cost (LTC) above 7.5% of AGI<sub>CA</sub>; the larger of Med and the standard deduction (Std) is used. <em>r</em><sub><em>k</em></sub> and <em>L</em><sub><em>k</em></sub> are the rate and the upper limit of California bracket <em>k</em> in the table below (<em>L</em><sub>0</sub> = 0). The 1% term is the Mental Health Services surcharge; <em>f</em> = (1 + inflation)<sup>−years</sup> holds its un-indexed $1,000,000 threshold in today\'s dollars. <em>N</em> is the number of people alive that year and <em>N</em><sub>65+</sub> the number of them aged 65 or older (the $153 personal and senior exemption credits; their income phase-out is not modeled).')}
+<p>California brackets (Single; Married limits are exactly double):</p>
+${fpBracketTable(CA_ORD_SGL, true)}
+<p><em>Washington</em> has no income tax, only a capital-gains excise tax on realized long-term gains from portfolio sales (real estate and retirement accounts are exempt):</p>
+${fpEq(
+  `Gain<sub>WA</sub> = max( 0,&ensp;LTCG<sub>portfolio, net of SCGL</sub> − $278,000 )`,
+  `Tax<sub>WA</sub> = 7% × min( Gain<sub>WA</sub>,&ensp;$1,000,000 × <em>f</em> ) &ensp;+&ensp; 9.9% × max( 0,&ensp;Gain<sub>WA</sub> − $1,000,000 × <em>f</em> )`
+)}
+${fpWhere('One $278,000 deduction applies per household (the state indexes it, so it is held flat in today\'s dollars); the 9.9% rate applies to the part of the taxable gain above $1,000,000, deflated by <em>f</em> as above.')}
+<p>The state tax is paid as a household expense together with federal tax, but it is not part of Total Tax (TT) or the effective tax rate; on the chart it is a cyan dotted line at <em>tax stack + state tax</em> (the IRMAA line, when shown, sits above it). The Excel export carries it as live formulas (the State income tax rows, with the California and Washington tables on the Tax tables sheet and the on/off and state choice on the Inputs sheet). Long Term Care periods are marked on every time-based chart by a grey bar (anyone on LTC) that turns black where two LTC periods overlap; this is display only.</p>
 
 <p><strong>Annual balance change.</strong></p>
 ${fpEq(
