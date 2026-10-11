@@ -473,3 +473,5 @@
 224. The IRA and realized LTCG charts are now included when the **Same scale: income & expense** or **income, expense & tax** button is pressed. A new plan's starting common scale is unchanged (income, expense and tax charts only).
 
 225. Cumulative household SS now follows every Same-scale button that includes income, and the Social Security tax chart follows every button that includes tax (entry 224 added IRA and LTCG to the income buttons).
+
+226. Cumulative household SS is no longer part of any Same-scale button action (reverses its inclusion in entry 225); it always keeps its own scale. IRA and LTCG still follow the income buttons and Social Security tax follows the tax buttons.

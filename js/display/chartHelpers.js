@@ -210,13 +210,13 @@ function niceMax(maxV, floor){
   for(const m of [1,1.5,2,2.5,3,4,5,6,8,10]) if(m*mag>=v-1e-9) return m*mag;
   return 10*mag;
 }
-// Which charts each Same-scale button covers. IRA, LTCG and Cumulative household SS count as income (the income buttons), Social Security tax counts as tax (the tax buttons). Only the asset & IDGT button leaves them out.
+// Which charts each Same-scale button covers. IRA and LTCG count as income (the income buttons), Social Security tax counts as tax (the tax buttons). Cumulative household SS is in no group and always keeps its own scale.
 // They are not part of a new plan's starting common scale (DEFAULT_SAME_SCALE).
 const DEFAULT_SAME_SCALE=['expense','income','incomeMagi','incomeOrd','incomeQual','tax','taxOrd','taxQual'];
 const SCALE_LINK_GROUPS={
-  incomeExpense:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','ss'],
+  incomeExpense:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg'],
   tax:['tax','taxOrd','taxQual','tss'],
-  incomeExpenseTax:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','ss','tax','taxOrd','taxQual','tss'],
+  incomeExpenseTax:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','tax','taxOrd','taxQual','tss'],
   asset:['asset','idgt']
 };
 // Set every drawn chart of a group to the group's largest current maximum. Returns true when anything changed.
