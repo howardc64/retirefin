@@ -95,8 +95,17 @@ function ciDescribe(key, ds, kidx){
       if(k==='annuity') return 'Value of this annuity.';
       return null;
     }
-    case 'assetConv':
-      return 'Amount converted from this person\'s pre-tax IRA to their Roth IRA that year. The converted amount is taxed as ordinary income.';
+    case 'ira': {
+      if(/RMD/.test(label)) return 'Required minimum distribution from this person\'s pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income.';
+      if(/withdraw/i.test(label)) return 'Money withdrawn from this person\'s pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.';
+      if(/Roth conversion/.test(label)) return 'Amount converted from this person\'s pre-tax IRA to their Roth IRA that year (a withdrawal on top of the RMD). The converted amount is taxed as ordinary income and then moves into the Roth IRA.';
+      return null;
+    }
+    case 'ltcg': {
+      if(/^Real estate/.test(label)) return 'Long-term capital gain realized on property sold that year (the gain over the basis and exemption). Real estate is only sold to cover an expense shortfall or by the withdrawal order.';
+      if(/^Net LTCG/.test(label)) return 'Long-term capital gain actually taxed (dashed): the realized gain after the Suspended Capital-Gain Loss (SCGL) carryforward has been used against it.';
+      return 'Long-term capital gain realized this year by selling shares of this brokerage portfolio (before any SCGL offset). The gain is the share of each sale above its cost basis.';
+    }
   }
   return null;
 }

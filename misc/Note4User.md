@@ -1,12 +1,5 @@
 # NOTES
 
-## Chart Scales
-
-* **income expense, tax charts** all defaults to same Y scale to easily see them against each other.
-  * obviously tax scale often much smaller than income expense. To see tax chart details better
-    * Turn off same scale : income expense, tax button.
-    * Press rescale button on any tax chart
-
 ## General Observations
 
 * **When to start Social Security:** Several key factors to consider

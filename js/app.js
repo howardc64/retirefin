@@ -28,18 +28,23 @@ function buildAllCharts(){
   buildExpenseChart();
   buildAssetChart();
   buildIdgtChart();
+  buildIraChart();
+  buildLtcgChart();
 }
 function renderCharts(){
-  // Charts that share a scale (the Same-scale buttons, chartHelpers.js) all take the group's largest maximum. When any locked maximum is missing (first
-  // draw, Rescale, a scale button) a dry pre-pass computes every chart's own maximum without drawing, syncSharedScales() raises each group to its
-  // largest, and the real pass then draws every chart once, at its final scale, so each animates a single time.
-  const needSync=scaleGroups().some(g=>g.some(k=>chartYMax[k]==null));
-  if(needSync){ window.dryPass=true; try{ buildAllCharts(); } finally{ window.dryPass=false; } syncSharedScales(); }
+  // A plan with no saved scales (first draw, Reset, an older file) starts with the income, expense and tax charts on one common scale: a dry pre-pass
+  // computes every chart's own maximum without drawing, applySameScale() raises that group to its largest, and the real pass then draws each chart once.
+  // After that every chart's scale is its own (Rescale / the Same-scale buttons change it) and is saved with the plan.
+  if(DEFAULT_SAME_SCALE.every(k=>chartYMax[k]==null)){
+    window.dryPass=true; try{ buildAllCharts(); } finally{ window.dryPass=false; }
+    applySameScale(DEFAULT_SAME_SCALE);
+  }
   buildAllCharts();
-  if(syncSharedScales()) buildAllCharts();   // (a late change, e.g. a chart that only just got data)
+  captureChartYMax();
 }
 
 function renderAll(){
+  restoreChartYMax();   // the chart scales saved with this plan (null = fit on the next draw)
   renderPeopleSetup();
   renderPassingSliders();
   document.getElementById('inflationRate').value = Math.round(state.inflation*400)/4;
@@ -57,7 +62,7 @@ function renderAll(){
   renderFooter();
   expandAllChartPanels();   // build the charts in visible containers …
   recompute();
-  syncAssumpHide();         // the three settings panels' Hide boxes (state.ui.assumpHide)
+  syncAssumpHide();         // the General panel's Hide box (state.ui.assumpHide.general)
   syncChartPanels();        // … then put every chart panel's Hide / position and the Scale buttons into the state held in state.ui
 }
 

@@ -132,14 +132,14 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 }
 
 /* ── Chart panels (display/chartPanels.js): every chart in its own panel on a 3-column grid ──
-   Hide / position / shared-scale settings live in state.ui (chartHidden, chartPos, scaleLinks), default: every panel hidden. */
+   Hide / position / shared-scale settings live in state.ui (chartHidden, chartPos, chartYMax), default: every panel hidden. */
 .hide-cb{display:flex;align-items:center;gap:5px;font-family:'DM Sans',system-ui,sans-serif;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-muted);cursor:pointer;flex-shrink:0;}
 .sec-hidden{display:none!important;}
 .scale-bar{display:flex;flex-wrap:wrap;gap:6px;position:sticky;top:0;z-index:5;background:var(--bg);padding:2px 0 10px;}
 .scale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:11px;font-weight:400;padding:4px 11px;color:var(--text-muted);font-family:inherit;line-height:1.2;}
 .scale-btn:hover{background:var(--border);}
-.scale-btn[aria-pressed="true"]{background:var(--teal-light);border-color:var(--teal);color:var(--teal-text);font-weight:500;}
-.chart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;}
+.scale-btn.grid-toggle{margin-left:6px;border-color:var(--teal);color:var(--teal-text);font-weight:500;}
+.chart-grid{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:12px;align-items:start;}
 .chart-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 8px 8px;min-width:0;}
 .chart-panel.no-data{display:none;}
 .chart-panel.dragging{opacity:.4;}
@@ -243,7 +243,7 @@ body.printing-all .income-grid.two-col .person-col{display:block;grid-row:auto;g
 body.printing-all .topbar,body.printing-all .hide-cb,body.printing-all .hide-toggle,body.printing-all .rescale-btn,body.printing-all .scale-bar,body.printing-all .chart-cell,body.printing-all .cp-tools,body.printing-all #chatDock{display:none !important;}
 /* three charts per row, each (title + chart) kept together on one landscape page */
 body.printing-all .chart-panel,body.printing-all .item,body.printing-all .metric{break-inside:avoid;}
-body.printing-all .chart-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+body.printing-all .chart-grid{grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));}
 body.printing-all .sec-head{break-after:avoid;}
 /* each chart is swapped for a static pixel copy (print.js) so it can't be blanked by a resize during printing */
 body.printing-all canvas.print-swapped{display:none !important;}
@@ -298,8 +298,5 @@ body.printing-all canvas.print-swapped{display:none !important;}
 .assump-title{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .assump-title .hide-toggle{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-muted);cursor:pointer;white-space:nowrap;}
 .assump-card > .item-body{margin-top:0;}
-.assump-feat{border-top:1px solid var(--border);padding-top:10px;margin-top:12px;}
-.item-body > .full:first-child > .assump-feat{border-top:none;padding-top:0;margin-top:0;}
-.assump-feat > .item-head{margin-bottom:6px;}
-.assump-feat-body{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;min-width:0;}
-.assump-feat-body .full{grid-column:1/-1;}
+.assump-card .item{margin-bottom:8px;}
+.assump-card .item:last-child{margin-bottom:0;}

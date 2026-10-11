@@ -180,69 +180,58 @@ function ageLabelRange(fromAge,toAge){
 // One live Chart.js instance per key (null until first drawn). Every chart file reads/writes
 // `charts.<key>` through upsertLineChart(); destroy/resize below walk the registry, so adding a
 // chart never means editing a hand-written list of chart variables.
-const charts={ss:null, income:null, incomeMagi:null, incomeOrd:null, incomeQual:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, assetConv:null, idgt:null};
+const charts={ss:null, income:null, incomeMagi:null, incomeOrd:null, incomeQual:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, idgt:null, ira:null, ltcg:null};
 function allCharts(){ return Object.values(charts).filter(Boolean); }
 
 // Y-axis maximum per chart. It is computed once and then held ("locked") so the scale doesn't
-// jump while sliders move; Rescale — or loading/resetting a plan — clears it so the next render re-fits.
+// jump while sliders move; Rescale (one chart) clears its lock so the next render re-fits it. The locked maxima are saved with the plan
+// (state.ui.chartYMax, see captureChartYMax / restoreChartYMax) and come back when a file is loaded.
 //
-// Shared scales: the four buttons above the charts (state.ui.scaleLinks) tie groups of charts to ONE Y scale. After every build pass,
-// syncSharedScales() raises every member of a group to the largest locked maximum in it (renderCharts then builds once more so the
-// bracket / IRMAA overlays, which depend on the maximum, are drawn for the final scale). Rescale on any chart clears the locks of
-// its whole group, so the group refits together to its largest member.
+// The "Same scale" buttons above the charts are one-shot actions, not sticky links: a click sets every chart in the button's group to the group's
+// largest current maximum (applySameScale). Afterwards each chart is independent again — Rescale on one chart changes only that chart.
 const chartYMax=Object.fromEntries(Object.keys(charts).map(k=>[k,null]));
 function lockedYMax(key, compute){ if(chartYMax[key]==null) chartYMax[key]=compute(); return chartYMax[key]; }
 function resetChartYMax(){ Object.keys(chartYMax).forEach(k=>{ chartYMax[k]=null; }); }
+// Copy the locked maxima into / out of state.ui.chartYMax so they travel with the saved plan.
+function captureChartYMax(){
+  if(!state.ui) state.ui={};
+  const cur=state.ui.chartYMax||{};
+  let changed=false; const next={};
+  Object.keys(chartYMax).forEach(k=>{ const v=chartYMax[k]!=null?chartYMax[k]:null; next[k]=v; if(cur[k]!==v) changed=true; });
+  if(changed){ state.ui.chartYMax=next; if(typeof saveDebounced==='function') saveDebounced(); }
+}
+function restoreChartYMax(){
+  const saved=(state&&state.ui&&state.ui.chartYMax)||{};
+  Object.keys(chartYMax).forEach(k=>{ const v=Number(saved[k]); chartYMax[k]=(saved[k]!=null&&Number.isFinite(v)&&v>0)?v:null; });
+}
 // Round a maximum up to a "nice" axis end (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8 × 10ⁿ) with a little headroom; `floor` is the smallest result.
 function niceMax(maxV, floor){
   const v=Math.max((Number(maxV)||0)*1.05, floor||1), mag=Math.pow(10,Math.floor(Math.log10(v)));
   for(const m of [1,1.5,2,2.5,3,4,5,6,8,10]) if(m*mag>=v-1e-9) return m*mag;
   return 10*mag;
 }
-// Which charts each Scale button joins. A chart in no linked group keeps its own scale.
-// Cumulative household SS ('ss'), the Social Security tax chart ('tss') and the Roth conversion chart ('assetConv') are in no group: each keeps its own scale.
+// Which charts each Same-scale button covers. IRA, LTCG and Cumulative household SS count as income (the income buttons), Social Security tax counts as tax (the tax buttons). Only the asset & IDGT button leaves them out.
+// They are not part of a new plan's starting common scale (DEFAULT_SAME_SCALE).
+const DEFAULT_SAME_SCALE=['expense','income','incomeMagi','incomeOrd','incomeQual','tax','taxOrd','taxQual'];
 const SCALE_LINK_GROUPS={
-  incomeExpense:['expense','income','incomeMagi','incomeOrd','incomeQual'],
-  tax:['tax','taxOrd','taxQual'],
-  incomeExpenseTax:['expense','income','incomeMagi','incomeOrd','incomeQual','tax','taxOrd','taxQual'],
+  incomeExpense:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','ss'],
+  tax:['tax','taxOrd','taxQual','tss'],
+  incomeExpenseTax:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','ss','tax','taxOrd','taxQual','tss'],
   asset:['asset','idgt']
 };
-// Groups of charts that currently share a scale (union of every switched-on link), as arrays of keys; charts that share with nobody are not listed.
-function scaleGroups(){
-  const links=(state&&state.ui&&state.ui.scaleLinks)||DEFAULT_SCALE_LINKS, parent={};
-  const find=k=>{ while(parent[k]!==k) k=parent[k]=parent[parent[k]]; return k; };
-  Object.keys(SCALE_LINK_GROUPS).forEach(g=>{
-    if(!links[g]) return;
-    const m=SCALE_LINK_GROUPS[g]; m.forEach(k=>{ if(!(k in parent)) parent[k]=k; });
-    m.slice(1).forEach(k=>{ parent[find(k)]=find(m[0]); });
-  });
-  const by={}; Object.keys(parent).forEach(k=>{ (by[find(k)]=by[find(k)]||[]).push(k); });
-  return Object.values(by);
-}
-function chartsSharingScale(key){ return scaleGroups().find(g=>g.includes(key))||[key]; }
-// Raise every chart in a group to the group's largest locked maximum. Returns true when anything changed (so the caller rebuilds once more).
-function syncSharedScales(){
-  let changed=false;
-  scaleGroups().forEach(g=>{
-    const vals=g.map(k=>chartYMax[k]).filter(v=>v!=null);
-    if(!vals.length) return;
-    const m=Math.max(...vals);
-    g.forEach(k=>{ if(chartYMax[k]!=null && chartYMax[k]!==m){ chartYMax[k]=m; changed=true; } });
-  });
+// Set every drawn chart of a group to the group's largest current maximum. Returns true when anything changed.
+function applySameScale(name){
+  const g=(Array.isArray(name)?name:(SCALE_LINK_GROUPS[name]||[])).filter(k=>chartAvail[k]!==false);
+  const vals=g.map(k=>chartYMax[k]).filter(v=>v!=null);
+  if(!vals.length) return false;
+  const m=Math.max(...vals); let changed=false;
+  g.forEach(k=>{ if(chartYMax[k]!==m){ chartYMax[k]=m; changed=true; } });
   return changed;
 }
-// Rescale button on a chart: refit it and every chart sharing its scale.
-function rescaleChart(which){ chartsSharingScale(which).forEach(k=>{ chartYMax[k]=null; }); recompute(); }
-// A Scale button: turn a group link on/off. Turning one on refits the charts it joins together; turning one off leaves every scale as it is.
-function toggleScaleLink(name){
-  if(!state.ui) state.ui={};
-  const links=state.ui.scaleLinks=state.ui.scaleLinks||{...DEFAULT_SCALE_LINKS};
-  links[name]=!links[name];
-  if(links[name]) (SCALE_LINK_GROUPS[name]||[]).forEach(k=>{ chartYMax[k]=null; });
-  syncScaleButtons();
-  recompute();
-  saveDebounced();
-}
+// Rescale button on a chart: refit just that chart.
+function rescaleChart(which){ chartYMax[which]=null; recompute(); }
+// A Same-scale button: one action, nothing stays switched on.
+function toggleScaleLink(name){ applySameScale(name); recompute(); saveDebounced(); }
 
 // Crowding guard for the ordinary-bracket overlays on the small charts (Taxable ordinary income, Ordinary income tax). `valueLists` holds one
 // array per filing status in use (the Y value of each bracket line, ascending). A line is visible when it sits below yMax. If more than `keep`

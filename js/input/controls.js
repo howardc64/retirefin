@@ -91,17 +91,26 @@ function cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight){
     </div>`;
 }
 
-// One feature inside one of the General / Expenses / Tax & Optimizations panels (General / Expenses / Tax & Optimizations): just an Enable checkbox and its body. There is no per-feature Hide —
-// Hide belongs to the card (state.ui.assumpHide.general | expenses | tax, see syncAssumpHide). Enable only decides whether the feature is used.
-function featureBlock(title, enablePath, enabled, bodyHtml){
-  return `<div class="assump-feat"><div class="item-head"><label><input type="checkbox" ${enabled?'checked':''} onclick="onEnableToggle('${enablePath}', this.checked)"> ${title}</label></div>
-    <div class="assump-feat-body">${bodyHtml||''}</div></div>`;
+// One feature of the Expenses and Tax & Optimizations panels (Long Term Care, withdrawal order, AUM fee, State income tax, SCGL, Asset / basis swap, Portfolio withdraw,
+// Speculative future exemptions): a card with the same header as an income card — Enable (left: decides whether the feature is used in the projection) and
+// Hide (right: collapses the card's body, never read by compute). `hideKey` names the flag in state.ui.assumpHide; a feature with no saved flag starts hidden.
+function assumpHidden(hideKey){
+  const h=state.ui&&state.ui.assumpHide;
+  return (h&&h[hideKey]!==undefined)?!!h[hideKey]:(ASSUMP_HIDE_DEFAULT[hideKey]!==undefined?!!ASSUMP_HIDE_DEFAULT[hideKey]:true);
 }
-// Put each settings panel's Hide checkbox and open/closed body into the state held in state.ui.assumpHide.
+function featureBlock(hideKey, title, enablePath, enabled, bodyHtml){
+  const hidden=assumpHidden(hideKey);
+  return `<div class="item" data-assump="${hideKey}">
+      ${cardHeader(title, enablePath, enabled, 'ui.assumpHide.'+hideKey, hidden)}
+      <div class="item-body ${hidden?'':'open'}">${bodyHtml||''}</div>
+    </div>`;
+}
+// Put the General, Expenses and Tax & Optimizations panels' Hide checkboxes and open/closed body into the state held in state.ui.assumpHide.general. (The Expenses / Tax & Optimizations
+// features draw their own Hide state when they are rendered, featureBlock above.)
 function syncAssumpHide(){
   if(!state.ui) state.ui={};
-  if(!state.ui.assumpHide) state.ui.assumpHide={};
-  [['general','assumpGeneral','hideGeneral'],['expenses','assumpExpenses','hideExpenses'],['tax','assumpTax','hideTax']].forEach(([k,cardId,cbId])=>{
+  if(!state.ui.assumpHide) state.ui.assumpHide={...ASSUMP_HIDE_DEFAULT};
+  [['general','assumpGeneral','hideGeneral'],['expenses','assumpExpenses','hideExpenses'],['taxOpt','assumpTax','hideTaxOpt']].forEach(([k,cardId,cbId])=>{
     const card=document.getElementById(cardId), cb=document.getElementById(cbId); if(!card||!cb) return;
     const hidden=!!state.ui.assumpHide[k];
     cb.checked=hidden;

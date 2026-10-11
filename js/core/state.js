@@ -99,39 +99,52 @@ function defaultPerson(idx){
     roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false}
   };
 }
-// Chart panels. Every chart lives in its own panel on a 3-column grid (display/chartPanels.js). Three display-only settings are part of `state.ui`, so they are
+// Chart panels. Every chart lives in its own panel on a 2- or 3-column grid (display/chartPanels.js). Display-only settings are part of `state.ui`, so they are
 // saved to file / autosave, restored on load and put back to these defaults on Reset:
-//   ui.chartHidden[key] — the panel's Hide checkbox (true = collapsed to its title bar). Default: every panel hidden.
-//   ui.chartPos[key]    — {r,c}, the panel's grid row and column (0-based; CHART_COLS columns). The user can drag a panel to any free or occupied cell; cells nobody
-//                         occupies stay blank. Defaults below.
-//   ui.scaleLinks       — which groups of charts share one Y scale (the four buttons above the charts, see chartHelpers.js SCALE_LINK_GROUPS).
+//   ui.chartHidden[key] — the panel's Hide checkbox (true = collapsed to its title bar). Default: hidden for CHART_DEFAULT_HIDE_KEYS, shown for every other chart.
+//   ui.gridCols         — 2 or 3: the number of grid columns (the 2×N / 3×N toggle right of the Scale buttons). Default 2.
+//   ui.chartPos[key]    — {r,c}, the panel's grid row and column in the grid that is on screen (0-based; `gridCols` columns). The user can drag a panel to any free or
+//                         occupied cell; cells nobody occupies stay blank. Defaults below, one per layout.
+//   ui.chartPosAlt[key] — the same, for the OTHER layout, kept so toggling 2×N ↔ 3×N brings back the arrangement that layout had.
+//   ui.chartYMax[key]   — each chart's Y-axis maximum (null = fit automatically on the next draw). Saved and restored with the plan; the Same-scale buttons and each chart's
+//                         Rescale button change it (see chartHelpers.js).
 // Keys are the keys of the `charts` registry (display/chartHelpers.js).
-const CHART_KEYS=['expense','incomeMagi','income','incomeOrd','incomeQual','tax','taxOrd','taxQual','asset','idgt','assetConv','ss','tss'];
-const CHART_COLS=3;
-const DEFAULT_CHART_HIDDEN=true;
-// Left → right, top → bottom:  Annual expenses · (blank) · MAGI  /  Annual income · Taxable ordinary · Taxable qualified  /  Total tax · Ordinary income tax · QDIV/LTCG/NIIT tax  /
-// Asset value · IDGT value · Roth conversion  /  Cumulative household SS · Social Security tax.
-const CHART_DEFAULT_POS={expense:{r:0,c:0}, incomeMagi:{r:0,c:2}, income:{r:1,c:0}, incomeOrd:{r:1,c:1}, incomeQual:{r:1,c:2}, tax:{r:2,c:0}, taxOrd:{r:2,c:1}, taxQual:{r:2,c:2},
-  asset:{r:3,c:0}, idgt:{r:3,c:1}, assetConv:{r:3,c:2}, ss:{r:4,c:0}, tss:{r:4,c:1}};
-const DEFAULT_SCALE_LINKS={incomeExpense:true, tax:true, incomeExpenseTax:true, asset:false};
+const CHART_KEYS=['expense','incomeMagi','income','incomeOrd','incomeQual','tax','taxOrd','taxQual','asset','idgt','ira','ltcg','ss','tss'];
+const GRID_COLS_DEFAULT=2;
+const CHART_DEFAULT_HIDE_KEYS=['expense','income','tax','asset','idgt','ira','ltcg'];   // Hide checked by default; every other chart starts shown
+// Left → right, top → bottom.
+// 2 × N:  Annual expenses · Annual income  /  IRA · LTCG  /  Total tax · Asset value  /  Taxable ordinary · Taxable qualified  /  MAGI · (blank)  /
+//         Ordinary income tax · QDIV/LTCG/NIIT tax  /  IDGT value · (blank)  /  Cumulative household SS · Social Security tax.
+// 3 × N:  Annual expenses · (blank) · MAGI  /  Annual income · Taxable ordinary · Taxable qualified  /  (blank) · IRA · LTCG  /
+//         Total tax · Ordinary income tax · QDIV/LTCG/NIIT tax  /  Asset value · IDGT value · (blank)  /  Cumulative household SS · Social Security tax.
+const CHART_DEFAULT_POS_BY_COLS={
+  2:{expense:{r:0,c:0}, income:{r:0,c:1}, ira:{r:1,c:0}, ltcg:{r:1,c:1}, tax:{r:2,c:0}, asset:{r:2,c:1}, incomeOrd:{r:3,c:0}, incomeQual:{r:3,c:1}, incomeMagi:{r:4,c:0},
+     taxOrd:{r:5,c:0}, taxQual:{r:5,c:1}, idgt:{r:6,c:0}, ss:{r:7,c:0}, tss:{r:7,c:1}},
+  3:{expense:{r:0,c:0}, incomeMagi:{r:0,c:2}, income:{r:1,c:0}, incomeOrd:{r:1,c:1}, incomeQual:{r:1,c:2}, ira:{r:2,c:1}, ltcg:{r:2,c:2},
+     tax:{r:3,c:0}, taxOrd:{r:3,c:1}, taxQual:{r:3,c:2}, asset:{r:4,c:0}, idgt:{r:4,c:1}, ss:{r:5,c:0}, tss:{r:5,c:1}}
+};
+function otherGridCols(cols){ return cols===3?2:3; }
 function defaultChartHidden(hidden){
-  const o={}; CHART_KEYS.forEach(k=>{ o[k]=(hidden===undefined?DEFAULT_CHART_HIDDEN:!!hidden); }); return o;
+  const o={}; CHART_KEYS.forEach(k=>{ o[k]=(hidden===undefined?CHART_DEFAULT_HIDE_KEYS.includes(k):!!hidden); }); return o;
 }
-function defaultChartPos(){ const o={}; CHART_KEYS.forEach(k=>{ o[k]={...CHART_DEFAULT_POS[k]}; }); return o; }
+function defaultChartPos(cols){ const d=CHART_DEFAULT_POS_BY_COLS[cols===3?3:2], o={}; CHART_KEYS.forEach(k=>{ o[k]={...d[k]}; }); return o; }
 // A saved layout is kept as far as it is valid: a missing / out-of-range / duplicate position is replaced by the first free cell (row-major).
-function normalizeChartPos(p){
+function normalizeChartPos(p, cols){
+  cols=(cols===3?3:2);
   const out={}, taken=new Set(), cell=(r,c)=>r+','+c, bad=[];
   CHART_KEYS.forEach(k=>{
     const v=p&&p[k], r=Number(v&&v.r), c=Number(v&&v.c);
-    if(v && Number.isInteger(r) && Number.isInteger(c) && r>=0 && r<200 && c>=0 && c<CHART_COLS && !taken.has(cell(r,c))){ out[k]={r,c}; taken.add(cell(r,c)); }
+    if(v && Number.isInteger(r) && Number.isInteger(c) && r>=0 && r<200 && c>=0 && c<cols && !taken.has(cell(r,c))){ out[k]={r,c}; taken.add(cell(r,c)); }
     else bad.push(k);
   });
   bad.forEach(k=>{
-    let r=0, c=0; while(taken.has(cell(r,c))){ if(++c>=CHART_COLS){ c=0; r++; } }   // first free cell, row-major
+    let r=0, c=0; while(taken.has(cell(r,c))){ if(++c>=cols){ c=0; r++; } }   // first free cell, row-major
     out[k]={r,c}; taken.add(cell(r,c));
   });
   return out;
 }
+// The Expenses and Tax & Optimizations panels each have a Hide box for the whole panel (assumpHide.expenses / assumpHide.taxOpt, default hidden), and every feature inside is a card with its own Hide box (default hidden); General has one for the whole panel (default shown).
+const ASSUMP_HIDE_DEFAULT={general:false, expenses:true, taxOpt:true, ltc:true, withdraw:true, aum:true, stateTax:true, scgl:true, swap:true, pfWithdraw:true, futureTax:true};
 // Display order of the income-source cards (`state.ui.incomeOrder`), shared by every person column so married spouses reorder together.
 const INCOME_CARD_KEYS=['wage','ss','pension','rental','brokerage','realestate','annuity','ira','roth'];
 // A saved order is kept as far as it is valid: unknown / duplicate keys are dropped and any card missing from it (e.g. one added
@@ -157,7 +170,7 @@ function defaultState(){
     aumFee:{enabled:true, mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
     stateTax:{enabled:false, state:'CA'},   // State income tax (Tax & Optimizations panel): 'CA' or 'WA'; off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), chartHidden:defaultChartHidden(), chartPos:defaultChartPos(), scaleLinks:{...DEFAULT_SCALE_LINKS}, assumpHide:{general:false,expenses:false,tax:false}}   // display-only, but saved/restored/reset with the plan (see above)
+    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), chartHidden:defaultChartHidden(), gridCols:GRID_COLS_DEFAULT, chartPos:defaultChartPos(GRID_COLS_DEFAULT), chartPosAlt:defaultChartPos(otherGridCols(GRID_COLS_DEFAULT)), chartYMax:Object.fromEntries(CHART_KEYS.map(k=>[k,null])), assumpHide:{...ASSUMP_HIDE_DEFAULT}}   // display-only, but saved/restored/reset with the plan (see above)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
@@ -209,9 +222,10 @@ function hydrateState(loaded){
   }
   fillLegacyHide(loaded);
   const out=merge(loaded, base);
-  // Saves from before the settings panels had Hide: LTC / speculative cards were open only while enabled — keep that.
-  // Saves from before the settings were split into the General / Expenses / Tax & Optimizations panels (they held per-feature Hide flags): all three cards start open.
-  if(loaded && !(loaded.ui && loaded.ui.assumpHide && loaded.ui.assumpHide.general!==undefined)) out.ui={...out.ui, assumpHide:{general:false, expenses:false, tax:false}};
+  // Saves from before the Expenses / Tax & Optimizations features became cards: their per-feature Hide flags are the defaults (all hidden); General keeps its own Hide.
+  if(loaded && !(loaded.ui && loaded.ui.assumpHide && loaded.ui.assumpHide.general!==undefined)) out.ui={...out.ui, assumpHide:{...ASSUMP_HIDE_DEFAULT, general:false}};
+  // Saves from before the 2×N / 3×N toggle had a fixed 3-column layout: keep that layout (and the arrangement they saved) rather than re-flowing it into 2 columns.
+  if(loaded && loaded.ui && loaded.ui.chartPos && loaded.ui.gridCols===undefined) out.ui={...out.ui, gridCols:3, chartPos:loaded.ui.chartPos, chartPosAlt:defaultChartPos(2)};
   // Older saves had a per-portfolio "Withdrawal" (`living`) and "tax drag %" — both are gone. Carry the
   // withdrawals over as the household living expenses so an old plan keeps roughly the same spending.
   if(loaded && loaded.living===undefined && Array.isArray(loaded.people)){
@@ -307,7 +321,9 @@ function hydrateState(loaded){
   });
   if(!out.ui) out.ui={};
   out.ui.incomeOrder=normalizeIncomeOrder(out.ui.incomeOrder);
-  out.ui.chartPos=normalizeChartPos(out.ui.chartPos);   // a layout from a file is kept as saved, repaired only if it is invalid
+  out.ui.gridCols=(out.ui.gridCols===3?3:2);
+  out.ui.chartPos=normalizeChartPos(out.ui.chartPos, out.ui.gridCols);   // a layout from a file is kept as saved, repaired only if it is invalid
+  out.ui.chartPosAlt=normalizeChartPos(out.ui.chartPosAlt, otherGridCols(out.ui.gridCols));
   return out;
 }
 let state = defaultState();
@@ -359,7 +375,6 @@ function resetState(){
   state=applyDefaultHiddenFromEnabled(defaultState());
   setSaveTarget(null);   // the default plan must not silently overwrite the file that was loaded
   if(typeof scnReset==='function') scnReset();   // back to the single scenario A
-  resetChartYMax();
   renderAll();
   autosave();
   flashMsg('Reset to defaults.');
@@ -449,7 +464,6 @@ function applyLoadedFileText(text){
   state=defaultState();        // reset before restoring, per spec
   state=hydrateState(parsed);  // then apply the restored file on top of that clean default (its Hide flags are kept as saved)
   if(typeof scnLoadFromFile==='function') scnLoadFromFile(parsed);   // the file's other scenarios (or just A) replace the current set
-  resetChartYMax();
   renderAll();
   autosave();
   flashMsg('Loaded from file.');

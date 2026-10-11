@@ -60,7 +60,8 @@ const II_FIELDS=[
   [/^Same scale: income & expense$/,'','On: the Annual income, Annual expenses, MAGI, Taxable ordinary income, Taxable qualified income charts all use the same vertical scale (the largest of them).'],
   [/^Same scale: tax$/,'','On: the Total tax, Ordinary income tax and QDIV / LTCG / NIIT tax charts all use the same vertical scale (the largest of them).'],
   [/^Same scale: income, expense & tax$/,'','On: every income, expense and tax chart uses one vertical scale, so their heights can be compared directly.'],
-  [/^Same scale: asset & IDGT$/,'','On: the Asset value and IDGT value charts use the same vertical scale. Cumulative household SS, Social Security tax and the Roth conversion chart always keep their own scale.'],
+  [/^Same scale: asset & IDGT$/,'','On: the Asset value and IDGT value charts use the same vertical scale. Cumulative household SS, Social Security tax, the IRA chart and the LTCG chart always keep their own scale.'],
+  [/^Grid: [23]\u00d7N$/,'','Switch the chart grid between 2 columns (2\u00d7N, the default) and 3 columns (3\u00d7N). Each size remembers its own arrangement of the charts, and the choice is saved with the plan.'],
   // ── Wage / pension / generic amounts
   [/^Annual amount/,'n','Yearly amount in today\'s dollars.'],
   [/^Start$/,'n','Age at which this starts, used when "Custom age" is chosen.'],
