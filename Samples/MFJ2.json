@@ -1,5 +1,6 @@
 {
   "filingStatus": "married",
+  "notes": "",
   "inflation": 0.03,
   "people": [
     {
@@ -116,11 +117,15 @@
           "name": "Main residence",
           "balance": 1000000,
           "basis": 400000,
+          "exempt": 0,
           "growth": {
             "mode": "inflation",
             "value": 0
           },
-          "bene": true
+          "bene": true,
+          "sellMode": "never",
+          "sellAge": 80,
+          "sellTo": ""
         }
       ],
       "ira": {
@@ -270,10 +275,22 @@
     "living1": null,
     "living2": 0
   },
+  "withdrawOrder": {
+    "enabled": false,
+    "steps": []
+  },
+  "pfWithdraw": {
+    "enabled": false,
+    "ltcgPct": 0
+  },
   "aumFee": {
     "enabled": true,
     "mode": "pct",
     "value": 0.9
+  },
+  "stateTax": {
+    "enabled": false,
+    "state": "CA"
   },
   "futureTax": {
     "enabled": true,
@@ -282,6 +299,7 @@
     "niitMarried": 250000
   },
   "ui": {
+    "globalNotes": "",
     "incomeOrder": [
       "brokerage",
       "ira",
@@ -293,25 +311,85 @@
       "annuity",
       "rental"
     ],
-    "hiddenSections": {
-      "assumptions": false,
-      "ss": true,
+    "chartHidden": {
+      "expense": false,
+      "incomeMagi": false,
       "income": false,
-      "tss": true,
+      "incomeOrd": false,
+      "incomeQual": false,
       "tax": false,
-      "expenses": false,
-      "assets": false
+      "taxOrd": false,
+      "taxQual": false,
+      "asset": false,
+      "idgt": false,
+      "assetConv": false,
+      "ss": false,
+      "tss": false
+    },
+    "chartPos": {
+      "expense": {
+        "r": 0,
+        "c": 0
+      },
+      "incomeMagi": {
+        "r": 0,
+        "c": 2
+      },
+      "income": {
+        "r": 1,
+        "c": 0
+      },
+      "incomeOrd": {
+        "r": 1,
+        "c": 1
+      },
+      "incomeQual": {
+        "r": 1,
+        "c": 2
+      },
+      "tax": {
+        "r": 2,
+        "c": 0
+      },
+      "taxOrd": {
+        "r": 2,
+        "c": 1
+      },
+      "taxQual": {
+        "r": 2,
+        "c": 2
+      },
+      "asset": {
+        "r": 3,
+        "c": 0
+      },
+      "idgt": {
+        "r": 3,
+        "c": 1
+      },
+      "assetConv": {
+        "r": 3,
+        "c": 2
+      },
+      "ss": {
+        "r": 4,
+        "c": 0
+      },
+      "tss": {
+        "r": 4,
+        "c": 1
+      }
+    },
+    "scaleLinks": {
+      "incomeExpense": true,
+      "tax": true,
+      "incomeExpenseTax": true,
+      "asset": false
     },
     "assumpHide": {
-      "scgl": false,
-      "aum": false,
-      "swap": true,
-      "ltc": true,
-      "future": true
-    },
-    "ltcgDevalue": 0,
-    "ordDevalue": 0,
-    "ltcgDevalue2": 0,
-    "ordDevalue2": 0
+      "general": false,
+      "expenses": true,
+      "tax": true
+    }
   }
 }
