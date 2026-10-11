@@ -138,7 +138,8 @@ const stretchTintPlugin={
     const y0=top-LTC_BAR_H-3;
     ctx.save();
     ctx.fillStyle=STRETCH_BAR_COLOR; ctx.fillRect(xa,y0,xb-xa,LTC_BAR_H);
-    if(opts.label){ ctx.font='bold 10px DM Sans,sans-serif'; ctx.fillStyle='#444'; ctx.textBaseline='bottom'; ctx.textAlign='center'; ctx.fillText(opts.label,(xa+xb)/2,y0-2); }
+    if(opts.label){ ctx.beginPath(); ctx.rect(left,0,right-left,top); ctx.clip();   // the label stays centered over the visible part of the red bar and scrolls off the plot with it
+      ctx.font='bold 10px DM Sans,sans-serif'; ctx.fillStyle='#444'; ctx.textBaseline='bottom'; ctx.textAlign='center'; ctx.fillText(opts.label,(xa+xb)/2,y0-2); }
     ctx.restore();
   }
 };

@@ -1,8 +1,8 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// INPUT / INPUT ELEMENT INFO — the "Input Element Info" checkbox (header, left of "Chart Element Info").
-// When checked (default), hovering an input on the input side (Household Setup, Income & Assets) or the chart side (section Hide boxes,
-// Rescale buttons, Asset Value devalue sliders, …) or a header toggle shows a popup describing it. Drop-down menus are opened as a custom
+// INPUT / INPUT ELEMENT INFO — the "Input Element" checkbox (header, left of "Chart Element").
+// When checked (default), hovering an input on the input side (Household Setup, Income & Assets) or the chart side (chart Hide boxes,
+// Rescale buttons, the Same scale buttons, …) or a header toggle shows a popup describing it. Drop-down menus are opened as a custom
 // list so hovering each choice shows a description of that choice too — a native <select> popup cannot show tooltips.
 // Texts live in inputInfoText.js. The popup (#inputTip) follows the Popup background slider (tipTheme(), chartHelpers.js); styles in styles.css.
 // Read-only: only reads the DOM; never writes into `state` (a menu pick just sets the <select> and fires its own `change` event).
@@ -39,7 +39,7 @@ function iiCardKind(c){
 // The text that identifies a control: its own label, else the nearest caption before it, else its card's title.
 function iiLabel(c){
   if(iiKind(c)==='c'){
-    if(c.matches('[data-hide-key]') || c.closest('.hide-toggle')) return 'Hide';
+    if(c.matches('[data-chart-hide]') || c.closest('.hide-toggle')) return 'Hide';
     if(c.closest('.item-head')) return 'ENABLE:'+iiCardKind(c);
     return iiClean(c.closest('label')?.textContent);
   }

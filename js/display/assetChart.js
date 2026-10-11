@@ -23,22 +23,20 @@ function hexOverWhite(hex,a){
   return 'rgb('+[(n>>16)&255,(n>>8)&255,n&255].map(v=>Math.round(a*v+(1-a)*255)).join(',')+')';
 }
 
-// "Unrealized gain at end of plan" line (spec §4.6 cost basis, §6.7): one line under each asset chart, held in a
-// <p class="cn"> in index.html (hidden while empty) and blank whenever no portfolio on the chart tracks cost basis.
-function setGainNote(cfg, text){
-  const el=document.getElementById(cfg.gainId);
-  if(el) el.textContent=text||'';
+// Horizontal scroll of the main Asset value chart. The chart shows the same window of ages (same number of X labels, same width) as the IDGT chart; when the 10-year
+// IRA stretch runs past that window, the ◀ ▶ buttons on the X axis scroll it (5 years a click). Not saved: the chart opens at the start.
+let assetScroll=0, assetScrollMax=0, assetScrollN=0;
+const ASSET_SCROLL_STEP=5;
+function syncAssetScrollButtons(){
+  const box=document.getElementById('assetXScroll'); if(!box) return;
+  box.hidden=assetScrollMax<=0;
+  const [b,f]=box.querySelectorAll('button'); if(b) b.disabled=assetScroll<=0; if(f) f.disabled=assetScroll>=assetScrollMax;
 }
-
-// The two "devalue" sliders (state.ui, saved with the plan): a haircut on the embedded tax cost of each asset, so a band shows
-// roughly what it is worth after tax. LTCG devalue removes that % of a brokerage portfolio's UNREALIZED GAIN (basis is never
-// touched); ordinary-income devalue removes that % of a pre-tax IRA's value. Roth is left alone. Returns fractions 0–1.
-function assetDevalue(){
-  const u=(typeof state!=='undefined'&&state&&state.ui)||{};
-  const f=(v,d)=>{ const n=Number(v); return Math.min(100,Math.max(0,Number.isFinite(n)&&v!=null&&v!==''?n:d))/100; };
-  // [0] = years up to the last passing, [1] = the stretch years after it (heirs' anticipated brackets).
-  return [{ltcg:f(u.ltcgDevalue,DEFAULT_LTCG_DEVALUE), ord:f(u.ordDevalue,DEFAULT_ORD_DEVALUE)},
-          {ltcg:f(u.ltcgDevalue2,DEFAULT_LTCG_DEVALUE2), ord:f(u.ordDevalue2,DEFAULT_ORD_DEVALUE2)}];
+function scrollAssetX(dir){
+  assetScroll=Math.max(0,Math.min(assetScrollMax,assetScroll+dir*ASSET_SCROLL_STEP));
+  const ch=charts.asset;
+  if(ch){ ch.options.scales.x.min=assetScroll; ch.options.scales.x.max=assetScroll+assetScrollN-1; ch.update('none'); }
+  syncAssetScrollButtons();
 }
 
 // One builder for both asset charts. `cfg` picks which series belong on the chart
@@ -46,8 +44,6 @@ function assetDevalue(){
 function buildAssetChartFor(cfg){
   if(typeof Chart==='undefined'||!lastProjection) return;
   const proj=lastProjection, rows=proj.rows;
-  const legendEl=document.getElementById(cfg.legendId);
-  const card=cfg.cardId?document.getElementById(cfg.cardId):null;
 
   // Stable, ordered list of series driven by the current input shape, so each series keeps its
   // color/position across renders as long as the underlying assets aren't added/removed.
@@ -81,11 +77,9 @@ function buildAssetChartFor(cfg){
 
   const clear=()=>{
     if(charts[cfg.key]){ try{ charts[cfg.key].destroy(); }catch(e){} charts[cfg.key]=null; }
-    if(!cfg.idgt){ if(charts.assetConv){ try{ charts.assetConv.destroy(); }catch(e){} charts.assetConv=null; } const sd=document.getElementById('assetConvSide'); if(sd) sd.style.display='none'; }
-    legendEl.innerHTML='';
-    setGainNote(cfg, '');
+    if(!cfg.idgt){ assetScrollMax=0; assetScroll=0; syncAssetScrollButtons(); if(charts.assetConv){ try{ charts.assetConv.destroy(); }catch(e){} charts.assetConv=null; } setChartAvailable('assetConv',false); }
   };
-  if(card) card.style.display = series.length ? '' : 'none';
+  if(cfg.idgt) setChartAvailable(cfg.key, series.length>0);   // no IDGT portfolio: no IDGT chart (its grid cell stays blank)
   if(!series.length){ clear(); return; }
   if(!rows.length){ clear(); return; }
 
@@ -96,9 +90,16 @@ function buildAssetChartFor(cfg){
   const allRows=rows.concat(stretch);
   const endAge=Math.max(chartMaxAge(proj), stretch.length?Math.round(stretch[stretch.length-1].age0):0);
   const labels=ageLabelRange(rows[0].age0,endAge);
+  // Visible window = the shared axis (what the IDGT chart shows); the stretch years beyond it are reached by scrolling (main chart only).
+  const winN=ageLabelRange(rows[0].age0,chartMaxAge(proj)).length;
+  let xMin, xMax;
+  if(!cfg.idgt){
+    assetScrollN=winN; assetScrollMax=Math.max(0,labels.length-winN); assetScroll=Math.max(0,Math.min(assetScrollMax,assetScroll));
+    if(assetScrollMax>0){ xMin=assetScroll; xMax=assetScroll+winN-1; }
+    syncAssetScrollButtons();
+  }
   const ages=allRows.map(r=>r.age0);
   const rowByAge={}; allRows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
-  const dv=assetDevalue();
   const annEntry=(s,r)=>{ const person=r.annuitiesByPerson&&r.annuitiesByPerson[s.personIdx]; return person&&person[s.ai]; };
   const entryOf=(s,r)=>{ const person=r.portfoliosByPerson&&r.portfoliosByPerson[s.personIdx]; return person&&person[s.bi]; };
   const reEntry=(s,r)=>{ const person=r.realEstateByPerson&&r.realEstateByPerson[s.personIdx]; return person&&person[s.ri]; };
@@ -125,27 +126,16 @@ function buildAssetChartFor(cfg){
     const e=entryOf(s,r);
     return e?e.balance:0;
   };
-  // Plotted value = face value less the devalue haircut that applies to that kind of asset.
-  const valueOf=(s,r)=>{
-    const f=faceOf(s,r); if(f==null) return null;
-    const d=dv[r.stretchYear?1:0];   // set 2 after the last passing, set 1 before
-    if(s.type==='ira') return f*(1-d.ord);
-    if(s.type==='annuity'){ const e=annEntry(s,r); return f-((e&&e.taxableEmbedded)||0)*d.ord; }   // ordinary-income haircut on the taxable part of the contract
-    if(s.type==='portfolio'){ const e=entryOf(s,r); return f-((e&&e.tracked)?(e.unrealizedGain||0):0)*d.ltcg; }
-    return f;
-  };
+  const valueOf=faceOf;   // plotted value = face value
   // Dashed lines: one cost-basis line inside EACH tracked portfolio's band (a portfolio's basis resets when its own owner passes, so each steps up at its own
-  // time). It is NOT devalued, so the gap between the line and the top of its band is that portfolio's unrealized gain. Like the real estate lines, a band's
-  // height is its value, so the line plots at (top of everything stacked below the band) + (cost basis). It is drawn only in rows where the applicable LTCG
-  // devalue is 0%: any LTCG devalue pulls the band toward 100% basis (at 100% the band's top IS the basis), so the line would no longer mark the top of the gain.
+  // time). The gap between the line and the top of its band is that portfolio's unrealized gain. Like the real estate lines, a band's
+  // height is its value, so the line plots at (top of everything stacked below the band) + (cost basis).
   const aligned=series.map(s=>alignToAges(ages, allRows.map(r=>valueOf(s,r)), labels));
   const alignedFace=series.map(s=>alignToAges(ages, allRows.map(r=>faceOf(s,r)), labels));
-  const hasPf=series.some(s=>s.type==='portfolio');
   const pfBasis=[];   // [{si, basis:[$ per label], line:[plotted height per label]}]
   series.forEach((s,si)=>{
     if(s.type!=='portfolio') return;
     const basis=alignToAges(ages, allRows.map(r=>{
-      if(dv[r.stretchYear?1:0].ltcg>0) return null;
       const e=entryOf(s,r); return (e&&e.balance>0&&e.tracked)?(e.basis||0):null;
     }), labels);
     const line=basis.map((b,idx)=>{
@@ -155,7 +145,6 @@ function buildAssetChartFor(cfg){
     });
     if(line.some(v=>v!=null)) pfBasis.push({si, basis, line});
   });
-  const showBasis=pfBasis.length>0;   // no lines (and no legend key) when every row is LTCG-devalued
   // Real estate cost basis: one dotted line inside each property's band. Real estate is not devalued, so the line always shows. A band's
   // height is its value, so the line plots at (top of everything stacked below the band) + (cost basis), i.e. basis % of the way up the band.
   const reBasis=[];   // [{si, basis:[$ per label], line:[plotted height per label]}]
@@ -180,7 +169,7 @@ function buildAssetChartFor(cfg){
     return Math.max(50000, Math.ceil(maxT/10000)*10000+10000);
   });
 
-  // Ownership facts for Chart Element Info (the popup words it for the hovered year, see ciOwnerText in chartInfo.js): who holds the asset, whether a
+  // Ownership facts for Chart Element (the popup words it for the hovered year, see ciOwnerText in chartInfo.js): who holds the asset, whether a
   // portfolio / property is "Joint owned with spouse" (both are owners while both live), and `bene` (it continues to the surviving spouse).
   const ownerInfoOf=s=>{
     const p=proj.people[s.personIdx];
@@ -209,7 +198,7 @@ function buildAssetChartFor(cfg){
   const extra=[];
   pfBasis.forEach(pb=>{
     datasets.push({
-      label:seriesLabel(series[pb.si],pb.si)+' cost basis', vzKind:'pfBasis', ciOwnerInfo:ownerInfoOf(series[pb.si]), data:pb.line, ciValues:pb.basis,   // data = plotted height (stack below + basis); ciValues = the cost basis itself, for Chart Element Info
+      label:seriesLabel(series[pb.si],pb.si)+' cost basis', vzKind:'pfBasis', ciOwnerInfo:ownerInfoOf(series[pb.si]), data:pb.line, ciValues:pb.basis,   // data = plotted height (stack below + basis); ciValues = the cost basis itself, for Chart Element
       borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:2.5, borderDash:[8,5],
       pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'basis-pf-'+pb.si, order:0
     });
@@ -260,9 +249,6 @@ function buildAssetChartFor(cfg){
       if(ctx.raw<1) return null;
       const lines=[mrow('  '+ctx.dataset.label, fmt(ctx.raw), W)];
       const s=series[ctx.datasetIndex], r=rowByAge[labels[ctx.dataIndex]];
-      // Show the face value whenever a withdraw-cost slider has changed what's plotted.
-      const face=r?faceOf(s,r):null;
-      if(face!=null && face-ctx.raw>=1) lines.push(mrow('      Face value before withdraw cost', fmt(face), W));
       if(s && s.type==='annuity' && r){
         const e=annEntry(s,r);
         if(e && e.live){
@@ -337,9 +323,9 @@ function buildAssetChartFor(cfg){
   };
 
   // Red bar + label above the stretch window (main chart only): starts at the first stretch year's age on the axis.
-  const stretchOpts=stretch.length?{fromIdx:Math.max(0,labels.indexOf(Math.round(stretch[0].age0))), label:STRETCH_YEARS+' year IRA stretch'}:null;
+  const stretchOpts=stretch.length?{fromIdx:Math.max(0,labels.indexOf(Math.round(stretch[0].age0))), label:'stretch IRA'}:null;
   upsertLineChart(cfg.key,{canvasId:cfg.canvasId, labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
-    refresh:o=>{ o.plugins.stretchTint=stretchOpts||false; },
+    refresh:o=>{ o.plugins.stretchTint=stretchOpts||false; o.scales.x.min=xMin; o.scales.x.max=xMax; },
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
@@ -349,42 +335,11 @@ function buildAssetChartFor(cfg){
         tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(tooltipCallbacks)}   // external HTML popup: the built-in canvas popup is clipped at the canvas edge
       },
       scales:{
-        x:ageXAxis(ageAxisLabel(proj)),
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle(cfg.yTitle),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        x:{...ageXAxis(ageAxisLabel(proj)),min:xMin,max:xMax},
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle(cfg.yTitle),ticks:yAxisTicks,grid:AXIS_GRID}
       }
     })});
   if(!cfg.idgt) buildRothConvChart({proj, rows, allRows, labels, ages, rowByAge, series, seriesLabel});
-  legendEl.innerHTML = series.map((s,si)=>
-    hasValue(alignedFace[si]) ? legendItem(escHtml(seriesLabel(s,si)), colorOf[si]) : ''   // no entry for an asset that is $0 in every year
-  ).join('') + (showBasis ? legendItem('Cost basis (dashed, one per portfolio) — brokerage above it is unrealized gain', null, 'border-top:2px dashed #1f1f1f;background:transparent;height:2px;margin-top:4px') : '')
-    + (reBasis.length ? legendItem('Cost basis (dotted) — real estate above it is unrealized gain', null, 'border-top:2px dotted #1f1f1f;background:transparent;height:2px;margin-top:4px') : '');
-
-  // Embedded (unrealized) gain in the plan's final year, across this chart's tracked portfolios.
-  const last=rows[rows.length-1], tracked=[];
-  series.forEach((s,si)=>{
-    if(s.type!=='portfolio') return;
-    const e=(last.portfoliosByPerson[s.personIdx]||[])[s.bi];
-    if(e && e.tracked) tracked.push({label:seriesLabel(s,si), gain:e.unrealizedGain||0, value:e.balance||0});
-  });
-  let gainText='';
-  if(tracked.length){
-    const gain=tracked.reduce((a,t)=>a+t.gain,0), value=tracked.reduce((a,t)=>a+t.value,0);
-    gainText=`Unrealized gain at end of plan (${ageAxisLabel(proj)} ${Math.round(last.age0)}): ${fmt(gain)} on ${fmt(value)} of portfolio value (${value>0?(gain/value*100).toFixed(0):0}%).`
-      +(tracked.length>1?' By portfolio: '+tracked.map(t=>t.label+' '+fmt(t.gain)).join(' · ')+'.':'')
-      +(cfg.idgt
-        ? ' IDGT assets keep their original (carryover) cost basis at death, so this gain generally stays taxable to whoever later sells.'
-        : ' Non-IDGT portfolios generally receive a step-up in cost basis at death, so heirs would not owe tax on this gain.');
-  }
-  // Say what the sliders did to the bands, so a reader never mistakes a devalued band for face value.
-  const pct=x=>Math.round(x*100)+'%';
-  const devParts=[];
-  const hasIra=!cfg.idgt && series.some(s=>s.type==='ira'||s.type==='annuity');
-  const setTxt=d=>{ const t=[]; if(hasPf && d.ltcg>0) t.push(pct(d.ltcg)+' of unrealized gain (brokerage)'); if(hasIra && d.ord>0) t.push(pct(d.ord)+' of pre-tax IRA / taxable annuity value'); return t.join(' and '); };
-  const t1=setTxt(dv[0]), t2=stretch.length?setTxt(dv[1]):'';
-  if(t1) devParts.push('before the last passing, bands are reduced by '+t1);
-  if(t2) devParts.push('after it (heirs), by '+t2);
-  if(devParts.length) gainText=(gainText?gainText+' ':'')+'Withdraw cost: '+devParts.join('; ')+'.';
-  setGainNote(cfg, gainText);
 }
 
 // Half-size companion chart (right of the main asset chart): annual Roth conversion $ (today's $), one stacked band per pre-tax IRA that
@@ -393,7 +348,6 @@ function buildAssetChartFor(cfg){
 // owners + ages, each IRA's conversion, and the total — all in today's $.
 function buildRothConvChart(ctx){
   const {proj, rows, allRows, labels, ages, rowByAge, series, seriesLabel}=ctx;
-  const side=document.getElementById('assetConvSide');
   const convSeries=[];   // [{personIdx, color, label}]
   series.forEach((s,si)=>{
     if(s.type!=='ira') return;
@@ -405,10 +359,10 @@ function buildRothConvChart(ctx){
   });
   if(!convSeries.length){
     if(charts.assetConv){ try{ charts.assetConv.destroy(); }catch(e){} charts.assetConv=null; }
-    if(side) side.style.display='none';
+    setChartAvailable('assetConv',false);   // no Roth conversion set up: no chart (its grid cell stays blank)
     return;
   }
-  if(side) side.style.display='';
+  setChartAvailable('assetConv',true);
   const data=convSeries.map(cs=>alignToAges(ages, allRows.map(r=>r.stretchYear?null:((r.rothConvByPerson&&r.rothConvByPerson[cs.personIdx])||0)), labels));
   // Initial Y range = combined value of all pre-tax IRAs (today's $), held until Rescale.
   const Y_MAX=lockedYMax('assetConv', ()=>{
@@ -435,22 +389,15 @@ function buildRothConvChart(ctx){
       interaction:{mode:'index',intersect:false},
       plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(tip)} },
       scales:{
-        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Roth conversion (today's $)"),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        x:ageXAxis(ageAxisLabel(proj)),
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Roth conversion (today's $)"),ticks:yAxisTicks,grid:AXIS_GRID}
       }
     })});
 }
 
 function buildAssetChart(){
-  buildAssetChartFor({
-    key:'asset', idgt:false, canvasId:'assetChart', legendId:'assetLegend', gainId:'assetChartGain',
-    yTitle:"Asset value (today's $)", totalLabel:'Total asset value',
-  });
+  buildAssetChartFor({ key:'asset', idgt:false, canvasId:'assetChart', yTitle:"Asset value (today's $)" });
 }
 function buildIdgtChart(){
-  buildAssetChartFor({
-    key:'idgt', idgt:true, cardId:'idgtCard', canvasId:'idgtChart', legendId:'idgtLegend', gainId:'idgtChartGain',
-    yTitle:"IDGT value (today's $)", totalLabel:'Total IDGT value',
-  });
+  buildAssetChartFor({ key:'idgt', idgt:true, canvasId:'idgtChart', yTitle:"IDGT value (today's $)" });
 }
-

@@ -99,7 +99,7 @@ function featureBlock(title, enablePath, enabled, bodyHtml){
 }
 // Put each settings panel's Hide checkbox and open/closed body into the state held in state.ui.assumpHide.
 function syncAssumpHide(){
-  if(!state.ui) state.ui={hiddenSections:defaultHiddenSections()};
+  if(!state.ui) state.ui={};
   if(!state.ui.assumpHide) state.ui.assumpHide={};
   [['general','assumpGeneral','hideGeneral'],['expenses','assumpExpenses','hideExpenses'],['tax','assumpTax','hideTax']].forEach(([k,cardId,cbId])=>{
     const card=document.getElementById(cardId), cb=document.getElementById(cbId); if(!card||!cb) return;
@@ -124,43 +124,6 @@ function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel, extraFiel
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${item.bene?'checked':''} onchange="onBeneToggle('${checkboxPath}.bene', this.checked)"> Inherited by spouse</label></div>`:''}
       </div>
     </div>`;
-}
-
-// ── Section Hide checkbox (chart sections) ──
-// Display-only, but part of `state` (`state.ui.hiddenSections[key]`, key = the checkbox's `data-hide-key`), so it is saved to
-// file / autosave, restored on load and reset to the default (core/state.js) on Reset. Ticking Hide collapses everything below
-// the header (up to the next .sec-head) so only the header and its checkbox remain. Compute and charts keep updating while hidden.
-// The checkbox and the collapsed/expanded section are ALWAYS derived from state (syncSectionHide) — never from what the browser
-// happens to have restored into the checkbox — so "checked" and "hidden" cannot disagree.
-function sectionHeadOf(cb){ return cb.closest('.sec-head, .panel-title'); }
-function applySectionHide(head, hidden){
-  head.classList.toggle('is-hidden',hidden);
-  for(let el=head.nextElementSibling; el && !el.classList.contains('sec-head'); el=el.nextElementSibling)
-    el.classList.toggle('sec-hidden',hidden);
-}
-function onSectionHide(cb){
-  const head=sectionHeadOf(cb), key=cb.dataset.hideKey; if(!head||!key) return;
-  if(!state.ui) state.ui={hiddenSections:defaultHiddenSections()};
-  state.ui.hiddenSections[key]=cb.checked;
-  applySectionHide(head,cb.checked);
-  if(!cb.checked && typeof resizeAllCharts==='function') resizeAllCharts();
-  saveDebounced();
-}
-// Expand every section without touching state or the checkboxes. renderAll() uses this so charts are (re)built while their
-// containers are visible (a chart built inside a display:none container has no size), then calls syncSectionHide().
-function expandAllSections(){
-  document.querySelectorAll('.hide-cb input[data-hide-key]').forEach(cb=>{ const h=sectionHeadOf(cb); if(h) applySectionHide(h,false); });
-}
-// Put every section Hide checkbox and its collapsed/expanded section into the state held in `state.ui.hiddenSections`.
-function syncSectionHide(){
-  const hs=(state.ui&&state.ui.hiddenSections)||defaultHiddenSections();
-  document.querySelectorAll('.hide-cb input[data-hide-key]').forEach(cb=>{
-    const head=sectionHeadOf(cb); if(!head) return;
-    const hidden=!!hs[cb.dataset.hideKey];
-    cb.checked=hidden;
-    applySectionHide(head,hidden);
-  });
-  if(typeof resizeAllCharts==='function') resizeAllCharts();
 }
 
 // ── Paired slider + value input (the two always track each other) ──
@@ -207,22 +170,3 @@ function refreshPairBounds(){
   });
 }
 
-// ── Asset Value chart "devalue" sliders (state.ui.ltcgDevalue / ordDevalue, % 0–100) ──
-// Display-only haircuts, but saved with the plan. Only the two asset charts depend on them, so a drag redraws just those
-// (no projection recompute).
-function onDevalueInput(key,val){
-  if(!state.ui) state.ui={hiddenSections:defaultHiddenSections()};
-  state.ui[key]=+val;
-  const lbl=document.getElementById(key+'Lbl'); if(lbl) lbl.textContent=(+val)+'%';
-  window.liveDrag=true; buildAssetChart(); buildIdgtChart(); window.liveDrag=false;
-  saveDebounced();
-}
-// Put both sliders and their labels into the state held in `state.ui` (renderAll, after load/reset).
-function syncDevalueSliders(){
-  const ui=state.ui||{};
-  [['ltcgDevalue',DEFAULT_LTCG_DEVALUE],['ordDevalue',DEFAULT_ORD_DEVALUE],['ltcgDevalue2',DEFAULT_LTCG_DEVALUE2],['ordDevalue2',DEFAULT_ORD_DEVALUE2]].forEach(([key,dflt])=>{
-    const v=Number.isFinite(Number(ui[key]))&&ui[key]!=null?Number(ui[key]):dflt;
-    const el=document.getElementById(key), lbl=document.getElementById(key+'Lbl');
-    if(el) el.value=v; if(lbl) lbl.textContent=v+'%';
-  });
-}

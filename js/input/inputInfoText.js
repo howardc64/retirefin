@@ -49,14 +49,18 @@ const II_FIELDS=[
   [/^ENABLE:Rental$/,'c','Include this rental property in the projection.'],
   [/^ENABLE:Annuity$/,'c','Include this annuity in the projection.'],
   [/^ENABLE:Real estate$/,'c','Include this property in the projection.'],
-  [/^Hide$/,'c','Collapses this card or section to save space. Hidden data is still used in the projection and charts if it is enabled.'],
+  [/^Hide$/,'c','Collapses this card or chart to save space. Hidden data is still used in the projection and charts if it is enabled.'],
   [/^view IRMAA as tax$/,'c','Counts the Medicare IRMAA surcharge as part of tax on the Total Income Tax chart, so the bars show tax plus IRMAA.'],
-  [/^Chart Element Info$/,'c','When checked, hovering a chart describes the chart element under the cursor instead of showing the usual values.'],
-  [/^Input Element Info$/,'c','When checked, hovering an input describes it, and each choice in a drop-down menu shows its own description.'],
+  [/^Chart Element$/,'c','When checked, hovering a chart describes the chart element under the cursor instead of showing the usual values.'],
+  [/^Input Element$/,'c','When checked, hovering an input describes it, and each choice in a drop-down menu shows its own description.'],
   [/^Popup Details$/,'c','Adds the line-by-line breakdown to the chart hover popups.'],
   [/^＋ Add/,'','Add another one of these to this person.'],
   [/^Remove/,'','Remove this one from the plan.'],
-  [/Rescale$/,'','Refit this chart\'s vertical scale (and horizontal scale where it applies) to the current data.'],
+  [/Rescale$/,'','Refit this chart\'s vertical scale to the current data. Every chart that shares its scale (see the Same scale buttons above the charts) is refitted together.'],
+  [/^Same scale: income & expense$/,'','On: the Annual income, Annual expenses, MAGI, Taxable ordinary income, Taxable qualified income charts all use the same vertical scale (the largest of them).'],
+  [/^Same scale: tax$/,'','On: the Total tax, Ordinary income tax and QDIV / LTCG / NIIT tax charts all use the same vertical scale (the largest of them).'],
+  [/^Same scale: income, expense & tax$/,'','On: every income, expense and tax chart uses one vertical scale, so their heights can be compared directly.'],
+  [/^Same scale: asset & IDGT$/,'','On: the Asset value and IDGT value charts use the same vertical scale. Cumulative household SS, Social Security tax and the Roth conversion chart always keep their own scale.'],
   // ── Wage / pension / generic amounts
   [/^Annual amount/,'n','Yearly amount in today\'s dollars.'],
   [/^Start$/,'n','Age at which this starts, used when "Custom age" is chosen.'],
@@ -164,9 +168,5 @@ const II_OPTIONS=[
 
 // ── Descriptions of inputs that have no usable label (looked up by element id first).
 const II_IDS={
-  ltcgDevalue:'Haircut on unrealized gain when a portfolio is cashed out before the last passing: the share of the gain assumed lost to capital-gains tax. Display-only; it reduces the asset values charted.',
-  ltcgDevalue2:'Same haircut on unrealized gain, applied after the last passing. Display-only.',
-  ordDevalue:'Haircut on pre-tax IRA and taxable-annuity value before the last passing: the share assumed lost to ordinary income tax when withdrawn. Display-only.',
-  ordDevalue2:'Same haircut on pre-tax IRA and taxable-annuity value, applied after the last passing. Display-only.',
   tipBgSlider:'Sets how light or dark every chart popup is, from a see-through white (left) to a see-through black (right).'
 };

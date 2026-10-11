@@ -99,12 +99,39 @@ function defaultPerson(idx){
     roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false}
   };
 }
-// Section Hide checkboxes (the 6 chart sections). They are part of `state` (`state.ui.hiddenSections`)
-// so they are saved to file, autosaved, restored on load and put back to these defaults on Reset — the DOM (checkbox + collapsed
-// section) is always derived from this object (controls.js: syncSectionHide). Keys match `data-hide-key` in index.html.
-// DEFAULT_SECTION_HIDDEN is what a fresh session / Reset to defaults starts with: true = every section starts checked + collapsed.
-const SECTION_HIDE_KEYS=['ss','income','tss','tax','expenses','assets'];
-const DEFAULT_SECTION_HIDDEN=true;
+// Chart panels. Every chart lives in its own panel on a 3-column grid (display/chartPanels.js). Three display-only settings are part of `state.ui`, so they are
+// saved to file / autosave, restored on load and put back to these defaults on Reset:
+//   ui.chartHidden[key] — the panel's Hide checkbox (true = collapsed to its title bar). Default: every panel hidden.
+//   ui.chartPos[key]    — {r,c}, the panel's grid row and column (0-based; CHART_COLS columns). The user can drag a panel to any free or occupied cell; cells nobody
+//                         occupies stay blank. Defaults below.
+//   ui.scaleLinks       — which groups of charts share one Y scale (the four buttons above the charts, see chartHelpers.js SCALE_LINK_GROUPS).
+// Keys are the keys of the `charts` registry (display/chartHelpers.js).
+const CHART_KEYS=['expense','incomeMagi','income','incomeOrd','incomeQual','tax','taxOrd','taxQual','asset','idgt','assetConv','ss','tss'];
+const CHART_COLS=3;
+const DEFAULT_CHART_HIDDEN=true;
+// Left → right, top → bottom:  Annual expenses · (blank) · MAGI  /  Annual income · Taxable ordinary · Taxable qualified  /  Total tax · Ordinary income tax · QDIV/LTCG/NIIT tax  /
+// Asset value · IDGT value · Roth conversion  /  Cumulative household SS · Social Security tax.
+const CHART_DEFAULT_POS={expense:{r:0,c:0}, incomeMagi:{r:0,c:2}, income:{r:1,c:0}, incomeOrd:{r:1,c:1}, incomeQual:{r:1,c:2}, tax:{r:2,c:0}, taxOrd:{r:2,c:1}, taxQual:{r:2,c:2},
+  asset:{r:3,c:0}, idgt:{r:3,c:1}, assetConv:{r:3,c:2}, ss:{r:4,c:0}, tss:{r:4,c:1}};
+const DEFAULT_SCALE_LINKS={incomeExpense:true, tax:true, incomeExpenseTax:true, asset:false};
+function defaultChartHidden(hidden){
+  const o={}; CHART_KEYS.forEach(k=>{ o[k]=(hidden===undefined?DEFAULT_CHART_HIDDEN:!!hidden); }); return o;
+}
+function defaultChartPos(){ const o={}; CHART_KEYS.forEach(k=>{ o[k]={...CHART_DEFAULT_POS[k]}; }); return o; }
+// A saved layout is kept as far as it is valid: a missing / out-of-range / duplicate position is replaced by the first free cell (row-major).
+function normalizeChartPos(p){
+  const out={}, taken=new Set(), cell=(r,c)=>r+','+c, bad=[];
+  CHART_KEYS.forEach(k=>{
+    const v=p&&p[k], r=Number(v&&v.r), c=Number(v&&v.c);
+    if(v && Number.isInteger(r) && Number.isInteger(c) && r>=0 && r<200 && c>=0 && c<CHART_COLS && !taken.has(cell(r,c))){ out[k]={r,c}; taken.add(cell(r,c)); }
+    else bad.push(k);
+  });
+  bad.forEach(k=>{
+    let r=0, c=0; while(taken.has(cell(r,c))){ if(++c>=CHART_COLS){ c=0; r++; } }   // first free cell, row-major
+    out[k]={r,c}; taken.add(cell(r,c));
+  });
+  return out;
+}
 // Display order of the income-source cards (`state.ui.incomeOrder`), shared by every person column so married spouses reorder together.
 const INCOME_CARD_KEYS=['wage','ss','pension','rental','brokerage','realestate','annuity','ira','roth'];
 // A saved order is kept as far as it is valid: unknown / duplicate keys are dropped and any card missing from it (e.g. one added
@@ -113,13 +140,6 @@ function normalizeIncomeOrder(o){
   const out=[]; (Array.isArray(o)?o:[]).forEach(k=>{ if(INCOME_CARD_KEYS.includes(k)&&!out.includes(k)) out.push(k); });
   INCOME_CARD_KEYS.forEach(k=>{ if(!out.includes(k)) out.push(k); });
   return out;
-}
-// Asset Value chart "devalue" sliders (display only): % knocked off the unrealized-gain part of brokerage value (LTCG) and off pre-tax IRA value (ordinary income).
-const DEFAULT_LTCG_DEVALUE=0, DEFAULT_ORD_DEVALUE=0;
-// Second set: applies only to the years after the last passing (heirs' anticipated brackets); its defaults (0 / 0) are independent of the first set's.
-const DEFAULT_LTCG_DEVALUE2=0, DEFAULT_ORD_DEVALUE2=0;
-function defaultHiddenSections(hidden){
-  const o={}; SECTION_HIDE_KEYS.forEach(k=>{ o[k]=(hidden===undefined?DEFAULT_SECTION_HIDDEN:!!hidden); }); return o;
 }
 function defaultState(){
   return{
@@ -137,11 +157,11 @@ function defaultState(){
     aumFee:{enabled:true, mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
     stateTax:{enabled:false, state:'CA'},   // State income tax (Tax & Optimizations panel): 'CA' or 'WA'; off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), hiddenSections:defaultHiddenSections(), assumpHide:{general:false,expenses:false,tax:false}, ltcgDevalue:DEFAULT_LTCG_DEVALUE, ordDevalue:DEFAULT_ORD_DEVALUE, ltcgDevalue2:DEFAULT_LTCG_DEVALUE2, ordDevalue2:DEFAULT_ORD_DEVALUE2}   // display-only, but saved/restored/reset with the plan (see above). *Devalue = the Asset Value charts' two sliders (% haircut on unrealized gain / on pre-tax IRA)
+    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), chartHidden:defaultChartHidden(), chartPos:defaultChartPos(), scaleLinks:{...DEFAULT_SCALE_LINKS}, assumpHide:{general:false,expenses:false,tax:false}}   // display-only, but saved/restored/reset with the plan (see above)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
-// only if it was not enabled), and a save with no `ui.hiddenSections` shows every section, as it did when it was written.
+// only if it was not enabled).
 // Only *missing* values are filled — a `hidden` value that is present in the file is always kept.
 function fillLegacyHide(loaded){
   if(!loaded || typeof loaded!=='object') return;
@@ -192,7 +212,6 @@ function hydrateState(loaded){
   // Saves from before the settings panels had Hide: LTC / speculative cards were open only while enabled — keep that.
   // Saves from before the settings were split into the General / Expenses / Tax & Optimizations panels (they held per-feature Hide flags): all three cards start open.
   if(loaded && !(loaded.ui && loaded.ui.assumpHide && loaded.ui.assumpHide.general!==undefined)) out.ui={...out.ui, assumpHide:{general:false, expenses:false, tax:false}};
-  if(loaded && !(loaded.ui && loaded.ui.hiddenSections)) out.ui={...out.ui, hiddenSections:defaultHiddenSections(false)};
   // Older saves had a per-portfolio "Withdrawal" (`living`) and "tax drag %" — both are gone. Carry the
   // withdrawals over as the household living expenses so an old plan keeps roughly the same spending.
   if(loaded && loaded.living===undefined && Array.isArray(loaded.people)){
@@ -288,6 +307,7 @@ function hydrateState(loaded){
   });
   if(!out.ui) out.ui={};
   out.ui.incomeOrder=normalizeIncomeOrder(out.ui.incomeOrder);
+  out.ui.chartPos=normalizeChartPos(out.ui.chartPos);   // a layout from a file is kept as saved, repaired only if it is invalid
   return out;
 }
 let state = defaultState();
@@ -321,7 +341,7 @@ function flashMsg(text){
 }
 // Reset to defaults starts every disabled income-source card collapsed (Hide checked) and every enabled one
 // shown. This is applied ONLY to a fresh default state (Reset) — never to a loaded file or an autosave,
-// whose own saved `hidden` values (per card and, in `state.ui`, per section) are restored exactly as saved.
+// whose own saved `hidden` values (per card and, in `state.ui`, per chart panel) are restored exactly as saved.
 function applyDefaultHiddenFromEnabled(s){
   (s.people||[]).forEach(p=>{
     ['wage','ss','pension','ira','roth'].forEach(key=>{

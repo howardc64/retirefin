@@ -1,6 +1,6 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// DISPLAY / CHART ELEMENT INFO — the "Chart Element Info" checkbox (header, left of "Popup Details").
+// DISPLAY / CHART ELEMENT INFO — the "Chart Element" checkbox (header, left of "Popup Details").
 // When checked, hovering a chart shows a popup that DESCRIBES the chart element under the cursor (a stacked band, a dashed
 // line, a Social Security claiming-age line…) instead of the usual per-year values. The usual popup (chartHelpers.js
 // externalTooltip) does nothing while this is on; this file draws into the same floating #extTooltip <div>, so it follows
@@ -189,7 +189,7 @@ function ciOverlayAt(key, chart, e, datasetHit){
   return null;
 }
 function ciStretchInfo(){
-  return {name:'10 year IRA stretch', color:'#c0392b',
+  return {name:'Stretch IRA', color:'#c0392b',
     text:'The red bar marks the years after the household\'s last passing. Only IRAs with the "IRA stretch" box checked (and holdings that are not IDGT) carry on, compounding at their own growth rate for up to 10 more years while heirs hold them. No RMDs, withdrawals or heir taxes are modeled.'};
 }
 

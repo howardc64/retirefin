@@ -31,10 +31,10 @@
     <button class="btn" onclick="exportToExcel()">📊 Export Excel</button>
     <button class="btn" onclick="printPage()">🖨️ Print</button>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;" title="When checked, hovering an input in Household Setup or Income &amp; Assets shows a description of that input, and each choice in a drop-down menu shows its own description">
-      <input type="checkbox" id="inputInfoToggle" checked onchange="setInputInfo(this.checked)">Input Element Info
+      <input type="checkbox" id="inputInfoToggle" checked onchange="setInputInfo(this.checked)">Input Element
     </label>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;" title="When checked, hovering a chart shows a description of the chart element under the cursor instead of the usual values">
-      <input type="checkbox" id="chartInfoToggle" checked onchange="setChartInfo(this.checked)">Chart Element Info
+      <input type="checkbox" id="chartInfoToggle" checked onchange="setChartInfo(this.checked)">Chart Element
     </label>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;">
       <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Popup Details
@@ -105,121 +105,14 @@
  </div><!-- /.input-col -->
 <div class="chart-col">
 
-<!-- ═══ SOCIAL SECURITY ═══ -->
-<div class="sec-head hideable"><span>Social Security — Start Age Analysis</span><label class="hide-cb"><input type="checkbox" data-hide-key="ss" autocomplete="off" onchange="onSectionHide(this)">Hide</label></div>
-<div class="sec-sub" id="ssSecSub"></div>
-<div id="ssMetrics" class="metric-grid"></div>
-
-<div class="cc">
-  <div class="cc-head"><div class="ct" id="ssChartTitle">Cumulative household Social Security · today's dollars</div>
-    <button class="rescale-btn" onclick="rescaleChart('ss')">↕ Rescale</button></div>
-  <div class="legend" id="ssLegend"></div>
-  <div class="co"><div class="cw"><canvas id="ssChart"></canvas></div></div>
+<!-- ═══ CHARTS: scale buttons, then one panel per chart on a 3-column grid (panels are built by display/chartPanels.js) ═══ -->
+<div class="scale-bar" id="scaleBar">
+  <button type="button" class="scale-btn" data-scale="incomeExpense" aria-pressed="true" onclick="toggleScaleLink('incomeExpense')">Same scale: income &amp; expense</button>
+  <button type="button" class="scale-btn" data-scale="tax" aria-pressed="true" onclick="toggleScaleLink('tax')">Same scale: tax</button>
+  <button type="button" class="scale-btn" data-scale="incomeExpenseTax" aria-pressed="true" onclick="toggleScaleLink('incomeExpenseTax')">Same scale: income, expense &amp; tax</button>
+  <button type="button" class="scale-btn" data-scale="asset" aria-pressed="false" onclick="toggleScaleLink('asset')">Same scale: asset &amp; IDGT</button>
 </div>
-
-<!-- ═══ ANNUAL HOUSEHOLD INCOME ═══ -->
-<div class="sec-head hideable"><span>Annual Household Income</span><label class="hide-cb"><input type="checkbox" data-hide-key="income" autocomplete="off" onchange="onSectionHide(this)">Hide</label></div>
-<div class="cc">
-  <div class="cc-head"><div class="ct">Annual household income by source</div>
-    <button class="rescale-btn" onclick="rescaleChart('income')">↕ Rescale</button>
-  </div>
-  <div class="legend" id="incomeLegend"></div>
-  <div class="co"><div class="quad-grid">
-    <div class="quad-cell"><canvas id="incomeChart"></canvas></div>
-    <div class="quad-cell"><canvas id="incomeMagiChart"></canvas></div>
-    <div class="quad-cell"><canvas id="incomeOrdChart"></canvas></div>
-    <div class="quad-cell"><canvas id="incomeQualChart"></canvas></div>
-  </div></div>
-</div>
-
-<!-- ═══ TAXABLE SOCIAL SECURITY ═══ -->
-<div class="sec-head hideable"><span>Social Security Tax</span><label class="hide-cb"><input type="checkbox" data-hide-key="tss" autocomplete="off" onchange="onSectionHide(this)">Hide</label></div>
-<div class="ic">
-  <h3>Taxable Social Security</h3>
-  <p>The taxable portion of Social Security is determined using the applicable filing-status thresholds below, then taxed as ordinary income — the resulting dollars of tax are the <strong>actual Social Security Tax (SST)</strong>.</p>
-  <div class="callout">
-    <strong>Married filing jointly:</strong><br>
-    <span class="tb tb-ex">Exempt</span> PI &lt; $32,000 → $0 taxable SS<br>
-    <span class="tb tb-50">Tier 1</span> $32k–$44k → min(50%×(PI−$32k), 50%×SS)<br>
-    <span class="tb tb-85">Tier 2</span> PI &gt; $44k → min($6,000+85%×(PI−$44k), 85%×SS)<br><br>
-    <strong>Single (after one spouse passes):</strong><br>
-    <span class="tb tb-ex">Exempt</span> PI &lt; $25,000 → $0<br>
-    <span class="tb tb-50">Tier 1</span> $25k–$34k → min(50%×(PI−$25k), 50%×SS)<br>
-    <span class="tb tb-85">Tier 2</span> PI &gt; $34k → min($4,500+85%×(PI−$34k), 85%×SS)
-  </div>
-  <div class="tnote"><strong>⚡ Compounding effect:</strong> every additional dollar of income that increases the taxable portion of SS is itself taxed, and can push more SS into taxability, compounding the effect.</div>
-</div>
-<div class="cc">
-  <div class="cc-head"><div class="ct">Social Security Tax · today's dollars</div>
-    <button class="rescale-btn" onclick="rescaleChart('tss')">↕ Rescale</button></div>
-  <div class="legend" id="tssLegend"></div>
-  <div class="co"><div class="cw"><canvas id="tssChart"></canvas></div></div>
-  <p class="cn" id="tssChartNote"></p>
-</div>
-
-<!-- ═══ TOTAL INCOME TAX ═══ -->
-<div class="sec-head hideable"><span>Total Income Tax</span><label class="hide-cb"><input type="checkbox" data-hide-key="tax" autocomplete="off" onchange="onSectionHide(this)">Hide</label></div>
-<div class="cc">
-  <div class="cc-head"><div class="ct">Annual total income tax · segmented by income type · today's dollars</div>
-    <div style="display:flex;align-items:center;gap:12px">
-      <label class="hide-cb"><input type="checkbox" id="viewIrmaaAsTaxToggle" autocomplete="off" onchange="viewIrmaaAsTax=this.checked;rescaleChart('tax')">view IRMAA as tax</label>
-      <button class="rescale-btn" onclick="rescaleChart('tax')">↕ Rescale</button></div></div>
-  <div class="legend" id="taxLegend"></div>
-  <div class="co"><div class="tax-trio">
-    <div class="tax-main"><canvas id="taxChart"></canvas></div>
-    <div class="tax-side">
-      <div class="tax-sm"><canvas id="taxOrdChart"></canvas></div>
-      <div class="tax-sm"><canvas id="taxQualChart"></canvas></div>
-    </div>
-  </div></div>
-</div>
-
-<!-- ═══ HOUSEHOLD EXPENSES ═══ -->
-<div class="sec-head hideable"><span>Household Expenses</span><label class="hide-cb"><input type="checkbox" data-hide-key="expenses" autocomplete="off" onchange="onSectionHide(this)">Hide</label></div>
-<div class="cc">
-  <div class="cc-head"><div class="ct">Annual household expenses · segmented by expense type · today's dollars</div>
-    <button class="rescale-btn" onclick="rescaleChart('expense')">↕ Rescale</button></div>
-  <div class="unfunded-alert" id="expenseAlert" hidden></div>
-  <div class="legend" id="expenseLegend"></div>
-  <div class="co"><div class="cw"><canvas id="expenseChart"></canvas></div></div>
-</div>
-
-<!-- ═══ ASSET VALUE ═══ -->
-<div class="sec-head hideable"><span>Asset Value</span><label class="hide-cb"><input type="checkbox" data-hide-key="assets" autocomplete="off" onchange="onSectionHide(this)">Hide</label></div>
-<div class="cc">
-  <div class="cc-head"><div class="ct">Asset value by holder · brokerage (excl. IDGT) + annuity + pre-tax IRA + Roth IRA · today's dollars</div>
-    <button class="rescale-btn" onclick="rescaleChart('asset')">↕ Rescale</button></div>
-  <div class="legend" id="assetLegend"></div>
-  <div class="devalue-box">
-    <div class="devalue-grid">
-      <div></div>
-      <div class="devalue-h">Before the last passing</div>
-      <div class="devalue-h">After the last passing</div>
-      <div class="sl"><strong>LTCG withdraw cost</strong> (% of unrealized gain)</div>
-      <div class="dv-cell"><input type="range" id="ltcgDevalue" min="0" max="100" step="1" value="0" oninput="onDevalueInput('ltcgDevalue',this.value)"><div class="sv" id="ltcgDevalueLbl">0%</div></div>
-      <div class="dv-cell"><input type="range" id="ltcgDevalue2" min="0" max="100" step="1" value="0" oninput="onDevalueInput('ltcgDevalue2',this.value)"><div class="sv" id="ltcgDevalue2Lbl">0%</div></div>
-      <div class="sl"><strong>Ordinary income withdraw cost</strong> (% of pre-tax IRA / taxable annuity value)</div>
-      <div class="dv-cell"><input type="range" id="ordDevalue" min="0" max="100" step="1" value="0" oninput="onDevalueInput('ordDevalue',this.value)"><div class="sv" id="ordDevalueLbl">0%</div></div>
-      <div class="dv-cell"><input type="range" id="ordDevalue2" min="0" max="100" step="1" value="0" oninput="onDevalueInput('ordDevalue2',this.value)"><div class="sv" id="ordDevalue2Lbl">0%</div></div>
-    </div>
-  </div>
-  <div class="co"><div class="tax-trio" id="assetTrio">
-    <div class="tax-main"><canvas id="assetChart"></canvas></div>
-    <div class="tax-side" id="assetConvSide">
-      <div class="tax-sm"><canvas id="assetConvChart"></canvas></div>
-    </div>
-  </div></div>
-  <p class="cn" id="assetChartGain"></p>
-</div>
-
-<!-- IDGT portfolios: only shown when at least one brokerage portfolio is flagged IDGT -->
-<div class="cc" id="idgtCard" style="display:none">
-  <div class="cc-head"><div class="ct">IDGT portfolio value by holder · today's dollars</div>
-    <button class="rescale-btn" onclick="rescaleChart('idgt')">↕ Rescale</button></div>
-  <div class="legend" id="idgtLegend"></div>
-  <div class="co"><div class="cw"><canvas id="idgtChart"></canvas></div></div>
-  <p class="cn" id="idgtChartGain"></p>
-</div>
+<div class="chart-grid" id="chartGrid"></div>
 
 </div><!-- /.chart-col -->
 </div><!-- /.layout -->
@@ -309,6 +202,7 @@
 
 <!-- display -->
 <script src="js/display/chartHelpers.js"></script>
+<script src="js/display/chartPanels.js"></script>
 <script src="js/display/chartInfo.js"></script>
 <script src="js/display/overlayPlugin.js"></script>
 <script src="js/display/ssChart.js"></script>

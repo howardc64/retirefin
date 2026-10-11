@@ -5,24 +5,13 @@
 // ═══════════════════════════════════════════════════════════════
 const VZ_SS_AGES=[62,64,66,68,70];
 const VZ_SS_COLORS={62:'#E24B4A',63:'#D95A31',64:'#D06A18',65:'#C2820C',66:'#B59A00',67:'#729C2D',68:'#2E9E5A',69:'#1E8658',70:'#0F6E56'};
-function renderSSControls(){
-  const married=state.filingStatus==='married';
-  const idxP0=married?olderPersonIndex():0;
-  const otherIdx=married?1-idxP0:null;
-  document.getElementById('ssSecSub').textContent = married
-    ? `Set each person's claiming age in their Social Security input card at left. The comparison chart varies ${escHtml(state.people[idxP0].name)}'s age across the plotted scenarios and holds ${escHtml(state.people[otherIdx].name)} at the selected age.`
-    : `Shows how your household's lifetime Social Security changes depending on the age you start claiming — set the claiming age in the Social Security input card at left.`;
-}
 function buildSSSection(){
   if(typeof Chart==='undefined') return;
   const married=state.filingStatus==='married';
   const idxP0=married?olderPersonIndex():0;
   const p0=state.people[idxP0];
-  if(!p0.ss.enabled){
-    document.getElementById('ssMetrics').innerHTML=`<div class="metric"><div class="metric-label">Social Security</div><div class="metric-value" style="font-size:14px">Not enabled</div><div class="metric-sub">Enable it for ${escHtml(p0.name)} above to see this analysis.</div></div>`;
-    document.getElementById('ssLegend').innerHTML='';
-    return;
-  }
+  setChartAvailable('ss', !!p0.ss.enabled);   // Social Security off for the older person: no chart (its grid cell stays blank)
+  if(!p0.ss.enabled) return;
   const p0Age=currentAge(p0);
   const fixedCandidates=VZ_SS_AGES.filter(a=>a>=Math.floor(p0Age));
   const singleMode = p0.ss.started || fixedCandidates.length===0;
@@ -117,26 +106,10 @@ function buildSSSection(){
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'nearest',intersect:true},
-      plugins:{legend:{display:false},tooltip:{enabled:true,...TIP_STYLE,filter:(item,index)=>index===0,callbacks:justifyTip(ssTooltipCallbacks)}},
+      plugins:{legend:{display:false},tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,filter:(item,index)=>index===0,callbacks:justifyTip(ssTooltipCallbacks)}},
       scales:{
         x:ageXAxis(ageAxisLabel(lastProjection)),
-        y:{min:0,max:Y_MAX,title:axisTitle("Cumulative household SS (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        y:{min:0,max:Y_MAX,title:axisTitle("Cumulative household SS (today's $)"),ticks:yAxisTicks,grid:AXIS_GRID}
       }
     })});
-  document.getElementById('ssLegend').innerHTML=scenarios.map(sc=>{
-    const isStartAge=sc.age===selectedAge;
-    const color=VZ_SS_COLORS[sc.age]||'#0F6E56';
-    const swatchStyle=isStartAge
-      ? `background:repeating-linear-gradient(to right,${color} 0 4px,transparent 4px 7px);height:3px`
-      : `background:${color};height:${sc.age===70?4:2}px`;
-    return legendItem(`Age ${sc.age}${isStartAge?' — selected start age':sc.age===62?' (earliest)':sc.age===70?' (max)':''}`, null, swatchStyle);
-  }).join('');
-
-  // metrics
-  const best=scenarios.reduce((b,s)=>s.totalHousehold>b.totalHousehold?s:b, scenarios[0]);
-  const worst=scenarios.reduce((w,s)=>s.totalHousehold<w.totalHousehold?s:w, scenarios[0]);
-  document.getElementById('ssMetrics').innerHTML = `
-    <div class="metric"><div class="metric-label">${escHtml(p0.name)}'s PIA at FRA</div><div class="metric-value">${fmtM(p0.ss.pia)}</div><div class="metric-sub">FRA ${p0.ss.fra.toFixed(1)}</div></div>
-    <div class="metric metric-hl"><div class="metric-label">Best lifetime total</div><div class="metric-value">Age ${best.age}</div><div class="metric-sub">${fmt(best.totalHousehold)} household SS</div></div>
-    <div class="metric"><div class="metric-label">Best vs. earliest shown</div><div class="metric-value">${best.totalHousehold-worst.totalHousehold>=0?'+':''}${fmt(best.totalHousehold-worst.totalHousehold)}</div><div class="metric-sub">Age ${best.age} vs. age ${worst.age}</div></div>`;
 }

@@ -59,7 +59,7 @@ const TIP_STYLE={
 // This renders the same lines (already padded by justifyTip, in one monospace font) into a floating <div> that can
 // extend past the canvas edge, and flips to the left of the cursor when it would run off the window.
 function externalTooltip(context){
-  if(typeof chartInfo!=='undefined'&&chartInfo) return;   // Chart Element Info mode: chartInfo.js owns the popup
+  if(typeof chartInfo!=='undefined'&&chartInfo) return;   // Chart Element mode: chartInfo.js owns the popup
   const {chart,tooltip}=context;
   let el=document.getElementById('extTooltip');
   if(!el){
@@ -69,17 +69,19 @@ function externalTooltip(context){
     document.body.appendChild(el);
   }
   const th=tipTheme(); el.style.background=th.bg; el.style.color=th.fg; el.style.borderColor=th.border;
-  el.style.whiteSpace='pre'; el.style.maxWidth='none';   // (Chart Element Info mode wraps its text)
+  el.style.whiteSpace='pre'; el.style.maxWidth='none';   // (Chart Element mode wraps its text)
   const GLIDE='opacity .12s, left .3s cubic-bezier(.25,1,.5,1), top .3s cubic-bezier(.25,1,.5,1)';
   if(!tooltip||tooltip.opacity===0){ el.style.transition='opacity .12s'; el.style.opacity=0; el._shown=false; return; }
   const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const line=(t,color)=>`<div style="position:relative;padding-left:14px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${color};border:1px solid ${tipTheme().fg};box-sizing:border-box;" data-sw></span>`:''}${esc(t)}</div>`;
   let html='';
   (tooltip.title||[]).forEach(t=>{ html+=line(t); });
+  (tooltip.beforeBody||[]).forEach(t=>{ html+=line(t); });
   (tooltip.body||[]).forEach((b,i)=>{
     const col=tooltip.labelColors&&tooltip.labelColors[i]?tooltip.labelColors[i].backgroundColor:null;
     (b.lines||[]).forEach((t,j)=>{ if(t!=null&&t!=='') html+=line(t, j===0?col:null); });
   });
+  (tooltip.afterBody||[]).forEach(t=>{ html+=line(t); });   // (the Social Security tax chart's lines live here)
   (tooltip.footer||[]).forEach(t=>{ html+=line(t); });
   el.innerHTML=html;
   const r=chart.canvas.getBoundingClientRect();
@@ -131,7 +133,18 @@ function justifyTip(cb){
 const AXIS_COLOR='#a09d98', AXIS_GRID={color:'rgba(0,0,0,0.05)'};
 const AXIS_TICKS={color:AXIS_COLOR,font:{size:10}};
 const axisTitle=text=>({display:true,text,font:{size:11},color:AXIS_COLOR});
-const ageXAxis=text=>({type:'category',title:axisTitle(text),ticks:{...AXIS_TICKS,maxTicksLimit:20},grid:AXIS_GRID});
+// Every chart panel is a third of the chart area, so all charts share the compact axis labeling: at most 7 age labels, at most 5 $ labels in $k.
+const ageXAxis=text=>({type:'category',title:axisTitle(text),ticks:{...AXIS_TICKS,maxTicksLimit:7},grid:AXIS_GRID});
+const fmtAxisK=v=>{
+  if(!v) return '$0';
+  if(Math.abs(v)>=1e6){ const m=v/1e6; return '$'+(Number.isInteger(m)?m:m.toFixed(m<10?2:1).replace(/0$/,''))+'M'; }
+  const k=v/1000; return '$'+(Number.isInteger(k)?k:k.toFixed(1))+'k';
+};
+// Every chart's left Y axis has the same fixed width (and the Total tax chart's right-hand title strip equals the right padding of the others), so every
+// chart's plot area — and therefore its X axis — is exactly the same width, whatever the tick labels say.
+const Y_AXIS_W=60, RIGHT_PAD=16;
+const yAxisFit=scale=>{ scale.width=Y_AXIS_W; };
+const yAxisTicks={...AXIS_TICKS,maxTicksLimit:5,callback:fmtAxisK};
 const CHART_BASE={
   responsive:true,maintainAspectRatio:true,aspectRatio:1,
   animation:{duration:450,easing:'easeOutQuart'},
@@ -146,8 +159,6 @@ function popupPersonAgeLines(proj,r){
   });
 }
 // Align a series of {age,value} points onto an integer-age label axis (nulls where no data)
-// True when a plotted series has any value that shows (more than half a dollar, nulls count as 0). Legends use it to leave out entries for data that is zero everywhere.
-function hasValue(arr){ return Array.isArray(arr)&&arr.some(v=>Math.abs(Number(v)||0)>0.5); }
 function alignToAges(ages, values, labels){
   const map={};
   ages.forEach((a,i)=>{ const r=Math.round(a); if(!(r in map)) map[r]=values[i]; });
@@ -174,10 +185,64 @@ function allCharts(){ return Object.values(charts).filter(Boolean); }
 
 // Y-axis maximum per chart. It is computed once and then held ("locked") so the scale doesn't
 // jump while sliders move; Rescale — or loading/resetting a plan — clears it so the next render re-fits.
+//
+// Shared scales: the four buttons above the charts (state.ui.scaleLinks) tie groups of charts to ONE Y scale. After every build pass,
+// syncSharedScales() raises every member of a group to the largest locked maximum in it (renderCharts then builds once more so the
+// bracket / IRMAA overlays, which depend on the maximum, are drawn for the final scale). Rescale on any chart clears the locks of
+// its whole group, so the group refits together to its largest member.
 const chartYMax=Object.fromEntries(Object.keys(charts).map(k=>[k,null]));
 function lockedYMax(key, compute){ if(chartYMax[key]==null) chartYMax[key]=compute(); return chartYMax[key]; }
 function resetChartYMax(){ Object.keys(chartYMax).forEach(k=>{ chartYMax[k]=null; }); }
-function rescaleChart(which){ chartYMax[which]=null; if(which==='asset') chartYMax.assetConv=null; recompute(); }
+// Round a maximum up to a "nice" axis end (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8 × 10ⁿ) with a little headroom; `floor` is the smallest result.
+function niceMax(maxV, floor){
+  const v=Math.max((Number(maxV)||0)*1.05, floor||1), mag=Math.pow(10,Math.floor(Math.log10(v)));
+  for(const m of [1,1.5,2,2.5,3,4,5,6,8,10]) if(m*mag>=v-1e-9) return m*mag;
+  return 10*mag;
+}
+// Which charts each Scale button joins. A chart in no linked group keeps its own scale.
+// Cumulative household SS ('ss'), the Social Security tax chart ('tss') and the Roth conversion chart ('assetConv') are in no group: each keeps its own scale.
+const SCALE_LINK_GROUPS={
+  incomeExpense:['expense','income','incomeMagi','incomeOrd','incomeQual'],
+  tax:['tax','taxOrd','taxQual'],
+  incomeExpenseTax:['expense','income','incomeMagi','incomeOrd','incomeQual','tax','taxOrd','taxQual'],
+  asset:['asset','idgt']
+};
+// Groups of charts that currently share a scale (union of every switched-on link), as arrays of keys; charts that share with nobody are not listed.
+function scaleGroups(){
+  const links=(state&&state.ui&&state.ui.scaleLinks)||DEFAULT_SCALE_LINKS, parent={};
+  const find=k=>{ while(parent[k]!==k) k=parent[k]=parent[parent[k]]; return k; };
+  Object.keys(SCALE_LINK_GROUPS).forEach(g=>{
+    if(!links[g]) return;
+    const m=SCALE_LINK_GROUPS[g]; m.forEach(k=>{ if(!(k in parent)) parent[k]=k; });
+    m.slice(1).forEach(k=>{ parent[find(k)]=find(m[0]); });
+  });
+  const by={}; Object.keys(parent).forEach(k=>{ (by[find(k)]=by[find(k)]||[]).push(k); });
+  return Object.values(by);
+}
+function chartsSharingScale(key){ return scaleGroups().find(g=>g.includes(key))||[key]; }
+// Raise every chart in a group to the group's largest locked maximum. Returns true when anything changed (so the caller rebuilds once more).
+function syncSharedScales(){
+  let changed=false;
+  scaleGroups().forEach(g=>{
+    const vals=g.map(k=>chartYMax[k]).filter(v=>v!=null);
+    if(!vals.length) return;
+    const m=Math.max(...vals);
+    g.forEach(k=>{ if(chartYMax[k]!=null && chartYMax[k]!==m){ chartYMax[k]=m; changed=true; } });
+  });
+  return changed;
+}
+// Rescale button on a chart: refit it and every chart sharing its scale.
+function rescaleChart(which){ chartsSharingScale(which).forEach(k=>{ chartYMax[k]=null; }); recompute(); }
+// A Scale button: turn a group link on/off. Turning one on refits the charts it joins together; turning one off leaves every scale as it is.
+function toggleScaleLink(name){
+  if(!state.ui) state.ui={};
+  const links=state.ui.scaleLinks=state.ui.scaleLinks||{...DEFAULT_SCALE_LINKS};
+  links[name]=!links[name];
+  if(links[name]) (SCALE_LINK_GROUPS[name]||[]).forEach(k=>{ chartYMax[k]=null; });
+  syncScaleButtons();
+  recompute();
+  saveDebounced();
+}
 
 // Crowding guard for the ordinary-bracket overlays on the small charts (Taxable ordinary income, Ordinary income tax). `valueLists` holds one
 // array per filing status in use (the Y value of each bracket line, ascending). A line is visible when it sits below yMax. If more than `keep`
@@ -192,18 +257,6 @@ function crowdedBracketKeep(valueLists, yMax, keep=3, gapFrac=0.05){
   });
   const idx=[...visible].sort((a,b)=>a-b);
   return new Set(crowded?idx.slice(-keep):idx);
-}
-
-// Legend swatch + label. `style` overrides the default solid-color swatch (e.g. the dashed IRMAA key).
-// Dashed-line swatch (matches the dashed overlay lines on the charts).
-function legendDashStyle(color,kind){   // kind: 'dash' (default), 'dashdot' or 'dot', matching the chart line's dash pattern
-  const g=kind==='dashdot'?`${color} 0 7px,transparent 7px 9px,${color} 9px 11px,transparent 11px 14px`
-         :kind==='dot'?`${color} 0 2px,transparent 2px 5px`
-         :`${color} 0 5px,transparent 5px 8px`;
-  return `background:repeating-linear-gradient(90deg,${g});height:2px;border-radius:0`;
-}
-function legendItem(text, color, style){
-  return `<span class="li"><span class="ls" style="${style||('background:'+color)}"></span>${text}</span>`;
 }
 
 // Update an existing Chart.js chart's labels/datasets by mutating the same
@@ -249,6 +302,7 @@ function updateChartInPlace(chart, labels, datasets){
 //   createOptions   () => full Chart.js options, used only when the chart is first created
 //   refresh         optional (options) => void, applies per-render option changes to an existing chart
 function upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, createOptions, refresh}){
+  if(window.dryPass) return charts[key];   // scale-sharing pre-pass (renderCharts): only the locked maxima are wanted, nothing is drawn
   const chart=charts[key];
   if(chart){
     updateChartInPlace(chart, labels, datasets);
@@ -259,6 +313,9 @@ function upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, create
     chart.update(window.liveDrag?'none':undefined);
   } else {
     const opts=createOptions();
+    if(opts.scales&&opts.scales.y) opts.scales.y.afterFit=yAxisFit;
+    if(opts.scales&&opts.scales.y1) opts.scales.y1.afterFit=sc=>{ sc.width=RIGHT_PAD; };
+    else opts.layout={...(opts.layout||{}), padding:{...((opts.layout||{}).padding||{}), right:RIGHT_PAD}};
     if(key!=='ss'){   // every time-based chart carries the LTC bar (plugin 'ltcBar') and reserves room for it above the plot area
       opts.plugins={...(opts.plugins||{}), ltcBar:true};
       opts.layout={...(opts.layout||{}), padding:{...((opts.layout||{}).padding||{}), top:ltcTopPad({data:{labels},options:opts})}};

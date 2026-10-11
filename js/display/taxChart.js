@@ -5,19 +5,6 @@
 // ═══════════════════════════════════════════════════════════════
 const VZ_TAX = { ord:'#C8600A', qdiv0:'#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',
                  ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#D81B8A', effRate:'#1B1B1B', ftc:'#1F5FE0', state:'#00A8CC' };
-const TAX_LEGEND=[
-  ['ord','Ordinary income tax'], ['qdiv0','QDIV 0%'], ['qdiv15','QDIV 15%'], ['qdiv20','QDIV 20%'],
-  ['ltcg0','LTCG 0%'], ['ltcg15','LTCG 15%'], ['ltcg20','LTCG 20%'],
-  ['niit','NIIT 3.8% (+ on top of QDIV/LTCG)'],
-  ['ftc','Foreign tax credit (stacked above total tax, dashed)'],
-  ['effRate','Effective tax rate (right axis, dash-dot)']
-];
-// `show` maps a legend key to whether that series is above 0 in some year; entries for data that is zero everywhere are left out.
-function buildTaxLegend(show, showIrmaa, stateLabel){
-  document.getElementById('taxLegend').innerHTML = TAX_LEGEND.filter(([k])=>!show||show[k]).map(([k,label])=>legendItem(label, VZ_TAX[k], (k==='ftc')?legendDashStyle(VZ_TAX[k]):(k==='effRate'?legendDashStyle(VZ_TAX[k],'dashdot'):undefined))).join('') +
-    (stateLabel ? legendItem(stateLabel+' (stacked above total tax, dotted)', VZ_TAX.state, legendDashStyle(VZ_TAX.state,'dot')) : '') +
-    (viewIrmaaAsTax&&showIrmaa!==false ? legendItem('IRMAA surcharge (stacked above total tax, dashed)', null, legendDashStyle(OVERLAY_COLOR)) : '');
-}
 function buildTaxChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
   const proj=lastProjection, rows=proj.rows;
@@ -168,19 +155,17 @@ function buildTaxChart(){
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
-        tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
+        tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Total tax (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID},
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Total tax (today's $)"),ticks:yAxisTicks,grid:AXIS_GRID},
         // §9.4: the effective tax-rate line shares their own right-hand % scale, independent of the $ stack.
-        y1:{position:'right',min:0,max:100,title:axisTitle('Effective tax rate'),ticks:{...AXIS_TICKS,callback:v=>v+'%'},grid:{display:false}}
+        // The effective tax-rate line has its own hidden 0–100 % scale: no tick labels, only a slim rotated title strip (its width equals the right padding of every
+        // other chart, see upsertLineChart, so this chart's X axis is the same width as theirs).
+        y1:{position:'right',min:0,max:100,title:{...axisTitle('effective tax rate (%)'),padding:{top:0,bottom:0}},ticks:{display:false},border:{display:false},grid:{display:false}}
       }
     })});
-  buildTaxLegend({ord:hasValue(ordArr), qdiv0:hasValue(qTiers[0]), qdiv15:hasValue(qTiers[1]), qdiv20:hasValue(qTiers[2]),
-    ltcg0:hasValue(lTiers[0]), ltcg15:hasValue(lTiers[1]), ltcg20:hasValue(lTiers[2]), niit:hasValue(niitArr), ftc:hasValue(ftcArr), effRate:hasValue(effRateArr)},
-    hasValue(alignedIrmaa), alignedState.some(v=>v>0)?'State income tax ('+stateName+')':null);
-
   // ── Two half-size companion charts (right side): ordinary vs. qualified/NIIT tax ──
   // Same labels, same locked Y scale (Y_MAX) and same 1:1 aspect ratio as the primary chart; the
   // datasets are copies of the primary's stack segments, in the same order and colors.
@@ -191,18 +176,21 @@ function buildTaxChart(){
     label:ctx=>(ctx.raw==null||ctx.raw===0)?null:mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr'),
     footer:()=>[]
   };
-  const smTick=v=>'$'+Math.round(v/1000)+'k';
-  const smOptions=(yTitle)=>({
+  const smOptions=(yTitle,yMax)=>({
     ...CHART_BASE,
     interaction:{mode:'index',intersect:false},
     plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(smTip)} },
     scales:{
-      x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:7}},
-      y:{stacked:true,min:0,max:Y_MAX,title:axisTitle(yTitle),ticks:{...AXIS_TICKS,maxTicksLimit:5,callback:smTick},grid:AXIS_GRID}
+      x:ageXAxis(ageAxisLabel(proj)),
+      y:{stacked:true,min:0,max:yMax,title:axisTitle(yTitle),ticks:yAxisTicks,grid:AXIS_GRID}
     }
   });
-  upsertLineChart('taxOrd',{canvasId:'taxOrdChart', labels, datasets:[copyDs(datasets[0])], yMax:Y_MAX, tooltip:smTip,
-    createOptions:()=>smOptions('Ordinary income tax')});
-  upsertLineChart('taxQual',{canvasId:'taxQualChart', labels, datasets:datasets.slice(1,8).map(copyDs), yMax:Y_MAX, tooltip:smTip,
-    createOptions:()=>smOptions('QDIV / LTCG / NIIT tax')});
+  // Each companion has its own scale (locked until Rescale); chartHelpers.js shares it with the Total tax chart while the tax Scale button is on.
+  const YO=lockedYMax('taxOrd', ()=>niceMax(Math.max(0,...alignedOrd.map(v=>v||0)),2000));
+  const qDs=datasets.slice(1,8);
+  const YQ=lockedYMax('taxQual', ()=>{ let m=0; for(let i=0;i<labels.length;i++){ let t=0; qDs.forEach(d=>{ t+=d.data[i]||0; }); m=Math.max(m,t); } return niceMax(m,2000); });
+  upsertLineChart('taxOrd',{canvasId:'taxOrdChart', labels, datasets:[copyDs(datasets[0])], yMax:YO, tooltip:smTip,
+    createOptions:()=>smOptions('Ordinary income tax',YO)});
+  upsertLineChart('taxQual',{canvasId:'taxQualChart', labels, datasets:qDs.map(copyDs), yMax:YQ, tooltip:smTip,
+    createOptions:()=>smOptions('QDIV / LTCG / NIIT tax',YQ)});
 }

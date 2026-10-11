@@ -24,20 +24,6 @@ function updateIncomeLabels(proj){
   INC_LABELS.ssP0 = p0Name(proj)+"'s Social Security (SS)";
   INC_LABELS.ssOther = proj.married ? displayPersonName(proj.people[1-proj.idxP0],1-proj.idxP0)+"'s Social Security (SS) / survivor" : '';
 }
-// `shownKeys` (from buildIncomeChart): the income sources that are above $0 in some year; only those get a legend entry.
-function buildIncomeLegend(shownKeys){
-  if(!lastProjection) return;
-  const proj=lastProjection;
-  updateIncomeLabels(proj);
-  const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k=>k!=='ssOther');
-  document.getElementById('incomeLegend').innerHTML =
-    keys.filter(k=>!shownKeys||shownKeys.includes(k)).map(k=>legendItem(INC_LABELS[k], INC_COLORS[k])).join('') +
-    (proj.rows.some(r=>(r.scglRemaining||0)>0.5) ? legendItem('SCGL remaining (suspended capital-gain loss carryforward)', null, legendDashStyle(BRACKET_COLOR)) : '') +
-    legendItem('IRMAA brackets (shown on MAGI chart)', null, legendDashStyle(BRACKET_COLOR)) +
-    legendItem('Ordinary tax brackets (rate above each line, shown on taxable ordinary income chart)', null, legendDashStyle(BRACKET_COLOR,'dashdot')) +
-    legendItem('Deduction stacked on taxable ordinary income (shown on taxable ordinary income chart)', null, legendDashStyle(DEDUCTION_COLOR)) +
-    legendItem('Qualified tax brackets (rate above each line, shown on taxable qualified income chart)', null, legendDashStyle(BRACKET_COLOR,'dot'));
-}
 function buildIncomeChart(){
   if(typeof Chart==='undefined'||!lastProjection) return;
   const proj=lastProjection, rows=proj.rows;
@@ -80,8 +66,6 @@ function buildIncomeChart(){
   const rowByAge={}; rows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
   for(let i=0;i<labels.length;i++){ const r=rowByAge[labels[i]]; if(r && r.filing!=='married'){ swIdx=i; break; } if(!r){ swIdx=Math.min(swIdx,i); break; } }
 
-  const irmaaMFJ=IRMAA_MFJ.map((l,i)=>({...l,tier:i})).filter(l=>l.magi<Y_MAX);
-  const irmaaSgl=IRMAA_SGL.map((l,i)=>({...l,tier:i})).filter(l=>l.magi<Y_MAX);
 
   const datasets=keys.map(k=>({
     label:INC_LABELS[k], data:aligned[k],
@@ -164,13 +148,12 @@ function buildIncomeChart(){
       },
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Annual income (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Annual income (today's $)"),ticks:yAxisTicks,grid:AXIS_GRID}
       }
     })});
-  buildIncomeLegend(keys.filter(k=>hasValue(seriesByKey[k])));
 
   // ── Half-size companion chart (right side): household MAGI stack with IRMAA tier lines ──
-  // Same labels (X scale), same locked Y scale (Y_MAX) and same 1:1 aspect ratio as the primary chart,
+  // Same labels (X scale), same locked Y scale (YM) and same 1:1 aspect ratio as the primary chart,
   // sparser axis ticks, no legend/note (the primary's legend covers it). The stack uses the primary's colors and order
   // and sums exactly to MAGI = AGI + tax-exempt income: the same sources as the primary except that untaxed
   // rental depreciation is left out and Social Security counts only its taxable part (split between the two
@@ -178,20 +161,6 @@ function buildIncomeChart(){
   // Single after), each labeled with the bracket's MAGI value and the Part B premium % over standard.
   // Beneficiary pays 25% of the Part B cost at the standard tier and 35/50/65/80/85% at IRMAA tiers 1–5,
   // so the Part B premium is 40/100/160/220/240% above standard.
-  const withPct=a=>a.map(l=>({...l,pct:IRMAA_PART_B_INCREASE[Math.min(l.tier,IRMAA_PART_B_INCREASE.length-1)]}));
-  // When the IRMAA lines would crowd each other (too many tiers inside the chart's Y range) only the top 3 are drawn on this small chart.
-  const irmaaKeep=crowdedBracketKeep([
-    rows.some(r=>r.filing==='married')?IRMAA_MFJ.map(l=>l.magi):null,
-    rows.some(r=>r.filing!=='married')?IRMAA_SGL.map(l=>l.magi):null], Y_MAX);
-  // IRMAA lines only matter while someone is on (or about to be on) Medicare: this year's MAGI sets the premium two years later, so the
-  // lines show from the year a living person is 63 (65 two years on, the same exposure rule the Roth-conversion IRMAA limit uses) until the last passing.
-  let irmFrom=-1, irmTo=-1;
-  labels.forEach((lb,i)=>{
-    const r=rowByAge[lb]; if(!r||!r.alive||!r.ages) return;
-    if(r.alive.some((al,j)=>al&&r.ages[j]+2>=65)){ if(irmFrom<0) irmFrom=i; irmTo=i; }
-  });
-  const magiOv={irmaaMFJ:withPct(irmaaMFJ.filter(l=>irmaaKeep.has(l.tier))),irmaaSgl:withPct(irmaaSgl.filter(l=>irmaaKeep.has(l.tier))),switchIdx:swIdx,
-    fromIdx:irmFrom<0?labels.length:irmFrom, toIdx:irmTo};
   const mKeys=keys.filter(k=>k!=='rentDep'&&k!=='rothExp');   // Roth IRA withdraw is untaxed and not part of MAGI, like untaxed rental depreciation
   const mSeries={}; mKeys.forEach(k=>mSeries[k]=[]);
   const taxSSPart=(r,idx)=>{ const tot=r.totalSS||0; return tot>0 ? (r.taxableSS||0)*((r.ssByPerson[idx]||0)/tot) : 0; };
@@ -203,6 +172,27 @@ function buildIncomeChart(){
     });
   });
   const mAligned={}; mKeys.forEach(k=>{ mAligned[k]=alignToAges(ages, mSeries[k], labels); });
+  // Own scale (locked until Rescale; chartHelpers.js shares it with the other income / expense charts while that Scale button is on).
+  const YM=lockedYMax('incomeMagi', ()=>{
+    let m=0; for(let i=0;i<labels.length;i++){ let t=0; mKeys.forEach(k=>{ t+=mAligned[k][i]||0; }); m=Math.max(m,t); }
+    return niceMax(m,50000);
+  });
+  const irmaaMFJ=IRMAA_MFJ.map((l,i)=>({...l,tier:i})).filter(l=>l.magi<YM);
+  const irmaaSgl=IRMAA_SGL.map((l,i)=>({...l,tier:i})).filter(l=>l.magi<YM);
+  const withPct=a=>a.map(l=>({...l,pct:IRMAA_PART_B_INCREASE[Math.min(l.tier,IRMAA_PART_B_INCREASE.length-1)]}));
+  // When the IRMAA lines would crowd each other (too many tiers inside the chart's Y range) only the top 3 are drawn on this small chart.
+  const irmaaKeep=crowdedBracketKeep([
+    rows.some(r=>r.filing==='married')?IRMAA_MFJ.map(l=>l.magi):null,
+    rows.some(r=>r.filing!=='married')?IRMAA_SGL.map(l=>l.magi):null], YM);
+  // IRMAA lines only matter while someone is on (or about to be on) Medicare: this year's MAGI sets the premium two years later, so the
+  // lines show from the year a living person is 63 (65 two years on, the same exposure rule the Roth-conversion IRMAA limit uses) until the last passing.
+  let irmFrom=-1, irmTo=-1;
+  labels.forEach((lb,i)=>{
+    const r=rowByAge[lb]; if(!r||!r.alive||!r.ages) return;
+    if(r.alive.some((al,j)=>al&&r.ages[j]+2>=65)){ if(irmFrom<0) irmFrom=i; irmTo=i; }
+  });
+  const magiOv={irmaaMFJ:withPct(irmaaMFJ.filter(l=>irmaaKeep.has(l.tier))),irmaaSgl:withPct(irmaaSgl.filter(l=>irmaaKeep.has(l.tier))),switchIdx:swIdx,
+    fromIdx:irmFrom<0?labels.length:irmFrom, toIdx:irmTo};
   const magiDs=mKeys.map(k=>({
     label:(k==='ssP0'||k==='ssOther') ? INC_LABELS[k]+' — taxable part' : INC_LABELS[k], data:mAligned[k],
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
@@ -223,15 +213,15 @@ function buildIncomeChart(){
       return lines;
     }
   };
-  upsertLineChart('incomeMagi',{canvasId:'incomeMagiChart', labels, datasets:magiDs, yMax:Y_MAX, tooltip:magiTip,
+  upsertLineChart('incomeMagi',{canvasId:'incomeMagiChart', labels, datasets:magiDs, yMax:YM, tooltip:magiTip,
     refresh:o=>{ o.plugins.magiOverlay=magiOv; },
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
       plugins:{ legend:{display:false}, magiOverlay:magiOv, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(magiTip)} },
       scales:{
-        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:10}},
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('MAGI (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:7,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        x:ageXAxis(ageAxisLabel(proj)),
+        y:{stacked:true,min:0,max:YM,title:axisTitle('MAGI (today\'s $)'),ticks:yAxisTicks,grid:AXIS_GRID}
       }
     })});
 
@@ -254,6 +244,10 @@ function buildIncomeChart(){
     });
   });
   const ordAligned={}; ordKeys.forEach(k=>{ ordAligned[k]=alignToAges(ages, taxPortion[k], labels); });
+  const YO=lockedYMax('incomeOrd', ()=>{
+    let m=0; rows.forEach((r,ri)=>{ let t=0; ordKeys.forEach(k=>{ t+=taxPortion[k][ri]||0; }); m=Math.max(m,t,(r.ordIncome||0)>(r.ordTI||0)+0.5?(r.ordIncome||0):0); });   // stack, or the red deduction line above it
+    return niceMax(m,20000);
+  });
   const ordDs=ordKeys.map(k=>({
     label:(k==='ssP0'||k==='ssOther') ? INC_LABELS[k]+' \u2014 taxable part' : INC_LABELS[k], data:ordAligned[k],
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
@@ -263,12 +257,14 @@ function buildIncomeChart(){
   // When the bracket lines would crowd each other (too many inside the chart's Y range) only the top 3 are drawn.
   const brkKeep=crowdedBracketKeep([
     rows.some(r=>r.filing==='married')?MFJ_ORD.slice(0,nBrk).map(b=>b.lim):null,
-    rows.some(r=>r.filing!=='married')?SGL_ORD.slice(0,nBrk).map(b=>b.lim):null], Y_MAX);   // the top bracket (37%) has no upper limit, so there is no line above the 35% bracket's end
+    rows.some(r=>r.filing!=='married')?SGL_ORD.slice(0,nBrk).map(b=>b.lim):null], YO);   // the top bracket (37%) has no upper limit, so there is no line above the 35% bracket's end
+  // Every bracket line is ALWAYS a dataset (all-null when it is off the chart's scale or dropped by the crowding limit): a fixed dataset count lets Chart.js
+  // update the chart in place, so a Rescale / scale change tweens the lines instead of rebuilding (and re-animating) the whole chart.
   for(let j=0;j<nBrk;j++){
     const vals=rows.map(r=>(r.filing==='married'?MFJ_ORD:SGL_ORD)[j].lim);
-    if(Math.min(...vals)>=Y_MAX||!brkKeep.has(j)) continue;   // off the chart's scale, or dropped by the crowding limit
+    const off=Math.min(...vals)>=YO||!brkKeep.has(j);   // off the chart's scale, or dropped by the crowding limit
     const rate=Math.round(MFJ_ORD[j+1].r*100)+'%';
-    ordDs.push({data:alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
+    ordDs.push({data:off?labels.map(()=>null):alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
       borderDash:ORD_DASH, halo:true, borderColor:BRACKET_COLOR, stack:'ol'+j, order:0});
   }
   // Red dashed line: the deduction stacked on top of the taxable ordinary income, i.e. taxable ordinary income + the deduction absorbed (the same
@@ -294,14 +290,14 @@ function buildIncomeChart(){
       return lines;
     }
   };
-  upsertLineChart('incomeOrd',{canvasId:'incomeOrdChart', labels, datasets:ordDs, yMax:Y_MAX, tooltip:ordTip,
+  upsertLineChart('incomeOrd',{canvasId:'incomeOrdChart', labels, datasets:ordDs, yMax:YO, tooltip:ordTip,
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
       plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(ordTip)} },
       scales:{
-        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:10}},
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Taxable ordinary income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:7,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        x:ageXAxis(ageAxisLabel(proj)),
+        y:{stacked:true,min:0,max:YO,title:axisTitle('Taxable ordinary income (today\'s $)'),ticks:yAxisTicks,grid:AXIS_GRID}
       }
     })});
 
@@ -312,6 +308,7 @@ function buildIncomeChart(){
   const qualKeys=['qdiv','ltcg'];
   const qualSeries={ qdiv:rows.map(r=>r.qdiv||0), ltcg:rows.map(r=>r.ltcg||0) };
   const qualAligned={}; qualKeys.forEach(k=>{ qualAligned[k]=alignToAges(ages, qualSeries[k], labels); });
+  const YQ=lockedYMax('incomeQual', ()=>{ let m=0; rows.forEach(r=>{ m=Math.max(m,(r.qdiv||0)+(r.ltcg||0)); }); return niceMax(m,5000); });
   const qualDs=qualKeys.map(k=>({
     label:INC_LABELS[k], data:qualAligned[k],
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
@@ -320,9 +317,9 @@ function buildIncomeChart(){
   const nQ=MFJ_QDIV.length-1;   // the top tier (20%) has no upper limit, so the last line is where the 15% tier ends
   for(let j=0;j<nQ;j++){
     const vals=rows.map(r=>(r.filing==='married'?MFJ_QDIV:SGL_QDIV)[j].lim);   // the qualified bracket limit itself, for the filing status in force
-    if(Math.min(...vals)>=Y_MAX) continue;   // off the chart's scale
+    const off=Math.min(...vals)>=YQ;   // off the chart's scale: all-null, but still a dataset (fixed dataset count, see the ordinary chart)
     const rate=Math.round(MFJ_QDIV[j+1].r*100)+'%';
-    qualDs.push({data:alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
+    qualDs.push({data:off?labels.map(()=>null):alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
       borderDash:QUAL_DASH, halo:true, borderColor:BRACKET_COLOR, stack:'ql'+j, order:0});
   }
   const qualTip={
@@ -341,14 +338,14 @@ function buildIncomeChart(){
       return lines;
     }
   };
-  upsertLineChart('incomeQual',{canvasId:'incomeQualChart', labels, datasets:qualDs, yMax:Y_MAX, tooltip:qualTip,
+  upsertLineChart('incomeQual',{canvasId:'incomeQualChart', labels, datasets:qualDs, yMax:YQ, tooltip:qualTip,
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
       plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(qualTip)} },
       scales:{
-        x:{...ageXAxis(ageAxisLabel(proj)), ticks:{...AXIS_TICKS,maxTicksLimit:10}},
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle('Taxable qualified income (today\'s $)'),ticks:{...AXIS_TICKS,maxTicksLimit:7,callback:v=>'$'+Math.round(v/1000)+'k'},grid:AXIS_GRID}
+        x:ageXAxis(ageAxisLabel(proj)),
+        y:{stacked:true,min:0,max:YQ,title:axisTitle('Taxable qualified income (today\'s $)'),ticks:yAxisTicks,grid:AXIS_GRID}
       }
     })});
 }

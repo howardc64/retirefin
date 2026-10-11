@@ -131,54 +131,43 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
   .people-panes.two-col{grid-template-columns:1fr;}
 }
 
-/* ── Hide checkbox on chart sections (display-only; kept in state.ui.hiddenSections, default checked) ── */
-.hideable{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+/* ── Chart panels (display/chartPanels.js): every chart in its own panel on a 3-column grid ──
+   Hide / position / shared-scale settings live in state.ui (chartHidden, chartPos, scaleLinks), default: every panel hidden. */
 .hide-cb{display:flex;align-items:center;gap:5px;font-family:'DM Sans',system-ui,sans-serif;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-muted);cursor:pointer;flex-shrink:0;}
 .sec-hidden{display:none!important;}
-.sec-head.hideable.is-hidden{margin-bottom:16px;}
-/* ── Charts / visualization sections ── */
-.metric-grid{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
-.metric{flex:1 1 170px;max-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;min-width:0;}
-.metric-label{font-size:10.5px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
-.metric-value{font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:2px;}
-.metric-sub{font-size:11px;color:var(--text-muted);}
-.metric-hl{border-color:rgba(15,110,86,.3);background:var(--teal-light);}
-.metric-hl .metric-label,.metric-hl .metric-value{color:var(--teal-text);}
-.cc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
-.cc-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;}
-.ct{font-size:13px;font-weight:500;color:var(--text);text-align:center;flex:1;}
-.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;font-size:11px;color:var(--text-muted);justify-content:center;}
-.li{display:flex;align-items:center;gap:5px;}
-.ls{width:22px;height:10px;border-radius:3px;flex-shrink:0;}
-.co{display:flex;justify-content:center;width:100%;}
-.cw{position:relative;width:66.667%;max-width:800px;min-width:0;}
-.cw canvas{display:block;}
-/* Primary chart (2/3 width) + half-size companion chart(s) on the right (1/3 width, each 1/2 the primary's height; all square, top-aligned).
-   Used by Annual Household Income (MAGI chart) and Total Income Tax (two charts). */
-.tax-trio{display:grid;grid-template-columns:2fr 1fr;gap:12px;width:100%;max-width:1200px;align-items:start;}
-.tax-main,.tax-sm{position:relative;min-width:0;}
-.tax-side{display:flex;flex-direction:column;min-width:0;}
-.tax-trio canvas{display:block;}
-/* Annual Household Income: four equal square charts in a 2 × 2 grid (income, MAGI, taxable ordinary income, taxable qualified income). */
-.quad-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:1200px;align-items:start;}
-.quad-cell{position:relative;min-width:0;}
-.quad-cell canvas{display:block;}
-@media (max-width:700px){ .quad-grid{grid-template-columns:1fr;} }
-@media (max-width:700px){ .tax-trio{grid-template-columns:1fr;} .tax-side{flex-direction:row;gap:12px;} .tax-sm{width:50%;} }
-.cn{font-size:11px;color:var(--text-faint);margin-top:12px;line-height:1.5;text-align:center;}
+.scale-bar{display:flex;flex-wrap:wrap;gap:6px;position:sticky;top:0;z-index:5;background:var(--bg);padding:2px 0 10px;}
+.scale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:11px;font-weight:400;padding:4px 11px;color:var(--text-muted);font-family:inherit;line-height:1.2;}
+.scale-btn:hover{background:var(--border);}
+.scale-btn[aria-pressed="true"]{background:var(--teal-light);border-color:var(--teal);color:var(--teal-text);font-weight:500;}
+.chart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;}
+.chart-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 8px 8px;min-width:0;}
+.chart-panel.no-data{display:none;}
+.chart-panel.dragging{opacity:.4;}
+.chart-panel.drop-ok,.chart-cell.drop-ok{outline:2px dashed var(--teal);outline-offset:-2px;background:var(--teal-light);}
+.cp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;cursor:grab;user-select:none;}
+.cp-head:active{cursor:grabbing;}
+.cp-title{font-size:12px;font-weight:500;color:var(--text);line-height:1.3;min-width:0;}
+.cp-grip{color:var(--text-faint);margin-right:4px;font-weight:400;}
+.cp-head .hide-cb{font-size:11px;gap:4px;padding-top:1px;}
+.cp-tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:6px;}
+.cp-tools .hide-cb{font-size:11px;}
+.chart-panel.is-hidden .cp-tools{display:none;}
+.cp-body{position:relative;min-width:0;margin-top:6px;}
+.cp-body canvas{display:block;}
+.xscroll{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:0 4px;pointer-events:none;z-index:2;}
+.xscroll[hidden]{display:none;}
+.xscroll button{pointer-events:auto;cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);color:var(--text-muted);border-radius:4px;font-size:9px;line-height:1;padding:3px 7px;}
+.xscroll button:hover:not(:disabled){background:var(--border);}
+.xscroll button:disabled{opacity:.3;cursor:default;}
+.cp-body .unfunded-alert{font-size:13px;margin:0 0 6px;}
+.cp-body .unfunded-alert small{font-size:10.5px;}
+.cn{font-size:11px;color:var(--text-faint);margin-top:12px;line-height:1.5;text-align:center;}   /* small note under an input (IRA / portfolio-withdraw sliders) */
 .cn:empty{display:none;}
-@container (max-width:520px){ .cw{width:100%;} }
-.ic{background:var(--teal-light);border:1px solid rgba(15,110,86,.15);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;}
-.ic h3{font-family:'DM Serif Display',serif;font-size:16px;font-weight:400;margin-bottom:10px;color:var(--teal-text);}
-.ic p{font-size:13px;color:#2a4a3e;line-height:1.65;margin-bottom:8px;}
-.ic p:last-child{margin-bottom:0;}
-.callout{background:white;border-left:3px solid var(--teal);border-radius:0 6px 6px 0;padding:10px 14px;margin:12px 0;font-size:12px;color:#1a3a30;line-height:1.7;}
-.tb{font-size:11px;font-weight:500;padding:2px 8px;border-radius:12px;}
-.tb-ex{background:#e1f5ee;color:#085041;}.tb-50{background:#fff3cd;color:#856404;}.tb-85{background:#fde8d8;color:#7c3a00;}
-.best td{background:#e8f7f2!important;color:var(--text);}
-.best td:first-child{font-weight:500;color:var(--teal-text);}
+/* an empty grid cell: a blank spot, and a drop target for moving a chart there (outlined only while a chart is being dragged) */
+.chart-cell{min-height:44px;border:1px dashed transparent;border-radius:var(--radius);}
+body.chart-dragging .chart-cell{border-color:var(--border-strong);}
 .rescale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:10.5px;font-weight:500;padding:3px 10px;color:var(--text-muted);font-family:inherit;}
-@media (max-width:700px){ .cw{width:100%;} }
+@media (max-width:700px){ .chart-grid{grid-template-columns:1fr;} .chart-cell{display:none;} }
 
 /* ── Two-pane layout: input column(s) left, chart column right ── */
 .layout{display:grid;grid-template-columns:minmax(360px,0.95fr) minmax(460px,1.5fr);gap:30px;align-items:start;}
@@ -194,7 +183,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .input-col::-webkit-scrollbar,.chart-col::-webkit-scrollbar{width:8px;}
 .input-col::-webkit-scrollbar-track,.chart-col::-webkit-scrollbar-track{background:transparent;}
 .input-col::-webkit-scrollbar-thumb,.chart-col::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px;}
-.input-col .sec-head:first-child,.chart-col .sec-head:first-child{margin-top:0;}
+.input-col .sec-head:first-child{margin-top:0;}
 @media (max-width:960px){
   .layout{grid-template-columns:1fr;gap:0;}
   .input-col,.chart-col{position:static;max-height:none;overflow-y:visible;overflow-x:visible;padding:0;margin-left:0;margin-right:0;}
@@ -240,18 +229,6 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .pair input[type=range]{flex:1 1 auto;min-width:0;}
 .pair input[type=number]{flex:0 0 120px;width:120px;}
 
-/* Asset Value chart: LTCG / ordinary-income devalue sliders */
-.devalue-box{margin:0 0 10px;padding:4px 10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);}
-.devalue-grid{display:grid;grid-template-columns:minmax(150px,220px) 1fr 1fr;align-items:center;gap:6px 14px;}
-.devalue-grid>*{min-width:0;}
-.devalue-grid .sl{font-size:13px;color:var(--text-muted);}
-.devalue-grid .sl strong{color:var(--text);font-weight:500;}
-.dv-cell{display:grid;grid-template-columns:1fr 44px;align-items:center;gap:8px;}
-.dv-cell input[type=range]{width:100%;min-width:0;}
-.dv-cell .sv{text-align:right;}
-@media (max-width:700px){ .devalue-grid{grid-template-columns:1fr 1fr;} .devalue-grid .sl{grid-column:1/-1;margin-top:4px;} .devalue-grid>div:first-child{display:none;} }
-.devalue-h{font-size:11px;font-weight:600;color:var(--text-muted);margin:6px 0 0;text-transform:uppercase;letter-spacing:.03em;}
-
 /* ── Print (js/display/print.js expands every Hide for the duration of the print; screen is unaffected) ──
    body.printing-all exists ONLY between beforeprint and afterprint, so these rules are plain (not inside @media print):
    they must already be in force when print.js measures and snapshots the charts, which happens before print media applies. */
@@ -263,11 +240,10 @@ body.printing-all .input-col,body.printing-all .chart-col{position:static;max-he
 /* the two-column income grid uses subgrid + explicit rows, which overlaps cards when the page fragments: use two independent columns */
 body.printing-all .income-grid{grid-template-rows:none !important;}
 body.printing-all .income-grid.two-col .person-col{display:block;grid-row:auto;grid-template-rows:none;}
-body.printing-all .topbar,body.printing-all .hide-cb,body.printing-all .hide-toggle,body.printing-all .rescale-btn,body.printing-all #chatDock{display:none !important;}
-/* charts small enough that a card (title + legend + chart) fits on one landscape page */
-body.printing-all .cw{width:480px;max-width:100%;}
-body.printing-all .tax-trio,body.printing-all .quad-grid{max-width:720px;}
-body.printing-all .cc,body.printing-all .item,body.printing-all .metric{break-inside:avoid;}
+body.printing-all .topbar,body.printing-all .hide-cb,body.printing-all .hide-toggle,body.printing-all .rescale-btn,body.printing-all .scale-bar,body.printing-all .chart-cell,body.printing-all .cp-tools,body.printing-all #chatDock{display:none !important;}
+/* three charts per row, each (title + chart) kept together on one landscape page */
+body.printing-all .chart-panel,body.printing-all .item,body.printing-all .metric{break-inside:avoid;}
+body.printing-all .chart-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
 body.printing-all .sec-head{break-after:avoid;}
 /* each chart is swapped for a static pixel copy (print.js) so it can't be blanked by a resize during printing */
 body.printing-all canvas.print-swapped{display:none !important;}

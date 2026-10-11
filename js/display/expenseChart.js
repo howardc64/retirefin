@@ -10,11 +10,6 @@ const VZ_EXP = { living:'#3F7CAC', tax:'#C8600A', irmaa:'#D9A21B', aum:'#7B3FBE'
 const EXP_KEYS=['expLiving','expLtc','expTax','expIrmaa','expAum'];
 const EXP_LABELS={expLiving:'Living expenses', expLtc:'Long Term Care', expTax:'Income tax (tax drag)', expIrmaa:'IRMAA surcharge', expAum:'AUM fee'};
 const EXP_COLORS={expLiving:VZ_EXP.living, expLtc:VZ_EXP.ltc, expTax:VZ_EXP.tax, expIrmaa:VZ_EXP.irmaa, expAum:VZ_EXP.aum};
-// Only the expenses that are above $0 in some year get a legend entry.
-function buildExpenseLegend(rows){
-  document.getElementById('expenseLegend').innerHTML =
-    EXP_KEYS.filter(k=>!rows||hasValue(rows.map(r=>r[k]))).map(k=>legendItem(EXP_LABELS[k], EXP_COLORS[k])).join('');
-}
 // Big red alert above the chart when any year's expenses could not be funded: the first age it happens (and the last, if it runs on),
 // by the same age the chart's x axis uses (the older person's), plus the total shortfall in today's $.
 function buildExpenseAlert(proj){
@@ -95,12 +90,11 @@ function buildExpenseChart(){
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
-        tooltip:{...TIP_STYLE,callbacks:justifyTip(tooltipCallbacks)}
+        tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(tooltipCallbacks)}
       },
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Annual expenses (today's $)"),ticks:{...AXIS_TICKS,callback:v=>'$'+Math.round(v).toLocaleString()},grid:AXIS_GRID}
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Annual expenses (today's $)"),ticks:yAxisTicks,grid:AXIS_GRID}
       }
     })});
-  buildExpenseLegend(rows);
 }
