@@ -139,9 +139,11 @@ function xlsxTaxSheet(){
   const scalar=(label,name,v,z,note)=>{ xlsxPut(sh,r,0,xlsxTxt(label)); xlsxPut(sh,r,1,xlsxNum(v,z)); if(note) xlsxPut(sh,r,2,xlsxTxt(note)); names.push({Name:name,Ref:`'Tax tables'!$B$${r+1}`}); r++; };
   title('Tax tables used by the Projection sheet formulas (edit a value and the whole projection recalculates). Source: the app\'s 2026 simplified federal model (js/core/constants.js).');
   r++;
-  title('Standard deduction, senior deduction, NIIT, Social Security taxability');
+  title('Standard deduction (basic + age 65+), senior deduction, NIIT, Social Security taxability');
   scalar('Standard deduction, married (MFJ)','Std_MFJ',STD_MFJ,XLSX_MONEY);
   scalar('Standard deduction, single','Std_SGL',STD_SGL,XLSX_MONEY);
+  scalar('Additional standard deduction, age 65+, per living person, MFJ','StdAge_MFJ',STD_AGE65_MFJ,XLSX_MONEY);
+  scalar('Additional standard deduction, age 65+, single','StdAge_SGL',STD_AGE65_SGL,XLSX_MONEY);
   scalar('Itemized floor (LTC cost above this % of AGI)','ItemFloor',0.075,XLSX_PCT);
   scalar('Senior deduction per eligible person','SenDed',SENIOR_DED,XLSX_MONEY,'Fixed amount, deflated to today\'s $ in the projection');
   scalar('Senior deduction phase-out starts, MFJ MAGI','SenThrMFJ',SENIOR_THRESH_MFJ,XLSX_MONEY);
@@ -563,8 +565,8 @@ function xlsxMainColumns(proj,acctSheets){
   // — tax chain —
   // Formula builders shared by the tax chain and by the SST / marginal-rate hypotheticals below, so each uses exactly the same equations.
   const tssFml=(X,p)=>{ const ss=X('ssT'), f=X('f');
-    const mfj=`IF(${p}>SS_MFJ_2*${f},MIN(SS_MFJ_Amt*${f}+SS_Hi*(${p}-SS_MFJ_2*${f}),SS_Hi*${ss}),IF(${p}>SS_MFJ_1*${f},MIN(SS_Lo*(${p}-SS_MFJ_1*${f}),SS_Lo*${ss}),0))`;
-    const sgl=`IF(${p}>SS_SGL_2*${f},MIN(SS_SGL_Amt*${f}+SS_Hi*(${p}-SS_SGL_2*${f}),SS_Hi*${ss}),IF(${p}>SS_SGL_1*${f},MIN(SS_Lo*(${p}-SS_SGL_1*${f}),SS_Lo*${ss}),0))`;
+    const mfj=`IF(${p}>SS_MFJ_2*${f},MIN(MIN(SS_Lo*${ss},SS_MFJ_Amt*${f})+SS_Hi*(${p}-SS_MFJ_2*${f}),SS_Hi*${ss}),IF(${p}>SS_MFJ_1*${f},MIN(SS_Lo*(${p}-SS_MFJ_1*${f}),SS_Lo*${ss}),0))`;
+    const sgl=`IF(${p}>SS_SGL_2*${f},MIN(MIN(SS_Lo*${ss},SS_SGL_Amt*${f})+SS_Hi*(${p}-SS_SGL_2*${f}),SS_Hi*${ss}),IF(${p}>SS_SGL_1*${f},MIN(SS_Lo*(${p}-SS_SGL_1*${f}),SS_Lo*${ss}),0))`;
     return `MAX(0,IF(${M(X)},${mfj},${sgl}))`; };
   const senFml=(X,agi)=>`IF(${X('senN')}>0,${X('senN')}*MAX(0,SenDed*${X('f')}-SenRate*MAX(0,${agi}-IF(${M(X)},SenThrMFJ,SenThrSGL)*${X('f')})),0)`;
   const ordTaxFml=(X,t)=>`IF(${M(X)},SUMPRODUCT((${t}>MFJ_Lo)*(${t}-MFJ_Lo)*MFJ_dR),SUMPRODUCT((${t}>SGL_Lo)*(${t}-SGL_Lo)*SGL_dR))`;
@@ -573,13 +575,14 @@ function xlsxMainColumns(proj,acctSheets){
     return `IF(${q}<=0,0,IF(${M(X)},${tier('QD_MFJ_1','QD_MFJ_2')},${tier('QD_SGL_1','QD_SGL_2')}))`; };
   F('nonSS','Ordinary income excluding Social Security (wage + pension + rental + annuity + RMD + ODIV + conversion + IRA expense draw)',r=>r.nonSSOrdinary,
     X=>`${X('wageT')}+${X('penT')}+${X('rentT')}+${X('annT')}+${X('rmdT')}+${X('odivNQ')}+${X('convT')}+${X('iraExT')}`);
-  F('prov','Provisional income (non-SS income incl. QDIV, net LTCG, tax-exempt + 50% of SS)',r=>r.provisional,
-    X=>`${X('nonSS')}+${X('qdiv')}+${X('ltcg')}+${X('teT')}+${X('annTET')}+0.5*${X('ssT')}`);
+  F('prov','Provisional income (non-SS income incl. QDIV, net LTCG, tax-exempt interest + 50% of SS; the tax-free part of annuity payouts is not added)',r=>r.provisional,
+    X=>`${X('nonSS')}+${X('qdiv')}+${X('ltcg')}+${X('teT')}+0.5*${X('ssT')}`);
   F('tss','Taxable Social Security (SS)',r=>r.taxableSS,X=>tssFml(X,X('prov')));
   F('ordInc','Ordinary income before deduction (red line on the Taxable Ordinary Income chart)',r=>v(r.ordIncome),X=>`${X('nonSS')}+${X('tss')}`);
   F('agi','Adjusted gross income (AGI)',r=>r.agi,X=>`${X('ordInc')}+${X('qdiv')}+${X('ltcg')}`);
-  F('magi','MAGI for IRMAA (AGI + tax-exempt income)',r=>r.magi,X=>`${X('agi')}+${X('teT')}+${X('annTET')}`);
-  F('std','Standard deduction',r=>r.stdDeduction,X=>`IF(${M(X)},Std_MFJ,Std_SGL)`);
+  F('magi','MAGI for IRMAA (AGI + tax-exempt interest; the tax-free part of annuity payouts is not added)',r=>r.magi,X=>`${X('agi')}+${X('teT')}`);
+  V('std65N','Living people age 65+ (additional standard deduction)',r=>v(r.age65Eligible),XLSX_COUNT);
+  F('std','Standard deduction (basic + additional for age 65+)',r=>r.stdDeduction,X=>`IF(${M(X)},Std_MFJ+StdAge_MFJ*${X('std65N')},Std_SGL+StdAge_SGL*${X('std65N')})`);
   F('floor','7.5% AGI floor',r=>v(r.agiFloor),X=>`ItemFloor*MAX(0,${X('agi')})`);
   F('item','Itemized deductions (LTC cost above 7.5% AGI floor)',r=>v(r.itemized),X=>`MAX(0,${X('expLtc')}-${X('floor')})`);
   F('ded','Deduction used (standard or itemized)',r=>r.std,X=>`MAX(${X('std')},${X('item')})`);
@@ -634,10 +637,10 @@ function xlsxMainColumns(proj,acctSheets){
   // — IRMAA: MAGI two years back × living people 65+ —
   F('enr','People on Medicare (alive, age 65+)',r=>r.ages.reduce((c,a,i)=>c+((r.alive[i]&&a>=65)?1:0),0),X=>{
     const t=[]; for(let i=0;i<n;i++) t.push(`(${X('age_'+i)}>=65)*(${X('age_'+i)}<Pass_${i+1})`); return t.join('+'); },XLSX_COUNT);
-  F('irmaa','Household IRMAA surcharge (expense) = tier of MAGI from 2 years earlier × people on Medicare',r=>v(r.irmaaSurcharge),(X,idx)=>{
+  F('irmaa','Household IRMAA surcharge (expense) = tier of MAGI from 2 years earlier (table of that year\'s filing status) × people on Medicare',r=>v(r.irmaaSurcharge),(X,idx)=>{
     if(idx<2) return '0';
-    const m=X('magi',-2);
-    return `${X('enr')}*IF(${M(X)},IF(${m}<IR_MFJ_1,0,LOOKUP(${m},IR_MFJ_Lo,IR_MFJ_S)),IF(${m}<IR_SGL_1,0,LOOKUP(${m},IR_SGL_Lo,IR_SGL_S)))`; });
+    const m=X('magi',-2), mj=`${X('filing',-2)}="Married (MFJ)"`;   // the tier table follows the filing status of the return the MAGI comes from
+    return `${X('enr')}*IF(${mj},IF(${m}<IR_MFJ_1,0,LOOKUP(${m},IR_MFJ_Lo,IR_MFJ_S)),IF(${m}<IR_SGL_1,0,LOOKUP(${m},IR_SGL_Lo,IR_SGL_S)))`; });
   // — State income tax (Inputs: State income tax; not part of TT, paid as a household expense) —
   const selState=xlsxSelectedState();
   if(selState==='CA'){

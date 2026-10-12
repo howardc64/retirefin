@@ -8,6 +8,9 @@
 const MFJ_ORD=[{lim:24800,r:.10},{lim:100800,r:.12},{lim:211400,r:.22},{lim:403550,r:.24},{lim:512450,r:.32},{lim:768700,r:.35},{lim:Infinity,r:.37}];
 const SGL_ORD=[{lim:12400,r:.10},{lim:50400,r:.12},{lim:105700,r:.22},{lim:201775,r:.24},{lim:256225,r:.32},{lim:640600,r:.35},{lim:Infinity,r:.37}];
 const STD_MFJ=32200, STD_SGL=16100;
+// Additional standard deduction for age 65 or older (Rev. Proc. 2025-32, tax year 2026): $1,650 per qualifying person on a joint return, $2,050 for an unmarried filer.
+// (The extra amount for blindness is not modeled.) Separate from, and in addition to, the enhanced senior deduction below.
+const STD_AGE65_MFJ=1650, STD_AGE65_SGL=2050;
 // Enhanced deduction for seniors (Schedule 1-A Part V; IRC §151(d)(5)(C), added by the One Big Beautiful Bill Act): $6,000 per
 // eligible individual (age 65 by year-end — for 2025 that means born before 1/2/1961), reduced by 6% of MAGI over $75,000
 // ($150,000 joint), tax years 2025–2028 only. Fixed dollar amounts, not indexed. Taken on top of the standard/itemized deduction.
@@ -58,16 +61,16 @@ const IRMAA_SGL=[{magi:109000,label:'T1',surch:1148},{magi:137000,label:'T2',sur
 // flat in today's-dollar terms (no deflation): the scenario being modeled is a future law that
 // sets an inflation-indexed threshold, unlike current law's frozen nominal one.
 const NIIT_RATE=0.038, NIIT_THRESH_MFJ=250000, NIIT_THRESH_SGL=200000;
-// ── State income tax (Tax & Optimizations panel). Latest published figures (tax year 2025), treated as today's $ and held flat in
+// ── State income tax (Tax & Optimizations panel). Figures for tax year 2026 (the base year of the federal tables above), treated as today's $ and held flat in
 // today's $ like the federal tables (they are inflation-indexed by the states). Options offered in the panel: California, Washington.
 const STATE_TAX_OPTIONS=[['CA','California'],['WA','Washington']];
-// California: Schedule X / Y brackets (MFJ limits are exactly double the single ones), standard deduction and exemption credits (FTB, 2025).
+// California: Schedule X / Y brackets (MFJ limits are exactly double the single ones), standard deduction and exemption credits (FTB Tax News, October 2026, "2026 Indexing").
 // California does not tax Social Security and taxes capital gains as ordinary income. A 1% Mental Health Services surcharge applies to
 // taxable income over $1,000,000 (all filing statuses; fixed by statute, not indexed).
-const CA_ORD_SGL=[{lim:11079,r:.01},{lim:26264,r:.02},{lim:41452,r:.04},{lim:57542,r:.06},{lim:72724,r:.08},{lim:371479,r:.093},{lim:445771,r:.103},{lim:742953,r:.113},{lim:Infinity,r:.123}];
+const CA_ORD_SGL=[{lim:11456,r:.01},{lim:27157,r:.02},{lim:42861,r:.04},{lim:59498,r:.06},{lim:75197,r:.08},{lim:384109,r:.093},{lim:460927,r:.103},{lim:768213,r:.113},{lim:Infinity,r:.123}];
 const CA_ORD_MFJ=CA_ORD_SGL.map(b=>({lim:b.lim*2,r:b.r}));
-const CA_STD_SGL=5706, CA_STD_MFJ=11412;
-const CA_PERSONAL_CREDIT=153, CA_SENIOR_CREDIT=153;   // per person; the senior credit is for age 65+ (the income phase-out of these credits is not modeled)
+const CA_STD_SGL=5900, CA_STD_MFJ=11800;
+const CA_PERSONAL_CREDIT=158, CA_SENIOR_CREDIT=158;   // per person; the senior credit is for age 65+ (the income phase-out of these credits is not modeled)
 const CA_MH_THRESH=1000000, CA_MH_RATE=0.01;
 // Washington: no income tax, but a capital-gains excise tax on long-term gains from stocks, bonds and similar assets (not real estate, not
 // retirement accounts): 7% on the gain above an annual deduction ($278,000 for 2025, indexed, one deduction per married couple), and 9.9% on the

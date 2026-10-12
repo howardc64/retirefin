@@ -21,7 +21,7 @@ const CI_INCOME=[
   [/Social Security/i, 'Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts.'],
   [/^Pension/, 'Pension income. Taxed as ordinary income.'],
   [/^Annuity payout \(taxable\)/, 'Taxable payout from an annuity. Taxed as ordinary income (and counted as net investment income for NIIT when the annuity is non-qualified).'],
-  [/^Annuity payout \(tax-exempt/, 'Tax-exempt part of an annuity payout (return of principal). It is cash income and counts toward provisional income and IRMAA MAGI, but is not taxed.'],
+  [/^Annuity payout \(tax-exempt/, 'Tax-exempt part of an annuity payout (return of principal). It is cash income but is not taxed and, being a return of the owner\'s own premium, does not count toward provisional income or IRMAA MAGI.'],
   [/^Wage/, 'Wages or self-employment income. Taxed as ordinary income.'],
   [/^Pre-tax IRA withdraw \(for expenses\)/, 'Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.'],
   [/^Pre-tax IRA withdraw/, 'Pre-tax IRA/401(k) withdrawal for a Roth conversion, set on the IRA card. Taxed as ordinary income; the converted amount then moves into the Roth IRA.'],

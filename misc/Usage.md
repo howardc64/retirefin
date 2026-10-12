@@ -94,7 +94,7 @@ The **Real estate** card (after the brokerage card; **Add** / **Remove**, one se
 ## Rental income and tax-exempt income
 
 - **Rental income** can hold any number of properties (**Add** and **Remove** on the card). Enter the *taxable* annual amount (already net of depreciation) and the annual depreciation separately. Depreciation counts as cash for the household but is not taxed.
-- A brokerage portfolio's **Tax-exempt yield %** (for example municipal-bond interest) is paid out of the portfolio each year. It is not taxed and not part of AGI, but it counts as household income, and it is included in provisional income for Social Security taxation and in the MAGI used for IRMAA.
+- A brokerage portfolio's **Tax-exempt yield %** (for example municipal-bond interest) is paid out of the portfolio each year. It is not taxed and not part of AGI, but it counts as household income, and it is included in provisional income for Social Security taxation and in the MAGI used for IRMAA. (The tax-free part of an annuity payout is household income but is not included in either.)
 
 ## Roth conversions
 
@@ -117,7 +117,9 @@ The two rows of sliders above the Asset Value chart show roughly what the balanc
 
 ## Tax features worth knowing
 
-- Taxable Social Security is based on provisional income, which includes qualified dividends, realized long-term gains and tax-exempt income.
+- Taxable Social Security is based on provisional income, which includes qualified dividends, realized long-term gains and tax-exempt interest (the tax-free part of an annuity payout is not added). The upper tier uses the smaller of 50% of benefits and $6,000 (joint) / $4,500 (single) as its base, so small benefits are not overtaxed.
+- The standard deduction includes the additional amount for each living person 65 or older ($1,650 joint / $2,050 single for 2026), on top of which the enhanced senior deduction (below) applies.
+- The IRMAA surcharge looks back two years, and uses the joint or single table of the filing status of that earlier year's return; a surviving spouse keeps the joint table until the lookback year is a single return (the SSA life-changing-event reduction is not modeled).
 - From 2025 through 2028 the **enhanced deduction for seniors** (Schedule 1-A) is applied for each person who is 65 by year-end, phased out above $75,000 (single) or $150,000 (joint) of MAGI.
 - IRMAA surcharges use the MAGI (AGI plus tax-exempt income) from two years earlier.
 

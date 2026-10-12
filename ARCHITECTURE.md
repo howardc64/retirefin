@@ -179,7 +179,7 @@ or disabled and shown (its fields still visible/editable, just not yet counted).
 | Export | Contents |
 |---|---|
 | `MFJ_ORD`, `SGL_ORD` | Ordinary tax brackets `[{lim, r}]`, married/single |
-| `STD_MFJ`, `STD_SGL` | Standard deduction, married/single |
+| `STD_MFJ`, `STD_SGL`, `STD_AGE65_MFJ`, `STD_AGE65_SGL` | Basic standard deduction, married/single; additional standard deduction per living person age 65+ ($1,650 joint / $2,050 single, tax year 2026). `projection.js` builds `std = basic + additional × age65N` (`age65N` = living people with `birthYear + 65 ≤ tax year`; row fields `stdDeduction`, `age65Eligible`) |
 | `MFJ_QDIV`, `SGL_QDIV` | Qualified-dividend/LTCG brackets |
 | `IRMAA_MFJ`, `IRMAA_SGL` | IRMAA tiers `[{magi, label, surch}]` |
 | `NIIT_RATE`, `NIIT_THRESH_MFJ`, `NIIT_THRESH_SGL` | NIIT rate + un-indexed thresholds |
@@ -301,7 +301,7 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
    to be enabled. On the owner's death, conversions stop; RMDs continue to a surviving spouse if the
    IRA is marked to continue. **Two conversion modes** (`ira.convMode`): `fixed` = the flat today's-$ `conv` (capped at the balance left after the RMD);
    `bracket` = the largest amount that fits under **both** entered limits (AND — the stricter wins) — ordinary taxable income (`ordTI`) ≤ the start of the `convOrdPct` bracket (`convOrdTop`) and MAGI < the IRMAA
-   line labeled `convIrmaaPct` (null stop = no limit, both null = the whole balance converts; the IRMAA limit — `convMagiCap` — applies to anyone alive and 63+ because this year's MAGI sets the premium two years later, so it keeps applying to the end of the plan (no last-years conversion spike); filing status = latest of k+2/k+1/k with someone alive). The conversion changes taxable SS, the tax, asset sales and so realized LTCG,
+   line labeled `convIrmaaPct` (null stop = no limit, both null = the whole balance converts; the IRMAA limit — `convMagiCap` — applies to anyone alive and 63+ because this year's MAGI sets the premium two years later, so it keeps applying to the end of the plan (no last-years conversion spike); filing status = this year's, since this year's return sets that premium). The conversion changes taxable SS, the tax, asset sales and so realized LTCG,
    so it is part of the circular dependence: see "Roth conversion solve" in the year loop. Because of that, the pre-tax IRA and Roth IRA are **advanced one year at a
    time** inside the year loop (`iraSim[i]` / `rothSim[i]`: `pre(k)` = start-of-year balance, RMD and the room to convert; `post(k, conv)` = apply the
    conversion and grow), not simulated up front.
@@ -309,8 +309,8 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 8. Rental depreciation (`rentalDep`, `rentalDepByPerson`): `Σ personAgedItemActive(r,i,k,true)` over `p.rentals` = `depreciation/(1+inflation)^k`, same on/off, age-range and survivor rules as rental income. It is a non-cash expense already inside the entered taxable rental amount, so it is **added to `cashIncome`** (funds expenses, feeds excess-income reinvestment) and **never taxed** (not in `nonSSOrdinary`/AGI).
    Ordinary income = wages + pension + rental (taxable) + IRA RMD + **Roth conversion (pre-tax IRA withdraw)**
    + (ODIV − QDIV).
-9. Taxable Social Security via `computeTaxableSS(nonSSOrdinary + qdiv + ltcg + teIncome, …)` **inside `taxOn()`** (provisional income = all non-SS AGI items, so it depends on the realized LTCG and is solved in the tax ↔ LTCG iteration; `taxOn` returns `taxableSS`, `provisional`, `ordIncome`) — tax-exempt income is untaxed but counts toward provisional income (and is passed to `computeSSTAndMarginal` as `teIncome` for its marginal-rate bump); filing status for the year is `'single'` the
-   moment either spouse has died. **Deduction** = `max(standard deduction, itemized)` where itemized =
+9. Taxable Social Security via `computeTaxableSS(nonSSOrdinary + qdiv + ltcg + teIncome, …)` (upper tier = `min(50%×SS, $6,000/$4,500×f) + 85%×(PI−T2)`, capped at 85%×SS — the first-tier part is capped at 50% of benefits, which matters for benefits under $12,000 MFJ / $9,000 single) **inside `taxOn()`** (provisional income = all non-SS AGI items, so it depends on the realized LTCG and is solved in the tax ↔ LTCG iteration; `taxOn` returns `taxableSS`, `provisional`, `ordIncome`) — tax-exempt income is untaxed but counts toward provisional income (and is passed to `computeSSTAndMarginal` as `teIncome` for its marginal-rate bump); filing status for the year is `'single'` the
+   moment either spouse has died. **Deduction** = `max(standard deduction, itemized)` — the standard deduction includes the additional amount for each living person 65+ (see constants) — where itemized =
    `max(0, LTC expense − 7.5% × AGI)` (see *Long Term Care* below); ordinary taxable income = `max(0, ordinary income − deduction)`.
    AGI includes realized LTCG, so the deduction is computed inside `taxOn()` and is solved with the tax.
    **Enhanced senior deduction** (Schedule 1-A Part V, IRC §151(d)(5)(C); constants `SENIOR_*` in `core/constants.js`, `computeSeniorDeduction` in `compute/tax.js`):
@@ -340,7 +340,7 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 - **Itemized deduction:** the LTC cost is also the only itemized deduction modelled: `itemized = max(0, expLtc − 7.5% × AGI)` (`agiFloor` = 7.5% × AGI). `usedItemized` is true when `itemized` exceeds the standard deduction; the deduction actually applied is `max(standard, itemized)`. Because AGI depends on LTCG, this sits inside the tax↔LTCG iteration.
 
 **IRMAA as an expense** (always a household expense — there is no per-portfolio checkbox):
-- **Household surcharge** = `irmaaSurcharge` = surcharge of the IRMAA tier (`IRMAA_MFJ`/`IRMAA_SGL`, this year's filing status) reached by the **MAGI from two years earlier** (`rows[k−2].agi + rows[k−2].teIncome`; MAGI = AGI + tax-exempt income, also stored as `magi` on each row) × the number of living people age ≥ 65. Years 0 and 1 are `$0`, because the model has no AGI from before the projection starts. The 2-year lag is IRMAA's real look-back (the premium for year Y is set from the Y−2 return); the tier uses *this* year's filing status. Tier tables are indexed, so no deflation. The row reports it as `irmaaSurcharge` and it is included in `expIrmaa`.
+- **Household surcharge** = `irmaaSurcharge` = surcharge of the IRMAA tier (`IRMAA_MFJ`/`IRMAA_SGL`, chosen by the **filing status of the same year's return the MAGI comes from**, `rows[k−2].filing` — so a survivor is still looked up in the joint table until the lookback year is a single return; SSA's life-changing-event request is not modeled) reached by the **MAGI from two years earlier** (`rows[k−2].agi + rows[k−2].teIncome`; MAGI = AGI + tax-exempt interest; the tax-free part of annuity payouts is NOT added; also stored as `magi` on each row) × the number of living people age ≥ 65. Years 0 and 1 are `$0`, because the model has no AGI from before the projection starts. The 2-year lag is IRMAA's real look-back (the premium for year Y is set from the Y−2 return); the tier table follows the filing status of that Y−2 return. Tier tables are indexed, so no deflation. The row reports it as `irmaaSurcharge` and it is included in `expIrmaa`.
 - **Payment:** part of the household expense pool below, so it is paid income → dividends → sales → pre-tax IRA → Roth IRA like everything else (the portfolio steps by portfolios with Pay expenses checked).
 
 **AUM fee** (household assumption `state.aumFee`; per-portfolio `aum` box):
@@ -404,7 +404,7 @@ The IRMAA surcharge uses the MAGI (AGI + tax-exempt income) from two years earli
 | `ssByPerson`, `totalSS` | Social Security income |
 | `pension`, `pensionByPerson`, `rental`, `rentalByPerson` | Pension/rental income (rental = taxable amount) |
 | `rentalDep`, `rentalDepByPerson` | Rental depreciation: non-cash, in `cashIncome`, untaxed |
-| `teIncome`, `teByPerson`, `magi` | Tax-exempt income from portfolios' `teYield`: untaxed (not in AGI, taxable income or the senior-deduction MAGI), in `cashIncome`, added to provisional income (taxable SS) and to `magi = agi + teIncome` (IRMAA); per-portfolio entry has `taxExempt` |
+| `teIncome`, `teByPerson`, `magi` | Tax-exempt interest from portfolios' `teYield`: untaxed (not in AGI, taxable income or the senior-deduction MAGI), in `cashIncome`, added to provisional income (taxable SS) and to `magi = agi + teIncome` (IRMAA). The tax-free part of annuity payouts (`annuityTE`) is cash income only — it is in neither provisional income nor `magi`; per-portfolio entry has `taxExempt` |
 | `seniorDeduction`, `seniorEligible` | Enhanced senior deduction applied this year (Schedule 1-A) and how many living people were eligible |
 | `odiv`, `qdiv`, `odivNQ`, `odivByPerson`, `qdivByPerson`, `odivNQByPerson` | Dividend income (total, qualified, non-qualified) |
 | `ltcg`, `ltcgGross`, `ltcgByPerson`, `scglUsed`, `scglRemaining` | Realized LTCG net/gross of SCGL, and the SCGL pool's state |

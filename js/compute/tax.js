@@ -37,11 +37,13 @@ function qualTaxTiers(ordTI, qualIncome, qBrackets){
 function computeTaxableSS(nonSS,totalSS,filing,f=1){
   const pi=nonSS+0.5*totalSS;
   let tss=0;
+  // Upper tier: 85% of the PI above T2, plus the amount taxable from the first tier — which is capped at 50% of the benefits, and is $6,000 (married) / $4,500 (single) only
+  // when the benefits are large enough to fill the whole first tier (50% × the T1–T2 span). With small benefits the first-tier part is just 50% of them.
   if(filing==='married'){
-    if(pi>44000*f)tss=Math.min(6000*f+0.85*(pi-44000*f),0.85*totalSS);
+    if(pi>44000*f)tss=Math.min(Math.min(0.5*totalSS,6000*f)+0.85*(pi-44000*f),0.85*totalSS);
     else if(pi>32000*f)tss=Math.min(0.5*(pi-32000*f),0.5*totalSS);
   } else {
-    if(pi>34000*f)tss=Math.min(4500*f+0.85*(pi-34000*f),0.85*totalSS);
+    if(pi>34000*f)tss=Math.min(Math.min(0.5*totalSS,4500*f)+0.85*(pi-34000*f),0.85*totalSS);
     else if(pi>25000*f)tss=Math.min(0.5*(pi-25000*f),0.5*totalSS);
   }
   return{taxableSS:Math.max(0,tss),provisional:pi};

@@ -105,7 +105,7 @@ function buildIncomeChart(){
       if(showDetails){
         lines.push(mrow('Filing',r.filing==='married'?'Married (MFJ)':'Single'));
         lines.push(mrow('AGI',fmt(r.agi)+'/yr'));
-        if(r.teIncome>0||r.annuityTE>0) lines.push(mrow('MAGI (AGI + tax-exempt income)',fmt(r.magi)+'/yr'));
+        if(r.teIncome>0) lines.push(mrow('MAGI (AGI + tax-exempt interest)',fmt(r.magi)+'/yr'));
         // Taxable-income numbers (the Taxable Ordinary Income chart's own popup shows only the deduction and the ordinary total).
         if(r.taxableSS>0.5) lines.push(mrow('Taxable Social Security',fmt(r.taxableSS)+'/yr'));
         lines.push(mrow('Taxable ordinary income',fmt(r.ordTI||0)+'/yr'));

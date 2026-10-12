@@ -412,7 +412,8 @@ function computeProjection(){
     const rentalDep = rentalDepByPerson.reduce((a,b)=>a+b,0);
 
     // Annuity payouts this year (see simulateAnnuity). The taxable part is ordinary income; the tax-exempt part is untaxed but is
-    // household cash income and, like other tax-exempt income, counts toward provisional income (SS taxation) and MAGI (IRMAA).
+    // household cash income, but it is a return of the owner's own after-tax premium, so — unlike tax-exempt interest (`teIncome`) — it is NOT added to
+    // provisional income (SS taxation) or to MAGI (IRMAA).
     // Non-qualified taxable payouts are also net investment income (NIIT).
     const annuitiesByPerson=people.map((p,i)=>(p.annuities||[]).map((a,ai)=>{
       const run=annuityRun[i][ai], y=run&&run.on?run.yr[k]:null;
@@ -554,11 +555,13 @@ function computeProjection(){
     // tax return for year Y−2; it also means this year's AGI — which depends on this year's LTCG, which depends on asset
     // sales, which fund this surcharge — is never needed, so there is no circularity) × the number of living people age 65+.
     // Years 0 and 1 have no projected AGI two years back (the model has no pre-projection history), so they are $0.
-    // Filing status is this year's.
-    // IRMAA's MAGI = AGI + tax-exempt interest, so the tax-exempt income of that year counts toward the tier.
-    const priorAGI = (k>=2 && rows[k-2]) ? ((rows[k-2].agi||0)+(rows[k-2].teIncome||0)+(rows[k-2].annuityTE||0)) : 0;
+    // The tier table (joint or single) is the one for the filing status of the SAME year's return that the MAGI comes from (rows[k-2].filing), not this
+    // year's: after a spouse dies, the premium of the next two years is still set from the earlier joint return, so the survivor is looked up in the joint
+    // table (SSA's "life-changing event" request to use a newer, single-filer return is not modeled — this keeps the conservative, default determination).
+    // IRMAA's MAGI = AGI + tax-exempt interest, so the tax-exempt income of that year counts toward the tier. (The tax-free part of annuity payouts is not added.)
+    const priorAGI = (k>=2 && rows[k-2]) ? ((rows[k-2].agi||0)+(rows[k-2].teIncome||0)) : 0;
     const irmaaEnrolled = people.reduce((n,p,i)=>n+((alive[i]&&ages[i]>=65)?1:0),0);
-    const irmaaFiling = married && alive[0] && alive[1] ? 'married' : 'single';
+    const irmaaFiling = (k>=2 && rows[k-2]) ? rows[k-2].filing : 'single';   // filing status of the return the MAGI comes from
     const irmaaTier = (irmaaFiling==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>priorAGI>=t.magi);
     const irmaaSurcharge = irmaaTier ? irmaaTier.surch*irmaaEnrolled : 0;
     // The IRMAA surcharge is always a household expense (no per-portfolio opt-in); it is paid by the pool below.
@@ -655,7 +658,12 @@ function computeProjection(){
     const filing = married && alive[0] && alive[1] ? 'married' : 'single';
     const ssThresholdFactor = Math.pow(1+inflation,-k); // un-indexed SS-tax thresholds, in today's $
     const nonSSBase = wageTotal+pension+rental+annuity+iraTotal+odivNQ;   // + the Roth conversion (decided below) = nonSSOrdinary
-    const std = filing==='married'?STD_MFJ:STD_SGL;
+    // Standard deduction = the basic amount + the additional amount for age 65 or older, per living person who is 65 by the end of the tax year (birth year
+    // + 65 ≤ year, the same rule as the senior deduction below; the additional amount for blindness is not modeled). The additional amount is $1,650 per person
+    // on a joint return and $2,050 for a single filer, so it follows the filing status in force (the survivor gets the single amount). Indexed, like the basic amount.
+    const taxYear=THIS_YEAR+k;
+    const age65N=people.reduce((n,p,i)=>n+((alive[i]&&(Number(p.birthYear)||0)+65<=taxYear)?1:0),0);
+    const std = (filing==='married'?STD_MFJ+STD_AGE65_MFJ*age65N:STD_SGL+STD_AGE65_SGL*age65N);
     // Long Term Care: from the LTC start age (older person's age) the LTC cost is an extra expense and the household
     // living expense switches to the post-LTC amount. Both are today's $ (flat in real terms = inflating in future $).
     // Per person: triggered once that person (alive at the start) reaches their own LTC start age; the cost runs while they are alive.
@@ -674,7 +682,6 @@ function computeProjection(){
     // Enhanced deduction for seniors (Schedule 1-A Part V): each living person who is 65 by the end of this tax year (birth year
     // + 65 ≤ year; the model tracks birth year and month only, so a Jan 1 birthday exactly 65 years earlier is not picked up),
     // for tax years 2025–2028 only. The amount depends on AGI, so it is evaluated inside taxOn() and in the SST/marginal helper.
-    const taxYear=THIS_YEAR+k;
     const seniorN=(taxYear>=SENIOR_FIRST_YEAR&&taxYear<=SENIOR_LAST_YEAR)?people.reduce((n,p,i)=>n+((alive[i]&&(Number(p.birthYear)||0)+65<=taxYear)?1:0),0):0;
     const seniorOf=agiX=>computeSeniorDeduction(seniorN, agiX, filing, ssThresholdFactor);
     const ordBrk = filing==='married'?MFJ_ORD:SGL_ORD;
@@ -816,7 +823,7 @@ function computeProjection(){
       const qualIncome=qdiv+ltcg;
       // Provisional income = ALL non-SS income in AGI (ordinary, QDIV, net LTCG) + tax-exempt income + 50% of SS, so taxable SS
       // moves with the realized LTCG and is solved inside the same tax ↔ LTCG iteration.
-      const {taxableSS,provisional}=computeTaxableSS(nonSSOrdinary+qdiv+ltcg+teIncome+annuityTE, totalSS, filing, ssThresholdFactor);
+      const {taxableSS,provisional}=computeTaxableSS(nonSSOrdinary+qdiv+ltcg+teIncome, totalSS, filing, ssThresholdFactor);
       const ordIncome=nonSSOrdinary+taxableSS;
       const agi=nonSSOrdinary+taxableSS+qdiv+ltcg;
       const agiFloor=0.075*Math.max(0,agi);
@@ -866,9 +873,9 @@ function computeProjection(){
     // [0, room after RMD] with
     //   • taxable ordinary income stays BELOW the chosen ordinary bracket, i.e. ≤ where that bracket starts (stop 0 = nothing converts;
     //     the first bracket's start is $0, which fills just the standard deduction; no-limit stop = no ceiling), and
-    //   • MAGI (AGI + tax-exempt income) stays BELOW the IRMAA line labeled with the chosen Part B % (stop 0 = nothing converts; no-limit
+    //   • MAGI (AGI + tax-exempt interest; the tax-free part of an annuity payout is not added) stays BELOW the IRMAA line labeled with the chosen Part B % (stop 0 = nothing converts; no-limit
     //     stop = no ceiling). IRMAA looks back two years, so this year's MAGI sets the premium of year k+2: it applies to anyone alive
-    //     now and 63+ (on Medicare by then), using the filing status of the latest of k+2/k+1/k in which someone is alive.
+    //     now and 63+ (on Medicare by then), using this year's filing status (the return that sets that premium).
     // Both measures rise with c, but c also moves taxable Social Security, the tax, the asset sales that fund it and so the realized LTCG
     // — a circular dependence — so each trial c runs the full tax ↔ LTCG iteration above, and the search over c is iterated too
     // (false position with bisection safeguards) until the largest feasible c is pinned to a few cents.
@@ -906,15 +913,10 @@ function computeProjection(){
       if(irmIn!=null){
         // This year's MAGI sets the IRMAA premium of year k+2, for anyone who will be on Medicare (65+) then. A person alive now and 63+ is
         // exposed whether or not they live to k+2 — so the limit keeps applying right up to the last years (no end-of-plan conversion
-        // spike). Filing status is that of the latest of k+2, k+1, k in which anyone is still alive.
+        // spike). The tier table is the one for THIS year's filing status, since this year's return is the one that sets that premium.
         const exposed=people.some((q,j)=>curAges[j]+k<passAges[j] && curAges[j]+k+2>=65);
         if(exposed){
-          let fm=false;
-          for(const dk of [2,1,0]){
-            const al=people.map((q,j)=>curAges[j]+k+dk<passAges[j]);
-            if(al.some(Boolean)){ fm=married&&al.length===2&&al[0]&&al[1]; break; }
-          }
-          magiCap=convMagiCap(irmIn, fm?IRMAA_MFJ:IRMAA_SGL);
+          magiCap=convMagiCap(irmIn, filing==='married'?IRMAA_MFJ:IRMAA_SGL);
           magiOn=true;
         }
       }
@@ -929,7 +931,7 @@ function computeProjection(){
       const slack=c=>{
         convByPerson[i]=c; convTrials++;
         const r=solveTax(convTotalOf());
-        const so=lim.ordOn?lim.ordTop-r.tx.ordTI:Infinity, sm=lim.magiOn?lim.magiCap-(r.tx.agi+teIncome+annuityTE):Infinity;
+        const so=lim.ordOn?lim.ordTop-r.tx.ordTI:Infinity, sm=lim.magiOn?lim.magiCap-(r.tx.agi+teIncome):Infinity;
         return Math.min(so,sm);
       };
       const hi=sim.room;
@@ -1001,7 +1003,7 @@ function computeProjection(){
     const ltcgByPersonGross=people.map((p,i)=>{ let t=0; pfx[i].forEach(x=>{ if(x) t+=x.ltcg; }); reSales.forEach(x=>{ if(x.i===i) t+=x.gain; }); wf.reShort.forEach(x=>{ if(x.i===i) t+=x.gain; }); return t; });
     const shieldFrac = ltcgGross>0 ? scglUsed/ltcgGross : 0;
     const ltcgByPerson = ltcgByPersonGross.map(v=>v*(1-shieldFrac));
-    const {sst,marginalRate,sstOrdTI,sstTaxNoSS,mProv,mTSS,mTI,mTax} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor, seniorOf, teIncome+annuityTE);
+    const {sst,marginalRate,sstOrdTI,sstTaxNoSS,mProv,mTSS,mTI,mTax} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor, seniorOf, teIncome);
 
     // Split of the marginal rate: the part from the ordinary brackets (incl. the SS torpedo) and the part from ordinary income pushing qualified income into a higher tier.
     const marginalQual=Math.max(0,(calcQualTax(mTI, qualIncome, qBrk)-qualTax)/100), marginalOrd=marginalRate-marginalQual;
@@ -1101,13 +1103,13 @@ function computeProjection(){
       odiv, qdiv, odivNQ, ltcg, ltcgGross, reSaleGain:reGainTotal+shortGainTotal, reSaleTax, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
       iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, realEstateByPerson, embeddedGain, embeddedGainIdgt,
-      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, ltcStarted, ltcCostByPerson, noConvOrdTI, noConvItemized, convTriggerStartedByPerson:iraSim.map(s=>s.startedK===k), agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
+      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, age65Eligible:age65N, ltcStarted, ltcCostByPerson, noConvOrdTI, noConvItemized, convTriggerStartedByPerson:iraSim.map(s=>s.startedK===k), agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate, marginalOrd, marginalQual, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mTax,
       niiIncome, niit,
       irmaaSurcharge,
       expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, brokerageWd:wf.wdCash, brokerageWdByPerson:people.map((p,i)=>wdList.reduce((a,e)=>a+(e.i===i?e.amt:0),0)), excessIncome, excessReinvested, taxIters, taxConverged,
       convTrials,
-      totalTax, stateTax, stateCode:stCode, agi, magi:agi+teIncome+annuityTE
+      totalTax, stateTax, stateCode:stCode, agi, magi:agi+teIncome
     });
   }
   // ── Legacy "stretch": the 10 years after the household's last passing (STRETCH_YEARS). Two things carry on, with no
