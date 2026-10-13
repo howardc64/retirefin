@@ -104,13 +104,13 @@ function inhRmdStarted(parent, proj, p, i){
 
 // ── Building and updating the created assets ──
 // The inherited values of an asset at `pct`%: everything the snapshot holds, with the amounts scaled, plus the defaults for the fields the snapshot leaves out.
-function inhBase(entry, startYear){
+function inhBase(entry, startYear, i){
   const f=Math.min(100,Math.max(0,Number(entry.pct)||0))/100, s=inhClone(entry.snap), t=entry.type;
   s.balance=Math.round((Number(s.balance)||0)*f);   // whole dollars
   s.startYear=startYear;
   if(t==='pf'){
     const d=defaultBrokeragePortfolio(0);
-    s.ar=inhClone(d.ar); s.type='living'; s.aum=false; s.bene=false;
+    s.ar=inhPfAgeRange(i,startYear,d.ar); s.type='living'; s.aum=false; s.bene=false;   // the portfolio's Start age is the age it was inherited (custom age), End as usual
     s.name=s.name||''; return s;
   }
   if(t==='re'){
@@ -154,11 +154,14 @@ function syncInheritance(i){
       const found=inhFindItem(p, src.file, en.key);
       if(!(pct>0)) return;           // not inherited: any existing asset is removed below
       wanted.add(src.file.toLowerCase()+'|'+en.key);
-      const base=inhBase(en, src.startYear), fields=INH_FIELDS[en.type];
+      const base=inhBase(en, src.startYear, i), fields=INH_FIELDS[en.type];
       if(found){
-        const it=found.item, old=it.inh.base||{};
+        const it=found.item, old=it.inh.base||{}, arUntouched=en.type==='pf'&&inhEq(it.ar, old.ar);
         fields.forEach(f=>{ if(inhEq(it[f], old[f])) it[f]=inhClone(base[f]); });   // untouched by the user → follows the new inheritance value; changed → kept
         it.inh={file:src.file, key:en.key, base:inhClone(base)};
+        if(arUntouched&&!inhEq(it.startYear, base.startYear)){   // the user moved the inheritance age: the portfolio's Start follows that age, not the source's
+          const ar=inhPfAgeRange(i,it.startYear,it.ar); it.ar=inhClone(ar); it.inh.base.ar=inhClone(ar);
+        }
       }else{
         const it=inhNewItem(en, base, src.file);
         p[INH_LIST[en.type]].push(it);
@@ -243,12 +246,43 @@ function inhAgeField(path, item, label){
   const age=inhAgeOfYear(i,item.startYear);
   return `<div class="field full"><label>${label||('Inherited at '+escHtml(displayPersonName(p,i))+"'s age")}</label><input type="number" min="${lo}" max="${hi}" step="1" value="${age}" oninput="onInhAge('${path}.startYear', ${i}, this.value, this)"><div class="item-note inh-yr-note" style="margin-top:4px">${inhYearNote(item.startYear)}</div></div>`;
 }
+// An inherited portfolio's age range starts at the age its holder inherits it (Start = Custom age), so the card shows when it begins; the End keeps its default.
+function inhPfAgeRange(i, startYear, dflt){
+  const ar=inhClone(dflt||defaultAgeRange('now',0,'passing',0)), age=inhAgeOfYear(i,startYear);
+  if(age!==''){ ar.startMode='custom'; ar.startVal=age; }
+  return ar;
+}
+// Older saves (and plans made before this rule): an inherited portfolio whose Start is still the untouched default 'Now' gets the inheritance age.
+function inhAlignPortfolioStarts(s){
+  (s.people||[]).forEach((p,i)=>(p.brokerage||[]).forEach(b=>{
+    if(!b||!b.inh||!Number.isFinite(Number(b.startYear))||!b.ar) return;
+    const nowAr=a=>a&&a.startMode==='now';
+    if(!nowAr(b.ar)) return;
+    const age=Math.floor(currentAge(p))+(Number(b.startYear)-THIS_YEAR);
+    if(!Number.isFinite(age)) return;
+    const was=inhClone(b.ar); b.ar.startMode='custom'; b.ar.startVal=age;
+    if(b.inh.base&&b.inh.base.ar&&nowAr(b.inh.base.ar)){ b.inh.base.ar.startMode='custom'; b.inh.base.ar.startVal=age; }
+  }));
+}
 function inhYearNote(year){ return Number.isFinite(Number(year))?('Age of the beneficiary owner in the year of the last passing in the source plan (calendar year '+Number(year)+').'):''; }
+// Changing the age an inherited portfolio is inherited at moves its Start age with it, unless the user has set that Start themselves (it then differs from the inherited value and is kept).
+function inhFollowPortfolioStart(startYearPath, i, year, inputEl){
+  const m=/^(people\.\d+\.brokerage\.\d+)\.startYear$/.exec(startYearPath); if(!m) return;
+  let it=state; m[1].split('.').forEach(k=>{ it=it&&it[/^\d+$/.test(k)?+k:k]; });
+  if(!it||!it.inh||!it.ar) return;
+  const old=it.inh.base&&it.inh.base.ar, fresh=inhPfAgeRange(i,year,it.ar);
+  if(old&&!inhEq(it.ar,old)) return;   // the user's own Start / End: kept
+  it.ar=inhClone(fresh); if(it.inh.base) it.inh.base.ar=inhClone(fresh);
+  const card=inputEl&&inputEl.closest&&inputEl.closest('.portfolio-card, .item'); if(!card) return;
+  const num=card.querySelector('input[oninput*=".ar.startVal"]'), sel=num&&num.closest('.arow')&&num.closest('.arow').querySelector('select');
+  if(sel) sel.value='custom'; if(num){ num.style.display='inline-block'; num.value=fresh.startVal; }
+}
 function onInhAge(startYearPath, i, val, inputEl){
   if(val===''||!Number.isFinite(Number(val))) return;
   const lo=Math.floor(currentAge(state.people[i])), age=Math.max(lo,Math.min(120,Math.round(Number(val))));
   const year=inhYearOfAge(i,age);
   setPath(startYearPath, year);
+  inhFollowPortfolioStart(startYearPath, i, year, inputEl);
   const note=inputEl&&inputEl.parentNode&&inputEl.parentNode.querySelector('.inh-yr-note'); if(note) note.textContent=inhYearNote(year);
   recomputeDebounced(); saveDebounced();
 }

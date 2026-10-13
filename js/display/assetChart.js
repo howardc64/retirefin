@@ -346,7 +346,25 @@ function buildAssetChartFor(cfg){
     })});
 }
 
+// Red note above the Asset value chart (same look as the "unfunded" alert) when an enabled pre-tax / Roth IRA that holds money has its "IRA stretch" box NOT set:
+// it is not forwarded to heirs at the last passing, so it ends there and does not appear in the stretch years. Names each such IRA.
+function buildAssetAlert(proj){
+  const el=document.getElementById('assetAlert'); if(!el) return;
+  const rows=(proj&&proj.rows)||[], last=rows[rows.length-1];
+  const items=[];
+  if(last) proj.people.forEach((p,i)=>{
+    const who=proj.married?' ('+displayPersonName(p,i)+')':'';
+    const held=f=>rows.some(r=>((r[f]&&r[f][i])||0)>1);
+    if(p.ira&&p.ira.enabled&&!p.ira.stretch&&held('iraBalByPerson')) items.push('Pre-tax IRA'+who);
+    if(p.roth&&p.roth.enabled&&!p.roth.stretch&&held('rothBalByPerson')) items.push('Roth IRA'+who);
+  });
+  if(!items.length){ el.hidden=true; el.innerHTML=''; return; }
+  el.innerHTML='\u26A0 IRA STRETCH NOT SET \u2014 AGE '+Math.floor(last.age0)+
+    '<small>'+items.join('; ')+' not forwarded to heirs at the last passing ('+ageAxisLabel(proj)+'): the balance ends there. Check "IRA stretch" on the IRA card to carry it '+STRETCH_YEARS+' more years.</small>';
+  el.hidden=false;
+}
 function buildAssetChart(){
+  buildAssetAlert(lastProjection);
   buildAssetChartFor({ key:'asset', idgt:false, canvasId:'assetChart', yTitle:"Asset value (today's $)" });
 }
 function buildIdgtChart(){

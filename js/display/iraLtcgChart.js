@@ -2,21 +2,27 @@
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / IRA CHART + LTCG CHART — two stacked charts of annual dollar flows (today's $), each broken down by individual source.
 //
-//   IRA chart   (`charts.ira`,  #iraChart)  Pre-tax IRA money that leaves each person's IRA this year, as three stacked kinds per person:
+//   IRA chart   (`charts.ira`,  #iraChart)  Pre-tax IRA money that leaves each person's IRA this year, as stacked kinds per person (inherited IRAs, from the Inheritance card, have their own bands on top):
 //                 Annual withdraw  (row.rothConvByPerson — the withdraw on top of the RMD; it moves into the Roth IRA when the card's "Withdraw is Roth conversion" box is ticked),
 //                 RMD              (row.iraByPerson — the required minimum distribution), and
 //                 expense withdraw (row.iraExpByPerson — drawn to pay a shortfall in household expenses).
-//               All three are taxed as ordinary income. Married: one band per person per kind (the person's name is in the band's label).
+//               and, for inherited IRAs: RMD / year-10 withdraw (row.inhIraWdByPerson), annual withdraw (row.rothConvByPerson − row.convMainByPerson) and inherited Roth IRA withdraw (row.inhRothWdByPerson, tax-free).
+//               All but the inherited Roth withdraw are taxed as ordinary income. Married: one band per person per kind (the person's name is in the band's label).
 //   LTCG chart  (`charts.ltcg`, #ltcgChart) Long-term capital gain realized this year, one band per brokerage portfolio (row.portfoliosByPerson[i][j].ltcg, the exact
 //                 pre-SCGL gain) plus one band for property sold (row.reSaleGain). A dashed line shows the net gain taxed when the SCGL carryforward is used.
 //
 // Both are read-only views of projection rows (nothing is recomputed here), have their own Y scale (in no Same-scale group), and show no panel
 // when there is nothing to draw (setChartAvailable) — no pre-tax IRA, or no portfolio / property that could be sold.
 // ═══════════════════════════════════════════════════════════════
+// `get(r,i)` = the amount of that kind leaving person i's accounts in row r. The person's OWN pre-tax IRA comes first; inherited IRAs (Inheritance card) have their own bands on top,
+// so each band is one thing: row.iraByPerson / row.rothConvByPerson also hold the inherited-IRA amounts, which are taken out of the own-IRA bands here (as the Excel export does).
 const IRA_KIND_ORDER=[   // bottom → top of the stack
-  {kind:'conv', field:'rothConvByPerson', title:'Annual withdraw',    color:()=>VZ.iraW},
-  {kind:'rmd',  field:'iraByPerson',      title:'RMD',                color:()=>VZ.rmd},
-  {kind:'wd',   field:'iraExpByPerson',   title:'Pre-tax IRA withdraw (for expenses)', color:()=>VZ.iraExp}
+  {kind:'conv', title:'Annual withdraw',    color:()=>VZ.iraW,   get:(r,i)=>(r.convMainByPerson?r.convMainByPerson[i]:(r.rothConvByPerson||[])[i])||0},
+  {kind:'rmd',  title:'RMD',                color:()=>VZ.rmd,    get:(r,i)=>Math.max(0,((r.iraByPerson||[])[i]||0)-((r.inhIraWdByPerson||[])[i]||0))},
+  {kind:'wd',   title:'Pre-tax IRA withdraw (for expenses)', color:()=>VZ.iraExp, get:(r,i)=>((r.iraExpByPerson||[])[i])||0},
+  {kind:'inhRmd',  title:'Inherited IRA RMD / final withdraw', color:()=>VZ.inhIra, inh:true, get:(r,i)=>((r.inhIraWdByPerson||[])[i])||0},
+  {kind:'inhConv', title:'Inherited IRA annual withdraw',      color:()=>'#8A6D2B',   inh:true, get:(r,i)=>Math.max(0,((r.rothConvByPerson||[])[i]||0)-((r.convMainByPerson||[])[i]||0))},
+  {kind:'inhRoth', title:'Inherited Roth IRA withdraw (tax-free)', color:()=>VZ.inhRoth, inh:true, get:(r,i)=>((r.inhRothWdByPerson||[])[i])||0}
 ];
 // Second person's bands are the same hue, lightened, so each kind keeps its color and the two people stay distinguishable.
 function iraPersonColor(base, personIdx){
@@ -52,17 +58,17 @@ function buildIraChart(){
   const bands=[];   // [{personIdx, kind, label, color, field}]
   IRA_KIND_ORDER.forEach(K=>{
     proj.people.forEach((p,i)=>{
-      const any=rows.some(r=>(((r[K.field]||[])[i])||0)>0.5);
-      if(!((p.ira&&p.ira.enabled)||any)) return;
-      bands.push({personIdx:i, kind:K.kind, field:K.field, color:iraPersonColor(K.color(),i),
+      const any=rows.some(r=>K.get(r,i)>0.5);
+      if(K.inh?!any:!((p.ira&&p.ira.enabled)||any)) return;   // an inherited-IRA band only when it has something to show
+      bands.push({personIdx:i, kind:K.kind, get:K.get, color:iraPersonColor(K.color(),i),
         label:(proj.married?displayPersonName(p,i)+' \u2014 ':'')+K.title});
     });
   });
   if(!bands.length){ dropChart('ira'); return; }
   setChartAvailable('ira',true);
 
-  const data=bands.map(b=>alignToAges(ages, rows.map(r=>((r[b.field]||[])[b.personIdx])||0), labels));
-  const Y_MAX=lockedYMax('ira', ()=>{ let m=0; rows.forEach(r=>{ m=Math.max(m, bands.reduce((t,b)=>t+(((r[b.field]||[])[b.personIdx])||0),0)); }); return niceMax(m,5000); });
+  const data=bands.map(b=>alignToAges(ages, rows.map(r=>b.get(r,b.personIdx)), labels));
+  const Y_MAX=lockedYMax('ira', ()=>{ let m=0; rows.forEach(r=>{ m=Math.max(m, bands.reduce((t,b)=>t+b.get(r,b.personIdx),0)); }); return niceMax(m,5000); });
   const datasets=bands.map((b,bi)=>stackedBandDataset(b.label,b.color,data[bi],'ira'));
 
   const tip={
@@ -74,7 +80,7 @@ function buildIraChart(){
         const t=bands.reduce((a,b,bi)=>a+((b.kind===K.kind&&data[bi][idx])||0),0);
         if(t>0.5) out.push(mrow('Total '+K.title, fmt(t)+'/yr'));
       });
-      out.push(mrow('Total out of pre-tax IRAs', fmt(bands.reduce((a,b,bi)=>a+(data[bi][idx]||0),0))+'/yr'));
+      out.push(mrow('Total out of IRAs', fmt(bands.reduce((a,b,bi)=>a+(data[bi][idx]||0),0))+'/yr'));
       return out;
     }
   };

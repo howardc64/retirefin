@@ -30,6 +30,7 @@ function buildAllCharts(){
   buildIdgtChart();
   buildIraChart();
   buildLtcgChart();
+  buildInhIncomeChart();
 }
 function renderCharts(){
   // A plan with no saved scales (first draw, Reset, an older file) starts with the income, expense and tax charts on one common scale: a dry pre-pass

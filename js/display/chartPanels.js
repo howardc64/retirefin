@@ -22,10 +22,11 @@ const CHART_PANELS=[
   {key:'taxOrd',     title:'Ordinary income tax'},
   {key:'taxQual',    title:'QDIV / LTCG / NIIT tax'},
   {key:'asset',      title:'Asset value',
-    body:'<div class="xscroll" id="assetXScroll" hidden><button type="button" onclick="scrollAssetX(-1)" title="Scroll the age axis back" aria-label="Scroll back">&#9664;</button><button type="button" onclick="scrollAssetX(1)" title="Scroll the age axis forward (to the IRA stretch years)" aria-label="Scroll forward">&#9654;</button></div>'},
+    body:'<div class="unfunded-alert" id="assetAlert" hidden></div><div class="xscroll" id="assetXScroll" hidden><button type="button" onclick="scrollAssetX(-1)" title="Scroll the age axis back" aria-label="Scroll back">&#9664;</button><button type="button" onclick="scrollAssetX(1)" title="Scroll the age axis forward (to the IRA stretch years)" aria-label="Scroll forward">&#9654;</button></div>'},
   {key:'idgt',       title:'IDGT value'},
   {key:'ira',        title:'IRA: RMD &amp; withdraw'},
   {key:'ltcg',       title:'LTCG: realized sales'},
+  {key:'inhIncome',   title:'Inheritance asset income'},
   {key:'ss',         title:'Cumulative household SS'},
   {key:'tss',        title:'Social Security tax'}
 ];

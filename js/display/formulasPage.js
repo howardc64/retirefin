@@ -276,6 +276,9 @@ ${fpWhere('If the original owner had not started RMDs, and always for a Roth IRA
 
 
 <h2 id="g-tax">Taxes and Medicare surcharge <a class="fp-top" href="#toc">↑ contents</a></h2>
+<p><strong>Inheritance asset income (chart).</strong> The income the inherited assets pay in a year, in today's $, by component: inherited IRA RMD / final withdraw, inherited IRA annual withdraw, inherited Roth IRA withdraw (tax-free), ordinary (non-qualified) dividends, qualified dividends, tax-exempt income, realized LTCG and real estate sale gain. For an inherited portfolio, dividends = yield &times; balance, split by its qualified %, and the realized LTCG is its pre-SCGL gain; an inherited property adds only the gain realized when it is sold.</p>
+${fpEq(`Inheritance asset income = &Sigma; over inherited assets ( IRA withdraw + QDIV + ODIV<sub>non-qualified</sub> + tax-exempt income + LTCG + real estate sale gain )`)}
+<p><strong>IRA stretch note.</strong> The Asset value chart shows a warning when an enabled pre-tax or Roth IRA that holds money has <em>IRA stretch</em> unchecked: it is not forwarded to heirs, so its balance ends at the last passing instead of continuing for 10 more years.</p>
 <h3 id="f-tss">Taxable Social Security and Social Security tax (SST) <a class="fp-top" href="#toc">↑</a></h3>
 <p>Provisional income is all the non-Social-Security income that goes into AGI — ordinary income, qualified dividends and long-term capital gains — plus the tax-exempt income (untaxed, but it still counts here) plus half of total Social Security (TSS):</p>
 ${fpEq(`PI = non-SS ordinary income + QDIV + LTCG<sub>net of SCGL</sub> + tax-exempt interest + 50% × TSS`)}

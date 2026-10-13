@@ -183,7 +183,7 @@ function ageLabelRange(fromAge,toAge){
 // One live Chart.js instance per key (null until first drawn). Every chart file reads/writes
 // `charts.<key>` through upsertLineChart(); destroy/resize below walk the registry, so adding a
 // chart never means editing a hand-written list of chart variables.
-const charts={ss:null, income:null, incomeMagi:null, incomeOrd:null, incomeQual:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, idgt:null, ira:null, ltcg:null};
+const charts={ss:null, income:null, incomeMagi:null, incomeOrd:null, incomeQual:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, idgt:null, ira:null, ltcg:null, inhIncome:null};
 function allCharts(){ return Object.values(charts).filter(Boolean); }
 
 // Y-axis maximum per chart. It is computed once and then held ("locked") so the scale doesn't
@@ -213,13 +213,13 @@ function niceMax(maxV, floor){
   for(const m of [1,1.5,2,2.5,3,4,5,6,8,10]) if(m*mag>=v-1e-9) return m*mag;
   return 10*mag;
 }
-// Which charts each Same-scale button covers. IRA and LTCG count as income (the income buttons). The tax button covers exactly three charts (Total tax, Ordinary income tax, QDIV / LTCG / NIIT tax); the Annual expenses chart, although it has an income-tax component, counts as income & expense only. Cumulative household SS and Social Security tax are in no group and always keep their own scale.
+// Which charts each Same-scale button covers. IRA, LTCG and Inheritance asset income count as income (the income buttons). The tax button covers exactly three charts (Total tax, Ordinary income tax, QDIV / LTCG / NIIT tax); the Annual expenses chart, although it has an income-tax component, counts as income & expense only. Cumulative household SS and Social Security tax are in no group and always keep their own scale.
 // They are not part of a new plan's starting common scale (DEFAULT_SAME_SCALE).
 const DEFAULT_SAME_SCALE=['expense','income','incomeMagi','incomeOrd','incomeQual','tax','taxOrd','taxQual'];
 const SCALE_LINK_GROUPS={
-  incomeExpense:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg'],
+  incomeExpense:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','inhIncome'],
   tax:['tax','taxOrd','taxQual'],
-  incomeExpenseTax:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','tax','taxOrd','taxQual'],
+  incomeExpenseTax:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','inhIncome','tax','taxOrd','taxQual'],
   asset:['asset','idgt']
 };
 // Set every drawn chart of a group to the group's largest current maximum. Returns true when anything changed.

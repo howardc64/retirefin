@@ -740,6 +740,13 @@ function xlsxMainColumns(proj,acctSheets){
     const sumInh=(r,kind)=>(r.inhIraByPerson||[]).reduce((a,l)=>a+(l||[]).reduce((b,e)=>b+((e&&e.live&&e.kind===kind)?(e.balance||0):0),0),0);
     add({key:'inhIraBal',head:'Inherited pre-tax IRA balances (EOY)',kind:shI.length?'f':'v',v:r=>sumInh(r,'ira'),f:shI.length?(X=>sumIfs(shI,'bal',X)):null});
     add({key:'inhRothBal',head:'Inherited Roth IRA balances (EOY)',kind:shR.length?'f':'v',v:r=>sumInh(r,'roth'),f:shR.length?(X=>sumIfs(shR,'bal',X)):null}); }
+  // Inheritance asset income (the chart of that name): reference values from the same helper the chart uses, not used by any formula.
+  { const ia=inhIncomeAssets(proj);
+    if(ia.length){
+      const kindSum=(r,k)=>ia.reduce((tt,a)=>tt+(inhIncomeComps(a,r)[k]||0),0);
+      INH_INC_KINDS.forEach(K=>{ if(proj.rows.some(r=>kindSum(r,K.kind)>0.5)) V('inhInc_'+K.kind,'Inheritance asset income: '+K.title,r=>kindSum(r,K.kind)); });
+      V('inhIncTot','Inheritance asset income: total (as on the chart)',r=>INH_INC_KINDS.reduce((tt,K)=>tt+kindSum(r,K.kind),0));
+    } }
   const pfN=pfSheets.filter(s=>!s.idgt), pfI=pfSheets.filter(s=>s.idgt);
   const pfAdd=(key,head,get,shs,col)=>add({key,head,kind:shs.length?'f':'v',v:get,f:shs.length?(X=>sumIfs(shs,col,X)):null});
   pfAdd('bN','Brokerage balance, non-IDGT (SOY)',r=>sumPortfolios(r,false,'balance'),pfN,'bal');

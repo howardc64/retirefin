@@ -99,7 +99,14 @@ function ciDescribe(key, ds, kidx){
       if(k==='inhira') return 'An IRA inherited through the Inheritance card. It arrives in the start year, grows, and must be fully withdrawn by the end of the 10th year after that, even if it passes to a spouse. If the original owner had already started RMDs, the current holder takes an RMD every year by their own age (the spouse\'s, after a spouse takes over); otherwise nothing is required until year 10. Pre-tax withdrawals are taxed as ordinary income; Roth withdrawals are tax-free; a pre-tax one can also have an annual withdraw (optionally a Roth conversion into the holder\'s Roth IRA).';
       return null;
     }
+    case 'inhIncome':
+      if(/IRA/.test(label)) return 'Income paid this year by an IRA inherited through the Inheritance card: its RMD, annual withdraw or the final withdrawal in year 10. A pre-tax IRA is taxed as ordinary income; an inherited Roth IRA is tax-free.';
+      if(/^Real estate sale gain/.test(label)) return 'Gain realized this year when an inherited property is sold (value over its stepped-up basis and exemption). It is taxed as long-term capital gain.';
+      return 'Income paid this year by a brokerage portfolio inherited through the Inheritance card: its dividends plus any tax-exempt income.';
     case 'ira': {
+      if(/^(.* \u2014 )?Inherited Roth IRA/.test(label)) return 'Withdrawal from an inherited Roth IRA (the 10-year rule: the whole balance is out by year 10). Tax-free.';
+      if(/Inherited IRA RMD/.test(label)) return 'Required distribution from an inherited pre-tax IRA: the yearly RMD (Single Life Expectancy table) when the original owner had started RMDs, and everything left in year 10. Taxed as ordinary income.';
+      if(/Inherited IRA annual withdraw/.test(label)) return 'Annual withdraw set on an inherited pre-tax IRA card, on top of its required distribution. Taxed as ordinary income and spendable (an inherited IRA cannot be converted to a Roth IRA).';
       if(/RMD/.test(label)) return 'Required minimum distribution from this person\'s pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income.';
       if(/Annual withdraw/.test(label)) return 'Annual withdrawal from this person\'s pre-tax IRA, set on the IRA card (on top of the RMD). Taxed as ordinary income; it moves into their Roth IRA when "Withdraw is Roth conversion" is ticked, otherwise it is spendable cash.';
       if(/withdraw/i.test(label)) return 'Money withdrawn from this person\'s pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.';
