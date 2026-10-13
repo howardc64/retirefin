@@ -12,7 +12,10 @@ const OVERLAY_COLOR='rgba(0,0,0,.9)';
 // by dash pattern, not by hue: they read on top of any band color, for color-blind readers too. Labels sit on small white pills.
 const BRACKET_COLOR='#1B1B1B';
 const BRACKET_HALO='rgba(255,255,255,.92)';
-const IRMAA_DASH=[9,5], ORD_DASH=[10,4,2,4], QUAL_DASH=[2,4];   // long dash / dash-dot / dotted
+const IRMAA_DASH=[], ORD_DASH=[], QUAL_DASH=[];   // reference lines are solid now (see THIN_W below)
+// Every reference line (bracket, IRMAA, deduction, effective tax rate) is a thin solid line with a thin white line of the same width stacked directly on top of it (just above it),
+// so it reads over any band color. Labels sit on a small white pill that stays clear of those two lines: its bottom edge is LINE_LABEL_LIFT-6px above the line's y.
+const THIN_W=1.6, LINE_LABEL_LIFT=10;
 const DEDUCTION_COLOR='#D62828';   // red dashed deduction line on the taxable ordinary income chart
 // §3 "show_details checkbox": when on, chart popups reveal the underlying calculation
 // components (provisional income, AGI, standard deduction, etc.) called out as
@@ -210,13 +213,13 @@ function niceMax(maxV, floor){
   for(const m of [1,1.5,2,2.5,3,4,5,6,8,10]) if(m*mag>=v-1e-9) return m*mag;
   return 10*mag;
 }
-// Which charts each Same-scale button covers. IRA and LTCG count as income (the income buttons), Social Security tax counts as tax (the tax buttons). Cumulative household SS is in no group and always keeps its own scale.
+// Which charts each Same-scale button covers. IRA and LTCG count as income (the income buttons). The tax button covers exactly three charts (Total tax, Ordinary income tax, QDIV / LTCG / NIIT tax); the Annual expenses chart, although it has an income-tax component, counts as income & expense only. Cumulative household SS and Social Security tax are in no group and always keep their own scale.
 // They are not part of a new plan's starting common scale (DEFAULT_SAME_SCALE).
 const DEFAULT_SAME_SCALE=['expense','income','incomeMagi','incomeOrd','incomeQual','tax','taxOrd','taxQual'];
 const SCALE_LINK_GROUPS={
   incomeExpense:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg'],
-  tax:['tax','taxOrd','taxQual','tss'],
-  incomeExpenseTax:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','tax','taxOrd','taxQual','tss'],
+  tax:['tax','taxOrd','taxQual'],
+  incomeExpenseTax:['expense','income','incomeMagi','incomeOrd','incomeQual','ira','ltcg','tax','taxOrd','taxQual'],
   asset:['asset','idgt']
 };
 // Set every drawn chart of a group to the group's largest current maximum. Returns true when anything changed.
@@ -230,22 +233,49 @@ function applySameScale(name){
 }
 // Rescale button on a chart: refit just that chart.
 function rescaleChart(which){ chartYMax[which]=null; recompute(); }
+// "view IRMAA as tax" checkbox: redraw on the CURRENT scale: the Y axis is never changed, the IRMAA line just slides in / out (the chart tweens it).
+function toggleIrmaaAsTax(on){ viewIrmaaAsTax=!!on; recompute(); }
 // A Same-scale button: one action, nothing stays switched on.
 function toggleScaleLink(name){ applySameScale(name); recompute(); saveDebounced(); }
 
-// Crowding guard for the ordinary-bracket overlays on the small charts (Taxable ordinary income, Ordinary income tax). `valueLists` holds one
-// array per filing status in use (the Y value of each bracket line, ascending). A line is visible when it sits below yMax. If more than `keep`
-// lines are visible and any two neighbours are closer than gapFrac of the Y range (their labels would collide), only the top `keep` visible
-// brackets are drawn; otherwise every visible one is. Returns the Set of bracket indices to draw.
-function crowdedBracketKeep(valueLists, yMax, keep=3, gapFrac=0.05){
-  const visible=new Set(); let crowded=false;
-  valueLists.filter(Boolean).forEach(vals=>{
-    const vis=vals.map((v,j)=>({v,j})).filter(o=>o.v<yMax);
-    vis.forEach(o=>visible.add(o.j));
-    if(vis.length>keep){ for(let i=1;i<vis.length;i++){ if(vis[i].v-vis[i-1].v<gapFrac*yMax){ crowded=true; break; } } }
+// Which tax-bracket / IRMAA reference lines to draw on a small chart. A chart with a dozen dashed lines is unreadable: lines far above the data are wasted on empty space
+// and lines deep inside the stack just cut through the bands. So only the lines that matter to the data are kept:
+//   • `lists` holds one entry per filing status in use: {vals, tops} — `vals` = the Y value of each line (ascending, index = bracket / tier number) and `tops` = the height of the
+//     data stack in each year that filing status applies (so the lines follow the stack of the years they are drawn over).
+//   • lo / hi = lowest / highest non-zero stack height. A line that falls between them crosses the data (it is where the plan crosses a bracket) and is a candidate; so are the
+//     first line above hi (the next ceiling to stay under) and the last line below lo (the floor the stack has already cleared).
+//   • A candidate more than `farFrac` of the Y range away from the data is dropped (empty space / buried in the stack).
+//   • At most `keep` lines are drawn per chart: the ones nearest the data (ties go to the higher line); a line whose neighbours would sit closer than `gapFrac` of the Y range
+//     (their labels would collide) gives way to the nearer one.
+// Returns the Set of bracket indices to draw. Lines not in the set are still datasets (all-null) so the dataset count stays fixed (see the callers).
+function crowdedBracketKeep(lists, yMax, keep=3, gapFrac=0.05, farFrac=0.35){
+  const out=new Set();
+  lists.filter(Boolean).forEach(L=>{
+    const vals=Array.isArray(L)?L:L.vals, tops=(!Array.isArray(L)&&L.tops)||[];
+    const pos=tops.filter(v=>v>0.5);
+    const lo=pos.length?Math.min(...pos):0, hi=pos.length?Math.max(...pos):0;
+    const cand=[];
+    vals.forEach((v,j)=>{
+      if(!(v<yMax)) return;                                    // off the chart's scale
+      const d=v<lo?lo-v:(v>hi?v-hi:0);                         // distance from the data band [lo, hi]
+      if(d>farFrac*yMax) return;                               // empty space above / buried in the stack below
+      cand.push({j,v,d});
+    });
+    // Only the FIRST line above the data and the LAST line below it are eligible beyond the crossing lines (a second line above the data is just more empty space);
+    // crossing lines have d=0, so sorting by distance keeps those first.
+    const above=cand.filter(c=>c.v>hi&&hi>0).sort((x,y)=>x.v-y.v).slice(1), below=cand.filter(c=>c.v<lo).sort((x,y)=>y.v-x.v).slice(1);
+    const drop=new Set([...above,...below]);
+    for(let n=cand.length-1;n>=0;n--) if(drop.has(cand[n])) cand.splice(n,1);
+    cand.sort((x,y)=>x.d-y.d||y.v-x.v);
+    const kept=[];
+    for(const c of cand){
+      if(kept.length>=keep) break;
+      if(kept.some(k=>Math.abs(k.v-c.v)<gapFrac*yMax)) continue;   // too close to a line already kept: its label would collide
+      kept.push(c);
+    }
+    kept.forEach(c=>out.add(c.j));
   });
-  const idx=[...visible].sort((a,b)=>a-b);
-  return new Set(crowded?idx.slice(-keep):idx);
+  return out;
 }
 
 // Update an existing Chart.js chart's labels/datasets by mutating the same

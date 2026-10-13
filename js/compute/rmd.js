@@ -9,4 +9,6 @@ function rmdDivisor(age){
   if(a<40) return null;
   return RMD_TABLE[72]+(72-a)*0.9; // approximation for voluntary early withdrawals
 }
+// Single Life Expectancy factor for a beneficiary's age (inherited IRAs); ages above 120 use 1.0, a negative age the age-0 factor.
+function sleFactor(age){ const a=Math.max(0,Math.min(120,Math.floor(age))); return SLE_TABLE[a]; }
 function rmdAgeForBirthYear(y){ return y>=1960?75:(y>=1951?73:72); }

@@ -262,6 +262,8 @@ function xlsxInputsSheet(proj){
   };
   const head=t=>{ r++; xlsxPut(sh,r,0,xlsxTxt(t)); r++; };
   const yn=v=>v?'Yes':'No';
+  // An asset created by the Inheritance card enters the plan in its start year (balance = value at the source plan's last passing, in today's $; basis stepped up).
+  const inhNote=o=>(o&&o.inh)?{note:`Inherited from ${o.inh.file||'another plan'}: enters the plan in ${Number(o.startYear)||'its start year'}; the balance is its value then (today's $)`}:undefined;
   xlsxPut(sh,r++,0,xlsxTxt('INPUTS & ASSUMPTIONS of the saved plan (all money in today\'s $). Cells marked as a name below are used by formulas in the other sheets; the rest document the plan the app solved.')); 
   xlsxPut(sh,r++,0,xlsxTxt('Changing a named cell here recalculates the formula columns, but the income / expense-funding / Roth-conversion amounts on "Projection by year" are the app\'s solved values: re-export after changing the plan in the app for those.'));
   head('General (filing status, inflation; passing ages are under each person)');
@@ -308,15 +310,24 @@ function xlsxInputsSheet(proj){
     const pn=p.pension||{}; put('Pension',yn(pn.enabled)); put('  amount / yr',Number(pn.amount)||0,{fmt:XLSX_MONEY}); put('  inherited by spouse',yn(pn.bene));
     const ira=p.ira||{}; put('Pre-tax IRA',yn(ira.enabled)); put('  balance',Number(ira.balance)||0,{fmt:XLSX_MONEY,key:`ira${i}Bal`});
     put('  growth mode',ira.growth&&ira.growth.mode,{key:`ira${i}GMode`}); put('  growth value (% nominal, or offset %)',ira.growth?Number(ira.growth.value)||0:0,{key:`ira${i}GVal`});
-    put('  Roth conversion mode',ira.convMode==='bracket'?'Up to bracket / IRMAA limits':'Fixed amount'); put('  fixed conversion / yr',Number(ira.conv)||0,{fmt:XLSX_MONEY});
+    put('  Annual withdraw mode',ira.convMode==='bracket'?'Up to bracket / IRMAA limits':'Fixed amount'); put('  fixed withdraw / yr',Number(ira.conv)||0,{fmt:XLSX_MONEY}); put('  Withdraw is Roth conversion',ira.convToRoth!==false?'Yes':'No');
     put('  conversion ordinary-bracket limit (%)',ira.convOrdPct==null?'none':ira.convOrdPct); put('  conversion IRMAA limit (Part B % over standard)',ira.convIrmaaPct==null?'none':ira.convIrmaaPct);
-    put('  conversion start',ira.convStartMode); put('  inherited by spouse',yn(ira.bene)); put('  held by heirs after last passing (stretch)',yn(ira.stretch)); put('  counts toward AUM fee',yn(ira.aum));
+    put('  withdraw start',ira.convStartMode); put('  inherited by spouse',yn(ira.bene)); put('  held by heirs after last passing (stretch)',yn(ira.stretch)); put('  counts toward AUM fee',yn(ira.aum));
     const ro=p.roth||{}; put('Roth IRA',yn(ro.enabled)); put('  balance',Number(ro.balance)||0,{fmt:XLSX_MONEY,key:`roth${i}Bal`});
     put('  growth mode',ro.growth&&ro.growth.mode,{key:`roth${i}GMode`}); put('  growth value (% nominal, or offset %)',ro.growth?Number(ro.growth.value)||0:0,{key:`roth${i}GVal`});
     put('  inherited by spouse',yn(ro.bene)); put('  held by heirs after last passing (stretch)',yn(ro.stretch));
+    (p.inhIras||[]).forEach((x,ii)=>{
+      const lab=`Inherited IRA ${ii+1}: ${(x.name&&x.name.trim())||'(unnamed)'} (${x.kind==='roth'?'Roth':'pre-tax'})`;
+      put(lab,yn(x.enabled!==false),inhNote(x)); put('  balance when inherited',Number(x.balance)||0,{fmt:XLSX_MONEY,key:`inh${i}_${ii}Bal`});
+      put('  growth mode',x.growth&&x.growth.mode,{key:`inh${i}_${ii}GMode`}); put('  growth value (% nominal, or offset %)',x.growth?Number(x.growth.value)||0:0,{key:`inh${i}_${ii}GVal`});
+      put('  start year (age of the holder when inherited is on the card)',Number(x.startYear)||0,{fmt:XLSX_YEAR});
+      put('  RMDs apply (original owner had started them)',yn(x.kind!=='roth'&&x.rmdStarted!==false),{note:'Emptied by the end of the 10th year after the start year'});
+      put('  inherited by spouse',yn(x.bene));
+      if(x.kind!=='roth'){ put('  Annual withdraw mode',x.convMode==='bracket'?'Up to bracket / IRMAA limits':'Fixed amount'); put('  fixed withdraw / yr',Number(x.conv)||0,{fmt:XLSX_MONEY}); put('  withdraw start',x.convStartMode); }
+    });
     (p.brokerage||[]).forEach((b,bi)=>{
       const lab=`Portfolio ${bi+1}: ${(b.name&&b.name.trim())||'(unnamed)'}${b.idgt?' (IDGT)':''}`;
-      put(lab,yn(b.enabled!==false)); put('  balance',Number(b.balance)||0,{fmt:XLSX_MONEY,key:`pf${i}_${bi}Bal`});
+      put(lab,yn(b.enabled!==false),inhNote(b)); put('  balance',Number(b.balance)||0,{fmt:XLSX_MONEY,key:`pf${i}_${bi}Bal`});
       put('  growth mode',b.growth&&b.growth.mode,{key:`pf${i}_${bi}GMode`}); put('  growth value (% nominal, or offset %)',b.growth?Number(b.growth.value)||0:0,{key:`pf${i}_${bi}GVal`});
       put('  dividend yield %',Number(b.yield)||0); put('  qualified share of dividends %',Number(b.qdivPct)||0); put('  tax-exempt yield %',Number(b.teYield)||0);
       put('  cost basis % of balance',b.basisPct==null||b.basisPct===''?'(blank = no gain)':Number(b.basisPct)); put('  foreign-income %',Number(b.foreignPct)||0); put('  foreign tax credit %',Number(b.ftcPct)||0);
@@ -332,7 +343,7 @@ function xlsxInputsSheet(proj){
     (p.realEstate||[]).forEach((r,ri)=>{
       const lab=`Real estate ${ri+1}: ${(r.name&&r.name.trim())||'(unnamed)'}`, mode=r.sellMode||'never';
       const sellTo=(()=>{ if(!r.sellTo) return 'Automatic (owner\'s first non-IDGT portfolio)'; let nm='(portfolio no longer exists)'; st.people.forEach((q,ti)=>(q.brokerage||[]).forEach(b=>{ if(b.id===r.sellTo) nm=`${displayPersonName(q,ti)} — ${(b.name&&b.name.trim())||'Portfolio'}`; })); return nm; })();
-      put(lab,yn(r.enabled!==false)); put('  value',Number(r.balance)||0,{fmt:XLSX_MONEY,key:`re${i}_${ri}Val`});
+      put(lab,yn(r.enabled!==false),inhNote(r)); put('  value',Number(r.balance)||0,{fmt:XLSX_MONEY,key:`re${i}_${ri}Val`});
       put('  cost basis',reBasisEntered(r)?Number(r.basis):'(blank = no unrealized gain)',{fmt:XLSX_MONEY,key:`re${i}_${ri}Basis`});
       put('  exemption per owner alive at a sale',Number(r.exempt)||0,{fmt:XLSX_MONEY,key:`re${i}_${ri}Exempt`,note:'Fixed nominal amount: erodes with inflation in today\'s $, like the cost basis'});
       put('  growth mode',r.growth&&r.growth.mode,{key:`re${i}_${ri}GMode`}); put('  growth value (% nominal, or offset %)',r.growth?Number(r.growth.value)||0:0,{key:`re${i}_${ri}GVal`});
@@ -425,6 +436,9 @@ function xlsxRealEstateSheet(proj,i,ri,inAddr){
   const t=xlsxTable(sh,4,cols,rowsIn);
   return {sh, ws:xlsxFinish(sh), t, cols, items:rowsIn, type:'re', i, ri, balCol:'bal', gainCol:'gain', name:null};
 }
+// A person's own pre-tax IRA: iraByPerson / rothConvByPerson also carry the withdraws / conversions of the inherited IRAs that person holds (the 10-year rule), which leave those accounts, not this one.
+function ownRmd(r,i){ return Math.max(0,(r.iraByPerson[i]||0)-((r.inhIraWdByPerson&&r.inhIraWdByPerson[i])||0)); }
+function ownConv(r,i){ return r.convMainByPerson?(r.convMainByPerson[i]||0):(r.rothConvByPerson[i]||0); }
 function xlsxIraRothSheet(proj,i,isRoth,inAddr){
   const person=displayPersonName(proj.people[i],i), acct=isRoth?proj.people[i].roth:proj.people[i].ira, inf=proj.inflation||state.inflation;
   const key=isRoth?'roth':'ira', sh=xlsxSheet();
@@ -439,16 +453,16 @@ function xlsxIraRothSheet(proj,i,isRoth,inAddr){
   const predicted=items.map((x,idx)=>{
     const prev=idx===0?(Number(acct.balance)||0):bal(items[idx-1]);
     if(x.heirs) return prev*(1+g);
-    const rmd=x.r.iraByPerson[i]||0, conv=x.r.rothConvByPerson[i]||0, ex=isRoth?(x.r.rothExpByPerson[i]||0):(x.r.iraExpByPerson[i]||0);
+    const rmd=ownRmd(x.r,i), conv=(isRoth?x.r.rothInByPerson[i]:ownConv(x.r,i))||0, ex=isRoth?(x.r.rothExpByPerson[i]||0):(x.r.iraExpByPerson[i]||0);
     return isRoth?Math.max(0,prev+conv-ex)*(1+g):Math.max(0,prev-rmd-conv-ex)*(1+g);
   });
   const cols=[
     {key:'year',head:'Year',fmt:XLSX_YEAR,v:x=>THIS_YEAR+x.r.k},
     {key:'age',head:`${person} age`,fmt:XLSX_AGE,v:x=>x.r.ages[i]},
-    ...(isRoth?[]:[{key:'rmd',head:'RMD',v:x=>x.heirs?0:(x.r.iraByPerson[i]||0)}]),
-    {key:'conv',head:isRoth?'Converted in from pre-tax IRA':'Pre-tax IRA withdraw (Roth conversion)',v:x=>x.heirs?0:(x.r.rothConvByPerson[i]||0)},
+    ...(isRoth?[]:[{key:'rmd',head:'RMD',v:x=>x.heirs?0:ownRmd(x.r,i)}]),
+    {key:'conv',head:isRoth?'Converted in from pre-tax IRA (withdraws marked as Roth conversion)':'Pre-tax IRA annual withdraw',v:x=>x.heirs?0:((isRoth?x.r.rothInByPerson[i]:ownConv(x.r,i))||0)},
     {key:'ex',head:isRoth?'Roth IRA sold for expenses':'Pre-tax IRA withdraw for expenses',v:x=>x.heirs?0:(isRoth?(x.r.rothExpByPerson[i]||0):(x.r.iraExpByPerson[i]||0))},
-    {key:'bal',head:isRoth?'Roth IRA balance (EOY) = (prior EOY + converted in − sold) × (1 + growth)':'Pre-tax IRA balance (EOY) = (prior EOY − RMD − conversion − expense draw) × (1 + growth)',kind:'f',v:x=>bal(x),
+    {key:'bal',head:isRoth?'Roth IRA balance (EOY) = (prior EOY + converted in − sold) × (1 + growth)':'Pre-tax IRA balance (EOY) = (prior EOY − RMD − annual withdraw − expense draw) × (1 + growth)',kind:'f',v:x=>bal(x),
       f:(X,idx)=>{
         if(Math.abs(predicted[idx]-bal(items[idx]))>1) return null;
         const prev=idx===0?'$B$3':X('bal',-1);
@@ -459,6 +473,29 @@ function xlsxIraRothSheet(proj,i,isRoth,inAddr){
   ];
   const t=xlsxTable(sh,4,cols,items);
   return {sh, ws:xlsxFinish(sh), t, cols, type:isRoth?'roth':'ira', i, balCol:'bal', name:null};
+}
+// One sheet per inherited IRA (Inheritance card): the withdraw each year under the 10-year rule and the end-of-year balance. The account is emptied by the end of the 10th year after
+// its start year. The withdraw is the app's solved value (RMD by the holder's age if the original owner had started RMDs, plus any annual withdraw / conversion, and everything left in
+// year 10); the balance is a formula where it reproduces the app's number (no conversion taken out of this account that year).
+function xlsxInheritedIraSheet(proj,i,ii,inAddr){
+  const person=displayPersonName(proj.people[i],i), x=proj.people[i].inhIras[ii], isRoth=x.kind==='roth', inf=proj.inflation||state.inflation;
+  const ent=r=>(r.inhIraByPerson&&r.inhIraByPerson[i]||[])[ii];
+  const items=proj.rows.filter(r=>{ const e=ent(r); return e&&e.live; }).map(r=>({r}));
+  if(!items.length) return null;
+  const sh=xlsxSheet(), g=realGrowth(x.growth,inf);
+  xlsxAccountHeader(sh,`${person} – inherited ${isRoth?'Roth IRA':'pre-tax IRA'}: ${(x.name&&x.name.trim())||('Inherited IRA '+(ii+1))} (emptied by the end of the 10th year after ${Number(x.startYear)||'its start year'})`,
+    xlsxRealGrowthFormula(inAddr[`inh${i}_${ii}GMode`],inAddr[`inh${i}_${ii}GVal`],x.growth,inf),inAddr[`inh${i}_${ii}Bal`],Number(x.balance)||0);
+  const wd=y=>(ent(y.r).wd)||0, bal=y=>(ent(y.r).balance)||0;
+  const predicted=items.map((y,idx)=>Math.max(0,(idx===0?(Number(x.balance)||0):bal(items[idx-1]))-wd(y))*(1+g));
+  const cols=[
+    {key:'year',head:'Year',fmt:XLSX_YEAR,v:y=>THIS_YEAR+y.r.k},
+    {key:'age',head:`${person} age`,fmt:XLSX_AGE,v:y=>y.r.ages[i]},
+    {key:'wd',head:isRoth?'Withdraw (Roth: untaxed household cash)':'Withdraw (RMD / 10-year schedule; ordinary income)',v:y=>wd(y)},
+    {key:'bal',head:'Balance (EOY) = (prior EOY − withdraw) × (1 + growth)',kind:'f',v:y=>bal(y),
+      f:(X,idx)=>{ if(Math.abs(predicted[idx]-bal(items[idx]))>1) return null; const prev=idx===0?'$B$3':X('bal',-1); return `MAX(0,${prev}-${X('wd')})*(1+$B$2)`; }}
+  ];
+  const t=xlsxTable(sh,4,cols,items);
+  return {sh, ws:xlsxFinish(sh), t, cols, type:isRoth?'inhroth':'inhira', i, balCol:'bal', name:null};
 }
 function xlsxAnnuitySheet(proj,i,ai){
   const person=displayPersonName(proj.people[i],i);
@@ -492,6 +529,11 @@ function xlsxAccountSheets(proj,inAddr){
     });
     if(p.ira&&p.ira.enabled){ const sh=xlsxIraRothSheet(proj,i,false,inAddr); sh.name=xlsxSheetName(`${person} - Pre-tax IRA`,used); out.push(sh); }
     if(p.roth&&p.roth.enabled){ const sh=xlsxIraRothSheet(proj,i,true,inAddr); sh.name=xlsxSheetName(`${person} - Roth IRA`,used); out.push(sh); }
+    (p.inhIras||[]).forEach((x,ii)=>{
+      if(x.enabled===false||!(Number(x.balance)>0)) return;
+      const sh=xlsxInheritedIraSheet(proj,i,ii,inAddr); if(!sh) return;
+      sh.name=xlsxSheetName(`${person} - ${(x.name&&x.name.trim())||('Inherited IRA '+(ii+1))} (inh ${x.kind==='roth'?'Roth':'IRA'})`,used); out.push(sh);
+    });
   });
   return out;
 }
@@ -541,8 +583,11 @@ function xlsxMainColumns(proj,acctSheets){
   F('teT','Tax-exempt income total (untaxed)',r=>v(r.teIncome),X=>sumF(X,'te'));
   per('rothConvByPerson','Pre-tax IRA withdraw','conv');
   F('convT','Pre-tax IRA withdraw total',r=>r.rothConvTotal,X=>sumF(X,'conv'));
-  per('iraByPerson','IRA RMD','rmd');
-  F('rmdT','IRA RMD total',r=>r.iraTotal,X=>sumF(X,'rmd'));
+  per('iraByPerson','IRA RMD','rmd',x=>x);
+  for(let i=0;i<n;i++) cols[cols.length-n+i].v=r=>ownRmd(r,i);   // the person's own IRA only (inherited-IRA withdraws are their own column below)
+  F('rmdT','IRA RMD total',r=>Math.max(0,r.iraTotal-(r.inhIraWd||0)),X=>sumF(X,'rmd'));
+  V('inhIra','Inherited IRA withdraw (pre-tax, 10-year rule + RMD; taxed as ordinary income)',r=>v(r.inhIraWd));
+  V('inhRoth','Inherited Roth IRA withdraw (10-year rule; untaxed, not in MAGI)',r=>v(r.inhRothWd));
   per('iraExpByPerson','Pre-tax IRA withdraw (for expenses)','iraEx');
   F('iraExT','Pre-tax IRA withdraw (for expenses) total (taxable)',r=>v(r.iraExpTotal),X=>sumF(X,'iraEx'));
   V('odivNQ','Ordinary dividends (ODIV−QDIV)',r=>r.odivNQ);
@@ -573,8 +618,8 @@ function xlsxMainColumns(proj,acctSheets){
   const qualTaxFml=(X,t,q)=>{
     const tier=(l1,l2)=>`QD_R2*MAX(0,MIN(${t}+${q},${l2})-MAX(${t},${l1}))+QD_R3*MAX(0,${t}+${q}-MAX(${t},${l2}))`;
     return `IF(${q}<=0,0,IF(${M(X)},${tier('QD_MFJ_1','QD_MFJ_2')},${tier('QD_SGL_1','QD_SGL_2')}))`; };
-  F('nonSS','Ordinary income excluding Social Security (wage + pension + rental + annuity + RMD + ODIV + conversion + IRA expense draw)',r=>r.nonSSOrdinary,
-    X=>`${X('wageT')}+${X('penT')}+${X('rentT')}+${X('annT')}+${X('rmdT')}+${X('odivNQ')}+${X('convT')}+${X('iraExT')}`);
+  F('nonSS','Ordinary income excluding Social Security (wage + pension + rental + annuity + RMD + inherited IRA withdraw + ODIV + conversion + IRA expense draw)',r=>r.nonSSOrdinary,
+    X=>`${X('wageT')}+${X('penT')}+${X('rentT')}+${X('annT')}+${X('rmdT')}+${X('inhIra')}+${X('odivNQ')}+${X('convT')}+${X('iraExT')}`);
   F('prov','Provisional income (non-SS income incl. QDIV, net LTCG, tax-exempt interest + 50% of SS; the tax-free part of annuity payouts is not added)',r=>r.provisional,
     X=>`${X('nonSS')}+${X('qdiv')}+${X('ltcg')}+${X('teT')}+0.5*${X('ssT')}`);
   F('tss','Taxable Social Security (SS)',r=>r.taxableSS,X=>tssFml(X,X('prov')));
@@ -594,7 +639,7 @@ function xlsxMainColumns(proj,acctSheets){
   F('tiTot','Taxable income, total (ordinary + qualified)',r=>v(r.ordTI)+v(r.qualIncome),X=>`${X('ordTI')}+${X('qual')}`);
   V('noConvOrd','Ordinary taxable income, no conversion (a bracket start tests this)',r=>r.noConvOrdTI==null?'':r.noConvOrdTI);
   V('noConvItem','Itemized deductions, no conversion (an itemized start tests this)',r=>r.noConvItemized==null?'':r.noConvItemized);
-  for(let i=0;i<n;i++) add({key:'trig_'+i,head:(married?`${displayPersonName(proj.people[i],i)} `:'')+'Roth conversion trigger met this year (trigger starts only)',kind:'v',text:true,v:r=>r.convTriggerStartedByPerson[i]?'Yes':''});
+  for(let i=0;i<n;i++) add({key:'trig_'+i,head:(married?`${displayPersonName(proj.people[i],i)} `:'')+'Annual withdraw trigger met this year (trigger starts only)',kind:'v',text:true,v:r=>r.convTriggerStartedByPerson[i]?'Yes':''});
   F('ordTax','Ordinary tax',r=>r.ordTax,X=>ordTaxFml(X,X('ordTI')));
   // Taxable Qualified Income chart: its two dashed lines are the qualified tax brackets themselves (the 0% / 15% limits for the filing status in force).
   // Qualified income is stacked on top of taxable ordinary income, so the room each tier has left is the limit minus taxable ordinary income;
@@ -666,7 +711,7 @@ function xlsxMainColumns(proj,acctSheets){
   F('expTax','Income tax paid as expense (tax drag) = total tax + state tax − tax paid out of a property sale',r=>v(r.expTax),X=>`${X('tt')}+${X('stateTax')}-${X('reTax')}`);
   F('expTot','Total household expenses = living + LTC + IRMAA + AUM fee + income tax',r=>v(r.expTotal),X=>`${X('expLiving')}+${X('expLtc')}+${X('irmaa')}+${X('expAum')}+${X('expTax')}`);
   F('totInc','Total income (as on Annual Household Income chart: every band incl. dividends, LTCG, IRA/Roth withdraws, depreciation)',r=>chartTotalIncome(r),
-    X=>`${X('penT')}+${X('annT')}+${X('annTET')}+${X('wageT')}+${X('convT')}+${X('rmdT')}+${X('iraExT')}+${X('rentT')}+${X('rentDep')}+${X('teT')}+${X('expFromRoth')}+${X('qdiv')}+${X('odivNQ')}+${X('ltcg')}+${X('ssT')}`);
+    X=>`${X('penT')}+${X('annT')}+${X('annTET')}+${X('wageT')}+${X('convT')}+${X('rmdT')}+${X('inhIra')}+${X('inhRoth')}+${X('iraExT')}+${X('rentT')}+${X('rentDep')}+${X('teT')}+${X('expFromRoth')}+${X('qdiv')}+${X('odivNQ')}+${X('ltcg')}+${X('ssT')}`);
   V('cash','Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+annuity+RMD+portfolio withdraw)',r=>v(r.cashIncome));
   F('expFromInc','Expenses paid by household income',r=>v(r.expFromIncome),X=>`MIN(${X('expTot')},${X('cash')})`);
   V('expFromDiv','Expenses paid by dividends',r=>v(r.expFromDiv));
@@ -691,6 +736,10 @@ function xlsxMainColumns(proj,acctSheets){
     const sh=acctSheets.find(s=>s.type==='roth'&&s.i===i);
     add({key:'rothBal_'+i,head:(married?`${displayPersonName(proj.people[i],i)} `:'')+'Roth IRA balance (EOY)',kind:sh?'f':'v',v:r=>r.rothBalByPerson[i]||0,f:sh?(X=>sumIfs([sh],'bal',X)):null});
   }
+  { const shI=acctSheets.filter(s=>s.type==='inhira'), shR=acctSheets.filter(s=>s.type==='inhroth');
+    const sumInh=(r,kind)=>(r.inhIraByPerson||[]).reduce((a,l)=>a+(l||[]).reduce((b,e)=>b+((e&&e.live&&e.kind===kind)?(e.balance||0):0),0),0);
+    add({key:'inhIraBal',head:'Inherited pre-tax IRA balances (EOY)',kind:shI.length?'f':'v',v:r=>sumInh(r,'ira'),f:shI.length?(X=>sumIfs(shI,'bal',X)):null});
+    add({key:'inhRothBal',head:'Inherited Roth IRA balances (EOY)',kind:shR.length?'f':'v',v:r=>sumInh(r,'roth'),f:shR.length?(X=>sumIfs(shR,'bal',X)):null}); }
   const pfN=pfSheets.filter(s=>!s.idgt), pfI=pfSheets.filter(s=>s.idgt);
   const pfAdd=(key,head,get,shs,col)=>add({key,head,kind:shs.length?'f':'v',v:get,f:shs.length?(X=>sumIfs(shs,col,X)):null});
   pfAdd('bN','Brokerage balance, non-IDGT (SOY)',r=>sumPortfolios(r,false,'balance'),pfN,'bal');
@@ -708,7 +757,7 @@ function xlsxMainColumns(proj,acctSheets){
 function chartTotalIncome(r){
   const v=x=>x||0;
   return v(r.pension)+v(r.annuity)+v(r.annuityTE)+v(r.wageTotal)+v(r.rothConvTotal)+v(r.iraTotal)+v(r.iraExpTotal)+v(r.rental)+v(r.rentalDep)+
-    v(r.teIncome)+v(r.rothExpTotal)+v(r.qdiv)+v(r.odivNQ)+v(r.ltcg)+(r.ssByPerson||[]).reduce((a,b)=>a+v(b),0);
+    v(r.teIncome)+v(r.rothExpTotal)+v(r.inhRothWd)+v(r.qdiv)+v(r.odivNQ)+v(r.ltcg)+(r.ssByPerson||[]).reduce((a,b)=>a+v(b),0);
 }
 
 // Builds every sheet. Returns {sheets:[{name,ws}], names[], calc} — shared by exportToExcel() and the Node test harness.

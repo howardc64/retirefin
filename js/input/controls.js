@@ -139,7 +139,7 @@ function agedItemCard(pid, key, title, item, checkboxPath, fixedLabel, extraFiel
 // `bounds` = {kind:'person',i} | {kind:'ltc'} | {kind:'ira',i} marks a range whose min/max are recomputed from state
 // (refreshPairBounds) whenever ages, passing ages or the IRA balance change.
 function pairHtml(id, path, min, max, step, value, bounds, moneyCls){
-  const b=bounds?` data-bkind="${bounds.kind}" data-bi="${bounds.i==null?0:bounds.i}"`:'';
+  const b=bounds?` data-bkind="${bounds.kind}" data-bi="${bounds.i==null?0:bounds.i}"${bounds.ii!=null?` data-bii="${bounds.ii}"`:''}`:'';
   return `<div class="pair">
     <input type="range" id="${id}_r" min="${min}" max="${max}" step="${step}" value="${value}"${b} oninput="onPair('${id}','${path}',this.value,this)">
     <input type="number" id="${id}_n" class="${moneyCls?'money':''}" min="${min}" step="${step}" value="${value}" oninput="onPair('${id}','${path}',this.value,this)">
@@ -166,6 +166,7 @@ function pairBounds(el){
   const kind=el.dataset.bkind, i=+el.dataset.bi;
   if(kind==='person') return personAgeBounds(i);
   if(kind==='ira') return [0, Math.max(0, Number(state.people[i].ira.balance)||0)];
+  if(kind==='inhira'){ const x=state.people[i]&&state.people[i].inhIras&&state.people[i].inhIras[+el.dataset.bii]; return [0, Math.max(0, Number(x&&x.balance)||0)]; }   // an inherited pre-tax IRA: 0 … its balance
   return null;
 }
 function refreshPairBounds(){
@@ -174,8 +175,8 @@ function refreshPairBounds(){
     el.min=b[0]; el.max=b[1];
     const n=document.getElementById(el.id.replace(/_r$/,'_n'));
     if(n) n.min=b[0];
-    if(n && +n.value>=0 && +el.value!==+n.value && el.dataset.bkind!=='ira') el.value=n.value;
-    if(el.dataset.bkind==='ira' && n) el.value=n.value;
+    if(n && +n.value>=0 && +el.value!==+n.value && el.dataset.bkind!=='ira' && el.dataset.bkind!=='inhira') el.value=n.value;
+    if((el.dataset.bkind==='ira'||el.dataset.bkind==='inhira') && n) el.value=n.value;
   });
 }
 

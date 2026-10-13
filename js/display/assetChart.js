@@ -68,6 +68,7 @@ function buildAssetChartFor(cfg){
     proj.people.forEach((p,i)=>{
       if(p.ira && p.ira.enabled) series.push({type:'ira', personIdx:i, name:'Pre-tax IRA/401(k)'});
       if(p.roth && p.roth.enabled) series.push({type:'roth', personIdx:i, name:'Roth IRA'});
+      (p.inhIras||[]).forEach((x,ii)=>{ if(x&&x.enabled!==false&&Number(x.balance)>0) series.push({type:'inhira', personIdx:i, ii, name:(x.name&&x.name.trim())||(x.kind==='roth'?'Inherited Roth IRA':'Inherited IRA')}); });
       (p.annuities||[]).forEach((a,ai)=>{
         if(!a||a.enabled===false||!(Number(a.value)>0)) return;
         series.push({type:'annuity', personIdx:i, ai, name:(a.name&&a.name.trim())||('Annuity '+(ai+1))});
@@ -114,6 +115,10 @@ function buildAssetChartFor(cfg){
     if(s.type==='annuity'){
       if(r.stretchYear) return null;   // an annuity ends with the household's last passing (no stretch)
       const e=annEntry(s,r); return e&&e.live?e.balance:0;
+    }
+    if(s.type==='inhira'){   // an inherited IRA ends within 10 years of arriving and has no stretch
+      if(r.stretchYear) return null;
+      const l=r.inhIraByPerson&&r.inhIraByPerson[s.personIdx], e=l&&l[s.ii]; return e&&e.live?e.balance:0;
     }
     if(r.stretchYear){
       if(s.type==='portfolio'){ const e=entryOf(s,r); return (e&&e.balance>0)?e.balance:null; }

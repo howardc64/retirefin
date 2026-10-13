@@ -47,7 +47,7 @@ function buildSSSection(){
       label:'Age '+sc.age+(isStartAge?' (selected start age)':''),
       data:alignToAges(sc.ages, sc.cumulative, labels),
       borderColor:VZ_SS_COLORS[sc.age]||'#0F6E56',
-      borderWidth:isStartAge?3:(sc.age===70?3:2),
+      borderWidth:isStartAge?2:1.5,
       borderDash:isStartAge?[7,5]:[],
       pointRadius:0, pointHoverRadius:0, pointHitRadius:8, tension:0.25, fill:false, spanGaps:false,
       vzScenario:sc

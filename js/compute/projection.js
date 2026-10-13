@@ -23,6 +23,10 @@ function pfGainFraction(bal, basis){ return bal>0 ? Math.max(0,(bal-basis)/bal) 
 
 // Years an IRA keeps compounding after the household's last passing (see the stretch block at the end).
 const STRETCH_YEARS=10;
+// Inherited IRAs (Inheritance card): the account must be emptied by the end of the 10th year after it is inherited (SECURE Act 10-year rule).
+const INH_IRA_YEARS=10;
+// Row (0 = this year) in which an inherited asset enters the plan, from its `startYear` (calendar year of the last passing in the plan it comes from).
+function inhStartRow(item){ const y=Number(item&&item.startYear); return (item&&item.inh&&Number.isFinite(y))?Math.max(0,Math.round(y-THIS_YEAR)):0; }
 // Tax↔LTCG fixed-point iteration (see computeProjection): stop when the tax moves less than TAX_TOL dollars, at most TAX_MAX_ITERS rounds.
 const TAX_TOL=0.005, TAX_MAX_ITERS=60;
 function computeProjection(){
@@ -54,7 +58,10 @@ function computeProjection(){
     }
   }
 
-  // ── Pre-tax IRA / 401(k) RMD schedule, plus optional annual Roth conversion ──
+  // ── Pre-tax IRA / 401(k) RMD schedule, plus optional annual withdraw (optionally a Roth conversion) ──
+  // The "annual Roth conversion" settings are an annual WITHDRAW from the pre-tax IRA (all parameters unchanged). `ira.convToRoth` (default true): checked = the
+  // withdrawn amount is a Roth conversion (it moves into the holder's Roth IRA, which must be enabled); unchecked = it is an ordinary withdrawal (taxed the same
+  // way, but it becomes household cash income and needs no Roth IRA). Internally the names conv* / rothConv* still mean "this annual withdraw".
   // Continue RMDs after an owner's death by transferring the remaining
   // balance to the spouse when the IRA is marked to continue to spouse.
   // A Roth conversion moves money out of the pre-tax IRA and into this person's Roth IRA each year the pre-tax IRA still has a
@@ -68,12 +75,14 @@ function computeProjection(){
   //               schedule was simulated up front.
   const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({}));
   const iraSim=people.map((p,i)=>{
-    const sim={bal:0, done:true, open:false, room:0, fixed:0, mode:'fixed', trigger:null, started:false, startedK:null, live:false, rothOk:false, convAmt:0, pre(){}, post(){}};
+    const sim={bal:0, done:true, open:false, room:0, fixed:0, mode:'fixed', trigger:null, started:false, startedK:null, live:false, rothOk:false, toRoth:true, convAmt:0, pre(){}, post(){}};
     if(!p.ira.enabled) return sim;
     sim.bal=Number(p.ira.balance)||0; sim.done=false;
     const [startAge,ownerEndAge]=resolveAgeRange(p.ira.ar,p);
     const g=realGrowth(p.ira.growth,inflation);
-    const rothOk=!!(p.roth&&p.roth.enabled);
+    const toRoth=p.ira.convToRoth!==false;
+    const rothOk=toRoth?!!(p.roth&&p.roth.enabled):true;   // an annual withdraw is possible: a Roth conversion needs the Roth IRA on; a plain withdraw does not
+    sim.toRoth=toRoth;
     sim.mode=(rothOk&&p.ira.convMode==='bracket')?'bracket':'fixed';
     const convAmt=(rothOk&&sim.mode==='fixed')?Math.max(0,Number(p.ira.conv)||0):0;
     // Conversion start: 'rmd' (default) = the IRA's own Start age (the RMD start), 'now' = today, 'custom' = ira.convStart.
@@ -183,6 +192,34 @@ function computeProjection(){
     };
     return sim;
   });
+
+  // ── Inherited IRAs (Inheritance card: pre-tax IRA / Roth IRA from another plan) ──
+  // Each arrives in its start row with its balance (today's $), grows at its own real rate, and must be emptied by the end of the 10th year after it
+  // arrived (the original owner's passing). The schedule is automatic — there is no withdraw option:
+  //   • the deceased had already started RMDs (`rmdStarted`, set from the source plan on import; pre-tax only): from the year after arrival the current holder takes
+  //     an RMD every year, by the HOLDER's own age (rmdDivisor). If the holder passes and the spouse inherits (`bene`), the spouse continues the RMDs by the
+  //     spouse's age; the year-10 deadline never moves. Year 10 takes whatever is left.
+  //   • otherwise (RMDs not started, and always for a Roth IRA) nothing is forced until year 10, which takes all of it.
+  // A pre-tax withdrawal is ordinary income (added to the person's IRA distributions, so it flows into AGI, tax and cash
+  // income); a Roth withdrawal is untaxed household cash. The account ends with its heir's passing.
+  // It carries the same parameters as the Pre-tax IRA / Roth IRA cards:
+  //   • (pre-tax, when the deceased had started RMDs) an RMD is taken every year from the year after arrival to year 10, by the holder's current age. There is no
+  //     start / end age to choose: everything starts when it is inherited and is over by year 10.
+  //   • Roth conversion (pre-tax): converts into the holder's Roth IRA exactly like the Pre-tax IRA card ('fixed' $/yr or 'bracket'; any start mode), from what is
+  //     left after that year's withdrawal. It is solved in the "Roth conversion solve" below together with the people's own IRAs.
+  //   • `bene`: when its holder passes with the spouse alive, the spouse becomes the holder (same schedule and the same year-10 deadline, the spouse's age and Roth IRA).
+  //   • There is no stretch: the 10 years never extend, whoever inherits it next. With no spouse taking over, the account ends with its holder's passing.
+  // `sm.bal` is the start-of-year balance after this year's withdrawal while a conversion is pending (`open`); post-step growth is applied after the conversion.
+  const inhSim=people.map((p,i)=>(p.inhIras||[]).map(x=>{
+    const bal0=Math.max(0,Number(x&&x.balance)||0);
+    const kind=(x&&x.kind==='roth')?'roth':'ira';
+    const cMode=(x&&x.convStartMode)||'rmd';
+    return {on:!!x&&x.enabled!==false&&bal0>0, kind, rmdOn:kind==='ira'&&!(x&&x.rmdStarted===false), kS:inhStartRow(x||{inh:1}), bal0, bal:0,
+            g:realGrowth(x&&x.growth,inflation), wd:0, eoy:0, live:false, done:false, name:(x&&x.name&&x.name.trim())||'',
+            holder:i, bene:!!(x&&x.bene), sle:null,
+            // conversion state (pre-tax only), same names as iraSim's so the conversion solve treats both alike
+            open:false, room:0, fixed:0, mode:'fixed', trigger:(cMode==='bracket'||cMode==='itemized'||cMode==='ltc')?cMode:null, cMode, started:false, startedK:null, rothOk:false, toRoth:false, convAmt:0};
+  }));
 
   // ── Annuities (per person, any number) ──
   // Simulated up front, year by year, in today's $ — an annuity's path does not depend on the tax calculation, so it is
@@ -306,7 +343,9 @@ function computeProjection(){
   const pfState=people.map(p=>(p.brokerage||[]).map(b=>{
     const bal0=Number(b&&b.balance)||0, tracked=pfTracksBasis(b);
     const bas0=tracked?clamp(pfBasisEntered(b)?bal0*Number(b.basisPct)/100:bal0, 0, bal0):0;
-    return {bal:bal0, dead:false, tracked, basis:bas0, stepped:false, steppedNow:false, swapAmt:0};
+    // An inherited portfolio enters the plan in its start row (`pendK`): until then it has no balance; then it arrives at `bal0` with cost basis `bas0`.
+    const pendK=inhStartRow(b);
+    return {bal:pendK>0?0:bal0, bal0, bas0, pendK:pendK>0?pendK:null, dead:false, tracked, basis:pendK>0?0:bas0, stepped:false, steppedNow:false, swapAmt:0};
   }));
   // Real estate: a passive asset (no income, no expenses paid from it, never sold). Value grows at its own real rate; cost basis (blank = no
   // unrealized gain today) is a fixed nominal amount, so in today's $ it erodes by inflation, and it steps up to value when the owner passes
@@ -314,7 +353,8 @@ function computeProjection(){
   const reState=people.map(p=>(p.realEstate||[]).map(r=>{
     const bal0=Math.max(0,Number(r&&r.balance)||0);
     const bas0=clamp(reBasisEntered(r)?Number(r.basis):bal0, 0, bal0);   // dollars, today's $; blank = no unrealized gain
-    return {bal:bal0, dead:false, basis:bas0, stepped:false, steppedNow:false, sold:false};
+    const pendK=inhStartRow(r);   // an inherited property enters the plan in its start row (see pfState above)
+    return {bal:pendK>0?0:bal0, bal0, bas0, pendK:pendK>0?pendK:null, dead:false, basis:pendK>0?0:bas0, stepped:false, steppedNow:false, sold:false};
   }));
   // Selling a property (optional, per property; default never). The row it is sold in, by `sellMode`:
   //   'age'     — the first row the OWNER is at least `sellAge` (row 0 if already past it);
@@ -370,6 +410,51 @@ function computeProjection(){
     if(!alive.some(Boolean)) break;
     // Start-of-year IRA / Roth state (RMDs, AUM balances, room to convert); the conversion itself is decided below, after the year's other income is known.
     people.forEach((p,i)=>{ iraSim[i].pre(k); rothSim[i].pre(k); });
+    // Inherited assets arriving this year (a portfolio / property that is not yet there has no balance).
+    people.forEach((p,i)=>{
+      pfState[i].forEach(t=>{ if(t.pendK!=null&&k>=t.pendK){ t.bal=t.bal0; t.basis=t.bas0; t.pendK=null; } });
+      reState[i].forEach(t=>{ if(t.pendK!=null&&k>=t.pendK){ t.bal=t.bal0; t.basis=t.bas0; t.pendK=null; } });
+    });
+    // Inherited IRAs: this year's forced withdrawal (see inhSim above). Pre-tax ones join their holder's IRA distributions.
+    const inhIraWdByPerson=people.map(()=>0), inhRothWdByPerson=people.map(()=>0);
+    people.forEach((p,i)=>inhSim[i].forEach((sm,ii)=>{
+      sm.wd=0; sm.eoy=0; sm.live=false; sm.open=false; sm.room=0; sm.fixed=0;
+      if(!sm.on||sm.done) return;
+      if(!alive[sm.holder]){
+        const o=1-sm.holder;
+        if(sm.bene&&sm.holder===i&&married&&people.length===2&&alive[o]) sm.holder=o;   // inherited by the surviving spouse: same schedule and deadline, the spouse's age and Roth IRA
+        else { sm.done=true; sm.bal=0; return; }                                        // otherwise it ends (the 10 years never extend, even to another plan)
+      }
+      if(k<sm.kS) return;
+      if(k===sm.kS) sm.bal=sm.bal0;
+      sm.live=true;
+      const h=sm.holder, age=ages[h], holderP=people[h];
+      let w=0;
+      if(k>sm.kS){
+        const lastK=sm.kS+INH_IRA_YEARS;
+        if(k>=lastK) w=sm.bal;                              // year 10: whatever is left
+        else if(sm.rmdOn&&sm.bal>0){                        // RMDs had started: an annual RMD in years 1–9, by the Single Life Expectancy table (IRS Table I), not the owner's Uniform Lifetime Table
+          // Fixed-term method (non-spouse beneficiary): look the factor up once, for the holder's age in the first RMD year, then subtract 1 each later year (never back to the table).
+          // A spouse who takes over after the holder passes continues the same schedule (a successor beneficiary uses the remaining period of the original).
+          if(sm.sle==null) sm.sle=sleFactor(age);   // k = kS+1 here: the first RMD year
+          const div=Math.max(1,sm.sle-(k-sm.kS-1)); w=Math.min(sm.bal/div,sm.bal);
+        }
+      }
+      w=Math.min(w,sm.bal); sm.wd=w;
+      sm.bal-=w; sm.open=true;
+      if(sm.kind==='roth') inhRothWdByPerson[h]+=w; else { inhIraWdByPerson[h]+=w; iraW[h][k]=(iraW[h][k]||0)+w; }
+      if(sm.kind==='ira'){   // room to convert into the holder's Roth IRA this year
+        const x=p.inhIras[ii], hr=holderP.roth;
+        sm.toRoth=false;   // an inherited IRA cannot be converted to a Roth IRA: its annual withdraw is always an ordinary taxable withdrawal (older saves that had it ticked are ignored)
+        sm.rothOk=sm.toRoth?!!(hr&&hr.enabled):true;
+        sm.mode=(sm.rothOk&&x.convMode==='bracket')?'bracket':'fixed';
+        sm.convAmt=(sm.rothOk&&sm.mode==='fixed')?Math.max(0,Number(x.conv)||0):0;
+        const startAge=sm.cMode==='custom'?(Number(x.convStart)||0):0;   // 'rmd' (older saves) and 'now' = when inherited; the triggers decide for themselves
+        sm.room=(sm.trigger?sm.started:age>=startAge)?sm.bal:0;
+        sm.fixed=Math.min(sm.convAmt,sm.room);
+      }
+    }));
+    const inhRothWd=inhRothWdByPerson.reduce((a,b)=>a+b,0), inhIraWd=inhIraWdByPerson.reduce((a,b)=>a+b,0);
     // Start-of-year balances (after the RMD) that could be sold to pay expenses if the portfolios run out. Captured now because post() below
     // advances the balances. A conversion leaves the pre-tax IRA and lands in the Roth IRA the same year, so it is netted/added in runWaterfall.
     const iraStart=people.map((p,i)=>iraSim[i].open?Math.max(0,iraSim[i].bal):0);
@@ -594,8 +679,9 @@ function computeProjection(){
       return a+Math.min(v.te||0, avail);
     },0));
     const teIncome=teByPerson.reduce((a,b)=>a+b,0);
-    const cashBase = sumArr(wageByPerson)+totalSS+pension+rental+rentalDep+teIncome+annuity+annuityTE+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
-    let cashIncome=cashBase;   // + this year's brokerage withdraws (set at the top of every waterfall pass, see runWaterfall)
+    const cashBase = sumArr(wageByPerson)+totalSS+pension+rental+rentalDep+teIncome+annuity+annuityTE+inhRothWd+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
+    let cashIncome=cashBase;   // + this year's brokerage withdraws and non-Roth pre-tax IRA annual withdraw (set at the top of every waterfall pass, see runWaterfall)
+    let convCash=0;            // this year's annual pre-tax IRA withdraw that is NOT a Roth conversion: taxed as ordinary income, spendable household cash (set by syncConv below)
     // Per-portfolio working entries. Only live, funded portfolios have one.
     const pfx=people.map(()=>[]);
     const poolPf=[];   // portfolios inside their age range with "Pay expenses" checked — the only sources for household expenses
@@ -742,7 +828,7 @@ function computeProjection(){
       const expTotal=expLiving+expLtc+expIrmaa+expAum+taxExp;
       poolPf.forEach(x=>{ x.divUsed=0; x.sold=0; x.ltcg=0; });
       const wdCash=wdList.reduce((a,e)=>a+e.amt,0);
-      cashIncome=cashBase+wdCash;   // withdraw proceeds are household cash income
+      cashIncome=cashBase+wdCash+convCash;   // withdraw proceeds (brokerage, and the pre-tax IRA's non-Roth annual withdraw) are household cash income
       const expFromIncome=Math.min(expTotal,cashIncome);
       let expNeed=expTotal-expFromIncome;
       // (2) dividends, shared pro rata to each portfolio's ODIV
@@ -764,9 +850,9 @@ function computeProjection(){
       }
       // (4) pre-tax IRA, then (5) Roth IRA, for what the portfolios could not cover. Each is shared pro rata to balance across the
       // people's accounts. A pre-tax IRA withdraw is ordinary income (taxOn adds it, and the tax-expense iteration grosses it up); a Roth IRA
-      // sale is tax-free. Converted dollars have left the pre-tax IRA and sit in the Roth IRA the same year.
-      const iraAvail=iraStart.map((b,i)=>Math.max(0,b-(convByPerson[i]||0)));
-      const rothAvail=rothStart.map((b,i)=>b+(convByPerson[i]||0));
+      // sale is tax-free. Withdrawn dollars have left the pre-tax IRA; the ones that are a Roth conversion sit in the Roth IRA the same year.
+      const iraAvail=iraStart.map((b,i)=>Math.max(0,b-(convMainByPerson[i]||0)));
+      const rothAvail=rothStart.map((b,i)=>b+(convRothByPerson[i]||0));
       const drawPro=(avail,need)=>{ const tot=avail.reduce((a,b)=>a+b,0), amt=Math.min(Math.max(0,need),tot); return avail.map(v=>tot>0?amt*v/tot:0); };
       let expFromSales, iraExpByPerson, rothExpByPerson, expFromIra, expFromRoth, expFromRe=0, reShort=[];
       if(!woSteps){
@@ -879,35 +965,43 @@ function computeProjection(){
     // Both measures rise with c, but c also moves taxable Social Security, the tax, the asset sales that fund it and so the realized LTCG
     // — a circular dependence — so each trial c runs the full tax ↔ LTCG iteration above, and the search over c is iterated too
     // (false position with bisection safeguards) until the largest feasible c is pinned to a few cents.
-    const convByPerson=people.map(()=>0);
+    // Conversion units: each person's own pre-tax IRA first, then every inherited pre-tax IRA still pending this year (converted by its current holder).
+    // A unit has the conversion state the solve reads (live, rothOk, bal, trigger, started, room, fixed, mode) and `par`, the object holding its limits / trigger values.
+    const convUnits=people.map((p,i)=>({i, main:true, sim:iraSim[i], par:p.ira}));
+    people.forEach((p,i)=>inhSim[i].forEach((sm,ii)=>{ if(sm.open&&sm.kind==='ira') convUnits.push({i:sm.holder, main:false, sim:sm, par:p.inhIras[ii]}); }));
+    const convByUnit=convUnits.map(()=>0);
+    const convByPerson=people.map(()=>0), convMainByPerson=people.map(()=>0), convRothByPerson=people.map(()=>0);   // every annual withdraw by its holder (taxed) / the part that leaves the person's own IRA / the part that is a Roth conversion (enters the holder's Roth IRA)
+    const syncConv=()=>{ convByPerson.fill(0); convMainByPerson.fill(0); convRothByPerson.fill(0); convCash=0;
+      convUnits.forEach((u,ui)=>{ const v=convByUnit[ui]; convByPerson[u.i]+=v; if(u.main) convMainByPerson[u.i]+=v; if(u.sim.toRoth) convRothByPerson[u.i]+=v; else convCash+=v; }); };
     const convTotalOf=()=>convByPerson.reduce((a,b)=>a+b,0);
     // Trigger starts: an IRA whose conversion start is 'bracket' / 'itemized' / 'ltc' and has not started yet checks its trigger against this year's
     // tax with NO conversion (everyone's conversion held at 0, so the test is on the household's own income and deductions). Once met it stays started.
     //   bracket  — taxable ordinary income stays at or below where the chosen bracket starts (same reading as the "below bracket" limit).
     //   itemized — the itemized deduction (LTC cost above the 7.5%-of-AGI floor), in today's $, exceeds the entered value.
     //   ltc      — the first LTC start has been reached (needs Long Term Care enabled).
-    const trigPending=i=>{ const s=iraSim[i]; return !!(s.trigger&&!s.started&&s.live&&s.rothOk&&s.bal>0); };
+    const trigPending=u=>{ const s=u.sim; return !!(s.trigger&&!s.started&&s.live&&s.rothOk&&s.bal>0); };
     let noConvOrdTI=null, noConvItemized=null;   // the no-conversion tax picture the triggers test (exported for reference)
     // Solved whenever a Roth conversion is possible this year (any start mode), so the export always shows the no-conversion picture.
-    const trigLive=people.some((p,i)=>iraSim[i].live&&iraSim[i].rothOk&&iraSim[i].bal>0);
+    const trigLive=convUnits.some(u=>u.sim.live&&u.sim.rothOk&&u.sim.bal>0);
     if(trigLive){
       const r0=solveTax(0);
       noConvOrdTI=r0.tx.ordTI; noConvItemized=r0.tx.itemized;
-      people.forEach((p,i)=>{
-        if(!trigPending(i)) return;
-        const sim=iraSim[i];
+      convUnits.forEach(u=>{
+        if(!trigPending(u)) return;
+        const sim=u.sim;
         let go=false;
         if(sim.trigger==='ltc') go=ltcStarted>=1;
-        else if(sim.trigger==='bracket'){ const b=Number(p.ira.convStartBracket); go=r0.tx.ordTI<=convOrdTop(Number.isFinite(b)?b:24, ordBrk)+0.005; }
-        else go=r0.tx.itemized>(Number(p.ira.convStartItemized)||0);
+        else if(sim.trigger==='bracket'){ const b=Number(u.par.convStartBracket); go=r0.tx.ordTI<=convOrdTop(Number.isFinite(b)?b:24, ordBrk)+0.005; }
+        else go=r0.tx.itemized>(Number(u.par.convStartItemized)||0);
         if(go){ sim.started=true; sim.startedK=k; sim.room=sim.bal; sim.fixed=Math.min(sim.convAmt,sim.room); }
       });
     }
-    people.forEach((p,i)=>{ convByPerson[i]=iraSim[i].fixed||0; });
+    convUnits.forEach((u,ui)=>{ convByUnit[ui]=u.sim.fixed||0; });
+    syncConv();
     let convTrials=0;
-    function convLimits(p){
+    function convLimits(par){
       const num=v=>(v!=null&&v!==''&&Number.isFinite(Number(v)))?Number(v):null;
-      const ordIn=num(p.ira.convOrdPct), irmIn=num(p.ira.convIrmaaPct);
+      const ordIn=num(par.convOrdPct), irmIn=num(par.convIrmaaPct);
       let ordTop=Infinity, magiCap=Infinity, ordOn=false, magiOn=false;
       if(ordIn!=null){ ordOn=true; ordTop=convOrdTop(ordIn, ordBrk); }
       if(irmIn!=null){
@@ -922,23 +1016,23 @@ function computeProjection(){
       }
       return {ordTop, magiCap, ordOn, magiOn};
     }
-    people.forEach((p,i)=>{
-      const sim=iraSim[i];
+    convUnits.forEach((u,ui)=>{
+      const sim=u.sim;
       if(sim.mode!=='bracket'||!(sim.room>0)) return;
-      const lim=convLimits(p);
-      if(!lim.ordOn&&!lim.magiOn){ convByPerson[i]=sim.room; return; }   // no limit applies (both sliders at "no limit", or only an IRMAA limit and nobody is IRMAA-exposed yet): convert it all
+      const lim=convLimits(u.par);
+      if(!lim.ordOn&&!lim.magiOn){ convByUnit[ui]=sim.room; syncConv(); return; }   // no limit applies (both sliders at "no limit", or only an IRMAA limit and nobody is IRMAA-exposed yet): convert it all
       // Headroom under the stricter active limit when person i converts c (negative = over a limit). Non-increasing in c.
       const slack=c=>{
-        convByPerson[i]=c; convTrials++;
+        convByUnit[ui]=c; syncConv(); convTrials++;
         const r=solveTax(convTotalOf());
         const so=lim.ordOn?lim.ordTop-r.tx.ordTI:Infinity, sm=lim.magiOn?lim.magiCap-(r.tx.agi+teIncome):Infinity;
         return Math.min(so,sm);
       };
       const hi=sim.room;
       let a=0, fa=slack(0);
-      if(fa<0){ convByPerson[i]=0; return; }               // already over a limit before converting anything
+      if(fa<0){ convByUnit[ui]=0; syncConv(); return; }    // already over a limit before converting anything
       let b=hi, fb=slack(b);
-      if(fb>=0){ convByPerson[i]=hi; return; }              // the whole balance fits
+      if(fb>=0){ convByUnit[ui]=hi; syncConv(); return; }   // the whole balance fits
       let side=0;
       for(let n=0;n<60&&b-a>0.01;n++){
         let c=a+(b-a)*fa/(fa-fb);                          // false position
@@ -947,9 +1041,11 @@ function computeProjection(){
         if(fc>=0){ a=c; fa=fc; if(side===1) fb/=2; side=1; if(fc<0.005) break; }
         else { b=c; fb=fc; if(side===-1) fa/=2; side=-1; }
       }
-      convByPerson[i]=a;                                    // the largest amount known to fit
+      convByUnit[ui]=a; syncConv();                         // the largest amount known to fit
     });
-    const rothConvByPerson=convByPerson.slice();
+    const rothConvByPerson=convByPerson.slice();    // the annual pre-tax IRA withdraw per holder (Roth conversion or not)
+    const rothInByPerson=convRothByPerson.slice();  // the part of it that enters the holder's Roth IRA
+    const iraConvByPerson=convMainByPerson.slice();   // the part of it that leaves each person's own pre-tax IRA (the rest leaves an inherited IRA, below)
     const rothConvTotal=convTotalOf();
     // ── Brokerage withdraws sized by an LTCG bracket ──
     // After the Roth conversions are settled, each 'bracket' withdraw (in portfolio order) sells the largest amount w for which the year's taxable income
@@ -980,7 +1076,14 @@ function computeProjection(){
     const wf=fin.wf, tx=fin.tx, taxIters=fin.iters, taxConverged=fin.converged, reSaleTax=fin.saleTax;
     // Advance the IRA / Roth balances one year now that this year's expense draws are known (conversion and draw both leave the pre-tax IRA;
     // the conversion enters the Roth IRA, and the Roth draw leaves it).
-    people.forEach((p,i)=>{ iraSim[i].post(k,rothConvByPerson[i],wf.iraExpByPerson[i]); rothSim[i].post(k,rothConvByPerson[i],wf.rothExpByPerson[i]); });
+    people.forEach((p,i)=>{ iraSim[i].post(k,iraConvByPerson[i],wf.iraExpByPerson[i]); rothSim[i].post(k,rothInByPerson[i],wf.rothExpByPerson[i]); });
+    // Inherited IRAs: take this year's conversion out of what is left after the withdrawal, then grow it.
+    convUnits.forEach((u,ui)=>{ if(!u.main) u.sim.convOut=convByUnit[ui]; });
+    inhSim.forEach(list=>list.forEach(sm=>{
+      if(!sm.open) return;
+      sm.bal=Math.max(0,sm.bal-(sm.convOut||0))*(1+sm.g); sm.convOut=0; sm.eoy=sm.bal;
+      if(k>=sm.kS+INH_IRA_YEARS) sm.done=true;
+    }));
     const iraExpByPerson=wf.iraExpByPerson, iraExpTotal=wf.expFromIra, rothExpByPerson=wf.rothExpByPerson, rothExpTotal=wf.expFromRoth;
     const nonSSOrdinary = nonSSBase+rothConvTotal+iraExpTotal;
     // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
@@ -1102,7 +1205,8 @@ function computeProjection(){
       wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson, rentalDep, rentalDepByPerson, teIncome, teByPerson, annuity, annuityTE, annuityByPerson, annuityTEByPerson, annuitiesByPerson, annuityBalance,
       odiv, qdiv, odivNQ, ltcg, ltcgGross, reSaleGain:reGainTotal+shortGainTotal, reSaleTax, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
       ftcByPerson, foreignTaxCredit,
-      iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, rothConvTotal, rothBalByPerson, portfoliosByPerson, realEstateByPerson, embeddedGain, embeddedGainIdgt,
+      inhIraWdByPerson, inhIraWd, inhRothWdByPerson, inhRothWd, inhIraByPerson:inhSim.map(l=>l.map(sm=>({balance:sm.live?sm.eoy:0, live:sm.live, wd:sm.wd, kind:sm.kind, name:sm.name}))),
+      iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, convMainByPerson:convMainByPerson.slice(), rothConvTotal, rothWdOnlyByPerson:rothConvByPerson.map((v,i)=>Math.max(0,v-(rothInByPerson[i]||0))), rothInByPerson, rothInTotal:rothInByPerson.reduce((a,b)=>a+b,0), convCashTotal:convCash, rothBalByPerson, portfoliosByPerson, realEstateByPerson, embeddedGain, embeddedGainIdgt,
       nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, age65Eligible:age65N, ltcStarted, ltcCostByPerson, noConvOrdTI, noConvItemized, convTriggerStartedByPerson:iraSim.map(s=>s.startedK===k), agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
       sst, marginalRate, marginalOrd, marginalQual, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mTax,
       niiIncome, niit,

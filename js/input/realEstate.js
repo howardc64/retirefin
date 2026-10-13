@@ -33,9 +33,10 @@ function buildRealEstateCard(pid, i, p, married){
         ${props.length?props.map((r,ri)=>{
           const rp=pid+'.realEstate.'+ri;
           return `
-          <div class="item portfolio-card realestate-card" style="margin:0;padding:10px 11px">
+          <div class="item portfolio-card realestate-card"${r.inh?` data-inh-card="realEstate|${i}|${ri}"`:''} style="margin:0;padding:10px 11px">
             ${cardHeader(`<span class="re-title" style="font-size:12px">${escHtml((r.name&&r.name.trim())||('Property '+(ri+1)))}</span>`, rp+'.enabled', r.enabled!==false, rp+'.hidden', !!r.hidden, `<button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="removeRealEstate(${i},${ri})">Remove</button>`)}
             <div class="item-body ${r.hidden?'':'open'} portfolio-fields">
+              ${inhYearField(rp, r)}
               <div class="field full"><label>Property name</label><input type="text" maxlength="40" placeholder="Property ${ri+1}" value="${escAttr(r.name||'')}" oninput="onRealEstateName('${pid}',${ri},this.value,this)"></div>
               <div class="field full"><label>Value (today's $)</label><input type="number" class="money" min="0" step="5000" value="${r.balance||0}" oninput="onNumberInput('${rp}.balance', this.value)"></div>
               <div class="field full"><label>Cost basis (today's $) · optional</label><input type="number" class="money" min="0" step="5000" placeholder="Blank = no unrealized gain today" value="${reBasisEntered(r)?r.basis:''}" oninput="onRealEstateBasis('${pid}',${ri},this.value)"></div>

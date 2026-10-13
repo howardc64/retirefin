@@ -10,14 +10,15 @@
 // and this sorts + nudges them apart to a minimum vertical gap before drawing.
 function declutterLabels(ctx, items, top, bottom, minGap){
   if(!items.length) return;
-  minGap = minGap||11;
+  minGap = minGap||13;   // pill height is 12
   items.sort((a,b)=>a.y-b.y);
-  for(let i=1;i<items.length;i++){
-    if(items[i].y-items[i-1].y < minGap) items[i].y = items[i-1].y + minGap;
+  // Neighbours are pushed UP (never down): a label floats above its own line, and sliding one down would put its white pill over the thin lines below it.
+  for(let i=items.length-2;i>=0;i--){
+    if(items[i+1].y-items[i].y < minGap) items[i].y = items[i+1].y - minGap;
   }
+  if(items[0].y < top) { const under=top-items[0].y; items.forEach(it=>it.y += under); }   // only if the stack no longer fits above the plot's top edge
   const overflow = items[items.length-1].y - bottom;
   if(overflow>0) items.forEach(it=>it.y -= overflow);
-  if(items[0].y < top) { const under=top-items[0].y; items.forEach(it=>it.y += under); }
   items.forEach(it=>{
     ctx.font=it.font; ctx.fillStyle=it.color; ctx.textAlign=it.align||'right'; ctx.textBaseline='middle';
     if(it.pill){   // small white pill behind the label, so it reads on any band color
@@ -57,11 +58,11 @@ const incomeOverlayPlugin={
         const yPx=y.getPixelForValue(ln.magi);
         if(yPx<top||yPx>bottom) return;
         const lineCol = BRACKET_COLOR;
-        ctx.beginPath(); ctx.setLineDash(IRMAA_DASH); ctx.lineWidth=3.6; ctx.strokeStyle=BRACKET_HALO;   // white halo under the ink line
-        ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke();
-        ctx.beginPath(); ctx.lineWidth=1.6; ctx.strokeStyle=lineCol;
-        ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke(); ctx.setLineDash([]);
-        bucket.push({y:yPx-5,x:Math.min(right,xb)-3,text:ln.pct!=null ? `$${(ln.magi/1000).toFixed(0)}k +${ln.pct}%` : `IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,pill:true,font:(ln.pct!=null?'9px':'10px')+' DM Sans,sans-serif'});
+        // thin solid ink line with a thin white line of the same width stacked directly above it
+        ctx.setLineDash([]); ctx.lineWidth=THIN_W; ctx.lineCap='butt';
+        ctx.beginPath(); ctx.strokeStyle=lineCol; ctx.moveTo(xa,yPx); ctx.lineTo(xb,yPx); ctx.stroke();
+        ctx.beginPath(); ctx.strokeStyle='#fff'; ctx.moveTo(xa,yPx-THIN_W); ctx.lineTo(xb,yPx-THIN_W); ctx.stroke();
+        bucket.push({y:yPx-LINE_LABEL_LIFT,x:Math.min(right,xb)-3,text:ln.pct!=null ? `$${(ln.magi/1000).toFixed(0)}k +${ln.pct}%` : `IRMAA ${ln.label} >$${(ln.magi/1000).toFixed(0)}k`,color:lineCol,pill:true,font:(ln.pct!=null?'9px':'10px')+' DM Sans,sans-serif'});
       });
     }
     drawLines(opts.irmaaMFJ,0,Math.min(swIdx,n)-1,leftLabels);
@@ -89,10 +90,10 @@ const ordLabelPlugin={
       if(li<0) return;
       const py=y.getPixelForValue(ds.data[li]); if(py<chartArea.top||py>chartArea.bottom) return;
       const px=Math.min(chartArea.right-2, x.getPixelForValue(li));
-      items.push({y:py-7, x:px-2, text:ds.ordLabel, color:BRACKET_COLOR, pill:true, font:'10px DM Sans,sans-serif'});
+      items.push({y:py-LINE_LABEL_LIFT, x:px-2, text:ds.ordLabel, color:BRACKET_COLOR, pill:true, font:'10px DM Sans,sans-serif'});
     });
     ctx.save();
-    declutterLabels(ctx, items, chartArea.top+6, chartArea.bottom-6, 11);
+    declutterLabels(ctx, items, chartArea.top+6, chartArea.bottom-6, 13);
     ctx.restore();
   }
 };
@@ -100,6 +101,36 @@ if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('ordLabels')) Chart
 
 // White halo under a straight line dataset flagged `halo:true` (the bracket and deduction lines), drawn just before the line itself so the line
 // stays readable over any band color.
+// Traces a dataset's drawn line (straight or curved) shifted down by dy pixels.
+function traceLine(ctx, meta, curved, dy){
+  ctx.beginPath(); let prev=null;
+  meta.data.forEach(pt=>{
+    if(pt.skip||pt.y==null||isNaN(pt.y)){ prev=null; return; }
+    if(!prev) ctx.moveTo(pt.x,pt.y+dy);
+    else if(curved&&prev.cp2x!=null&&pt.cp1x!=null) ctx.bezierCurveTo(prev.cp2x,prev.cp2y+dy,pt.cp1x,pt.cp1y+dy,pt.x,pt.y+dy);
+    else ctx.lineTo(pt.x,pt.y+dy);
+    prev=pt;
+  });
+}
+// Line datasets flagged `thin:true` (bracket, deduction and effective-tax-rate lines): a thin white line of the same width is drawn directly above the line and a slightly wider
+// white halo centered under it, BEFORE the colored line, so the colored line always stays on top: on a steep slope a white line drawn after it (and shifted only vertically)
+// would cover it almost completely.
+const thinLinePlugin={
+  id:'thinLine',
+  beforeDatasetDraw(chart,args){
+    const ds=chart.data.datasets[args.index]; if(!ds||!ds.thin||!chart.isDatasetVisible(args.index)) return;
+    const {ctx,chartArea}=chart, meta=args.meta, curved=(ds.tension||0)>0, w=ds.borderWidth||THIN_W;
+    if(curved&&meta.dataset&&meta.dataset.updateControlPoints){ try{ meta.dataset.updateControlPoints(chartArea, meta.iScale&&meta.iScale.axis); }catch(e){} }
+    ctx.save();
+    ctx.beginPath(); ctx.rect(chartArea.left,chartArea.top,chartArea.right-chartArea.left,chartArea.bottom-chartArea.top); ctx.clip();
+    ctx.strokeStyle='#fff'; ctx.lineJoin='round'; ctx.setLineDash([]);
+    ctx.lineWidth=w+2; traceLine(ctx, meta, curved, 0); ctx.stroke();        // halo: contrast on steep slopes
+    ctx.lineWidth=w; traceLine(ctx, meta, curved, -w); ctx.stroke();         // the white line stacked directly above
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('thinLine')) Chart.register(thinLinePlugin);
+
 const lineHaloPlugin={
   id:'lineHalo',
   beforeDatasetDraw(chart,args){

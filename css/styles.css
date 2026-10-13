@@ -80,6 +80,16 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
    card), so a rigid 1fr/1fr grid squeezed every field to ~50px and clipped inputs/labels.
    auto-fit+minmax lets fields collapse to one column whenever the available width can't fit two. */
 .portfolio-card,.rental-card,.annuity-card{background:var(--bg);}
+/* Inheritance card: imported source files, the % inherited per asset, and fields changed from their inherited value */
+.inh-src{background:var(--bg);}
+.inh-assets{display:flex;flex-direction:column;gap:6px;margin-top:8px;grid-column:1/-1;}
+.inh-asset{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;}
+.inh-asset-name{font-size:12px;min-width:0;overflow-wrap:anywhere;}
+.inh-asset-name .item-note{margin-top:2px;}
+.inh-pct{display:flex;align-items:center;gap:4px;flex:0 0 auto;}
+.inh-pct input{width:64px;}
+.inh-badge{font-size:11px;color:var(--text-muted);}
+.inh-changed{background:#e2e2e2 !important;color:#111 !important;}
 .portfolio-fields,.rental-fields,.annuity-fields{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
 /* The list of portfolio cards must stack vertically (one per row) — there isn't room to fit two
    full cards side by side once nested inside a person column, and forcing 2 columns squeezed
@@ -228,6 +238,9 @@ body.chart-dragging .chart-cell{border-color:var(--border-strong);}
 .pair{display:flex;gap:10px;align-items:center;min-width:0;}
 .pair input[type=range]{flex:1 1 auto;min-width:0;}
 .pair input[type=number]{flex:0 0 120px;width:120px;}
+.pair input[type=number].money{flex:0 0 96px;width:96px;min-width:0;}   /* 7 digits is enough; the rest of the row goes to the slider */
+.item-head.wrap{flex-wrap:wrap;}
+.item-head.wrap .item-head-right{flex-wrap:wrap;}
 
 /* ── Print (js/display/print.js expands every Hide for the duration of the print; screen is unaffected) ──
    body.printing-all exists ONLY between beforeprint and afterprint, so these rules are plain (not inside @media print):

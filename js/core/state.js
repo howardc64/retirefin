@@ -47,7 +47,8 @@ function defaultBrokeragePortfolio(balance, n){
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25};
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25,
+    inh:null, startYear:null};   // inh/startYear: set only on a portfolio created by the Inheritance card (input/inheritance.js): {file,key,base} and the calendar year it enters the plan
 }
 // Real estate asset (per person, any number): a passive asset with no income stream — no dividends, tax-exempt yield, foreign credit, AUM fee,
 // type (IDGT) or expense funding. `balance` = value today ($, today's $) entered AFTER TAX, counting any gain covered by an exemption (e.g. the
@@ -59,7 +60,7 @@ function defaultRealEstate(n){
   // exempt: gain excluded from tax per living owner when sold, today's $ (e.g. the $250,000 home-sale exclusion); a jointly owned property counts both owners while both live.
   // sellMode: when the property is sold ('never' default | 'ltc' = the year the last person starts LTC | 'passing' = the year of the last passing | 'age' = the owner reaches `sellAge`);
   // sellTo: id of the brokerage portfolio that receives the value and cost basis ('' = automatic: the owner's first non-IDGT portfolio, then the spouse's).
-  return {id:uid(), enabled:true, hidden:false, name:'', balance:0, basis:null, exempt:0, growth:defaultChange('inflation',0), bene:false, sellMode:'never', sellAge:80, sellTo:''};
+  return {id:uid(), enabled:true, hidden:false, name:'', balance:0, basis:null, exempt:0, growth:defaultChange('inflation',0), bene:false, sellMode:'never', sellAge:80, sellTo:'', inh:null, startYear:null};   // inh/startYear: as on a brokerage portfolio (Inheritance card)
 }
 function reBasisEntered(r){ return !!r && r.basis!=null && r.basis!=='' && Number.isFinite(Number(r.basis)); }
 // Annuity (per person, any number): `value` = current account value (today's $), `premium` = cost basis / premium paid ($, blank = value,
@@ -81,6 +82,21 @@ function defaultAnnuity(n){
 function defaultRental(n){
   return Object.assign(defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0), {id:uid(), enabled:true, hidden:false, name:'', depreciation:0});
 }
+// Inherited IRA (Inheritance card, js/input/inheritance.js): a pre-tax ('ira') or Roth ('roth') IRA inherited from another plan. `balance` = value when it
+// arrives (today's $), `startYear` = calendar year it arrives (the last passing in the source plan), `growth` = annual change. It is always empty by the end of the
+// 10th year after arrival. There is no withdraw option: `rmdStarted` (set automatically from the source plan on import; true = the deceased had already started RMDs)
+// makes the current holder take an RMD every year by the holder's own age (the surviving spouse's, once the spouse takes over) until year 10 empties it; with
+// `rmdStarted` false (and always for a Roth IRA) nothing is forced until year 10. Not editable. Saves without the field behave as true (the earlier behaviour).
+
+// `inh` = {file,key,base} (where it came from and the inherited values, so edits can be flagged and survive a re-import).
+function defaultInheritedIra(){
+  // It carries the parameters of the matching Pre-tax IRA / Roth IRA card that an inherited IRA can really have: `bene` (the spouse takes it over when its holder passes; the
+// 10-year deadline does not move) and, pre-tax only, the annual-withdraw fields (conv, convMode, convIrmaaPct, convOrdPct, convStartMode, convStart, convStartBracket,
+// convStartItemized). Not available, so not offered: a start / end age range (everything starts when it is inherited and ends by year 10) and IRA stretch (never beyond 10 years,
+// whoever inherits it next).
+return {id:uid(), enabled:true, hidden:false, name:'', kind:'ira', balance:0, startYear:null, growth:defaultChange('offset',3), rmdStarted:true,
+    bene:false, conv:0, convToRoth:false, convMode:'fixed', convIrmaaPct:40, convOrdPct:32, convStartMode:'now', convStart:0, convStartBracket:24, convStartItemized:35000, inh:null};
+}
 function defaultPerson(idx){
   const by = THIS_YEAR - (idx===0?63:61);
   return{
@@ -94,8 +110,10 @@ function defaultPerson(idx){
     annuities: [],   // any number of annuities (see defaultAnnuity); Add/Remove on the Annuity card
     rentals: [],   // any number of rental properties (see defaultRental); Add/Remove on the Rental income card
     brokerage:[],
+    inhIras:[],   // inherited pre-tax / Roth IRAs (see defaultInheritedIra); created and removed by the Inheritance card
+    inheritance:{sources:[], hidden:true},   // Inheritance card (starts hidden = body collapsed): one entry per imported plan file {id,file,importedAt,startYear,assets:[{key,type,label,value,snap,pct}]} (js/input/inheritance.js)
     realEstate:[],   // any number of real estate assets (see defaultRealEstate); Add/Remove on the Real estate card
-    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, convMode:'fixed', convIrmaaPct:40, convOrdPct:32, convStartMode:'rmd', convStart:0, convStartBracket:24, convStartItemized:35000, stretch:false},   // convMode: 'fixed' ($/yr, today's $ = conv) or 'bracket' (convert as much as fits BELOW the IRMAA bracket and the ordinary bracket chosen with the sliders; stops in CONV_*_STOPS, null = no limit); convStartMode: 'rmd' (conversions begin at the IRA's Start / RMD age), 'now', 'custom' (uses convStart), or a trigger that starts conversions the first year it is met and keeps them going: 'bracket' (taxable ordinary income before any conversion is below the convStartBracket % bracket), 'itemized' (itemized deductions before any conversion exceed convStartItemized, today's $) or 'ltc' (the first LTC start)
+    ira:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), ar:defaultAgeRange('rmd',0,'passing',0), bene:false, conv:0, convToRoth:true, convMode:'fixed', convIrmaaPct:40, convOrdPct:32, convStartMode:'rmd', convStart:0, convStartBracket:24, convStartItemized:35000, stretch:false},   // conv* = the ANNUAL WITHDRAW from this pre-tax IRA (formerly "annual Roth conversion"); convToRoth: true (default) = the withdraw is a Roth conversion (goes into the Roth IRA), false = an ordinary withdrawal (taxed, spendable cash). convMode: 'fixed' ($/yr, today's $ = conv) or 'bracket' (convert as much as fits BELOW the IRMAA bracket and the ordinary bracket chosen with the sliders; stops in CONV_*_STOPS, null = no limit); convStartMode: 'rmd' (conversions begin at the IRA's Start / RMD age), 'now', 'custom' (uses convStart), or a trigger that starts conversions the first year it is met and keeps them going: 'bracket' (taxable ordinary income before any conversion is below the convStartBracket % bracket), 'itemized' (itemized deductions before any conversion exceed convStartItemized, today's $) or 'ltc' (the first LTC start)
     roth:{enabled:false, hidden:true, balance:0, growth:defaultChange('offset',3), bene:false, stretch:false}
   };
 }
@@ -146,7 +164,7 @@ function normalizeChartPos(p, cols){
 // The Expenses and Tax & Optimizations panels each have a Hide box for the whole panel (assumpHide.expenses / assumpHide.taxOpt, default hidden), and every feature inside is a card with its own Hide box (default hidden); General has one for the whole panel (default shown).
 const ASSUMP_HIDE_DEFAULT={general:false, expenses:true, taxOpt:true, ltc:true, withdraw:true, aum:true, stateTax:true, scgl:true, swap:true, pfWithdraw:true, futureTax:true};
 // Display order of the income-source cards (`state.ui.incomeOrder`), shared by every person column so married spouses reorder together.
-const INCOME_CARD_KEYS=['wage','ss','pension','rental','brokerage','realestate','annuity','ira','roth'];
+const INCOME_CARD_KEYS=['wage','ss','pension','rental','brokerage','realestate','annuity','ira','roth','inhira','inheritance'];
 // A saved order is kept as far as it is valid: unknown / duplicate keys are dropped and any card missing from it (e.g. one added
 // after the save was written) is appended in its default position order.
 function normalizeIncomeOrder(o){
@@ -272,6 +290,10 @@ function hydrateState(loaded){
       if(lr.enabled || Number(lr.amount)>0 || Number(lr.depreciation)>0) p.rentals=[Object.assign(defaultRental(1), lr, {id:uid(), name:'', hidden:!!lr.hidden, enabled:!!lr.enabled})];
     }
     p.rentals=p.rentals.map(r=>merge(r, defaultRental(0)));
+    if(!Array.isArray(p.inhIras)) p.inhIras=[];
+    p.inhIras=p.inhIras.map(x=>{ const y=merge(x, defaultInheritedIra()); y.convToRoth=false; return y; });   // an inherited IRA can never be converted to a Roth IRA
+    if(!p.inheritance||!Array.isArray(p.inheritance.sources)) p.inheritance={sources:[]};
+    if(typeof p.inheritance.hidden!=='boolean') p.inheritance.hidden=true;   // the Inheritance card starts collapsed (also for older saves)
     if(!Array.isArray(p.annuities)) p.annuities=[];
     p.annuities=p.annuities.map(a=>merge(a, defaultAnnuity(0)));
     if(!Array.isArray(p.realEstate)) p.realEstate=[];

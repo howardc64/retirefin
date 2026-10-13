@@ -3,7 +3,7 @@
 // DISPLAY / IRA CHART + LTCG CHART — two stacked charts of annual dollar flows (today's $), each broken down by individual source.
 //
 //   IRA chart   (`charts.ira`,  #iraChart)  Pre-tax IRA money that leaves each person's IRA this year, as three stacked kinds per person:
-//                 Roth conversion  (row.rothConvByPerson — the withdraw on top of the RMD that moves into the Roth IRA),
+//                 Annual withdraw  (row.rothConvByPerson — the withdraw on top of the RMD; it moves into the Roth IRA when the card's "Withdraw is Roth conversion" box is ticked),
 //                 RMD              (row.iraByPerson — the required minimum distribution), and
 //                 expense withdraw (row.iraExpByPerson — drawn to pay a shortfall in household expenses).
 //               All three are taxed as ordinary income. Married: one band per person per kind (the person's name is in the band's label).
@@ -14,7 +14,7 @@
 // when there is nothing to draw (setChartAvailable) — no pre-tax IRA, or no portfolio / property that could be sold.
 // ═══════════════════════════════════════════════════════════════
 const IRA_KIND_ORDER=[   // bottom → top of the stack
-  {kind:'conv', field:'rothConvByPerson', title:'Roth conversion',    color:()=>VZ.iraW},
+  {kind:'conv', field:'rothConvByPerson', title:'Annual withdraw',    color:()=>VZ.iraW},
   {kind:'rmd',  field:'iraByPerson',      title:'RMD',                color:()=>VZ.rmd},
   {kind:'wd',   field:'iraExpByPerson',   title:'Pre-tax IRA withdraw (for expenses)', color:()=>VZ.iraExp}
 ];
@@ -85,7 +85,7 @@ function buildIraChart(){
       plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(tip)} },
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("IRA RMD, withdraw & Roth conversion (today's $)"),ticks:yAxisTicks,grid:AXIS_GRID}
+        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("IRA RMD & withdraw (today's $)"),ticks:yAxisTicks,grid:AXIS_GRID}
       }
     })});
 }

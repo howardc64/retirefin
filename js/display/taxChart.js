@@ -58,7 +58,6 @@ function buildTaxChart(){
       t+=alignedFtc[i]||0;
       maxV=Math.max(maxV,t);
       if(alignedStateTop[i]!=null) maxV=Math.max(maxV,alignedStateTop[i]);
-      if(viewIrmaaAsTax && alignedIrmaaTop[i]!=null) maxV=Math.max(maxV,alignedIrmaaTop[i]);
     }
     return Math.ceil(Math.max(maxV,1)/2000)*2000+4000;
   });
@@ -79,7 +78,7 @@ function buildTaxChart(){
     {label:'Foreign tax credit', data:alignedFtc, borderColor:VZ_TAX.ftc, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'tax', order:2},
     // §9.4: rate lines are overlaid "on top of other graph objects (but below tooltip)" — a lower
     // Chart.js `order` value draws on top of higher ones, so these get order:1/0 vs. order:2 above.
-    {label:'Effective tax rate', data:alignedEff, halo:true, borderColor:VZ_TAX.effRate, backgroundColor:'transparent', borderWidth:3, borderDash:[10,4,2,4], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:1},
+    {label:'Effective tax rate', data:alignedEff, thin:true, borderColor:VZ_TAX.effRate, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:1},
   ];
 
   if(alignedState.some(v=>v>0)){
@@ -131,7 +130,7 @@ function buildTaxChart(){
         lines.push(mrow('  Rental', fmt(r.rental)+'/yr'));
         if(r.annuity>0) lines.push(mrow('  Annuity payouts (taxable part)', fmt(r.annuity)+'/yr'));
         lines.push(mrow('  IRA RMD', fmt(r.iraTotal)+'/yr'));
-        if(r.rothConvTotal>0) lines.push(mrow('  Pre-tax IRA withdraw (Roth conversion)', fmt(r.rothConvTotal)+'/yr'));
+        if(r.rothConvTotal>0) lines.push(mrow('  Pre-tax IRA withdraw'+(r.rothInTotal>0.005?(r.rothInTotal>=r.rothConvTotal-0.005?' (Roth conversion)':' (part Roth conversion)'):''), fmt(r.rothConvTotal)+'/yr'));
         if(r.iraExpTotal>0) lines.push(mrow('  Pre-tax IRA withdraw (for expenses)', fmt(r.iraExpTotal)+'/yr'));
         lines.push(mrow('  Ordinary (non-qualified) dividends', fmt(r.odivNQ)+'/yr'));
         lines.push(mrow('  Qualified dividends (QDIV)', fmt(r.qdiv)+'/yr'));

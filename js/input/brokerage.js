@@ -14,9 +14,10 @@ function buildBrokerageCard(pid, i, p, married){
       </div>
       <div class="item-body open portfolio-list">
         ${portfolios.length?portfolios.map((b,bi)=>`
-          <div class="item portfolio-card" style="margin:0;padding:10px 11px">
+          <div class="item portfolio-card"${b.inh?` data-inh-card="brokerage|${i}|${bi}"`:''} style="margin:0;padding:10px 11px">
             ${cardHeader(`<span class="pf-title" style="font-size:12px">${escHtml((b.name&&b.name.trim())||('Portfolio '+(bi+1)))}</span>`, pid+'.brokerage.'+bi+'.enabled', b.enabled!==false, pid+'.brokerage.'+bi+'.hidden', !!b.hidden, `<button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="removeBrokerage(${i},${bi})">Remove</button>`)}
             <div class="item-body ${b.hidden?'':'open'} portfolio-fields">
+              ${inhYearField(pid+'.brokerage.'+bi, b)}
               <div class="field full"><label>Portfolio type</label><select onchange="onPortfolioType(${i},${bi},this.value)"><option value="living" ${b.type!=='idgt'?'selected':''}>Living expense &amp; income</option><option value="idgt" ${b.type==='idgt'?'selected':''}>IDGT</option></select><div class="item-note" style="margin-top:4px">${b.type==='idgt'?'IDGT: outside the taxable estate (charted separately, keeps carryover basis); does not pay household expenses, receive excess income or bear the AUM fee.':'Living expense &amp; income: its dividends, then asset sales, pay household expenses; excess household income is reinvested into it.'}</div></div>
               <div class="field full"><label>Portfolio name</label><input type="text" maxlength="40" placeholder="Portfolio ${bi+1}" value="${escAttr(b.name||'')}" oninput="onPortfolioName('${pid}',${bi},this.value,this)"></div>
               ${renderAgeRangeRow(pid+'.brokerage.'+bi+'.ar', b.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}

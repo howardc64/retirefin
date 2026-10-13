@@ -5,7 +5,7 @@
 // Total Income Tax chart. Reads projection rows only (§4.6 row schema:
 // expLiving, expTax, expIrmaa, expAum, expTotal + the funding split).
 // ═══════════════════════════════════════════════════════════════
-const VZ_EXP = { living:'#3F7CAC', tax:'#C8600A', irmaa:'#D9A21B', aum:'#7B3FBE', ltc:'#B5384B' };
+const VZ_EXP = { living:'#3F7CAC', tax:'#C8600A', irmaa:'#17A398', aum:'#7B3FBE', ltc:'#B5384B' };
 // Bottom → top stack order.
 const EXP_KEYS=['expLiving','expLtc','expTax','expIrmaa','expAum'];
 const EXP_LABELS={expLiving:'Living expenses', expLtc:'Long Term Care', expTax:'Income tax (tax drag)', expIrmaa:'IRMAA surcharge', expAum:'AUM fee'};

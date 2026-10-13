@@ -11,7 +11,7 @@ function renderIncomeForms(){
   // SS, pension, rental, ODIV, QDIV, LTCG, IRA), so both columns
   // always have the same row count; this lets the two-column grid below use
   // CSS subgrid to keep every income type's top edge aligned across people.
-  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*annuity*/ + 1 /*brokerage*/ + 1 /*real estate*/ + 1 /*ira*/ + 1 /*roth*/;
+  const rowCount = 1 /*name header*/ + 2 /*wage+ss*/ + 1 /*pension*/ + 1 /*rental*/ + 1 /*annuity*/ + 1 /*brokerage*/ + 1 /*real estate*/ + 1 /*ira*/ + 1 /*roth*/ + 1 /*inherited IRA*/ + 1 /*inheritance*/;
 
   let html='';
   for(let i=0;i<n;i++){
@@ -21,7 +21,8 @@ function renderIncomeForms(){
     const builders={
       wage:()=>buildWageCard(pid, p), ss:()=>buildSSCard(pid, p, i, married), pension:()=>buildPensionCard(pid, p),
       rental:()=>buildRentalCard(pid, p), brokerage:()=>buildBrokerageCard(pid, i, p, married), realestate:()=>buildRealEstateCard(pid, i, p, married), annuity:()=>buildAnnuityCard(pid, i, p, married),
-      ira:()=>buildIraCard(pid, p, married), roth:()=>buildRothCard(pid, p, married)
+      ira:()=>buildIraCard(pid, p, married), roth:()=>buildRothCard(pid, p, married),
+      inhira:()=>buildInhIraCard(pid, i, p, married), inheritance:()=>buildInheritanceCard(pid, i, p, married)
     };
     // Card order is state.ui.incomeOrder, the same for every person column (drag a card's ⋮⋮ handle to reorder; see below).
     normalizeIncomeOrderInState().forEach(key=>{ html+=dndCard(key, builders[key]()); });
@@ -34,6 +35,7 @@ function renderIncomeForms(){
   // state-derived one — e.g. a Hide box that is checked while its card is open.
   incomeEl.innerHTML=html.replace(/<input /g,'<input autocomplete="off" ');
   initIncomeDnd(incomeEl);
+  initInheritedMarks(incomeEl); markInheritedChanges(incomeEl);   // light grey on fields changed from their inherited value (inheritance.js)
   if(typeof renderWithdrawOrderPanel==='function') renderWithdrawOrderPanel();   // its asset list follows the portfolios / properties just built
 }
 
@@ -58,6 +60,33 @@ function moveIncomeCard(order, key, targetKey, before){
   return out;
 }
 let _dnd={key:null, target:null, before:true, wired:null};
+// Auto-scroll while an income card is dragged (same behaviour as dragging a chart panel, chartPanels.js): near the top or bottom edge of the scrolling area that
+// holds the cards (or of the window, when the page itself scrolls) it scrolls that way, faster the closer the pointer is to the edge, so a card can be dropped above
+// or below what is on screen. The loop keeps running while the pointer rests in the edge zone (dragover stops firing then in some browsers).
+let _dndY=null, _dndRaf=0;
+function dndScrollTarget(root){
+  for(let el=root; el&&el!==document.body&&el!==document.documentElement; el=el.parentElement){
+    if(el.scrollHeight>el.clientHeight+1&&/auto|scroll/.test(getComputedStyle(el).overflowY)) return el;
+  }
+  return null;   // the window scrolls
+}
+function dndAutoScrollStep(){
+  _dndRaf=0;
+  if(!_dnd.key||_dndY==null) return;
+  const root=document.getElementById('perPersonIncome'), col=root?dndScrollTarget(root):null;
+  const top=col?Math.max(0,col.getBoundingClientRect().top):0, bottom=col?Math.min(window.innerHeight,col.getBoundingClientRect().bottom):window.innerHeight;
+  const ZONE=70, MAX=22;
+  let dy=0;
+  if(_dndY<top+ZONE) dy=-Math.ceil(MAX*Math.min(1,(top+ZONE-_dndY)/ZONE));
+  else if(_dndY>bottom-ZONE) dy=Math.ceil(MAX*Math.min(1,(_dndY-(bottom-ZONE))/ZONE));
+  if(dy){ const before=col?col.scrollTop:null; if(col) col.scrollTop+=dy; if(!col||col.scrollTop===before) window.scrollBy(0,dy); }   // the container first; the window when it is at its end (or does not scroll)
+  _dndRaf=requestAnimationFrame(dndAutoScrollStep);
+}
+function dndStopScroll(){ _dndY=null; if(_dndRaf){ cancelAnimationFrame(_dndRaf); _dndRaf=0; } }
+if(!window._dndScrollWired){
+  window._dndScrollWired=true;
+  document.addEventListener('dragover',e=>{ if(_dnd.key){ _dndY=e.clientY; if(!_dndRaf) _dndRaf=requestAnimationFrame(dndAutoScrollStep); } });
+}
 function dndClear(root){
   root.querySelectorAll('.dnd-dragging,.dnd-over-top,.dnd-over-bottom').forEach(el=>el.classList.remove('dnd-dragging','dnd-over-top','dnd-over-bottom'));
 }
@@ -84,6 +113,7 @@ function initIncomeDnd(root){
     e.dataTransfer.effectAllowed='move';
     try{ e.dataTransfer.setData('text/plain',_dnd.key); e.dataTransfer.setDragImage(card,12,12); }catch(_){}
     requestAnimationFrame(()=>dndMark(root,_dnd.key,'dnd-dragging'));
+    _dndY=e.clientY; if(!_dndRaf) _dndRaf=requestAnimationFrame(dndAutoScrollStep);
   });
   root.addEventListener('dragover',e=>{
     if(!_dnd.key) return;
@@ -99,12 +129,12 @@ function initIncomeDnd(root){
     if(!_dnd.key) return;
     e.preventDefault();
     const key=_dnd.key, target=_dnd.target, before=_dnd.before;
-    _dnd.key=null; _dnd.target=null; dndClear(root);
+    _dnd.key=null; _dnd.target=null; dndClear(root); dndStopScroll();
     if(!target||target===key) return;
     state.ui.incomeOrder=moveIncomeCard(normalizeIncomeOrderInState(), key, target, before);
     renderIncomeForms(); saveDebounced();
   });
-  root.addEventListener('dragend',()=>{ _dnd.key=null; _dnd.target=null; dndClear(root); });
+  root.addEventListener('dragend',()=>{ _dnd.key=null; _dnd.target=null; dndClear(root); dndStopScroll(); });
 }
 
 function onSSStartedToggle(i,checked){ state.people[i].ss.started=checked; renderIncomeForms(); recompute(); saveDebounced(); }
@@ -203,10 +233,12 @@ function addRealEstate(i){
   renderIncomeForms(); recompute(); saveDebounced();
 }
 function removeRealEstate(i,ri){
+  inhDropEntryFor(state.people[i], state.people[i].realEstate[ri]);
   state.people[i].realEstate.splice(ri,1);
   renderIncomeForms(); recompute(); saveDebounced();
 }
 function removeBrokerage(i,bi){
+  inhDropEntryFor(state.people[i], state.people[i].brokerage[bi]);   // an inherited portfolio stays removed (its % goes to 0)
   state.people[i].brokerage.splice(bi,1);
   renderIncomeForms(); recompute(); saveDebounced();
 }

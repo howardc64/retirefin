@@ -4,16 +4,16 @@
 // with IRMAA-tier overlay (spec §8.3).
 // ═══════════════════════════════════════════════════════════════
 const VZ = {
-  pen:'#D06A18', ann:'#B8860B', annTE:'#8FBC8F', wg:'#7B5EA7', iraW:'#C79A3E', rmd:'#E85D9A', iraExp:'#8E3B5E', rothExp:'#5C6BC0', rent:'#A0522D', rentDep:'#D2A488', te:'#2A9D8F',
+  pen:'#D06A18', ann:'#B8860B', annTE:'#8FBC8F', wg:'#7B5EA7', iraW:'#C79A3E', rothIn:'#E07B00', rmd:'#E85D9A', iraExp:'#8E3B5E', rothExp:'#5C6BC0', inhIra:'#B03A8C', inhRoth:'#7E8CD8', rent:'#A0522D', rentDep:'#D2A488', te:'#2A9D8F',
   qdiv:'#2E86AB', odivNQ:'#1A5276', ltcg:'#6C3483',
   ssP0:'#0F6E56', ssOther:'#3DB08A'
 };
-const INC_KEYS=['pension','annuity','annuityTE','wageTotal','rothConv','iraTotal','iraExp','rental','rentDep','te','rothExp','qdiv','odivNQ','ltcg','ssP0','ssOther'];
-const INC_LABELS={pension:'Pension',annuity:'Annuity payout (taxable)',annuityTE:'Annuity payout (tax-exempt, untaxed)',wageTotal:'Wage',rothConv:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',iraExp:'Pre-tax IRA withdraw (for expenses)',rental:'Rental income',rentDep:'Rental depreciation (non-cash, untaxed)',te:'Tax-exempt income (untaxed)',rothExp:'Roth IRA withdraw (tax-exempt, untaxed)',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
-const INC_COLORS={pension:VZ.pen,annuity:VZ.ann,annuityTE:VZ.annTE,wageTotal:VZ.wg,rothConv:VZ.iraW,iraTotal:VZ.rmd,iraExp:VZ.iraExp,rental:VZ.rent,rentDep:VZ.rentDep,te:VZ.te,rothExp:VZ.rothExp,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
+const INC_KEYS=['pension','annuity','annuityTE','wageTotal','rothIn','rothConv','iraTotal','iraExp','rental','rentDep','te','rothExp','inhIra','inhRoth','qdiv','odivNQ','ltcg','ssP0','ssOther'];
+const INC_LABELS={pension:'Pension',annuity:'Annuity payout (taxable)',annuityTE:'Annuity payout (tax-exempt, untaxed)',wageTotal:'Wage',rothIn:'Roth conversion (taxed as ordinary income)',rothConv:'Pre-tax IRA withdraw',iraTotal:'IRA RMD',iraExp:'Pre-tax IRA withdraw (for expenses)',rental:'Rental income',rentDep:'Rental depreciation (non-cash, untaxed)',te:'Tax-exempt income (untaxed)',rothExp:'Roth IRA withdraw (tax-exempt, untaxed)',inhIra:'Inherited IRA withdraw (10-year rule)',inhRoth:'Inherited Roth IRA withdraw (10-year rule, untaxed)',qdiv:'Qual. dividends (QDIV)',ltcg:'Long-term gains (LTCG)',odivNQ:'Ordinary dividends (ODIV−QDIV)',ssP0:'',ssOther:''};
+const INC_COLORS={pension:VZ.pen,annuity:VZ.ann,annuityTE:VZ.annTE,wageTotal:VZ.wg,rothIn:VZ.rothIn,rothConv:VZ.iraW,iraTotal:VZ.rmd,iraExp:VZ.iraExp,rental:VZ.rent,rentDep:VZ.rentDep,te:VZ.te,rothExp:VZ.rothExp,inhIra:VZ.inhIra,inhRoth:VZ.inhRoth,qdiv:VZ.qdiv,ltcg:VZ.ltcg,odivNQ:VZ.odivNQ,ssP0:VZ.ssP0,ssOther:VZ.ssOther};
 // Maps a stacked income key to the per-person breakdown array on each projection row,
 // so the tooltip can attribute the amount to whichever person(s) it belongs to.
-const INC_BYPERSON_FIELD={pension:'pensionByPerson',annuity:'annuityByPerson',annuityTE:'annuityTEByPerson',wageTotal:'wageByPerson',rothConv:'rothConvByPerson',iraTotal:'iraByPerson',iraExp:'iraExpByPerson',rental:'rentalByPerson',rentDep:'rentalDepByPerson',te:'teByPerson',rothExp:'rothExpByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
+const INC_BYPERSON_FIELD={pension:'pensionByPerson',annuity:'annuityByPerson',annuityTE:'annuityTEByPerson',wageTotal:'wageByPerson',rothIn:'rothInByPerson',rothConv:'rothWdOnlyByPerson',iraTotal:'iraByPerson',iraExp:'iraExpByPerson',rental:'rentalByPerson',rentDep:'rentalDepByPerson',te:'teByPerson',rothExp:'rothExpByPerson',inhIra:'inhIraWdByPerson',inhRoth:'inhRothWdByPerson',qdiv:'qdivByPerson',ltcg:'ltcgByPerson',odivNQ:'odivNQByPerson'};
 // Single source of truth for the SS dataset labels, since they're read both
 // when building the stacked datasets (buildIncomeChart) and the legend HTML
 // (buildIncomeLegend). Must be refreshed before dataset construction on every
@@ -38,8 +38,9 @@ function buildIncomeChart(){
   const ages=rows.map(r=>r.age0);
   rows.forEach(r=>{
     seriesByKey.pension.push(r.pension); seriesByKey.annuity.push(r.annuity||0); seriesByKey.annuityTE.push(r.annuityTE||0); seriesByKey.wageTotal.push(r.wageTotal);
-    seriesByKey.rothConv.push(r.rothConvTotal);
-    seriesByKey.iraTotal.push(r.iraTotal); seriesByKey.iraExp.push(r.iraExpTotal||0); seriesByKey.rental.push(r.rental); seriesByKey.rentDep.push(r.rentalDep||0); seriesByKey.te.push(r.teIncome||0); seriesByKey.rothExp.push(r.rothExpTotal||0);
+    const rIn=Math.min(r.rothInTotal||0, r.rothConvTotal||0);   // the part of the annual pre-tax IRA withdraw that is a Roth conversion (ordinary income that moves into a Roth IRA)
+    seriesByKey.rothIn.push(rIn); seriesByKey.rothConv.push(Math.max(0,(r.rothConvTotal||0)-rIn));
+    seriesByKey.iraTotal.push(Math.max(0,r.iraTotal-(r.inhIraWd||0))); seriesByKey.inhIra.push(r.inhIraWd||0); seriesByKey.inhRoth.push(r.inhRothWd||0); seriesByKey.iraExp.push(r.iraExpTotal||0); seriesByKey.rental.push(r.rental); seriesByKey.rentDep.push(r.rentalDep||0); seriesByKey.te.push(r.teIncome||0); seriesByKey.rothExp.push(r.rothExpTotal||0);
     seriesByKey.qdiv.push(r.qdiv); seriesByKey.ltcg.push(r.ltcg);
     seriesByKey.odivNQ.push(r.odivNQ);
     seriesByKey.ssP0.push(r.ssByPerson[idxP0]||0);
@@ -161,7 +162,7 @@ function buildIncomeChart(){
   // Single after), each labeled with the bracket's MAGI value and the Part B premium % over standard.
   // Beneficiary pays 25% of the Part B cost at the standard tier and 35/50/65/80/85% at IRMAA tiers 1–5,
   // so the Part B premium is 40/100/160/220/240% above standard.
-  const mKeys=keys.filter(k=>k!=='rentDep'&&k!=='rothExp');   // Roth IRA withdraw is untaxed and not part of MAGI, like untaxed rental depreciation
+  const mKeys=keys.filter(k=>k!=='rentDep'&&k!=='rothExp'&&k!=='inhRoth');   // Roth IRA withdraw is untaxed and not part of MAGI, like untaxed rental depreciation
   const mSeries={}; mKeys.forEach(k=>mSeries[k]=[]);
   const taxSSPart=(r,idx)=>{ const tot=r.totalSS||0; return tot>0 ? (r.taxableSS||0)*((r.ssByPerson[idx]||0)/tot) : 0; };
   rows.forEach(r=>{
@@ -180,10 +181,6 @@ function buildIncomeChart(){
   const irmaaMFJ=IRMAA_MFJ.map((l,i)=>({...l,tier:i})).filter(l=>l.magi<YM);
   const irmaaSgl=IRMAA_SGL.map((l,i)=>({...l,tier:i})).filter(l=>l.magi<YM);
   const withPct=a=>a.map(l=>({...l,pct:IRMAA_PART_B_INCREASE[Math.min(l.tier,IRMAA_PART_B_INCREASE.length-1)]}));
-  // When the IRMAA lines would crowd each other (too many tiers inside the chart's Y range) only the top 3 are drawn on this small chart.
-  const irmaaKeep=crowdedBracketKeep([
-    rows.some(r=>r.filing==='married')?IRMAA_MFJ.map(l=>l.magi):null,
-    rows.some(r=>r.filing!=='married')?IRMAA_SGL.map(l=>l.magi):null], YM);
   // IRMAA lines only matter while someone is on (or about to be on) Medicare: this year's MAGI sets the premium two years later, so the
   // lines show from the year a living person is 63 (65 two years on, the same exposure rule the Roth-conversion IRMAA limit uses) until the last passing.
   let irmFrom=-1, irmTo=-1;
@@ -191,6 +188,11 @@ function buildIncomeChart(){
     const r=rowByAge[lb]; if(!r||!r.alive||!r.ages) return;
     if(r.alive.some((al,j)=>al&&r.ages[j]+2>=65)){ if(irmFrom<0) irmFrom=i; irmTo=i; }
   });
+  // Only the IRMAA lines nearest the MAGI stack (within the Medicare window above) are drawn, at most 3 per filing status: see crowdedBracketKeep.
+  const magiTops=fs=>{ const t=[]; for(let i=Math.max(irmFrom,0);i<=irmTo;i++){ const r=rowByAge[labels[i]]; if(r&&(r.filing==='married')===fs) t.push(r.magi!=null?r.magi:(r.agi||0)); } return t; };
+  const irmaaKeep=crowdedBracketKeep([
+    rows.some(r=>r.filing==='married')?{vals:IRMAA_MFJ.map(l=>l.magi), tops:magiTops(true)}:null,
+    rows.some(r=>r.filing!=='married')?{vals:IRMAA_SGL.map(l=>l.magi), tops:magiTops(false)}:null], YM);
   const magiOv={irmaaMFJ:withPct(irmaaMFJ.filter(l=>irmaaKeep.has(l.tier))),irmaaSgl:withPct(irmaaSgl.filter(l=>irmaaKeep.has(l.tier))),switchIdx:swIdx,
     fromIdx:irmFrom<0?labels.length:irmFrom, toIdx:irmTo};
   const magiDs=mKeys.map(k=>({
@@ -233,7 +235,7 @@ function buildIncomeChart(){
   // (brackets fill from the bottom too), so the bands are each source's taxable portion and they sum exactly to `ordTI`, which is what the Roth
   // conversion "below ordinary bracket" limit tests. Same X labels, Y scale and 1:1 ratio as the primary. Black dashed lines = ordinary bracket starts, labeled
   // with the rate that applies above them, for the filing status in force each year. A red dashed line marks the deduction stacked on top of the stack. The popup lists only the owners' ages, the deduction and the taxable ordinary income.
-  const ordOnlyKeys=['pension','annuity','wageTotal','rothConv','iraTotal','iraExp','rental','odivNQ','ssP0','ssOther'].filter(k=>mKeys.includes(k));
+  const ordOnlyKeys=['pension','annuity','wageTotal','rothIn','rothConv','iraTotal','inhIra','iraExp','rental','odivNQ','ssP0','ssOther'].filter(k=>mKeys.includes(k));
   const ordKeys=ordOnlyKeys;
   const taxPortion={}; ordKeys.forEach(k=>taxPortion[k]=[]);
   rows.forEach((r,ri)=>{
@@ -254,26 +256,27 @@ function buildIncomeChart(){
     borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'ord', order:3
   }));
   const nBrk=MFJ_ORD.length-1;
-  // When the bracket lines would crowd each other (too many inside the chart's Y range) only the top 3 are drawn.
+  // Only the bracket lines nearest the taxable-ordinary-income stack are drawn (at most 3 per filing status; none far above it in empty space or buried deep inside it): see crowdedBracketKeep.
+  const ordTops=fs=>rows.filter(r=>(r.filing==='married')===fs).map(r=>r.ordTI||0);
   const brkKeep=crowdedBracketKeep([
-    rows.some(r=>r.filing==='married')?MFJ_ORD.slice(0,nBrk).map(b=>b.lim):null,
-    rows.some(r=>r.filing!=='married')?SGL_ORD.slice(0,nBrk).map(b=>b.lim):null], YO);   // the top bracket (37%) has no upper limit, so there is no line above the 35% bracket's end
+    rows.some(r=>r.filing==='married')?{vals:MFJ_ORD.slice(0,nBrk).map(b=>b.lim), tops:ordTops(true)}:null,
+    rows.some(r=>r.filing!=='married')?{vals:SGL_ORD.slice(0,nBrk).map(b=>b.lim), tops:ordTops(false)}:null], YO);   // the top bracket (37%) has no upper limit, so there is no line above the 35% bracket's end
   // Every bracket line is ALWAYS a dataset (all-null when it is off the chart's scale or dropped by the crowding limit): a fixed dataset count lets Chart.js
   // update the chart in place, so a Rescale / scale change tweens the lines instead of rebuilding (and re-animating) the whole chart.
   for(let j=0;j<nBrk;j++){
     const vals=rows.map(r=>(r.filing==='married'?MFJ_ORD:SGL_ORD)[j].lim);
     const off=Math.min(...vals)>=YO||!brkKeep.has(j);   // off the chart's scale, or dropped by the crowding limit
     const rate=Math.round(MFJ_ORD[j+1].r*100)+'%';
-    ordDs.push({data:off?labels.map(()=>null):alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
-      borderDash:ORD_DASH, halo:true, borderColor:BRACKET_COLOR, stack:'ol'+j, order:0});
+    ordDs.push({data:off?labels.map(()=>null):alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:THIN_W, pointRadius:0, tension:0, fill:false, spanGaps:false,
+      borderDash:ORD_DASH, thin:true, borderColor:BRACKET_COLOR, stack:'ol'+j, order:0});
   }
   // Red dashed line: the deduction stacked on top of the taxable ordinary income, i.e. taxable ordinary income + the deduction absorbed (the same
   // "Deduction" the popup shows) = the year's gross ordinary income (`ordIncome`). The gap between the top of the stack and the line is the deduction.
   // Left out (null) in years where no deduction is absorbed. Its own stack key keeps it from stacking on the bands.
   const dedLine=rows.map(r=>{ const d=Math.max(0,(r.ordIncome||0)-(r.ordTI||0)); return d>0.5 ? (r.ordTI||0)+d : null; });
   const dedAmt=rows.map(r=>{ const d=Math.max(0,(r.ordIncome||0)-(r.ordTI||0)); return d>0.5?d:null; });   // the deduction itself (the line is plotted at taxable ordinary income + it)
-  ordDs.push({data:alignToAges(ages, dedLine, labels), ciValues:alignToAges(ages, dedAmt, labels), label:'Deduction', borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
-    borderDash:[7,4], halo:true, borderColor:DEDUCTION_COLOR, stack:'ded', order:0});
+  ordDs.push({data:alignToAges(ages, dedLine, labels), ciValues:alignToAges(ages, dedAmt, labels), label:'Deduction', borderWidth:THIN_W, pointRadius:0, tension:0, fill:false, spanGaps:false,
+    borderDash:[], thin:true, borderColor:DEDUCTION_COLOR, stack:'ded', order:0});
   const nStack=ordKeys.length;
   const ordTip={
     title:tooltipCallbacks.title,   // owners + ages
@@ -314,13 +317,17 @@ function buildIncomeChart(){
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
     borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'qual', order:3
   }));
+  const qTops=fs=>rows.filter(r=>(r.filing==='married')===fs).map(r=>(r.qdiv||0)+(r.ltcg||0));
   const nQ=MFJ_QDIV.length-1;   // the top tier (20%) has no upper limit, so the last line is where the 15% tier ends
+  const qKeep=crowdedBracketKeep([
+    rows.some(r=>r.filing==='married')?{vals:MFJ_QDIV.slice(0,nQ).map(b=>b.lim), tops:qTops(true)}:null,
+    rows.some(r=>r.filing!=='married')?{vals:SGL_QDIV.slice(0,nQ).map(b=>b.lim), tops:qTops(false)}:null], YQ);
   for(let j=0;j<nQ;j++){
     const vals=rows.map(r=>(r.filing==='married'?MFJ_QDIV:SGL_QDIV)[j].lim);   // the qualified bracket limit itself, for the filing status in force
-    const off=Math.min(...vals)>=YQ;   // off the chart's scale: all-null, but still a dataset (fixed dataset count, see the ordinary chart)
+    const off=Math.min(...vals)>=YQ||!qKeep.has(j);   // off the chart's scale, or too far from the data (see crowdedBracketKeep): all-null, but still a dataset (fixed dataset count, see the ordinary chart)
     const rate=Math.round(MFJ_QDIV[j+1].r*100)+'%';
-    qualDs.push({data:off?labels.map(()=>null):alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:2, pointRadius:0, tension:0, fill:false, spanGaps:false,
-      borderDash:QUAL_DASH, halo:true, borderColor:BRACKET_COLOR, stack:'ql'+j, order:0});
+    qualDs.push({data:off?labels.map(()=>null):alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:THIN_W, pointRadius:0, tension:0, fill:false, spanGaps:false,
+      borderDash:QUAL_DASH, thin:true, borderColor:BRACKET_COLOR, stack:'ql'+j, order:0});
   }
   const qualTip={
     title:tooltipCallbacks.title,   // owners + ages

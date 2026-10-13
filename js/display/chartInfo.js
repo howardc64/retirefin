@@ -24,19 +24,22 @@ const CI_INCOME=[
   [/^Annuity payout \(tax-exempt/, 'Tax-exempt part of an annuity payout (return of principal). It is cash income but is not taxed and, being a return of the owner\'s own premium, does not count toward provisional income or IRMAA MAGI.'],
   [/^Wage/, 'Wages or self-employment income. Taxed as ordinary income.'],
   [/^Pre-tax IRA withdraw \(for expenses\)/, 'Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.'],
-  [/^Pre-tax IRA withdraw/, 'Pre-tax IRA/401(k) withdrawal for a Roth conversion, set on the IRA card. Taxed as ordinary income; the converted amount then moves into the Roth IRA.'],
+  [/^Roth conversion/, 'The part of the annual pre-tax IRA/401(k) withdraw that is converted to a Roth IRA ("Withdraw is Roth conversion" ticked). It is taxed as ordinary income in the year it converts, so it counts toward AGI, MAGI (IRMAA), taxable Social Security and the ordinary tax brackets, but it moves into the Roth IRA and is not spendable. An inherited IRA cannot be converted.'],
+  [/^Pre-tax IRA withdraw/, 'Annual pre-tax IRA/401(k) withdrawal set on the IRA card (on top of the RMD), the part that is not a Roth conversion. Taxed as ordinary income and spendable as household cash.'],
   [/^IRA RMD/, 'Required minimum distribution from a pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income.'],
   [/^Rental income/, 'Taxable rental income, net of depreciation. Taxed as ordinary income.'],
   [/^Rental depreciation/, 'Non-cash depreciation on a rental property. It is cash you actually receive but is not taxed, so it is shown separately from the taxable rental income.'],
   [/^Tax-exempt income/, 'Tax-exempt income, e.g. municipal-bond interest paid out by a portfolio. Not taxed, but it counts toward household income, provisional income and IRMAA MAGI.'],
+  [/^Inherited IRA withdraw/, 'Withdrawal from a pre-tax IRA inherited through the Inheritance card. An inherited IRA must be emptied by the end of the 10th year after it was inherited. Taxed as ordinary income.'],
+  [/^Inherited Roth IRA withdraw/, 'Withdrawal from a Roth IRA inherited through the Inheritance card. It must be emptied by the end of the 10th year after it was inherited. Tax-free, so it adds nothing to AGI or MAGI.'],
   [/^Roth IRA withdraw/, 'Money withdrawn from a Roth IRA to pay household expenses. Tax-free, so it adds nothing to AGI.'],
   [/^Qual\. dividends/, 'Qualified dividends (QDIV) paid by your brokerage portfolios. Taxed at the preferential 0% / 15% / 20% rates, and part of net investment income.'],
   [/^Ordinary dividends/, 'The non-qualified part of portfolio dividends (ordinary dividends minus qualified dividends). Taxed as ordinary income and part of net investment income.'],
   [/^SCGL remaining/, "The suspended capital-gain loss (SCGL) carryforward still unused at the end of the year, in today's dollars. Realized long-term gains use it up dollar for dollar before they are taxed, so the line falls as gains are realized and ends when it is used up."],
   [/^Long-term gains/, 'Long-term capital gains realized when portfolio assets are sold (to pay expenses). Taxed at the preferential 0% / 15% / 20% rates, net of any short-term capital loss (SCGL) carry-forward used.']
 ];
-const CI_MAGI='This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the dashed IRMAA lines mark where each surcharge tier starts.';
-const CI_ORD='This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The dash-dot dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.';
+const CI_MAGI='This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.';
+const CI_ORD='This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.';
 const CI_EXP=[
   [/^Living expenses/, 'Household living expenses you entered, in today\'s dollars (reduced to the amount set for after the first Long Term Care starts, when LTC is modeled).'],
   [/^Long Term Care/, 'Long Term Care cost for each person while care is needed, as set in the LTC panel. It is the only expense that can be itemized (the part above 7.5% of AGI).'],
@@ -93,10 +96,12 @@ function ciDescribe(key, ds, kidx){
       if(k==='roth') return 'Roth IRA balance. Withdrawals are tax-free; it grows by market growth plus any Roth conversions.';
       if(k==='realestate') return 'Value of this property. It is passive (no income); its gain is taxed only if the property is sold.';
       if(k==='annuity') return 'Value of this annuity.';
+      if(k==='inhira') return 'An IRA inherited through the Inheritance card. It arrives in the start year, grows, and must be fully withdrawn by the end of the 10th year after that, even if it passes to a spouse. If the original owner had already started RMDs, the current holder takes an RMD every year by their own age (the spouse\'s, after a spouse takes over); otherwise nothing is required until year 10. Pre-tax withdrawals are taxed as ordinary income; Roth withdrawals are tax-free; a pre-tax one can also have an annual withdraw (optionally a Roth conversion into the holder\'s Roth IRA).';
       return null;
     }
     case 'ira': {
       if(/RMD/.test(label)) return 'Required minimum distribution from this person\'s pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income.';
+      if(/Annual withdraw/.test(label)) return 'Annual withdrawal from this person\'s pre-tax IRA, set on the IRA card (on top of the RMD). Taxed as ordinary income; it moves into their Roth IRA when "Withdraw is Roth conversion" is ticked, otherwise it is spendable cash.';
       if(/withdraw/i.test(label)) return 'Money withdrawn from this person\'s pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.';
       if(/Roth conversion/.test(label)) return 'Amount converted from this person\'s pre-tax IRA to their Roth IRA that year (a withdrawal on top of the RMD). The converted amount is taxed as ordinary income and then moves into the Roth IRA.';
       return null;
