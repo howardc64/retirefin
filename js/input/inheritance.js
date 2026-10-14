@@ -49,6 +49,10 @@ function inhExtractFromState(parent){
   const saved=state; let proj;
   state=parent;
   try{ proj=computeProjection(); } finally{ state=saved; }
+  return inhExtractFromProj(parent, proj);
+}
+// The same from a plan and its ALREADY computed projection (the live link publishes the running plan's own `lastProjection`: no second run).
+function inhExtractFromProj(parent, proj){
   if(!proj||!proj.rows.length) return null;
   const last=proj.rows[proj.rows.length-1], infl=parent.inflation;
   const startYear=THIS_YEAR+last.k+1;   // the first year with nobody alive
@@ -203,6 +207,7 @@ function inhApplySource(p, file, res){
   const pctOf={}; if(old) old.assets.forEach(a=>{ pctOf[a.key]=a.pct; });
   const src={id:old?old.id:uid(), file:old?old.file:file, importedAt:new Date().toISOString(), startYear:res.startYear,
     assets:res.assets.map(a=>({key:a.key, type:a.type, label:a.label, value:a.value, snap:a.snap, pct:pctOf[a.key]!=null?pctOf[a.key]:0}))};
+  if(old) ['live','liveId','liveName','liveHash','liveChain'].forEach(k=>{ if(old[k]!==undefined) src[k]=old[k]; });   // the live link (input/liveLink.js) survives a refresh
   if(old) p.inheritance.sources[p.inheritance.sources.indexOf(old)]=src; else p.inheritance.sources.push(src);
 }
 function inhRemoveSource(i, si){
@@ -310,6 +315,7 @@ function buildInheritanceCard(pid, i, p, married){
           <div class="item inh-src" style="margin:0;padding:10px 11px">
             <div class="item-head"><label><span style="font-size:12px"><strong>${escHtml(s.file)}</strong></span></label>
               <div class="item-head-right"><button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="inhRemoveSource(${i},${si})" title="Remove this file and every asset created from it">Remove</button></div></div>
+            ${typeof liveSourceHtml==='function'?liveSourceHtml(s,i,si):''}
             <div class="item-note">Last passing in <strong>${s.startYear}</strong>. Imported ${escHtml(new Date(s.importedAt).toLocaleDateString())}. Import the same file name again to update its assets.</div>
             ${s.assets.length?`<div class="inh-assets">${s.assets.map((a,ai)=>`
               <div class="inh-asset"><div class="inh-asset-name">${escHtml(a.label)}<div class="item-note">${inhMoney(a.value)} at the passing${a.type==='ira'?' · pre-tax: withdrawals taxed':a.type==='roth'?' · Roth: withdrawals untaxed':a.type==='pf'?' · basis stepped up':a.type==='re'?' · basis stepped up':''}</div></div>

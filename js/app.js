@@ -11,6 +11,7 @@ function recompute(){
   renderCharts();
   refreshWithdrawOrderPanel();   // asset names in the withdrawal-order card (assumptions.js)
   renderScenarioCard();   // Scenario card (scenarios.js): refreshed after every edit while it is open
+  if(typeof liveAfterRecompute==='function') liveAfterRecompute();   // live link (input/liveLink.js): publish this plan's inheritance snapshot when it changed
 }
 const recomputeDebounced = debounce(recompute, 80);
 const saveDebounced = debounce(autosave, 500);
@@ -67,8 +68,10 @@ function renderAll(){
   syncChartPanels();        // … then put every chart panel's Hide / position and the Scale buttons into the state held in state.ui
 }
 
-window.addEventListener('DOMContentLoaded', function(){
+window.addEventListener('DOMContentLoaded', async function(){
+  await claimPlanSlot();   // which autosave slot this tab uses (core/state.js): two open apps never share one
   if(!loadAutosave()){ state=defaultState(); }
   scnRestore();      // the other scenarios, if any were saved (scenarios.js)
   renderAll();
+  if(typeof liveInit==='function') liveInit();   // live link between two open plans (input/liveLink.js)
 });

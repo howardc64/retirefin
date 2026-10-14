@@ -313,3 +313,19 @@ body.printing-all canvas.print-swapped{display:none !important;}
 .assump-card > .item-body{margin-top:0;}
 .assump-card .item{margin-bottom:8px;}
 .assump-card .item:last-child{margin-bottom:0;}
+
+/* Live link bar (input/liveLink.js): always its own row under the top buttons, shown only while a live link exists. Steady colour = state (green connected, amber waiting);
+   a few pulses when it becomes active and a short flash on every update sent / received; reduced-motion users get a static outline instead of animation. */
+.livebar{margin-top:12px;padding:7px 14px;border-radius:8px;border:1px solid #9CCBA8;background:#E6F4EA;color:#1F5130;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:9px;transition:background .6s ease;}
+.livebar[hidden]{display:none;}
+.livebar .dot{flex:none;width:10px;height:10px;border-radius:50%;background:#1E9E4A;}
+.livebar.wait{border-color:#E0C27A;background:#FBF3DC;color:#6B4E00;}
+.livebar.wait .dot{background:#D49A00;}
+.livebar.flash{background:#BFE6CB;transition:none;}
+.livebar.attn{animation:liveAttn 1.2s ease-in-out 5;}
+.livebar.attn .dot{animation:liveDot 1.2s ease-in-out 5;}
+@keyframes liveAttn{0%,100%{box-shadow:0 0 0 0 rgba(30,158,74,0);}50%{box-shadow:0 0 0 7px rgba(30,158,74,.35);}}
+@keyframes liveDot{0%,100%{transform:scale(1);}50%{transform:scale(1.6);}}
+@media (prefers-reduced-motion:reduce){.livebar.attn,.livebar.attn .dot{animation:none;}.livebar.attn{outline:2px solid #1E9E4A;}}
+.live-src{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:11px;margin:2px 0 6px;}
+.live-src .live-status{flex:1 1 100%;min-width:0;overflow-wrap:anywhere;}

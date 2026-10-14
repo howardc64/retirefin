@@ -9,7 +9,7 @@
 // The set is kept in localStorage and written into the plan file by Save. The first scenario is always A; the plan is the same as before until a second one is created.
 // Nothing here changes how a plan is computed.
 // ═══════════════════════════════════════════════════════════════
-const SCN_STORAGE_KEY='retirementPlannerScenarios_v2';
+let SCN_STORAGE_KEY=planKeys(PLAN_INSTANCE).scn;   // set again by claimPlanSlot() (core/state.js) once the tab's slot is known
 const SCN_OLD_KEY='retirementPlannerAB_v1';     // previous two-scenario (A/B) format; read once and migrated
 const SCN_MAX=26;                               // letters A–Z
 let scnOrder=['A'];       // scenario ids in display order
