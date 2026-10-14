@@ -59,7 +59,7 @@ css/
 tests/
   check.js  snapshot.js  compare.js  baseline.json  README.md   (Node regression harness; not loaded by the app)
 js/
-  core/         constants.js  helpers.js  state.js
+  core/         constants.js  helpers.js  markdown.js  state.js
   compute/      socialSecurityCalc.js  rmd.js  tax.js  dates.js  ageRange.js
                 projection.js  whatIf.js
   input/        controls.js  household.js  assumptions.js  loadMenu.js
@@ -67,7 +67,7 @@ js/
                 brokerage.js  realEstate.js  ira.js  roth.js  inheritance.js  liveLink.js  incomeForms.js
   display/      chartHelpers.js  chartPanels.js  chartInfo.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  iraLtcgChart.js  inhIncomeChart.js  footer.js  print.js
-                formulasPage.js  mdPage.js  notesPage.js  usagePage.js  excelExport.js  scenarios.js  userNotes.js  chat.js
+                formulasPage.js  mdPage.js  excelExport.js  scenarios.js  userNotes.js  chat.js
   app.js
 misc/      Usage.md            (how to use the app; rendered to HTML by the Usage button, §6.10)
            Note4User.md        (user-facing tips; rendered to HTML by the Tips button, §6.10)
@@ -590,7 +590,7 @@ presentation is fine; new financial logic is not).
 | `chartMaxAge()` | The locked X-axis upper bound described above |
 | `charts` / `allCharts()` | **Chart registry**: one live Chart.js instance per key (`ss`, `income`, `incomeMagi`, `incomeOrd`, `incomeQual`, `tss`, `tax`, `taxOrd`, `taxQual`, `expense`, `asset`, `idgt`, `ira`, `ltcg`), `null` until first drawn. Chart files never declare their own chart variable; destroy/resize walk the registry, so adding a chart means adding a key here, not editing hand-written lists |
 | `upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, createOptions, refresh})` | The one create-or-update step every chart's builder ends with: the first call builds the chart from `createOptions()`; later calls update it via `updateChartInPlace`, set `scales.y.max`, apply the optional `refresh(options)` (per-render option changes, e.g. the income overlay), wrap `tooltip` in `justifyTip`, and `update()` — with animation suppressed (`update('none')`) while `window.liveDrag` is set, i.e. while a paired slider (§5.1) is being dragged, so charts follow the thumb without lag |
-| `chartYMax` / `lockedYMax(key, compute)` / `resetChartYMax()` / `niceMax(max, floor)` | Per-chart locked Y-max: computed once, then held; `resetChartYMax()` clears **all** keys (Reset to defaults, file load). Every one of the 13 charts has its own key and its own natural maximum |
+| `chartYMax` / `lockedYMax(key, compute)` / `niceMax(max, floor)` | Per-chart locked Y-max: computed once, then held; `restoreChartYMax()` sets every key from the plan being shown (null when it has none, so Reset to defaults and a file load re-fit). Every one of the charts has its own key and its own natural maximum |
 | `SCALE_LINK_GROUPS` / `applySameScale(name)` / `rescaleChart(key)` / `toggleScaleLink(name)` / `captureChartYMax()` / `restoreChartYMax()` | **Scales.** `SCALE_LINK_GROUPS` lists the charts each Same-scale button covers: `incomeExpense` = expense, income, MAGI, taxable ordinary, taxable qualified, IRA, LTCG, inhIncome; `tax` = exactly three charts: total tax, ordinary tax, QDIV/LTCG/NIIT tax (the Annual expenses chart has an income-tax component but counts as income & expense only, and Social Security tax is in no group); `incomeExpenseTax` = all of the income, expense and tax charts above (plus IRA, LTCG and Inheritance asset income); `asset` = asset value + IDGT. A button is a **one-shot action** (`toggleScaleLink` → `applySameScale`): every drawn chart of the group takes the group's largest current `chartYMax`; nothing stays linked afterwards. **Rescale** clears only that chart's lock. Cumulative household SS (`ss`) and SS tax (`tss`) are in no group; the asset & IDGT button leaves IRA, LTCG and SS tax out. A new plan's starting common scale (`DEFAULT_SAME_SCALE`) is the income, expense and tax charts only. The locked maxima are saved in `state.ui.chartYMax` (`captureChartYMax` at the end of `renderCharts`, `restoreChartYMax` at the start of `renderAll`). `renderCharts()` (app.js): when no income/expense/tax chart has a lock (new plan, Reset, older file) it runs a **dry pass** (`window.dryPass`) and applies `incomeExpenseTax` once so those charts start on one scale. Bracket / IRMAA line datasets on the taxable ordinary and qualified charts are always present (all-null when off-scale) so Chart.js updates in place |
 | `popupPersonAgeLines(proj, r)` / `alignToAges(ages, values, labels)` / `ageLabelRange(fromAge, toAge)` | Shared tooltip title (each person's age in the row, or "-" once passed); aligning a series to the locked age labels (missing ages → `null`); building the integer age-label array for the X axis |
 | `externalTooltip(context)` | Chart.js `external` tooltip handler used by every chart (title, body, afterBody and footer lines). Chart.js clips its built-in tooltip to the canvas, so this renders the same pre-padded lines (see `justifyTip`) into a floating monospace `<div>` that can overflow the chart, flips left near the window edge, and glides between positions with a CSS transition (appears in place when first shown) |
@@ -747,14 +747,9 @@ tax-year bracket update in `constants.js` (§3.1) is automatically reflected her
 Only the *formula prose* is hand-maintained (formulas change far less often than bracket numbers) —
 if you change a formula in §4, update its description on this page in the same change.
 
-### 6.10 `mdPage.js`, `usagePage.js`, `notesPage.js`
-`mdPage.js` is the shared Markdown viewer: `openMdPage(file, label)` opens a new tab, `fetch`es the `.md` file, converts it to HTML
-**at the moment of opening** with the small converter `mdToHtml()` (headings, bold/italic, inline code, fenced code, links, bullet/numbered lists **nested by indentation** (2+ spaces or a tab per level; `-` `*` `+` `•` markers; indented lines under an item continue it),
-blockquotes, rules, paragraphs — extend that function rather than adding a CDN library, so it keeps working offline), wraps it in
-`mdPageHtml(title, body, file, label)` and `document.write`s it; when `fetch` is blocked (a `file://` page) it writes an explanation instead.
-`usagePage.js` → `openUsagePage()` — the **Usage** button (topbar, immediately left of **Save**) shows `misc/Usage.md`.
-`notesPage.js` → `openNotesPage()` — the **Tips** button (right of **Formulas**) shows `misc/Note4User.md`.
-Editing either `.md` file needs no code change — the next click shows the new text.
+### 6.10 `core/markdown.js` and `mdPage.js` (Usage and Tips pages)
+**`core/markdown.js`** is the one Markdown → HTML converter of the app, `mdToHtml(md, opts)`: headings (each gets a GitHub-style slug `id`, so `[text](#slug)` links work), bold/italic, inline code, fenced code, links (a `javascript:` / `data:` URL is never made a link; `rel="noopener"`), **tables** (header row, `|---|---|` separator row, body rows; cells may use inline formatting but no `|`), bullet / numbered lists **nested by indentation** (2+ spaces or a tab per level; `-` `*` `+` `•` markers; indented lines under an item continue it), blockquotes, rules, paragraphs. Everything is HTML-escaped first. Options: `breaks` (a single newline is a `<br>`), `flatHeadings` (a heading is a bold paragraph), `tableWrap` (class of a scroll `<div>` around each table), `links:false`, `ids:false`. Extend this function rather than adding a CDN library, so it keeps working offline. It has two users: the pages below (defaults) and the chat bubbles (`chatMarkdown()` in `chat.js`: `breaks`, `flatHeadings`, `tableWrap:'chat-tablewrap'`, `links:false`, because a model reply is untrusted).
+**`mdPage.js`** is the shared page viewer: `openMdPage(file, label)` opens a new tab, `fetch`es the `.md` file, converts it **at the moment of opening**, wraps it in `mdPageHtml(title, body, file, label)` (page styles incl. tables) and `document.write`s it; when `fetch` is blocked (a `file://` page) it writes an explanation instead. `openUsagePage()` — the **Usage** button (topbar, immediately left of **Save**) shows `misc/Usage.md`; `openNotesPage()` — the **Tips** button (right of **Formulas**) shows `misc/Note4User.md`. Editing either `.md` file needs no code change — the next click shows the new text.
 
 ### 6.11 `excelExport.js`
 
@@ -819,7 +814,7 @@ is free text with per-provider suggestions (`models`), because vendors rename an
 | `buildChatSystemPrompt(includeNames)` | Instructions (ground answers in the snapshot, explain rather than recompute, say which input to change for "what if", concise, not financial advice) + a few model facts + the snapshot. Anthropic: one system block with `cache_control: ephemeral`; Gemini: `systemInstruction` |
 | `chatBuildRequest(prov,model,key,system,history)` / `chatParseEvent(prov,j)` / `chatReadStream(res,prov,onText)` | Provider-specific request and SSE-event shapes; the reader handles CRLF separators and events split across chunks, ignores Gemini `thought` parts, and normalises the stop reason to `end` / `length` / `blocked:<why>` |
 | `sendChat()` / `stopChat()` | Streams the reply into the last bubble; **Stop** keeps the partial text; a failed turn (HTTP error, network, blocked/empty reply) is dropped and the question restored to the input. Errors get plain-language messages (`chatFriendlyError`: key rejected, model not found, free-tier quota). History is in memory only (last 20 messages, always starting on a user turn; Gemini maps `assistant` → `model`) |
-| `chatMarkdown(text)` | Tiny renderer (paragraphs, lists, bold, code, simple tables). **Everything is HTML-escaped first** — model output is never inserted as raw HTML |
+| `chatMarkdown(text)` | The shared converter `mdToHtml` (core/markdown.js) with chat options (line breaks, flat headings, scrolling tables, no links). **Everything is HTML-escaped first** — model output is never inserted as raw HTML |
 | `chatGetKey(prov)` / `chatSetKey(prov,key,remember)` / `chatLoadPrefs` / `chatSavePrefs` | One API key **per provider** (`CHAT_KEY_KEYS`) in `sessionStorage` (forgotten when the tab closes) or `localStorage` if **Remember** is ticked; prefs `{provider, models:{…}, includeNames, remember}` in `localStorage` under `CHAT_PREFS_KEY` (prefs saved before Gemini support migrate). **Never in `state`**, so never in a plan file or autosave |
 
 **Privacy rules (don't weaken):** the panel says every message sends the plan to the selected provider; for Gemini it also
@@ -851,14 +846,14 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
   (§6.11), and the `show_details` checkbox.
 - **Script load order** (dependency-driven — a file may only use a name defined by a file *earlier* in
   this list):
-  `core/constants → core/helpers → compute/socialSecurityCalc → compute/rmd → compute/tax →
+  `core/constants → core/helpers → core/markdown → compute/socialSecurityCalc → compute/rmd → compute/tax →
   core/state → compute/dates → compute/ageRange → compute/projection → compute/whatIf →
   input/controls → input/household → input/assumptions → input/wage → input/socialSecurity →
   input/pension → input/rental → input/brokerage → input/ira → input/roth → input/incomeForms →
   input/loadMenu →
   display/chartHelpers → display/chartPanels → display/chartInfo → display/overlayPlugin → display/ssChart → display/incomeChart →
   display/tssChart → display/taxChart → display/expenseChart → display/assetChart → display/iraLtcgChart → display/inhIncomeChart → display/footer →
-  display/formulasPage → display/mdPage → display/notesPage → display/usagePage → display/excelExport → display/chat → app.js`
+  display/formulasPage → display/mdPage → display/excelExport → display/chat → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
   that reads from it. Function *calls* deferred to a later event (a click, `DOMContentLoaded`) don't
   need this — only code that runs immediately when the script loads (top-level `let`/`const`

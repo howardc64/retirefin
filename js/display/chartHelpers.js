@@ -12,7 +12,7 @@ const OVERLAY_COLOR='rgba(0,0,0,.9)';
 // by dash pattern, not by hue: they read on top of any band color, for color-blind readers too. Labels sit on small white pills.
 const BRACKET_COLOR='#1B1B1B';
 const BRACKET_HALO='rgba(255,255,255,.92)';
-const IRMAA_DASH=[], ORD_DASH=[], QUAL_DASH=[];   // reference lines are solid now (see THIN_W below)
+const ORD_DASH=[], QUAL_DASH=[];   // reference lines are solid now (see THIN_W below)
 // Every reference line (bracket, IRMAA, deduction, effective tax rate) is a thin solid line with a thin white line of the same width stacked directly on top of it (just above it),
 // so it reads over any band color. Labels sit on a small white pill that stays clear of those two lines: its bottom edge is LINE_LABEL_LIFT-6px above the line's y.
 const THIN_W=1.6, LINE_LABEL_LIFT=10;
@@ -194,7 +194,6 @@ function allCharts(){ return Object.values(charts).filter(Boolean); }
 // largest current maximum (applySameScale). Afterwards each chart is independent again — Rescale on one chart changes only that chart.
 const chartYMax=Object.fromEntries(Object.keys(charts).map(k=>[k,null]));
 function lockedYMax(key, compute){ if(chartYMax[key]==null) chartYMax[key]=compute(); return chartYMax[key]; }
-function resetChartYMax(){ Object.keys(chartYMax).forEach(k=>{ chartYMax[k]=null; }); }
 // Copy the locked maxima into / out of state.ui.chartYMax so they travel with the saved plan.
 function captureChartYMax(){
   if(!state.ui) state.ui={};

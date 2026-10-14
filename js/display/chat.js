@@ -166,25 +166,8 @@ buildChatSnapshot(includeNames)
   ].join('\n');
 }
 
-// ── Tiny, safe markdown → HTML (paragraphs, lists, bold, code, simple tables). Everything is escaped first. ──
-function chatInline(s){
-  return escHtml(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
-}
-function chatMarkdown(text){
-  const blocks = String(text||'').replace(/\r/g,'').split(/\n{2,}/);
-  return blocks.map(b=>{
-    const lines=b.split('\n').filter(l=>l.trim().length);
-    if(!lines.length) return '';
-    if(lines.every(l=>/^\s*[-*•]\s+/.test(l))) return '<ul>'+lines.map(l=>'<li>'+chatInline(l.replace(/^\s*[-*•]\s+/,''))+'</li>').join('')+'</ul>';
-    if(lines.every(l=>/^\s*\d+[.)]\s+/.test(l))) return '<ol>'+lines.map(l=>'<li>'+chatInline(l.replace(/^\s*\d+[.)]\s+/,''))+'</li>').join('')+'</ol>';
-    if(lines.length>=2 && lines.every(l=>l.trim().startsWith('|'))){
-      const rows=lines.filter(l=>!/^\s*\|?[\s:|-]+\|?\s*$/.test(l)).map(l=>l.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim()));
-      return '<div class="chat-tablewrap"><table>'+rows.map((r,i)=>'<tr>'+r.map(c=>(i===0?'<th>':'<td>')+chatInline(c)+(i===0?'</th>':'</td>')).join('')+'</tr>').join('')+'</table></div>';
-    }
-    if(/^#{1,4}\s/.test(lines[0])) return '<p><strong>'+chatInline(lines[0].replace(/^#{1,4}\s+/,''))+'</strong></p>'+(lines.length>1?'<p>'+lines.slice(1).map(chatInline).join('<br>')+'</p>':'');
-    return '<p>'+lines.map(chatInline).join('<br>')+'</p>';
-  }).join('');
-}
+// ── Markdown → HTML for a reply: the shared converter (core/markdown.js), tuned for a chat bubble (line breaks kept, flat headings, scrolling tables, no links). ──
+function chatMarkdown(text){ return mdToHtml(String(text||''),{breaks:true,flatHeadings:true,tableWrap:'chat-tablewrap',links:false}); }
 
 // ── UI ──
 const chatEl = id => document.getElementById(id);

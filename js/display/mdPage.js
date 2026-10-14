@@ -1,7 +1,7 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / MD PAGE — shared Markdown → HTML viewer used by the
-// "Usage" and "Tips" buttons (see usagePage.js / notesPage.js).
+// "Usage" and "Tips" buttons (openUsagePage / openNotesPage below). The Markdown converter itself is core/markdown.js (shared with the chat).
 //
 // openMdPage(file, label) opens a new tab, fetch()es the Markdown
 // file (e.g. misc/Usage.md), converts it to HTML at the moment of
@@ -43,93 +43,16 @@ async function openMdPage(file, label){
   win.document.close();
 }
 
-// A small, intentionally non-exhaustive Markdown → HTML converter — enough for a plain-language
-// document (headings, bold/italic, inline code, fenced code blocks, links, lists, blockquotes,
-// horizontal rules, paragraphs, and bullet / numbered lists nested by indentation). Not a full CommonMark implementation; if a misc/*.md file needs a
-// Markdown feature this doesn't handle, extend this function rather than reaching for a CDN library
-// so the Tips and Usage buttons keep working offline once the page itself has loaded.
-function mdToHtml(md){
-  const esc = s => escHtml(s);
-  // Inline formatting, applied after block-level structure below has consumed a line's raw text.
-  function inline(s){
-    s = esc(s);
-    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
-    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    s = s.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>');
-    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-    return s;
-  }
-  const lines = md.replace(/\r\n/g,'\n').split('\n');
-  let html='', i=0, inQuote=false;
-  // Lists nest by indentation (a tab counts as 4 spaces). `stack` holds one entry per open <ul>/<ol>; the current
-  // <li> stays open until the next item so a deeper-indented list can nest inside it.
-  const stack=[];
-  const BULLET=/^(\s*)[-*+•◦▪‣]\s+(.*)$/, NUMBER=/^(\s*)\d+[.)]\s+(.*)$/;
-  const indentOf=ws=>ws.replace(/\t/g,'    ').length;
-  const closeTop=()=>{ const t=stack.pop(); if(t.liOpen) html+='</li>'; html+=`</${t.type}>`; };
-  const closeLists=()=>{ while(stack.length) closeTop(); if(inQuote){html+='</blockquote>';inQuote=false;} };
-  function listItem(type,indent,text){
-    if(inQuote){ html+='</blockquote>'; inQuote=false; }
-    if(!stack.length || indent>stack[stack.length-1].indent){
-      stack.push({type,indent,liOpen:false}); html+=`<${type}>`;        // new (possibly nested) list
-    } else {
-      while(stack.length>1 && indent<stack[stack.length-1].indent) closeTop();   // back out to the matching level
-      const t=stack[stack.length-1];
-      if(t.type!==type){ closeTop(); stack.push({type,indent,liOpen:false}); html+=`<${type}>`; }
-      else if(t.liOpen){ html+='</li>'; t.liOpen=false; }
-    }
-    html+=`<li>${inline(text)}`; stack[stack.length-1].liOpen=true;
-  }
-  while(i<lines.length){
-    const line=lines[i];
-    if(/^```/.test(line)){
-      closeLists();
-      const buf=[]; i++;
-      while(i<lines.length && !/^```/.test(lines[i])){ buf.push(lines[i]); i++; }
-      html+=`<pre><code>${esc(buf.join('\n'))}</code></pre>`;
-      i++; continue;
-    }
-    if(/^\s*$/.test(line)){
-      // a blank line ends a list unless the next non-blank line is another list item (loose list)
-      let j=i+1; while(j<lines.length && /^\s*$/.test(lines[j])) j++;
-      if(!(stack.length && j<lines.length && (BULLET.test(lines[j])||NUMBER.test(lines[j])))) closeLists();
-      i++; continue;
-    }
-    if(/^#{1,6}\s+/.test(line)){
-      closeLists();
-      const level=line.match(/^#+/)[0].length;
-      html+=`<h${level}>${inline(line.replace(/^#{1,6}\s+/,''))}</h${level}>`;
-      i++; continue;
-    }
-    if(/^(---|\*\*\*|___)\s*$/.test(line)){ closeLists(); html+='<hr>'; i++; continue; }
-    if(/^>\s?/.test(line)){
-      if(!inQuote){ closeLists(); html+='<blockquote>'; inQuote=true; }
-      html+=`<p>${inline(line.replace(/^>\s?/,''))}</p>`;
-      i++; continue;
-    }
-    let m;
-    if((m=line.match(BULLET))){ listItem('ul',indentOf(m[1]),m[2]); i++; continue; }
-    if((m=line.match(NUMBER))){ listItem('ol',indentOf(m[1]),m[2]); i++; continue; }
-    // An indented, non-list line directly under a list item is that item's wrapped continuation text.
-    if(stack.length && /^\s+\S/.test(line)){ html+=' '+inline(line.trim()); i++; continue; }
-    // Paragraph: consume consecutive non-blank, non-block-starting lines as one <p>.
-    closeLists();
-    const buf=[line]; i++;
-    while(i<lines.length && !/^\s*$/.test(lines[i]) && !/^(#{1,6}\s+|```|>|---|\*\*\*|___)/.test(lines[i]) && !BULLET.test(lines[i]) && !NUMBER.test(lines[i])){
-      buf.push(lines[i]); i++;
-    }
-    html+=`<p>${inline(buf.join(' '))}</p>`;
-  }
-  closeLists();
-  return html;
-}
-
 function mdPageHtml(title, bodyHtml, file, label){
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${escHtml(title)} — Retirement Income Planner</title>
 <style>
   body{font-family:Georgia,'Times New Roman',serif;max-width:780px;margin:32px auto;padding:0 20px;line-height:1.6;color:#1c1c1c;background:#fdfdfb;}
-  h1{font-size:26px;} h2{font-size:20px;margin-top:30px;} h3{font-size:16px;margin-top:22px;}
+  h1{font-size:26px;} h2{font-size:20px;margin-top:34px;padding-bottom:4px;border-bottom:2px solid #e6dfcf;} h3{font-size:16px;margin-top:24px;color:#5b4a1f;}
+  table{border-collapse:collapse;width:100%;margin:12px 0 16px;font-size:14px;line-height:1.45;}
+  th,td{border:1px solid #ddd6c4;padding:6px 10px;text-align:left;vertical-align:top;} th{background:#f2eedf;font-weight:600;}
+  tbody tr:nth-child(even){background:#faf8f1;}
+  p{margin:8px 0;}
   code{background:#f2f0ea;padding:1px 5px;border-radius:3px;font-family:'SF Mono',Consolas,monospace;font-size:12.5px;}
   pre{background:#f2f0ea;padding:10px 12px;border-radius:5px;overflow-x:auto;}
   pre code{background:none;padding:0;}
@@ -142,3 +65,7 @@ function mdPageHtml(title, bodyHtml, file, label){
 <hr><p class="fp-src">Rendered from <code>${escHtml(file)}</code> at the moment this tab was opened — click ${escHtml(label)} again after editing that file to see changes.</p>
 </body></html>`;
 }
+
+// The two buttons. Usage (left of Save) shows misc/Usage.md; Tips (right of Formulas) shows misc/Note4User.md.
+function openUsagePage(){ return openMdPage('misc/Usage.md','Usage'); }
+function openNotesPage(){ return openMdPage('misc/Note4User.md','Tips'); }

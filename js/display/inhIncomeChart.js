@@ -1,12 +1,15 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / INHERITANCE ASSET INCOME CHART — every income component paid by the assets created by the Inheritance card, stacked by component (today's $), bottom → top:
-//   Inherited IRA RMD / final withdraw · Inherited IRA annual withdraw · Inherited Roth IRA withdraw (tax-free)     (row.inhIraByPerson[i][j].wd; annual withdraw = the part of row.rothConvByPerson that
-//                                                                                                                    leaves an inherited IRA, split pro rata to each IRA's withdraw ... see below)
-//   Ordinary dividends (non-qualified) · Qualified dividends · Tax-exempt income · Realized LTCG                    (inherited portfolios: row.portfoliosByPerson[i][j] divUsed + divReinvested split by
-//                                                                                                                    the portfolio's qdivPct, taxExempt, ltcg)
-// An inherited property contributes only the gain realized when it is sold (row.realEstateByPerson[i][j].sale.gain); it pays no other income. No bracket lines. Read-only view of projection rows; own Y scale, but part of the income Same-scale groups
-// (SCALE_LINK_GROUPS); no panel when no inherited asset pays anything (setChartAvailable). The popup lists each component, the total, and the total per inherited asset.
+//   Inherited IRA RMD / final withdraw · Inherited IRA annual withdraw · Inherited Roth IRA withdraw (tax-free)
+//       row.inhIraByPerson[i][j].wd is the forced part (RMD / year-10 sweep); the annual withdraw is the holder's row.rothConvByPerson − row.convMainByPerson,
+//       shared among that holder's inherited pre-tax IRAs by balance share (the total is exact, the split between several IRAs is approximate)
+//   Ordinary dividends (non-qualified) · Qualified dividends · Tax-exempt income · Realized LTCG
+//       inherited portfolios: row.portfoliosByPerson[i][j] divUsed + divReinvested split by the portfolio's qdivPct, taxExempt, ltcg
+//   Real estate sale gain
+//       an inherited property pays nothing else: row.realEstateByPerson[i][j].sale.gain when it is sold
+// No bracket lines. Read-only view of projection rows; own Y scale but part of the income Same-scale groups (SCALE_LINK_GROUPS); no panel when no inherited asset pays anything
+// (setChartAvailable). The popup lists each component, the total, and the total per inherited asset. inhIncomeAssets() / inhIncomeComps() are shared with the Excel export.
 // ═══════════════════════════════════════════════════════════════
 const INH_INC_KINDS=[   // bottom → top
   {kind:'rmd',   title:'Inherited IRA RMD / final withdraw',      color:()=>VZ.inhIra},

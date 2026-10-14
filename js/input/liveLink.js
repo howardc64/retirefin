@@ -23,7 +23,7 @@ let liveCh=null;
 const liveSubs=new Map();      // subscriber tab → {at}: tabs that want my snapshots
 const liveRt={};               // source id → {at, name}: when a source's publisher was last heard (runtime only)
 const livePending=new Map();   // source id → {m, i}: the newest snapshot waiting to be applied
-let livePendingSince=0, livePubHash='', liveSeen=[], liveTimer=null;
+let livePendingSince=0, livePubHash='', liveSeen=[];
 
 function liveEnsureId(){ if(!state.liveId){ state.liveId='lp-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); if(typeof saveDebounced==='function') saveDebounced(); } return state.liveId; }
 function liveHash(o){ const s=JSON.stringify(o); let h=5381; for(let k=0;k<s.length;k++) h=((h<<5)+h+s.charCodeAt(k))|0; return String(h)+':'+s.length; }
@@ -210,5 +210,5 @@ function liveInit(){
   window.addEventListener('pagehide',()=>liveSend({t:'bye',liveId:state.liveId||''}));
   liveSend({t:'discover'});   // also reveals another tab on the same plan slot (their `ann` → warning above)
   liveBeat();
-  liveTimer=setInterval(()=>{ liveBeat(); },LIVE_HEARTBEAT_MS);
+  setInterval(liveBeat,LIVE_HEARTBEAT_MS);
 }
