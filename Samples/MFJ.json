@@ -1,6 +1,7 @@
 {
   "filingStatus": "married",
   "notes": "",
+  "liveId": "",
   "inflation": 0.03,
   "people": [
     {
@@ -77,9 +78,16 @@
           "bene": true,
           "idgt": false,
           "foreignPct": 33,
-          "ftcPct": 0.25
+          "ftcPct": 0.25,
+          "inh": null,
+          "startYear": null
         }
       ],
+      "inhIras": [],
+      "inheritance": {
+        "sources": [],
+        "hidden": true
+      },
       "realEstate": [],
       "ira": {
         "enabled": true,
@@ -97,6 +105,7 @@
         },
         "bene": true,
         "conv": 0,
+        "convToRoth": true,
         "convMode": "bracket",
         "convIrmaaPct": 100,
         "convOrdPct": 22,
@@ -165,6 +174,11 @@
       "annuities": [],
       "rentals": [],
       "brokerage": [],
+      "inhIras": [],
+      "inheritance": {
+        "sources": [],
+        "hidden": true
+      },
       "realEstate": [],
       "ira": {
         "enabled": false,
@@ -182,6 +196,7 @@
         },
         "bene": false,
         "conv": 0,
+        "convToRoth": true,
         "convMode": "fixed",
         "convIrmaaPct": 40,
         "convOrdPct": 32,
@@ -262,7 +277,9 @@
       "pension",
       "rental",
       "annuity",
-      "realestate"
+      "realestate",
+      "inhira",
+      "inheritance"
     ],
     "chartHidden": {
       "expense": false,
@@ -275,10 +292,13 @@
       "taxQual": false,
       "asset": false,
       "idgt": true,
-      "assetConv": false,
+      "ira": false,
+      "ltcg": false,
+      "inhIncome": false,
       "ss": false,
       "tss": false
     },
+    "gridCols": 3,
     "chartPos": {
       "expense": {
         "r": 0,
@@ -320,10 +340,6 @@
         "r": 3,
         "c": 1
       },
-      "assetConv": {
-        "r": 3,
-        "c": 2
-      },
       "ss": {
         "r": 4,
         "c": 0
@@ -331,18 +347,111 @@
       "tss": {
         "r": 4,
         "c": 1
+      },
+      "ira": {
+        "r": 0,
+        "c": 1
+      },
+      "ltcg": {
+        "r": 3,
+        "c": 2
+      },
+      "inhIncome": {
+        "r": 4,
+        "c": 2
       }
     },
-    "scaleLinks": {
-      "incomeExpense": true,
-      "tax": true,
-      "incomeExpenseTax": true,
-      "asset": false
+    "chartPosAlt": {
+      "expense": {
+        "r": 0,
+        "c": 0
+      },
+      "incomeMagi": {
+        "r": 4,
+        "c": 0
+      },
+      "income": {
+        "r": 0,
+        "c": 1
+      },
+      "incomeOrd": {
+        "r": 3,
+        "c": 0
+      },
+      "incomeQual": {
+        "r": 3,
+        "c": 1
+      },
+      "tax": {
+        "r": 2,
+        "c": 0
+      },
+      "taxOrd": {
+        "r": 5,
+        "c": 0
+      },
+      "taxQual": {
+        "r": 5,
+        "c": 1
+      },
+      "asset": {
+        "r": 2,
+        "c": 1
+      },
+      "idgt": {
+        "r": 6,
+        "c": 0
+      },
+      "ira": {
+        "r": 1,
+        "c": 0
+      },
+      "ltcg": {
+        "r": 1,
+        "c": 1
+      },
+      "inhIncome": {
+        "r": 4,
+        "c": 1
+      },
+      "ss": {
+        "r": 7,
+        "c": 0
+      },
+      "tss": {
+        "r": 7,
+        "c": 1
+      }
+    },
+    "chartYMax": {
+      "ss": 2000000,
+      "income": 215000,
+      "incomeMagi": 215000,
+      "incomeOrd": 215000,
+      "incomeQual": 215000,
+      "tss": 90000,
+      "tax": 22000,
+      "taxOrd": 22000,
+      "taxQual": 22000,
+      "expense": 215000,
+      "asset": 2960000,
+      "idgt": null,
+      "ira": 215000,
+      "ltcg": 215000,
+      "inhIncome": null
     },
     "assumpHide": {
       "general": false,
       "expenses": true,
-      "tax": true
+      "taxOpt": true,
+      "ltc": true,
+      "withdraw": true,
+      "aum": true,
+      "stateTax": true,
+      "scgl": true,
+      "swap": true,
+      "pfWithdraw": true,
+      "futureTax": true
     }
   }
 }

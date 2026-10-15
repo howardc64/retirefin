@@ -1,6 +1,7 @@
 {
   "filingStatus": "married",
   "notes": "",
+  "liveId": "",
   "inflation": 0.03,
   "people": [
     {
@@ -77,7 +78,9 @@
           "bene": true,
           "idgt": false,
           "foreignPct": 33,
-          "ftcPct": 0.25
+          "ftcPct": 0.25,
+          "inh": null,
+          "startYear": null
         },
         {
           "id": "1h7dxyo",
@@ -106,9 +109,16 @@
           "bene": true,
           "idgt": true,
           "foreignPct": 33,
-          "ftcPct": 0.25
+          "ftcPct": 0.25,
+          "inh": null,
+          "startYear": null
         }
       ],
+      "inhIras": [],
+      "inheritance": {
+        "sources": [],
+        "hidden": true
+      },
       "realEstate": [
         {
           "id": "qohqu5t",
@@ -125,7 +135,9 @@
           "bene": true,
           "sellMode": "never",
           "sellAge": 80,
-          "sellTo": ""
+          "sellTo": "",
+          "inh": null,
+          "startYear": null
         }
       ],
       "ira": {
@@ -144,6 +156,7 @@
         },
         "bene": true,
         "conv": 0,
+        "convToRoth": true,
         "convMode": "bracket",
         "convIrmaaPct": 100,
         "convOrdPct": 24,
@@ -212,6 +225,11 @@
       "annuities": [],
       "rentals": [],
       "brokerage": [],
+      "inhIras": [],
+      "inheritance": {
+        "sources": [],
+        "hidden": true
+      },
       "realEstate": [],
       "ira": {
         "enabled": false,
@@ -229,6 +247,7 @@
         },
         "bene": false,
         "conv": 0,
+        "convToRoth": true,
         "convMode": "fixed",
         "convIrmaaPct": 40,
         "convOrdPct": 32,
@@ -309,7 +328,9 @@
       "wage",
       "pension",
       "annuity",
-      "rental"
+      "rental",
+      "inhira",
+      "inheritance"
     ],
     "chartHidden": {
       "expense": false,
@@ -322,10 +343,13 @@
       "taxQual": false,
       "asset": false,
       "idgt": false,
-      "assetConv": false,
+      "ira": false,
+      "ltcg": false,
+      "inhIncome": false,
       "ss": false,
       "tss": false
     },
+    "gridCols": 3,
     "chartPos": {
       "expense": {
         "r": 0,
@@ -367,10 +391,6 @@
         "r": 3,
         "c": 1
       },
-      "assetConv": {
-        "r": 3,
-        "c": 2
-      },
       "ss": {
         "r": 4,
         "c": 0
@@ -378,18 +398,111 @@
       "tss": {
         "r": 4,
         "c": 1
+      },
+      "ira": {
+        "r": 0,
+        "c": 1
+      },
+      "ltcg": {
+        "r": 3,
+        "c": 2
+      },
+      "inhIncome": {
+        "r": 4,
+        "c": 2
       }
     },
-    "scaleLinks": {
-      "incomeExpense": true,
-      "tax": true,
-      "incomeExpenseTax": true,
-      "asset": false
+    "chartPosAlt": {
+      "expense": {
+        "r": 0,
+        "c": 0
+      },
+      "incomeMagi": {
+        "r": 4,
+        "c": 0
+      },
+      "income": {
+        "r": 0,
+        "c": 1
+      },
+      "incomeOrd": {
+        "r": 3,
+        "c": 0
+      },
+      "incomeQual": {
+        "r": 3,
+        "c": 1
+      },
+      "tax": {
+        "r": 2,
+        "c": 0
+      },
+      "taxOrd": {
+        "r": 5,
+        "c": 0
+      },
+      "taxQual": {
+        "r": 5,
+        "c": 1
+      },
+      "asset": {
+        "r": 2,
+        "c": 1
+      },
+      "idgt": {
+        "r": 6,
+        "c": 0
+      },
+      "ira": {
+        "r": 1,
+        "c": 0
+      },
+      "ltcg": {
+        "r": 1,
+        "c": 1
+      },
+      "inhIncome": {
+        "r": 4,
+        "c": 1
+      },
+      "ss": {
+        "r": 7,
+        "c": 0
+      },
+      "tss": {
+        "r": 7,
+        "c": 1
+      }
+    },
+    "chartYMax": {
+      "ss": 1750000,
+      "income": 400000,
+      "incomeMagi": 400000,
+      "incomeOrd": 400000,
+      "incomeQual": 400000,
+      "tss": 90000,
+      "tax": 50000,
+      "taxOrd": 50000,
+      "taxQual": 50000,
+      "expense": 400000,
+      "asset": 11130000,
+      "idgt": 8710000,
+      "ira": 400000,
+      "ltcg": 400000,
+      "inhIncome": null
     },
     "assumpHide": {
       "general": false,
       "expenses": true,
-      "tax": true
+      "taxOpt": true,
+      "ltc": true,
+      "withdraw": true,
+      "aum": true,
+      "stateTax": true,
+      "scgl": true,
+      "swap": true,
+      "pfWithdraw": true,
+      "futureTax": true
     }
   }
 }
