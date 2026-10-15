@@ -50,7 +50,7 @@ function renderAumFee(){
 }
 // SCGL carryforward (Tax & Optimizations card). The amount is kept while Enable is off but ignored by the projection.
 function renderScglPanel(){
-  const body=`<div class="field full"><label>Suspended Capital-Gain Loss carryforward (SCGL, today's $)</label>
+  const body=`<div class="field full inline"><label>Suspended Capital-Gain Loss carryforward (SCGL, today's $)</label>
       <input type="number" class="money" id="scglInput" min="0" step="1000" value="${Number(state.scgl)||0}" oninput="onNumberInput('scgl', this.value)"></div>`;
   document.getElementById('scglPanel').innerHTML=featureBlock('scgl','SCGL','scglEnabled',state.scglEnabled!==false,body);
   syncAssumpEnable();
@@ -149,7 +149,7 @@ function resetWithdrawSteps(){ woState().steps=defaultWithdrawKeys().map(k=>({id
 // first passing, for a married household, needs no value). See projection.js, "Asset / basis swap".
 function renderSwapPanel(){
   const yrs=Math.max(1,Math.round(Number(state.basisSwapYears)||BASIS_SWAP_YEARS_DEFAULT));
-  const body=`<div class="field full"><label>Swap this many years before the last passing</label>
+  const body=`<div class="field full inline"><label>Swap this many years before the last passing</label>
       <input type="number" id="swapYears" min="1" max="60" step="1" value="${yrs}" oninput="onNumberInput('basisSwapYears', this.value)"></div>
     <div class="item-note">Swaps <em>Living expense &amp; income</em> portfolio assets, value for value, with <em>IDGT</em> assets, and the basis moves in proportion to the assets traded: the IDGT ends up with the high-basis assets and the living portfolio with the low-basis ones, which step up at the last passing. It is done once, that many years before the last person passes (single or married). If married, it is also done the year after the first person passes, when that person's portfolio steps up (no value needed). A swap only happens where the IDGT's assets have a lower basis % than the living portfolio's; the amount is the smaller of the two values. A swap is between portfolios held by the same person: a portfolio marked <em>Joint owned with spouse</em> is held by the spouse once its owner has passed (one without it is gone, so it cannot be swapped).</div>`;
   document.getElementById('swapPanel').innerHTML=featureBlock('swap','Asset / basis swap','basisSwap',!!state.basisSwap,body);
@@ -178,12 +178,12 @@ function renderLtcPanel(){
       html+=`${n>1?`<div class="field full"><label><strong id="ltcName_${i}">${nm}</strong></label></div>`:''}
       <div class="field full"><label>LTC start age</label>
         ${pairHtml('ltcStart_'+i,'ltc.people.'+i+'.startAge',b[0],b[1],1,Math.min(b[1],Math.max(b[0],Number(L.startAge)||b[0])),{kind:'person',i})}</div>
-      <div class="field full"><label>LTC cost ($/yr, today's $)</label>
+      <div class="field full inline"><label>LTC cost ($/yr, today's $)</label>
         <input type="number" class="money" min="0" step="1000" value="${L.cost||0}" oninput="onNumberInput('ltc.people.${i}.cost', this.value)"></div>`;
     }
-    html+=`<div class="field full"><label>${n>1?'1st LTC living expenses':'LTC living expenses'} ($/yr, today's $)</label>
+    html+=`<div class="field full inline"><label>${n>1?'1st LTC living expenses':'LTC living expenses'} ($/yr, today's $)</label>
       <input type="number" class="money" id="ltcLiving1" min="0" step="1000" value="${l.living1!=null?l.living1:ltcLiving1Default(n>1)}" oninput="onNumberInput('ltc.living1', this.value)"></div>`;
-    if(n>1) html+=`<div class="field full"><label>2nd LTC living expenses ($/yr, today's $)</label>
+    if(n>1) html+=`<div class="field full inline"><label>2nd LTC living expenses ($/yr, today's $)</label>
       <input type="number" class="money" min="0" step="1000" value="${l.living2!=null?l.living2:LTC_LIVING2_DEFAULT}" oninput="onNumberInput('ltc.living2', this.value)"></div>`;
   }
   document.getElementById('ltcPanel').innerHTML=featureBlock('ltc','Long Term Care (LTC)','ltc.enabled',!!l.enabled,html);

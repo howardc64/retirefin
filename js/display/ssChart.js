@@ -47,7 +47,7 @@ function buildSSSection(){
       label:'Age '+sc.age+(isStartAge?' (selected start age)':''),
       data:alignToAges(sc.ages, sc.cumulative, labels),
       borderColor:VZ_SS_COLORS[sc.age]||'#0F6E56',
-      borderWidth:isStartAge?2:1.5,
+      borderWidth:THIN_W,
       borderDash:isStartAge?[7,5]:[],
       pointRadius:0, pointHoverRadius:0, pointHitRadius:8, tension:0.25, fill:false, spanGaps:false,
       vzScenario:sc
@@ -71,7 +71,7 @@ function buildSSSection(){
     const names=Array.from({length:n},(_,i)=>displayPersonName(lastProjection.people[i],i));
     return 2+Math.max(...names.map(nm=>4+nm.length), 4+'Total household SS'.length);
   })();
-  const lrow=(label,value)=>label.padEnd(ssLW)+value;
+  const lrow=(label,value)=>mrow(label,value);   // values right-justified on a common edge, like every other popup
   const ssTooltipCallbacks={
     title:items=>{
       const age=Number(items[0]?.label);

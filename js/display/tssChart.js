@@ -21,9 +21,9 @@ function buildTSSChart(){
   });
 
   const datasets=[
-    {label:'Total Social Security (TSS)', data:tss, borderColor:'#3B6FA0', backgroundColor:'transparent', borderWidth:1.5,
+    {label:'Total Social Security (TSS)', data:tss, borderColor:'#3B6FA0', backgroundColor:'transparent', borderWidth:THIN_W,
       pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y'},
-    {label:'Actual Social Security Tax (SST)', data:sst, borderColor:'#c8860a', backgroundColor:'transparent', borderWidth:1.5,
+    {label:'Actual Social Security Tax (SST)', data:sst, borderColor:'#c8860a', backgroundColor:'transparent', borderWidth:THIN_W,
       pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y'}
   ];
 

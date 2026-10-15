@@ -83,7 +83,7 @@ function onHideToggle(path, checked, itemEl){
 // placed between the two, so it always ends up next to Hide rather than crowding the title.
 function cardHeader(title, enablePath, enabled, hidePath, hidden, extraRight){
   return `<div class="item-head">
-      <label><input type="checkbox" ${enabled?'checked':''} onclick="onEnableToggle('${enablePath}', this.checked)"> ${title}</label>
+      <label><input type="checkbox" ${enabled?'checked':''} onclick="onEnableToggle('${enablePath}', this.checked)"><span class="ttl">${title}</span></label>
       <div class="item-head-right">
         ${extraRight||''}
         <label class="hide-toggle" title="Collapse this card to save space — data is still used for compute and display if Enabled"><input type="checkbox" ${hidden?'checked':''} onclick="onHideToggle('${hidePath}', this.checked, this.closest('.item'))"> Hide</label>
@@ -180,3 +180,25 @@ function refreshPairBounds(){
   });
 }
 
+
+// Long grey help notes inside cards (.item-note / .cn, 170+ characters) show two lines and a More / Less toggle, so the cards stay compact; the full text is one click away
+// (and the Input Element hover helper still describes every control). One MutationObserver per input panel re-applies it after every re-render; it is idempotent.
+function clampNotes(root){
+  root.querySelectorAll('.item-note:not([data-clamp]), .cn:not([data-clamp])').forEach(n=>{
+    n.setAttribute('data-clamp','1');
+    if((n.textContent||'').trim().length<170) return;
+    n.classList.add('clamp');
+    const b=document.createElement('button');
+    b.type='button'; b.className='note-more'; b.textContent='More';
+    b.onclick=e=>{ e.stopPropagation(); const open=n.classList.toggle('open'); b.textContent=open?'Less':'More'; };
+    n.after(b);
+  });
+}
+function initNoteClamp(){
+  const targets=['perPersonIncome','assumpGeneral','assumpExpenses','assumpTax'].map(id=>document.getElementById(id)).filter(Boolean);
+  let raf=0;
+  const run=()=>{ raf=0; targets.forEach(clampNotes); };
+  const mo=new MutationObserver(()=>{ if(!raf) raf=requestAnimationFrame(run); });
+  targets.forEach(el=>mo.observe(el,{childList:true,subtree:true}));
+  run();
+}

@@ -222,7 +222,25 @@ function onInhPct(i, si, ai, val){
   const en=state.people[i].inheritance.sources[si].assets[ai];
   en.pct=Math.min(100,Math.max(0,val===''?0:+val||0));
   syncInheritance(i);
-  renderIncomeForms(); recompute(); saveDebounced();
+  inhRenderKeepingView();
+  recompute(); saveDebounced();
+}
+// Re-render the cards without the view jumping to the cards just created: the scroll positions are put back, and when the user Tabbed (or clicked) on to
+// another field, that field is focused again (the render rebuilds every input) without scrolling to it — so all the % can be typed in a row.
+let inhNextFocus=null;
+document.addEventListener('focusout',e=>{
+  const root=document.getElementById('perPersonIncome'), t=e.relatedTarget;
+  inhNextFocus=(root&&t&&root.contains(t))?[...root.querySelectorAll('input,select,button,textarea')].indexOf(t):null;
+},true);
+function inhRenderKeepingView(){
+  const root=document.getElementById('perPersonIncome'), next=inhNextFocus;
+  const saved=[[window,window.scrollX,window.scrollY]];
+  for(let el=root;el;el=el.parentElement) if(el.scrollTop||el.scrollLeft) saved.push([el,el.scrollLeft,el.scrollTop]);
+  renderIncomeForms();
+  const restore=()=>saved.forEach(([el,x,y])=>{ if(el===window) window.scrollTo(x,y); else{ el.scrollLeft=x; el.scrollTop=y; } });
+  restore();
+  if(next!=null&&next>=0){ const t=root.querySelectorAll('input,select,button,textarea')[next]; if(t){ t.focus({preventScroll:true}); if(t.select&&t.type==='number') t.select(); } }
+  restore(); requestAnimationFrame(restore);
 }
 // Removing an inherited asset by hand also sets its % to 0, so it does not come back on the next sync / re-import.
 function inhDropEntryFor(p, item){
@@ -313,13 +331,14 @@ function buildInheritanceCard(pid, i, p, married){
       <div class="item-body ${hidden?'':'open'} portfolio-list">
         ${sources.length?sources.map((s,si)=>`
           <div class="item inh-src" style="margin:0;padding:10px 11px">
-            <div class="item-head"><label><span style="font-size:12px"><strong>${escHtml(s.file)}</strong></span></label>
+            <div class="item-head"><label title="${escAttr(s.file)}"><span class="ttl" style="font-size:12px"><strong>${escHtml(s.file)}</strong></span></label>
               <div class="item-head-right"><button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="inhRemoveSource(${i},${si})" title="Remove this file and every asset created from it">Remove</button></div></div>
             ${typeof liveSourceHtml==='function'?liveSourceHtml(s,i,si):''}
             <div class="item-note">Last passing in <strong>${s.startYear}</strong>. Imported ${escHtml(new Date(s.importedAt).toLocaleDateString())}. Import the same file name again to update its assets.</div>
             ${s.assets.length?`<div class="inh-assets">${s.assets.map((a,ai)=>`
-              <div class="inh-asset"><div class="inh-asset-name">${escHtml(a.label)}<div class="item-note">${inhMoney(a.value)} at the passing${a.type==='ira'?' · pre-tax: withdrawals taxed':a.type==='roth'?' · Roth: withdrawals untaxed':a.type==='pf'?' · basis stepped up':a.type==='re'?' · basis stepped up':''}</div></div>
-                <div class="inh-pct"><input type="number" min="0" max="100" step="5" value="${Number(a.pct)||0}" onchange="onInhPct(${i},${si},${ai},this.value)" aria-label="Percent inherited"><span>%</span></div></div>`).join('')}</div>`
+              <div class="inh-asset"><div class="inh-asset-name">${escHtml(a.label)}</div>
+                <div class="inh-pct"><input type="number" min="0" max="100" step="5" value="${Number(a.pct)||0}" onchange="onInhPct(${i},${si},${ai},this.value)" aria-label="Percent inherited"><span>%</span></div>
+                <div class="item-note inh-asset-detail">${inhMoney(a.value)} at the passing${a.type==='ira'?' · pre-tax: withdrawals taxed':a.type==='roth'?' · Roth: withdrawals untaxed':a.type==='pf'?' · basis stepped up':a.type==='re'?' · basis stepped up':''}</div></div>`).join('')}</div>`
               :`<div class="item-note">Nothing in that plan is left after the last passing.</div>`}
           </div>`).join(''):`<div class="item-note">Import another plan file (for example a parent's) to inherit assets that are left after its last passing. Each asset starts at 0% (not inherited); set a % to create an asset card for it. Only the file's active scenario is read, and the file is not changed.</div>`}
       </div>
@@ -339,10 +358,10 @@ function buildInhIraCard(pid, i, p, married){
               <div class="field full"><label>Annual withdraw</label>
                 <select onchange="onConvMode('${xp}',this.value)">
                   <option value="fixed" ${(x.convMode||'fixed')==='fixed'?'selected':''}>$/yr, today's $</option>
-                  <option value="bracket" ${x.convMode==='bracket'?'selected':''}>Below IRMAA &amp; ordinary income tax brackets</option>
+                  <option value="bracket" ${x.convMode==='bracket'?'selected':''}>Below IRMAA &amp; tax brackets</option>
                 </select>
                 ${x.convMode==='bracket'
-                  ? `<div style="display:flex;gap:12px;align-items:flex-start;margin-top:8px">${convSliderHtml(xp,'ord',x)}${convSliderHtml(xp,'irmaa',x)}</div>
+                  ? `<div class="conv-sliders">${convSliderHtml(xp,'ord',x)}${convSliderHtml(xp,'irmaa',x)}</div>
                      <div class="cn" style="margin-top:4px">Withdraws as much of this IRA as fits <strong>below both</strong> brackets: taxable ordinary income stays below the chosen ordinary bracket, and MAGI stays below the chosen IRMAA bracket. Slide to 0 to block withdrawals, or to the end for no limit.</div>`
                   : pairHtml('inhconv_'+i+'_'+ii, xp+'.conv', 0, Math.max(0,Number(x.balance)||0), 1000, x.conv||0, {kind:'inhira',i:i,ii:ii}, true)}
                 <div class="cn" style="margin-top:8px">An inherited IRA cannot be converted to a Roth IRA: the withdrawn amount is taxed as ordinary income and is spendable household cash.</div></div>

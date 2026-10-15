@@ -67,22 +67,22 @@ function buildTaxChart(){
   for(let i=0;i<labels.length;i++){ const r=rowByAge[labels[i]]; if(!r||r.filing!=='married'){ swIdx=i; break; } }
 
   const datasets=[
-    {label:'Ordinary income tax', data:alignedOrd, borderColor:VZ_TAX.ord, backgroundColor:VZ_TAX.ord+'cc', borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'QDIV 0% tax', data:alignedQ[0], borderColor:VZ_TAX.qdiv0, backgroundColor:VZ_TAX.qdiv0+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'QDIV 15% tax', data:alignedQ[1], borderColor:VZ_TAX.qdiv15, backgroundColor:VZ_TAX.qdiv15+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'QDIV 20% tax', data:alignedQ[2], borderColor:VZ_TAX.qdiv20, backgroundColor:VZ_TAX.qdiv20+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'LTCG 0% tax', data:alignedL[0], borderColor:VZ_TAX.ltcg0, backgroundColor:VZ_TAX.ltcg0+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'LTCG 15% tax', data:alignedL[1], borderColor:VZ_TAX.ltcg15, backgroundColor:VZ_TAX.ltcg15+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'LTCG 20% tax', data:alignedL[2], borderColor:VZ_TAX.ltcg20, backgroundColor:VZ_TAX.ltcg20+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'NIIT (3.8% on QDIV/LTCG + NIIT)', data:alignedNiit, borderColor:VZ_TAX.niit, backgroundColor:VZ_TAX.niit+'cc', borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'Foreign tax credit', data:alignedFtc, borderColor:VZ_TAX.ftc, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'tax', order:2},
+    {label:'Ordinary income tax', data:alignedOrd, borderColor:VZ_TAX.ord, backgroundColor:VZ_TAX.ord+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'QDIV 0% tax', data:alignedQ[0], borderColor:VZ_TAX.qdiv0, backgroundColor:VZ_TAX.qdiv0+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'QDIV 15% tax', data:alignedQ[1], borderColor:VZ_TAX.qdiv15, backgroundColor:VZ_TAX.qdiv15+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'QDIV 20% tax', data:alignedQ[2], borderColor:VZ_TAX.qdiv20, backgroundColor:VZ_TAX.qdiv20+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'LTCG 0% tax', data:alignedL[0], borderColor:VZ_TAX.ltcg0, backgroundColor:VZ_TAX.ltcg0+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'LTCG 15% tax', data:alignedL[1], borderColor:VZ_TAX.ltcg15, backgroundColor:VZ_TAX.ltcg15+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'LTCG 20% tax', data:alignedL[2], borderColor:VZ_TAX.ltcg20, backgroundColor:VZ_TAX.ltcg20+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'NIIT (3.8% on QDIV/LTCG + NIIT)', data:alignedNiit, borderColor:VZ_TAX.niit, backgroundColor:VZ_TAX.niit+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'Foreign tax credit', data:alignedFtc, borderColor:VZ_TAX.ftc, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'tax', order:2},
     // §9.4: rate lines are overlaid "on top of other graph objects (but below tooltip)" — a lower
     // Chart.js `order` value draws on top of higher ones, so these get order:1/0 vs. order:2 above.
     {label:'Effective tax rate', data:alignedEff, thin:true, borderColor:VZ_TAX.effRate, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:1},
   ];
 
   if(alignedState.some(v=>v>0)){
-    datasets.push({label:'State income tax ('+stateName+')', data:alignedStateTop, irmaaAmt:alignedState, ciValues:alignedState, borderColor:VZ_TAX.state, backgroundColor:'transparent', borderWidth:3.5, borderDash:[3,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'state', order:2});   // irmaaAmt = what the popup reports (the dataset values are heights)
+    datasets.push({label:'State income tax ('+stateName+')', data:alignedStateTop, irmaaAmt:alignedState, ciValues:alignedState, borderColor:VZ_TAX.state, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[3,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'state', order:2});   // irmaaAmt = what the popup reports (the dataset values are heights)
   }
   // The IRMAA line is always a dataset (when any IRMAA is paid) so that toggling "view IRMAA as tax" tweens it instead of rebuilding the chart:
   // off, it lies on the tax / state line it would stack on and is fully transparent; on, it slides up to tax + IRMAA and fades in.
@@ -90,7 +90,7 @@ function buildTaxChart(){
     const on=viewIrmaaAsTax;
     const alignedIrmaaBase=alignedIrmaa.map((v,i)=>v>0?stackTop[i]+(alignedState[i]||0):null);
     // Own stack id so it is plotted at an absolute height (tax stack + IRMAA), not on top of the foreign tax credit line; irmaaAmt is what the popup reports.
-    datasets.push({label:'IRMAA surcharge', data:on?alignedIrmaaTop:alignedIrmaaBase, irmaaAmt:alignedIrmaa, ciValues:alignedIrmaa, irmaaOff:!on, borderColor:on?OVERLAY_COLOR:IRMAA_LINE_OFF, backgroundColor:'transparent', borderWidth:3, borderDash:[7,4], pointRadius:0, pointHitRadius:on?12:0, tension:0.25, fill:false, spanGaps:false, stack:'irmaa', order:2});
+    datasets.push({label:'IRMAA surcharge', data:on?alignedIrmaaTop:alignedIrmaaBase, irmaaAmt:alignedIrmaa, ciValues:alignedIrmaa, irmaaOff:!on, borderColor:on?OVERLAY_COLOR:IRMAA_LINE_OFF, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[7,4], pointRadius:0, pointHitRadius:on?12:0, tension:0.25, fill:false, spanGaps:false, stack:'irmaa', order:2});
   }
 
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.

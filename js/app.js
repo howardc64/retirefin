@@ -73,5 +73,6 @@ window.addEventListener('DOMContentLoaded', async function(){
   if(!loadAutosave()){ state=defaultState(); }
   scnRestore();      // the other scenarios, if any were saved (scenarios.js)
   renderAll();
+  if(typeof initNoteClamp==='function') initNoteClamp();   // long help notes in the input cards: two lines + More (input/controls.js)
   if(typeof liveInit==='function') liveInit();   // live link between two open plans (input/liveLink.js)
 });

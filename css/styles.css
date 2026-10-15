@@ -83,11 +83,12 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 /* Inheritance card: imported source files, the % inherited per asset, and fields changed from their inherited value */
 .inh-src{background:var(--bg);}
 .inh-assets{display:flex;flex-direction:column;gap:6px;margin-top:8px;grid-column:1/-1;}
-.inh-asset{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;}
+.inh-asset{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:1px 8px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;}
+.inh-asset-detail{grid-column:1/-1;margin:0;}
 .inh-asset-name{font-size:12px;min-width:0;overflow-wrap:anywhere;}
-.inh-asset-name .item-note{margin-top:2px;}
 .inh-pct{display:flex;align-items:center;gap:4px;flex:0 0 auto;}
-.inh-pct input{width:64px;}
+.inh-pct input{width:64px;font-family:inherit;font-size:13px;padding:5px 7px;border:1px solid var(--border-strong);border-radius:6px;background:var(--bg);color:var(--text);}
+.inh-pct input:focus-visible{outline:2px solid var(--teal);outline-offset:1px;}
 .inh-badge{font-size:11px;color:var(--text-muted);}
 .inh-changed{background:#e2e2e2 !important;color:#111 !important;}
 .portfolio-fields,.rental-fields,.annuity-fields{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
@@ -123,14 +124,14 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
    let two-column layouts overflow and clip their own content well before 700px viewports.
    Falls back gracefully in browsers without @container support (columns just stay 1-col-ish
    via minmax(0,1fr) above, no clipping either way). */
-@container (max-width:560px){
+@container col (max-width:560px){
   .slider-row{grid-template-columns:1fr;gap:4px;}
   .sv{text-align:left;}
   .income-grid.two-col{grid-template-columns:1fr;}
   .income-grid.two-col .person-col{grid-row:auto;grid-template-rows:auto;}
 }
 
-@container (max-width:480px){
+@container col (max-width:480px){
   .people-panes.two-col{grid-template-columns:1fr;}
 }
 @media (max-width:700px){
@@ -186,7 +187,7 @@ body.chart-dragging .chart-cell{border-color:var(--border-strong);}
   max-height:calc(100vh - 32px);overflow-y:auto;overflow-x:hidden;
   padding:2px 14px 24px 2px;
   scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;
-  container-type:inline-size;
+  container:col/inline-size;   /* named: the cards below are containers too (card), and an unnamed query would match them */
 }
 .input-col{margin-left:-14px;padding-left:14px;}
 .chart-col{margin-right:-14px;}
@@ -329,3 +330,53 @@ body.printing-all canvas.print-swapped{display:none !important;}
 @media (prefers-reduced-motion:reduce){.livebar.attn,.livebar.attn .dot{animation:none;}.livebar.attn{outline:2px solid #1E9E4A;}}
 .live-src{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:11px;margin:2px 0 6px;}
 .live-src .live-status{flex:1 1 100%;min-width:0;overflow-wrap:anywhere;}
+
+/* ── Compact input cards (UI review) ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1. nothing leaves its card: a long title shrinks with an ellipsis (Remove / Hide stay inside), buttons never wrap, the focus ring has room;
+   2. inputs are as wide as their content (money ≈ 12 digits, a % or an age much less), not the full card; Custom % / Custom age sit beside their select;
+   3. a card's width decides its layout (container query): in a narrow card the 2-column field grid becomes one column and the two bracket sliders stack;
+   4. an unchecked card says "not used" in its title row (the row alignment across both partners is unchanged). */
+.item{container:card/inline-size;}
+.item-head{min-width:0;}
+.item-head > label:has(> .ttl){min-width:0;flex:1 1 0;}
+.item-head .ttl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.item-head-right{padding-right:3px;}
+.btn{white-space:nowrap;}
+input[type=checkbox]:focus:not(:focus-visible){outline:none;}
+.item-head > label:first-of-type:has(> input[type=checkbox]:not(:checked))::after{content:"not used";flex:0 0 auto;font-size:11px;font-weight:400;color:var(--text-faint);}
+.item-body{gap:7px 10px;}
+.field{gap:3px;}
+.field.align-end{justify-content:flex-end;}   /* side-by-side fields whose labels wrap differently keep their inputs on one line */
+.field .arow{flex-wrap:nowrap;}
+.field input[type=text],.field input[type=number],.field select{padding:6px 9px;}
+.field input[type=number]{max-width:9.5em;}
+.field input[type=number].money{min-width:0;max-width:10.5em;}
+.field input[type=number][placeholder]{max-width:11em;}
+.arow input[type=number].money{width:auto;min-width:0;flex:1 1 90px;max-width:10.5em;}
+.field .arow select{width:auto;flex:1 1 6em;min-width:0;}
+.field.inline{flex-direction:row;align-items:center;justify-content:space-between;gap:10px;}
+.field.inline > label{flex:1 1 auto;min-width:0;}
+.field.inline > input[type=number]{flex:0 0 128px;width:128px;max-width:128px;}
+.conv-sliders{display:flex;gap:12px;align-items:flex-start;margin-top:8px;}
+.item-note.clamp,.cn.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
+.item-note.clamp.open,.cn.clamp.open{display:block;-webkit-line-clamp:unset;}
+.note-more{grid-column:1/-1;justify-self:start;background:none;border:0;padding:0 0 2px;margin-top:-3px;font:inherit;font-size:10.5px;color:var(--teal-text);cursor:pointer;text-align:left;}
+.note-more:hover{text-decoration:underline;}
+.cn + .note-more{justify-self:center;}
+@container card (max-width:330px){
+  .item-body{grid-template-columns:minmax(0,1fr);}
+}
+@container card (max-width:420px){
+  .conv-sliders{flex-direction:column;gap:8px;}
+}
+/* General panel: Name · Birth year · Birth month · Current age on one row per person when the person's box is wide enough */
+.people-panes .person-col{container:pcol/inline-size;}
+@container pcol (min-width:430px){
+  .people-panes .person-col .setup-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr);}
+}
+body.printing-all .item-note.clamp,body.printing-all .cn.clamp{display:block;-webkit-line-clamp:unset;}
+body.printing-all .note-more{display:none;}
+
+/* ── Numbers are right-justified: every number input, so digits line up down a card; fields sharing a row put their inputs on one line ── */
+input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
+.item-body > .field:not(.full){justify-content:flex-end;}

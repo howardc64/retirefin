@@ -195,7 +195,7 @@ function buildAssetChartFor(cfg){
     return {
       label:seriesLabel(s,si), vzKind:s.type, ciOwnerInfo:ownerInfoOf(s), data:aligned[si],
       borderColor:color, backgroundColor:hexOverWhite(color,0xbb/255),   // opaque (the old look blended over white): translucent fills piled up wherever bands overlap, so a band changed shade when the bands above it ended
-      borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'pf', order:1
+      borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'pf', order:1
     };
   });
   // Dashed cost-basis lines (one per portfolio), each in its own stack group so it plots at its own value rather than on top of the bands; order 0 = drawn on top.
@@ -204,7 +204,7 @@ function buildAssetChartFor(cfg){
   pfBasis.forEach(pb=>{
     datasets.push({
       label:seriesLabel(series[pb.si],pb.si)+' cost basis', vzKind:'pfBasis', ciOwnerInfo:ownerInfoOf(series[pb.si]), data:pb.line, ciValues:pb.basis,   // data = plotted height (stack below + basis); ciValues = the cost basis itself, for Chart Element
-      borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:2.5, borderDash:[8,5],
+      borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[8,5],
       pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'basis-pf-'+pb.si, order:0
     });
     extra.push({kind:'pf', si:pb.si, basis:pb.basis});
@@ -212,7 +212,7 @@ function buildAssetChartFor(cfg){
   reBasis.forEach(rb=>{
     datasets.push({
       label:seriesLabel(series[rb.si],rb.si)+' cost basis', vzKind:'reBasis', ciOwnerInfo:ownerInfoOf(series[rb.si]), data:rb.line, ciValues:rb.basis,
-      borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:2.5, borderDash:[1,5], borderCapStyle:'round',
+      borderColor:'#1f1f1f', backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[1,5], borderCapStyle:'round',
       pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'basis-re-'+rb.si, order:0   // its own stack group, so it plots at its own height rather than on top of the bands
     });
     extra.push({kind:'re', si:rb.si, basis:rb.basis});

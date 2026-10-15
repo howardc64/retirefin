@@ -75,7 +75,7 @@
   <div class="panel assump-card" id="assumpExpenses">
     <div class="panel-title assump-title"><span>Expenses</span><label class="hide-toggle" title="Collapse this panel to save space — its values are still used"><input type="checkbox" id="hideExpenses" onclick="onHideToggle('ui.assumpHide.expenses', this.checked, this.closest('.assump-card'))"> Hide</label></div>
     <div class="item-body open">
-      <div class="field full">
+      <div class="field full inline">
         <label>Living expenses (household, $/yr, today's $)</label>
         <input type="number" class="money" id="livingInput" min="0" step="1000" value="0" oninput="onLivingInput(this.value)">
       </div>

@@ -46,7 +46,7 @@ function buildExpenseChart(){
   const datasets=EXP_KEYS.map(k=>({
     label:EXP_LABELS[k], data:aligned[k],
     borderColor:EXP_COLORS[k], backgroundColor:EXP_COLORS[k]+'cc',
-    borderWidth:2, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'exp', order:2
+    borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'exp', order:2
   }));
 
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.

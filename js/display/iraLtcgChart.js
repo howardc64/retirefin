@@ -43,7 +43,7 @@ function dropChart(key){
   setChartAvailable(key,false);
 }
 function stackedBandDataset(label,color,data,stack){
-  return {label, data, borderColor:color, backgroundColor:hexOverWhite(color,0xbb/255), borderWidth:2, pointRadius:0, pointHoverRadius:0, pointHitRadius:12,
+  return {label, data, borderColor:color, backgroundColor:hexOverWhite(color,0xbb/255), borderWidth:THIN_W, pointRadius:0, pointHoverRadius:0, pointHitRadius:12,
     tension:0.25, fill:true, spanGaps:false, stack, order:2};
 }
 
@@ -131,7 +131,7 @@ function buildLtcgChart(){
   const datasets=series.map((s,si)=>stackedBandDataset(s.name,colors[si],data[si],'ltcg'));
   if(scglUsed){
     const net=alignToAges(ages, rows.map(r=>r.ltcg||0), labels);
-    datasets.push({label:'Net LTCG taxed (after SCGL)', data:net, borderColor:'#c0392b', backgroundColor:'transparent', borderWidth:3, borderDash:[7,4],
+    datasets.push({label:'Net LTCG taxed (after SCGL)', data:net, borderColor:'#c0392b', backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[7,4],
       pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, stack:'net', order:1});
   }
 

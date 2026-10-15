@@ -16,10 +16,10 @@ function buildIraCard(pid, p, married){
         <div class="field full"><label>Annual withdraw</label>
           <select onchange="onConvMode('${pid}.ira',this.value)">
             <option value="fixed" ${(p.ira.convMode||'fixed')==='fixed'?'selected':''}>$/yr, today's $</option>
-            <option value="bracket" ${p.ira.convMode==='bracket'?'selected':''}>Below IRMAA &amp; ordinary income tax brackets</option>
+            <option value="bracket" ${p.ira.convMode==='bracket'?'selected':''}>Below IRMAA &amp; tax brackets</option>
           </select>
           ${p.ira.convMode==='bracket'
-            ? `<div style="display:flex;gap:12px;align-items:flex-start;margin-top:8px">${convSliderHtml(pid+'.ira','ord',p.ira)}${convSliderHtml(pid+'.ira','irmaa',p.ira)}</div>
+            ? `<div class="conv-sliders">${convSliderHtml(pid+'.ira','ord',p.ira)}${convSliderHtml(pid+'.ira','irmaa',p.ira)}</div>
                <div class="cn" style="margin-top:4px">Withdraws as much pre-tax IRA as fits <strong>below both</strong> brackets: taxable ordinary income stays below the chosen ordinary bracket, and MAGI stays below the chosen IRMAA bracket (the line labeled with that Part B % on the MAGI chart). Slide to 0 to block withdrawals, or to the end for no limit. Dollar amounts follow the Single / Married setting.</div>`
             : pairHtml('conv_'+idx, pid+'.ira.conv', 0, Math.max(0,Number(p.ira.balance)||0), 1000, p.ira.conv||0, {kind:'ira',i:idx}, true)}
           ${convToRothHtml(pid+'.ira', p.ira)}</div>

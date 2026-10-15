@@ -71,10 +71,10 @@ function buildIncomeChart(){
   const datasets=keys.map(k=>({
     label:INC_LABELS[k], data:aligned[k],
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
-    borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'inc'
+    borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'inc'
   }));
   if(hasScgl) datasets.push({label:'SCGL remaining', data:scglAligned, ciStock:true, halo:true, borderColor:BRACKET_COLOR, backgroundColor:'transparent',
-    borderWidth:2.5, borderDash:[6,4], pointRadius:0, tension:0, fill:false, spanGaps:false, stack:'scgl', order:-1});   // own stack key keeps it off the income bands; order -1 draws it on top of them
+    borderWidth:THIN_W, borderDash:[6,4], pointRadius:0, tension:0, fill:false, spanGaps:false, stack:'scgl', order:-1});   // own stack key keeps it off the income bands; order -1 draws it on top of them
 
   // Built fresh on every call (not just on first creation) so the tooltip never closes
   // over a stale rowByAge/labels/aligned from an earlier render after a slider change.
@@ -198,7 +198,7 @@ function buildIncomeChart(){
   const magiDs=mKeys.map(k=>({
     label:(k==='ssP0'||k==='ssOther') ? INC_LABELS[k]+' — taxable part' : INC_LABELS[k], data:mAligned[k],
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
-    borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'magi'
+    borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'magi'
   }));
   // Popup shows the plan owner(s) and age, then only the MAGI value and the IRMAA surcharge for the tier that MAGI reaches (nothing else, regardless
   // of Popup Details); every other value is in the primary chart's popup.
@@ -253,7 +253,7 @@ function buildIncomeChart(){
   const ordDs=ordKeys.map(k=>({
     label:(k==='ssP0'||k==='ssOther') ? INC_LABELS[k]+' \u2014 taxable part' : INC_LABELS[k], data:ordAligned[k],
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
-    borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'ord', order:3
+    borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'ord', order:3
   }));
   const nBrk=MFJ_ORD.length-1;
   // Only the bracket lines nearest the taxable-ordinary-income stack are drawn (at most 3 per filing status; none far above it in empty space or buried deep inside it): see crowdedBracketKeep.
@@ -315,7 +315,7 @@ function buildIncomeChart(){
   const qualDs=qualKeys.map(k=>({
     label:INC_LABELS[k], data:qualAligned[k],
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
-    borderWidth:3, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'qual', order:3
+    borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'qual', order:3
   }));
   const qTops=fs=>rows.filter(r=>(r.filing==='married')===fs).map(r=>(r.qdiv||0)+(r.ltcg||0));
   const nQ=MFJ_QDIV.length-1;   // the top tier (20%) has no upper limit, so the last line is where the 15% tier ends

@@ -95,6 +95,8 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 - **Enable** unticked: the plan ignores that feature but keeps what you typed.
 - **Hide** ticked: collapses just that card to save space, without changing the plan.
 - These cards start hidden; untick a card's **Hide** box to open it.
+- An unchecked card shows **not used** after its title, so a blank partner card is easy to understand; matching cards of both partners always stay in the same row.
+- Long grey help texts show two lines with a **More** link; click it to read the rest (**Less** folds it again).
 
 ## Income and assets
 
@@ -466,7 +468,7 @@ On the pre-tax IRA card, **Annual withdraw** takes money out of the pre-tax IRA 
 **$/yr, today's $**
 - A flat amount each year. The slider runs from $0 up to the IRA balance and starts at $0.
 
-**Below IRMAA & ordinary income tax brackets**
+**Below IRMAA & tax brackets**
 - The projection converts as much as it can while staying **below both** brackets you choose with two sliders side by side. They step through the bracket values (the dollar amounts follow the Single / Married setting).
 - Staying *below* a bracket means under the point where it starts, so choosing the 24% ordinary bracket fills the 22% bracket and stops.
 - Slide to 0 to block conversions, or to the far end for no limit. The first ordinary stop (10%) converts only what fits in the standard deduction.

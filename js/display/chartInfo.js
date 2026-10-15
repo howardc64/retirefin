@@ -287,8 +287,8 @@ function ciValueLine(key, f, chart){
   const v=(raw!=null&&typeof raw==='object')?raw.y:raw;
   if(typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)<0.5&&!/^Effective tax rate/.test(String(f.ds.label))) return null;
   const age=' '+ciAgeText(chart.data.labels&&chart.data.labels[f.idx]);
-  if(/^Effective tax rate/.test(String(f.ds.label))) return v>0?'Value'+age+': '+v.toFixed(1)+'%':null;
-  return 'Value'+age+': '+fmt(v)+(CI_STOCK_KEYS.includes(key)||f.ds.ciStock?'':'/yr');
+  if(/^Effective tax rate/.test(String(f.ds.label))) return v>0?mrow('Value'+age+':',v.toFixed(1)+'%'):null;
+  return mrow('Value'+age+':',fmt(v)+(CI_STOCK_KEYS.includes(key)||f.ds.ciStock?'':'/yr'));
 }
 function ciShow(e){
   const hit=ciChartOf(e.target);
@@ -315,7 +315,7 @@ function ciShow(e){
   const {name,text,color,value,owner}=info;
   el.style.background=th.bg; el.style.color=th.fg; el.style.borderColor=th.border;
   el.style.whiteSpace='normal'; el.style.maxWidth='340px';
-  el.innerHTML=`<div style="position:relative;padding-left:14px;font-weight:bold;margin-bottom:3px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${esc(color)};border:1px solid ${th.fg};box-sizing:border-box;" data-sw></span>`:''}${esc(name)}</div>${owner?`<div style="margin-bottom:3px;">${esc(owner)}</div>`:''}${value?`<div style="font-weight:bold;margin-bottom:3px;">${esc(value)}</div>`:''}<div>${esc(text)}</div>`;
+  el.innerHTML=`<div style="position:relative;padding-left:14px;font-weight:bold;margin-bottom:3px;">${color?`<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${esc(color)};border:1px solid ${th.fg};box-sizing:border-box;" data-sw></span>`:''}${esc(name)}</div>${owner?`<div style="margin-bottom:3px;">${esc(owner)}</div>`:''}${value?`<div style="font-weight:bold;margin-bottom:3px;display:flex;justify-content:space-between;gap:12px;">${String(value).split(TIP_SEP).map(t=>`<span>${esc(t)}</span>`).join('')}</div>`:''}<div>${esc(text)}</div>`;
   el.style.opacity=1;
   const w=el.offsetWidth, h=el.offsetHeight;
   let left=e.clientX+14; if(left+w>window.innerWidth-8) left=e.clientX-14-w;

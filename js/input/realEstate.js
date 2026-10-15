@@ -38,8 +38,8 @@ function buildRealEstateCard(pid, i, p, married){
             <div class="item-body ${r.hidden?'':'open'} portfolio-fields">
               ${inhYearField(rp, r)}
               <div class="field full"><label>Property name</label><input type="text" maxlength="40" placeholder="Property ${ri+1}" value="${escAttr(r.name||'')}" oninput="onRealEstateName('${pid}',${ri},this.value,this)"></div>
-              <div class="field full"><label>Value (today's $)</label><input type="number" class="money" min="0" step="5000" value="${r.balance||0}" oninput="onNumberInput('${rp}.balance', this.value)"></div>
-              <div class="field full"><label>Cost basis (today's $) · optional</label><input type="number" class="money" min="0" step="5000" placeholder="Blank = no unrealized gain today" value="${reBasisEntered(r)?r.basis:''}" oninput="onRealEstateBasis('${pid}',${ri},this.value)"></div>
+              <div class="field align-end"><label>Value (today's $)</label><input type="number" class="money" min="0" step="5000" value="${r.balance||0}" oninput="onNumberInput('${rp}.balance', this.value)"></div>
+              <div class="field align-end"><label>Cost basis (today's $) · optional</label><input type="number" class="money" min="0" step="5000" placeholder="Blank = no gain" value="${reBasisEntered(r)?r.basis:''}" oninput="onRealEstateBasis('${pid}',${ri},this.value)"></div>
               <div class="field full"><label>Exemption per owner (today's $) · optional</label><input type="number" class="money" min="0" step="5000" placeholder="0" value="${Number(r.exempt)||''}" oninput="onNumberInput('${rp}.exempt', this.value)"></div>
               ${renderChangeRow(rp+'.growth', r.growth, 0)}
               ${married?`<div class="field full"><label style="${lbl}"><input type="checkbox" style="flex:0 0 auto" ${r.bene?'checked':''} onchange="onBeneToggle('${rp}.bene', this.checked)"> Joint owned with spouse</label></div>`:''}
