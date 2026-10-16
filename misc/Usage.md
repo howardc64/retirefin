@@ -114,6 +114,13 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 | *Living expense & income* (default) | Its dividends and sales pay household expenses; excess income is reinvested into it (if Reinvest excess income is checked). |
 | *IDGT* | Outside the taxable estate; charted separately; does not pay expenses or receive excess income; never charged the AUM fee. |
 
+### Distributed LTCG
+
+Each brokerage portfolio has a **Distributed LTCG** setting for capital gains the portfolio pays out each year, like a fund's capital-gain distribution. Choose **% of total / yr** (the default, at 0%) or **Amount / yr (inflation-adjusted)**, a fixed amount in today's dollars.
+
+- It is long-term capital gain income and is taxed every year, whether or not any shares are sold. It counts with LTCG everywhere (qualified income, taxable Social Security, NIIT, state tax, the LTCG chart).
+- Like a dividend it is cash the portfolio pays out: it can pay household expenses, and whatever is not spent is reinvested and adds to the cost basis.
+
 ### Reordering cards
 
 - Drag the ⋮⋮ handle at the left of any income card (Social Security, wages, pension, rentals, brokerage, real estate, annuities, IRA, Roth) and drop it above or below another card.
@@ -273,7 +280,7 @@ The row of buttons above the charts sets a group of charts to one vertical scale
 Each year's expenses are paid in this order:
 
 1. **Household income:** wages, Social Security, pension, rental income including depreciation, tax-exempt income and IRA required distributions.
-2. **Dividends** of *Living expense & income* brokerage portfolios.
+2. **Dividends** (and any Distributed LTCG) of *Living expense & income* brokerage portfolios.
 3. **Sales** of those portfolios.
 4. **Pre-tax IRA** withdrawal for any shortfall, shared across the accounts in proportion to their balances. It counts as taxable income, so the tax on it is added to the expenses.
 5. **Roth IRA** withdrawal (tax-free).

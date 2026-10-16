@@ -86,6 +86,8 @@ const II_FIELDS=[
   [/^Annual ODIV yield/,'n','Ordinary dividend yield: yearly dividends as a percent of the balance. The qualified share is set below.'],
   [/^QDIV as % of ODIV/,'n','Part of the dividends that are qualified, taxed at the lower long-term capital-gain rates. The rest are taxed as ordinary income.'],
   [/^Tax-exempt yield/,'n','Yearly tax-exempt income (e.g. municipal-bond interest) as a percent of the balance. Not taxed, but counted for Social Security taxation and Medicare IRMAA.'],
+  [/^Distributed LTCG$/,'s','Capital gains the portfolio pays out each year (like a fund\'s capital-gain distribution): a percent of the balance, or a fixed amount in today\'s dollars (so it keeps pace with inflation). It is long-term capital gain income and is taxed, whether or not anything is sold. Like dividends it can pay household expenses; the rest is reinvested.'],
+  [/^Distributed LTCG (%|amount)/,'n','Yearly distributed long-term capital gains: a percent of the balance, or dollars in today\'s money. Default 0%.'],
   [/^Foreign asset %/,'n','Percent of the portfolio held in foreign assets, which pay foreign tax that can earn a credit.'],
   [/^Foreign tax credit/,'n','Foreign tax withheld as a percent of the foreign assets, taken as a credit against federal income tax.'],
   [/^AUM \(/,'c','This portfolio\'s balance counts toward the AUM balance on which the household AUM fee (Expenses panel) is charged.'],

@@ -516,7 +516,7 @@ function computeProjection(){
     // Realized LTCG is NOT computed here: it comes from the household expense waterfall below (asset sales).
     // `active` = the portfolio is inside its age range (or continuing to a surviving spouse); an inactive
     // portfolio just compounds — it produces no dividends and is not touched to fund expenses.
-    const NOPF={odiv:0,qdiv:0,ftc:0,te:0,active:false};
+    const NOPF={odiv:0,qdiv:0,ftc:0,te:0,cgd:0,active:false};
     function brokerageValues(portfolio, ownerIdx, k, bal){
       if(!portfolio||!portfolio.enabled||!(bal>0)) return NOPF;
 
@@ -547,7 +547,11 @@ function computeProjection(){
       // Tax-exempt income (e.g. municipal-bond interest): a yield on the start-of-year balance, paid out of the portfolio's total
       // return to the household. It is untaxed (never in AGI) but counts as household cash income (see cashIncome below).
       const te=Math.max(0,bal*(Number(portfolio.teYield)||0)/100);
-      return {odiv,qdiv,ftc,te,active:true};
+      // Distributed LTCG (a fund's capital-gain distribution): a % of the start-of-year balance, or a fixed amount in today's $ (the projection is in today's $, so
+      // that already tracks inflation). It is realized LTCG this year whether or not shares are sold (taxOn), and — like a dividend — cash the household can spend
+      // (x.odiv below); what is not spent is reinvested and adds cost basis.
+      const cgd=Math.min(bal, Math.max(0, portfolio.cgdMode==='amt'?(Number(portfolio.cgdAmt)||0):bal*(Number(portfolio.cgdPct)||0)/100));
+      return {odiv,qdiv,ftc,te,cgd,active:true};
     }
     // Real estate sales, part 1 — a 'passing' sale (start of the last year): the basis is stepped up to value first, so there is no gain and no tax; the whole
     // value, at a 100% basis, goes to the designated portfolio. (Sales on an age / LTC date are made at year-end, below, because they are taxed.)
@@ -692,7 +696,7 @@ function computeProjection(){
       const g=realGrowth(b.growth,inflation), avail=Math.max(0,bal*(1+g));
       const feeShare=aumBalance>0?aumFee*aumBase[i][bi]/aumBalance:0;   // this portfolio's share of the AUM fee
       const feeD=feeShare;   // informational: the AUM fee charged on this balance (paid by the pool, not by this portfolio)
-      const x={active:v.active, idgt:!!b.idgt, payExp:!!b.payExp, reinvest:!!b.reinvest, feeShare, bal, g, avail, feeD, odiv:v.odiv, te:Math.min(v.te||0, avail),
+      const x={active:v.active, idgt:!!b.idgt, payExp:!!b.payExp, reinvest:!!b.reinvest, feeShare, bal, g, avail, feeD, odiv:v.odiv+(v.cgd||0), cgd:v.cgd||0, te:Math.min(v.te||0, avail),
                f:st.tracked?pfGainFraction(bal,st.basis):0, divUsed:0, sold:0, wd:0, ltcg:0, excessIn:0};
       pfx[i][bi]=x;
       // Only portfolios with "Pay expenses" checked contribute dividends and asset sales to household expenses.
@@ -894,7 +898,7 @@ function computeProjection(){
       }
       const expUnfunded=Math.max(0,expNeed);
       // Realized LTCG = sold × gain fraction, for every portfolio (IDGT included, on its own sales).
-      pfx.forEach(list=>list.forEach(x=>{ if(x) x.ltcg=(x.sold+x.wd)*x.f; }));   // a withdraw is a sale like any other
+      pfx.forEach(list=>list.forEach(x=>{ if(x) x.ltcg=(x.sold+x.wd)*x.f+(x.cgd||0); }));   // a withdraw is a sale like any other; + the distributed LTCG (taxed whether or not anything is sold)
       const reShortGain=reShort.reduce((a,x)=>a+x.gain,0);
       let ltcgGross=reGainTotal+reShortGain; pfx.forEach(list=>list.forEach(x=>{ if(x) ltcgGross+=x.ltcg; }));   // portfolio sales' LTCG + the gain on a property sold this year (step 2)
       return {wdCash, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, ltcgGross, iraExpByPerson, rothExpByPerson, reShort, reShortGain};
@@ -1145,7 +1149,7 @@ function computeProjection(){
       const entry=portfoliosByPerson[i][bi];
       entry.feeDrag=x.feeD; entry.growthPct=x.g*100;
       entry.divUsed=x.divUsed; entry.divReinvested=reinvested; entry.sold=x.sold; entry.withdrawn=x.wd; entry.excessReinvested=x.excessIn; entry.taxExempt=x.te;
-      entry.ltcg=x.ltcg;   // the exact (pre-SCGL) gain realized and taxed this year
+      entry.ltcg=x.ltcg; entry.cgd=x.cgd||0;   // the exact (pre-SCGL) gain realized and taxed this year (cgd = the distributed part of it)
       // Net growth after expenses paid from this portfolio (dividends used + shares sold) — actual balance change.
       entry.netGrowthPct = ((st.bal/bal)-1)*100;
     }));

@@ -140,6 +140,7 @@ BrokeragePortfolio = {
   ar: AgeRange, bene: boolean, idgt: boolean,
   enabled: boolean,          // default true — whether this portfolio is used for compute/display
   hidden: boolean,           // default false — whether its card is collapsed on screen (§5.1)
+  cgdMode: 'pct'|'amt', cgdPct: number /* default 0: % of the start-of-year balance */, cgdAmt: number /* today's $/yr */,   // Distributed LTCG: realized LTCG each year (added to `x.ltcg` → `ltcgGross`, taxed like any LTCG) and spendable like a dividend (counted in the waterfall's `x.odiv`, so unspent amounts are reinvested and add basis); capped at the balance. Row entry field `cgd`
   teYield: number,           // default 0 (%): tax-exempt income paid out of the portfolio each year = start balance × teYield — untaxed, but part of `cashIncome` (§4.6); lowers the balance by the same amount
   reinvest: boolean,         // default FALSE — "Reinvest excess income": household income left after ALL expenses are paid is added (pro rata to start-of-year balance) to the in-range portfolios with this checked (§4.6). Older saves load as false via the `defaultBrokeragePortfolio` merge
   payExp: boolean,           // default FALSE — "Pay expenses": only portfolios with this checked (IDGT or not) contribute dividends and asset sales to household expenses (§4.6). Saves that predate the field load as true for non-IDGT portfolios (their old behavior)

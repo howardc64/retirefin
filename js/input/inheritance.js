@@ -20,7 +20,7 @@
 // (person.brokerage / person.realEstate / person.inhIras) with `inh` = {file, key, base}.
 // ═══════════════════════════════════════════════════════════════
 const INH_FIELDS={
-  pf:['name','balance','basisPct','growth','yield','qdivPct','teYield','foreignPct','ftcPct','startYear','ar','type','aum','bene'],
+  pf:['name','balance','basisPct','growth','yield','qdivPct','cgdMode','cgdPct','cgdAmt','teYield','foreignPct','ftcPct','startYear','ar','type','aum','bene'],
   re:['name','balance','basis','exempt','growth','startYear','sellMode','sellAge','sellTo','bene'],
   ira:['name','balance','growth','startYear','rmdStarted','bene','conv','convMode','convIrmaaPct','convOrdPct','convStartMode','convStart','convStartBracket','convStartItemized'],
   roth:['name','balance','growth','startYear','rmdStarted','bene']
@@ -71,7 +71,7 @@ function inhExtractFromProj(parent, proj){
       }
       const nm=(b.name&&b.name.trim())||('Portfolio '+(bi+1));
       assets.push({key:'pf:'+b.id, type:'pf', label:nm+(b.idgt?' (IDGT)':'')+' — '+pname(p,i), value,
-        snap:{name:'Inherited '+nm, balance:value, basisPct, growth:inhClone(b.growth), yield:b.yield, qdivPct:b.qdivPct, teYield:b.teYield, foreignPct:b.foreignPct, ftcPct:b.ftcPct}});
+        snap:{name:'Inherited '+nm, balance:value, basisPct, growth:inhClone(b.growth), yield:b.yield, qdivPct:b.qdivPct, cgdMode:b.cgdMode||'pct', cgdPct:b.cgdPct||0, cgdAmt:b.cgdAmt||0, teYield:b.teYield, foreignPct:b.foreignPct, ftcPct:b.ftcPct}});
     });
     (p.realEstate||[]).forEach((r,ri)=>{
       const e=last.realEstateByPerson&&last.realEstateByPerson[i]&&last.realEstateByPerson[i][ri];

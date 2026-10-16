@@ -329,7 +329,7 @@ function xlsxInputsSheet(proj){
       const lab=`Portfolio ${bi+1}: ${(b.name&&b.name.trim())||'(unnamed)'}${b.idgt?' (IDGT)':''}`;
       put(lab,yn(b.enabled!==false),inhNote(b)); put('  balance',Number(b.balance)||0,{fmt:XLSX_MONEY,key:`pf${i}_${bi}Bal`});
       put('  growth mode',b.growth&&b.growth.mode,{key:`pf${i}_${bi}GMode`}); put('  growth value (% nominal, or offset %)',b.growth?Number(b.growth.value)||0:0,{key:`pf${i}_${bi}GVal`});
-      put('  dividend yield %',Number(b.yield)||0); put('  qualified share of dividends %',Number(b.qdivPct)||0); put('  tax-exempt yield %',Number(b.teYield)||0);
+      put('  dividend yield %',Number(b.yield)||0); put('  qualified share of dividends %',Number(b.qdivPct)||0); put('  tax-exempt yield %',Number(b.teYield)||0); put('  distributed LTCG '+(b.cgdMode==='amt'?'($/yr, today\'s $)':'(% of balance)'),Number(b.cgdMode==='amt'?b.cgdAmt:b.cgdPct)||0);
       put('  cost basis % of balance',b.basisPct==null||b.basisPct===''?'(blank = no gain)':Number(b.basisPct)); put('  foreign-income %',Number(b.foreignPct)||0); put('  foreign tax credit %',Number(b.ftcPct)||0);
       put('  type',b.type); put('  pays household expenses',yn(b.payExp)); put('  reinvests excess income',yn(b.reinvest)); put('  counts toward AUM fee',yn(b.aum)); put('  joint with spouse / inherited',yn(b.bene));
     });
@@ -388,15 +388,16 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
     {key:'gr',head:'Growth %',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).growthPct)},
     {key:'ngr',head:'Net growth %',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).netGrowthPct!=null?ent(r).netGrowthPct:ent(r).growthPct)},
     {key:'fee',head:'AUM fee share',v:r=>ent(r).feeDrag},
-    {key:'ltcg',head:'Realized LTCG (gross, before SCGL)',v:r=>ent(r).ltcg},
+    {key:'ltcg',head:'Realized LTCG (gross, before SCGL) = shares sold × gain share + distributed LTCG',v:r=>ent(r).ltcg},
+    {key:'cgd',head:'  of which: Distributed LTCG (paid out; taxed whether or not shares are sold)',v:r=>ent(r).cgd||0},
     {key:'basis',head:'Cost basis (SOY)',v:r=>ent(r).tracked?ent(r).basis:''},
     {key:'gain',head:'Unrealized gain (SOY)',kind:'f',v:r=>ent(r).tracked?ent(r).unrealizedGain:'',f:X=>`IF(${X('basis')}="","",${X('bal')}-${X('basis')})`},
     {key:'bpct',head:'Basis % of balance',kind:'f',fmt:XLSX_PCT,v:r=>(ent(r).tracked&&ent(r).balance>0)?ent(r).basis/ent(r).balance:'',f:X=>`IF(OR(${X('basis')}="",${X('bal')}<=0),"",${X('basis')}/${X('bal')})`},
     {key:'up',head:'Stepped up this year (owner passed, or spouse passed if jointly owned)',text:true,v:r=>ent(r).steppedUp?'Yes':''},
     {key:'swap',head:'Swapped with IDGT this year (value)',v:r=>ent(r).swapAmt>0?ent(r).swapAmt:''},
     {key:'reIn',head:'Real estate sold into this portfolio this year (value; its cost basis moves in too)',v:r=>{ const t=(ent(r).reSaleIn||[]).reduce((x,y)=>x+y.value,0); return t>0?t:''; }},
-    {key:'divu',head:'Dividends used for expenses',v:r=>ent(r).divUsed},
-    {key:'divr',head:'Dividends reinvested',v:r=>ent(r).divReinvested},
+    {key:'divu',head:'Dividends (and distributed LTCG) used for expenses',v:r=>ent(r).divUsed},
+    {key:'divr',head:'Dividends (and distributed LTCG) reinvested',v:r=>ent(r).divReinvested},
     {key:'sold',head:'Shares sold',v:r=>ent(r).sold},
     {key:'wdr',head:'Portfolio withdraw (sold; proceeds are household cash income)',v:r=>ent(r).withdrawn||0},
     {key:'exc',head:'Excess income reinvested',v:r=>ent(r).excessReinvested||0},

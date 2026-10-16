@@ -414,12 +414,12 @@ ${fpWhere('Living expenses is a flat today\'s-dollar amount (it switches to the 
 <p>They are paid in this order: (1) household income (wages, Social Security, pension, rental and its depreciation add-back, tax-exempt income, annuity payouts, IRA RMDs, portfolio withdraw); (2) the dividends (ODIV) of the <em>Living expense &amp; income</em> portfolios, shared pro rata, with any dividend not needed reinvested; (3) selling those portfolios\' assets, shared pro rata to balance; (4) if the portfolios are exhausted, withdrawing from pre-tax IRA, shared pro rata to the IRA balances; (5) then withdrawing from the Roth IRA, shared pro rata to the Roth balances, for whatever is still left. Each brokerage portfolio has a <em>Portfolio type</em>: <em>Living expense &amp; income</em> (the default) pays household expenses and receives excess income; an <em>IDGT</em> contributes neither dividends nor sales to household expenses, receives no excess income and reinvests all its dividends. Steps (3)–(5) are the built-in order; the <em>Expense shortfall withdrawal order</em> assumption replaces them with your own list (below).</p>
 ${fpEq(
   `Paid by income = min( Expenses, household income )`,
-  `Paid by dividends = min( ΣODIV, Expenses − Paid by income )`,
+  `Paid by dividends = min( Σ( ODIV + Distributed LTCG ), Expenses − Paid by income )`,
   `Paid by asset sales = min( portfolio balances, Expenses − Paid by income − Paid by dividends )`,
   `Paid by pre-tax IRA = min( pre-tax IRA balances, remaining expenses )`,
   `Paid by Roth IRA = min( Roth IRA balances, remaining expenses )`,
   `Shortfall = Expenses − Paid by income − Paid by dividends − Paid by asset sales − Paid by pre-tax IRA − Paid by Roth IRA`,
-  `Reinvested = max( 0, ODIV − dividends used )`
+  `Reinvested = max( 0, ODIV + Distributed LTCG − dividends used )`
 )}
 
 <h3 id="f-order">Expense shortfall withdrawal order <a class="fp-top" href="#toc">↑</a></h3>
@@ -482,6 +482,11 @@ ${fpEq(
 ${fpEq(
   `ODIV = portfolio balance × ODIV yield %`,
   `QDIV = ODIV × QDIV % of ODIV`
+)}
+<p><strong>Distributed LTCG.</strong> Each portfolio can also distribute capital gains (<em>Distributed LTCG</em>: a % of the balance, default 0%, or a fixed amount in today's $, which is already inflation-adjusted). It is realized long-term capital gain every year, whether or not shares are sold, so it is added to the LTCG that is taxed (before the SCGL shield). Like a dividend it is cash the portfolio pays out, so it is counted with the dividends in the funding waterfall: it can pay expenses, and what is not used is reinvested and adds cost basis.</p>
+${fpEq(
+  `Distributed LTCG = min( balance, balance × Distributed LTCG % )&emsp;or&emsp;min( balance, fixed amount )`,
+  `LTCG<sub>gross</sub> = &Sigma; portfolios ( shares sold × gain share + Distributed LTCG ) + property-sale gain`
 )}
 <h3 id="f-tex">Tax-exempt income <a class="fp-top" href="#toc">↑</a></h3>
 <p><strong>Tax-exempt income.</strong> Each portfolio has a <em>Tax-exempt yield %</em> (default 0), e.g. municipal-bond interest. It is a share of the portfolio's total return that is paid out to the household every year while the portfolio is in its age range. The paid-out amount is untaxed — it is never part of AGI — but it is household income, so it is counted in total household income, pays expenses ahead of dividends and asset sales, and any excess is reinvested into the portfolios with <em>Reinvest excess income</em> checked, like the other income:</p>

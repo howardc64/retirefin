@@ -86,7 +86,7 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
   };
 }
 // Brokerage portfolio (spec 4.3): value, age range, annual growth (default inflation + 4%),
-// survivor benefit, ODIV yield (default 1.5%), QDIV share of ODIV (default 70%), tax-exempt yield % (`teYield`, default 0: paid out of the
+// survivor benefit, Distributed LTCG (`cgdMode` 'pct' = `cgdPct` % of the balance (default, 0) or 'amt' = `cgdAmt` $/yr in today's $; taxed LTCG, spendable like a dividend), ODIV yield (default 1.5%), QDIV share of ODIV (default 70%), tax-exempt yield % (`teYield`, default 0: paid out of the
 // portfolio each year as tax-exempt income — untaxed, but part of household income), an IDGT flag, an AUM flag and a
 // `type` ('living' default | 'idgt') drives the idgt/payExp/reinvest flags (living: payExp+reinvest on; idgt: all off).
 // `payExp` flag (derived): only portfolios with it checked contribute dividends and asset sales to the household
@@ -109,7 +109,7 @@ function defaultBrokeragePortfolio(balance, n){
   // (input/brokerage.js) and the card header's fallback (also "Portfolio N", position-based) already
   // show a sensible default, and starting blank means the header always visibly tracks the first
   // character the user types instead of initially showing unrelated placeholder text to overwrite.
-  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25,
+  return {id:uid(),enabled:true,hidden:false,name:'',balance:balance||0,growth:defaultChange('offset',4),yield:1.5,qdivPct:70,cgdMode:'pct',cgdPct:0,cgdAmt:0,teYield:0,aum:false,type:'living',payExp:true,reinvest:true,basisPct:null,ar:defaultAgeRange('now',0,'passing',0),bene:false,idgt:false,foreignPct:0,ftcPct:0.25,
     inh:null, startYear:null};   // inh/startYear: set only on a portfolio created by the Inheritance card (input/inheritance.js): {file,key,base} and the calendar year it enters the plan
 }
 // Real estate asset (per person, any number): a passive asset with no income stream — no dividends, tax-exempt yield, foreign credit, AUM fee,
