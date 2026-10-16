@@ -923,7 +923,9 @@ function computeProjection(){
       const seniorDed=seniorOf(agi);   // on top of the standard/itemized deduction; does not reduce AGI
       const ordTI=Math.max(0, ordIncome-ded-seniorDed);
       const ordTax=calcOrdTax(ordTI, ordBrk);
-      const qualTax=calcQualTax(ordTI, qualIncome, qBrk);
+      const qualTaxable=qualTaxableAmt(ordIncome, qualIncome, ded+seniorDed);   // the deduction's excess over ordinary income shelters qualified income (worksheet)
+      const {qdiv:qdivT, ltcg:ltcgT}=qualTaxableSplit(qdiv, ltcg, qualTaxable);
+      const qualTax=calcQualTax(ordTI, qualTaxable, qBrk);
       const incomeTax=ordTax+qualTax; // ordinary + qualified only — the SST hypothetical below mirrors this basis
       // §9.4 NIIT: 3.8% of the lesser of net investment income (ODIV−QDIV + QDIV + LTCG) or MAGI (~AGI)
       // over the un-indexed threshold. Added on top of ordinary + qualified tax for Total Tax (TT).
@@ -933,7 +935,7 @@ function computeProjection(){
       const totalTax=Math.max(0, incomeTax-foreignTaxCredit)+niit;
       // State tax (not part of totalTax). Washington taxes only portfolio gains, so a property sale's gain (and the SCGL it uses first) is left out.
       const stateTax=stCode?computeStateTax(stCode,{agi, taxableSS, expLtc, ltcgPortfolio:Math.max(0,ltcgGross-(reGainAll==null?reGainTotal:reGainAll)-scglUsed), filing, nAlive:stN, nSenior:stSenior, f:ssThresholdFactor}):0;
-      return {stateTax, scglUsed, ltcg, qualIncome, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax};
+      return {stateTax, scglUsed, ltcg, qualIncome, qualTaxable, qdivT, ltcgT, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax};
     }
 
     // ── Tax ↔ LTCG fixed-point iteration ──
@@ -1061,7 +1063,7 @@ function computeProjection(){
       const hi=wdRoom(e);
       if(!(hi>0)) return;
       if(!isFinite(top)){ setWd(e,hi); return; }
-      const slack=w=>{ setWd(e,w); const r=solveTax(rothConvTotal); return top-(r.tx.ordTI+r.tx.qualIncome); };
+      const slack=w=>{ setWd(e,w); const r=solveTax(rothConvTotal); return top-(r.tx.ordTI+r.tx.qualTaxable); };
       let a=0, fa=slack(0);
       if(fa<0){ setWd(e,0); return; }                       // already over the bracket before selling anything
       let b=hi, fb=slack(b);
@@ -1093,7 +1095,7 @@ function computeProjection(){
     // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
     const expTax=taxIn;
     const {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded}=wf;
-    const {scglUsed, ltcg, qualIncome, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, stateTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax}=tx;
+    const {scglUsed, ltcg, qualIncome, qualTaxable, qdivT, ltcgT, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, stateTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax}=tx;
     const ltcgGross=wf.ltcgGross;
     scglRemaining=Math.max(0,scglRemaining-scglUsed);
     // Excess income: household cash income left after ALL expenses (living, LTC, IRMAA, AUM fee and this year's tax) are paid.
@@ -1110,10 +1112,10 @@ function computeProjection(){
     const ltcgByPersonGross=people.map((p,i)=>{ let t=0; pfx[i].forEach(x=>{ if(x) t+=x.ltcg; }); reSales.forEach(x=>{ if(x.i===i) t+=x.gain; }); wf.reShort.forEach(x=>{ if(x.i===i) t+=x.gain; }); return t; });
     const shieldFrac = ltcgGross>0 ? scglUsed/ltcgGross : 0;
     const ltcgByPerson = ltcgByPersonGross.map(v=>v*(1-shieldFrac));
-    const {sst,marginalRate,sstOrdTI,sstTaxNoSS,mProv,mTSS,mTI,mTax} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor, seniorOf, teIncome);
+    const {sst,marginalRate,sstOrdTI,sstTaxNoSS,mProv,mTSS,mTI,mQT,mTax,sstQT} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor, seniorOf, teIncome);
 
     // Split of the marginal rate: the part from the ordinary brackets (incl. the SS torpedo) and the part from ordinary income pushing qualified income into a higher tier.
-    const marginalQual=Math.max(0,(calcQualTax(mTI, qualIncome, qBrk)-qualTax)/100), marginalOrd=marginalRate-marginalQual;
+    const marginalQual=Math.max(0,(calcQualTax(mTI, mQT, qBrk)-qualTax)/100), marginalOrd=marginalRate-marginalQual;
 
     // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
     const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
@@ -1211,8 +1213,8 @@ function computeProjection(){
       ftcByPerson, foreignTaxCredit,
       inhIraWdByPerson, inhIraWd, inhRothWdByPerson, inhRothWd, inhIraByPerson:inhSim.map(l=>l.map(sm=>({balance:sm.live?sm.eoy:0, live:sm.live, wd:sm.wd, kind:sm.kind, name:sm.name}))),
       iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, convMainByPerson:convMainByPerson.slice(), rothConvTotal, rothWdOnlyByPerson:rothConvByPerson.map((v,i)=>Math.max(0,v-(rothInByPerson[i]||0))), rothInByPerson, rothInTotal:rothInByPerson.reduce((a,b)=>a+b,0), convCashTotal:convCash, rothBalByPerson, portfoliosByPerson, realEstateByPerson, embeddedGain, embeddedGainIdgt,
-      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, age65Eligible:age65N, ltcStarted, ltcCostByPerson, noConvOrdTI, noConvItemized, convTriggerStartedByPerson:iraSim.map(s=>s.startedK===k), agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTax,
-      sst, marginalRate, marginalOrd, marginalQual, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mTax,
+      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, age65Eligible:age65N, ltcStarted, ltcCostByPerson, noConvOrdTI, noConvItemized, convTriggerStartedByPerson:iraSim.map(s=>s.startedK===k), agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTaxable, qdivT, ltcgT, qualTax,
+      sst, marginalRate, marginalOrd, marginalQual, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mQT, mTax, sstQT,
       niiIncome, niit,
       irmaaSurcharge,
       expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, brokerageWd:wf.wdCash, brokerageWdByPerson:people.map((p,i)=>wdList.reduce((a,e)=>a+(e.i===i?e.amt:0),0)), excessIncome, excessReinvested, taxIters, taxConverged,

@@ -69,7 +69,7 @@ function ciDescribe(key, ds, kidx){
       if(label==='Deduction') return 'Top of the gross ordinary income: the gap between the stack and this red line is the deduction (standard or itemized, plus the senior deduction) absorbed that year.';
       { const t=pick(CI_INCOME); return t?t+' '+CI_ORD:null; }
     case 'incomeQual':
-      if(ds.ordLabel) return 'Qualified-income tax threshold. Qualified dividends and long-term gains stacked above this line are taxed at '+ds.ordLabel+'.';
+      if(ds.ordLabel) return 'Qualified-income tax threshold: where the '+ds.ordLabel+' rate starts. The bracket limit applies to total taxable income and qualified income sits on top of the taxable ordinary income (Qualified Dividends and Capital Gain Tax Worksheet), so this line is the limit minus that year\'s taxable ordinary income — it moves with the ordinary income. Qualified dividends and long-term gains stacked above it are taxed at '+ds.ordLabel+'.';
       return pick(CI_INCOME);
     case 'tss':
       if(/^Total Social Security/.test(label)) return 'Total Social Security (TSS): everything the household receives from Social Security that year, before any of it is taxed.';

@@ -216,10 +216,10 @@ The four charts are the same size, in a 2 × 2 grid.
   - A red dashed line sits above the stack by the amount of the deduction (so it marks your ordinary income before the deduction). It is in the main income chart's legend and left out in years with no deduction absorbed.
   - Its popup shows the owner(s) and age, the ordinary income before the deduction, the deduction and the taxable ordinary income. Qualified income and total taxable income are in the main popup when Popup Details is on.
 - **Taxable qualified income chart** (bottom right):
-  - Qualified dividends and long-term gains, stacked in the same colors (ordinary income is not drawn).
-  - Two dashed lines are the qualified tax brackets (the 0% and 15% limits for your filing status that year), each labeled with its rate.
-  - Ordinary income still fills the tiers first when the tax is calculated, so the amount actually taxed at each rate is in the popup's Qualified tax line and in the Excel export.
-- **Reference lines:** every bracket, deduction, IRMAA and effective-rate line is thin and solid with a thin white line under it. Only lines that matter to the data are drawn (those crossing the stack, the first one above it and the last one below it, at most 3 per filing status). The lines on the Social Security charts are thin as well.
+  - Taxable qualified dividends and long-term gains, stacked in the same colors (ordinary income is not drawn). A deduction larger than your ordinary income shelters qualified income (the Qualified Dividends and Capital Gain Tax Worksheet), and the popup shows the sheltered amount.
+  - Two lines show where the **15%** and the **20%** rates start. They are not flat: qualified income sits on top of your taxable ordinary income, so each line is the bracket limit for your filing status minus that year's taxable ordinary income (never below 0), the room left before the rate steps up. They move as your ordinary income changes (IRA withdrawals, Roth conversions, Social Security). A line that is far above the data is left off the scale.
+  - The popup's Qualified tax line and the Excel export show the amount actually taxed at each rate.
+- **Reference lines:** every bracket, deduction, IRMAA and effective-rate line is thin and solid with a thin white line under it. Only lines that matter to the data are drawn (the qualified chart always shows both of its lines; on the others, those crossing the stack, the first one above it and the last one below it, at most 3 per filing status). The lines on the Social Security charts are thin as well.
 
 ### Asset Value, IRA, LTCG and Inheritance asset income
 

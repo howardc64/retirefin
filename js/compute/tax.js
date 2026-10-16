@@ -8,6 +8,17 @@ function calcOrdTax(ti,brackets){
   for(const b of brackets){if(ti<=prev)break;tax+=(Math.min(ti,b.lim)-prev)*b.r;prev=b.lim;}
   return tax;
 }
+// Qualified income that is actually taxed (the Qualified Dividends and Capital Gain Tax Worksheet): taxable income = ordinary + qualified − deduction, floored at 0, and the
+// deduction takes ordinary income first — only what it does not use reduces the qualified income. So taxable qualified income = taxable income − taxable ordinary income.
+function qualTaxableAmt(ordIncome, qualIncome, deduction){
+  if(!(qualIncome>0)) return 0;
+  return Math.max(0, Math.max(0,ordIncome+qualIncome-deduction) - Math.max(0,ordIncome-deduction));
+}
+// Of that taxable qualified income, the part that is QDIV and the part that is LTCG. The deduction's spill-over comes off the top of the stack (LTCG first, then QDIV).
+function qualTaxableSplit(qdiv, ltcg, qualTaxable){
+  const shelter=Math.max(0,(qdiv+ltcg)-qualTaxable), l=Math.max(0,ltcg-shelter), d=Math.max(0,qdiv-Math.max(0,shelter-ltcg));
+  return {qdiv:d, ltcg:l};
+}
 function calcQualTax(ordTI, qualIncome, qdivBrackets){
   if(qualIncome<=0)return 0;
   let tax=0, base=ordTI, rem=qualIncome;
@@ -61,18 +72,20 @@ function computeTaxableSS(nonSS,totalSS,filing,f=1){
 // `seniorFn(agi)` (optional) is the enhanced senior deduction as a function of AGI, so the no-SS hypothetical and the marginal-rate
 // bump use the deduction that AGI would really earn (it phases out at 6% per eligible person, which shows up in the marginal rate).
 function computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, actualTotalTax, f=1, seniorFn=null, teIncome=0){
-  const ordTInoSS = Math.max(0, nonSSOrdinary-std-(seniorFn?seniorFn(nonSSOrdinary+qdiv+ltcg):0));
+  const dedNoSS = std+(seniorFn?seniorFn(nonSSOrdinary+qdiv+ltcg):0);
+  const ordTInoSS = Math.max(0, nonSSOrdinary-dedNoSS);
   const ordTaxNoSS = calcOrdTax(ordTInoSS, ordBrk);
-  const qualTaxNoSS = calcQualTax(ordTInoSS, qdiv+ltcg, qBrk);
+  const qualTaxNoSS = calcQualTax(ordTInoSS, qualTaxableAmt(nonSSOrdinary, qdiv+ltcg, dedNoSS), qBrk);
   const sst = Math.max(0, actualTotalTax - (ordTaxNoSS+qualTaxNoSS));
 
   const bump=100; // $100 numerical-derivative step, normalized back to a per-$1 rate
   const {taxableSS:taxSS2,provisional:provM}=computeTaxableSS(nonSSOrdinary+bump+qdiv+ltcg+teIncome, totalSS, filing, f);   // QDIV, LTCG and tax-exempt interest all count toward provisional income
-  const ordTI2=Math.max(0, nonSSOrdinary+bump+taxSS2-std-(seniorFn?seniorFn(nonSSOrdinary+bump+taxSS2+qdiv+ltcg):0));
-  const tax2=calcOrdTax(ordTI2, ordBrk)+calcQualTax(ordTI2, qdiv+ltcg, qBrk);
+  const ord2=nonSSOrdinary+bump+taxSS2, ded2=std+(seniorFn?seniorFn(ord2+qdiv+ltcg):0);
+  const ordTI2=Math.max(0, ord2-ded2), mQT=qualTaxableAmt(ord2, qdiv+ltcg, ded2);
+  const tax2=calcOrdTax(ordTI2, ordBrk)+calcQualTax(ordTI2, mQT, qBrk);
   const marginalRate=Math.max(0,(tax2-actualTotalTax)/bump);
   // The hypotheticals' intermediate values are returned too, so the Excel export can show them as cached values next to its live formulas.
-  return {sst, marginalRate, sstOrdTI:ordTInoSS, sstTaxNoSS:ordTaxNoSS+qualTaxNoSS, mProv:provM, mTSS:taxSS2, mTI:ordTI2, mTax:tax2};
+  return {sst, marginalRate, sstOrdTI:ordTInoSS, sstTaxNoSS:ordTaxNoSS+qualTaxNoSS, mProv:provM, mTSS:taxSS2, mTI:ordTI2, mQT, mTax:tax2, sstQT:qualTaxableAmt(nonSSOrdinary, qdiv+ltcg, dedNoSS)};
 }
 // Enhanced deduction for seniors (Schedule 1-A Part V, lines 31–37). Per eligible individual it is
 //   max( 0, $6,000 − 6% × max( 0, MAGI − $75,000 ($150,000 joint) ) ),

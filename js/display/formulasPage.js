@@ -304,7 +304,8 @@ ${fpEq(
   `Ordinary income = wages + pension + rental + taxable annuity payouts + IRA RMD + pre-tax IRA withdraw + pre-tax IRA withdraw (for expenses) + (ODIV − QDIV)`,
   `AGI = ordinary income + taxable SS + QDIV + LTCG<sub>net of SCGL</sub>`,
   `Taxable ordinary income = max( 0,&ensp;ordinary income + taxable SS − max(standard deduction, itemized deductions) − enhanced senior deduction )`,
-  `TI = taxable ordinary income + QDIV + LTCG<sub>net of SCGL</sub>`
+  `Taxable qualified income = max( 0,&ensp;ordinary income + taxable SS + QDIV + LTCG<sub>net of SCGL</sub> − deductions ) − taxable ordinary income`,
+  `TI = taxable ordinary income + taxable qualified income`
 )}
 ${fpWhere('The standard deduction is the married or single amount, based on that year\'s filing status; itemized deductions are the Long Term Care cost above 7.5% of AGI, and whichever is larger is used. The enhanced senior deduction (next paragraph) is taken on top of either one and lowers taxable income but not AGI. Rental in the ordinary-income line is the taxable rental income as entered (see <a href="#f-rent">Rental income and depreciation</a>, above).')}
 <h3 id="f-ded">Additional standard deduction (65+) and senior deduction <a class="fp-top" href="#toc">↑</a></h3>
@@ -382,12 +383,14 @@ ${fpEq(
   `Total taxable income = taxable ordinary income + QDIV + LTCG<sub>net of SCGL</sub>`
 )}
 ${fpWhere('The deduction is the standard or itemized deduction plus the senior deduction. On the chart it is taken off the bottom of the stack, so each ordinary band is that source\'s taxable part and those bands add up to the taxable ordinary income; The dashed lines are the ordinary tax brackets: each marks where a bracket starts and is labeled with the rate that applies above it, so the stack can be read against them directly. A red dashed line above the stack marks taxable ordinary income + the deduction absorbed, i.e. ordinary income before the deduction, so the gap between the stack and the red line is the deduction. The Roth conversion "below ordinary bracket" limit tests this same taxable ordinary income. QDIV and LTCG are taxed at their own rates, stacked on top of it in the qualified tax calculation; total taxable income is shown in the main income popup (Show Details) and in the Excel export.')}
-<p>The taxable qualified income chart (bottom right of Annual Household Income) stacks only the qualified income, QDIV and LTCG<sub>net of SCGL</sub> in their usual colors. Ordinary income is not drawn. The two dashed lines are the qualified tax brackets themselves, for that year\'s filing status:</p>
+<p>The taxable qualified income chart (bottom right of Annual Household Income) stacks only the qualified income, QDIV and LTCG<sub>net of SCGL</sub> in their usual colors. Ordinary income is not drawn. The two lines show where the 15% and the 20% rates start, for that year\'s filing status, as the room left after the year\'s taxable ordinary income:</p>
 ${fpEq(
   `Qualified income = QDIV + LTCG<sub>net of SCGL</sub>`,
-  `Qualified tax = 0% / 15% / 20% of the qualified income that falls in each qualified bracket, stacked on top of taxable ordinary income`
+  `Taxable qualified income = max( 0,&ensp;ordinary income + qualified income − deductions ) − taxable ordinary income`,
+  `Qualified tax = 0% / 15% / 20% of the taxable qualified income that falls in each qualified bracket, stacked on top of taxable ordinary income`,
+  `Line<sub>15%</sub> = max( 0,&ensp;0% bracket limit − taxable ordinary income )&emsp;&emsp;Line<sub>20%</sub> = max( 0,&ensp;15% bracket limit − taxable ordinary income )`
 )}
-${fpWhere('The lines are the qualified dividend / long-term capital gains bracket limits above (today\'s dollars, MFJ until the filing-status switch, Single after), each labeled with the rate that applies above it; a line above the chart\'s scale is not drawn. Taxable ordinary income still fills the brackets first when the tax is calculated, so the amount actually taxed at each rate is on the Excel Projection by year sheet.')}
+${fpWhere('This follows the IRS Qualified Dividends and Capital Gain Tax Worksheet. The bracket limits above (today\'s dollars, MFJ until the filing-status switch, Single after) apply to total taxable income, and qualified income sits on top of taxable ordinary income, so each line is its limit minus that year\'s taxable ordinary income (never below 0): the room left for qualified income before the rate steps up. The lines therefore move from year to year as ordinary income changes. The deduction takes ordinary income first; if it is larger than the ordinary income, the excess shelters qualified income (the LTCG part first, then QDIV), so only the taxable qualified income is stacked and taxed. A line above the chart\'s scale is not drawn. The amount actually taxed at each rate is on the Excel Projection by year sheet.')}
 <p>On the Total Income Tax chart, <em>view IRMAA as tax</em> adds the household IRMAA surcharge paid that year (the expense above) on top of the tax stack, so the dashed line is <em>Total tax + IRMAA surcharge</em>. It is a display option only and never changes the projection.</p>
 <h2 id="g-exp">Expenses and how they are funded <a class="fp-top" href="#toc">↑ contents</a></h2>
 <h3 id="f-ltc">Long-term care (LTC) expense <a class="fp-top" href="#toc">↑</a></h3>
@@ -445,7 +448,7 @@ ${fpEq(
 <h3 id="f-pw">Portfolio withdraw <a class="fp-top" href="#toc">↑</a></h3>
 <p><strong>Portfolio withdraw</strong> (Tax &amp; Optimizations panel, off by default). When enabled, every <em>Living expense &amp; income</em> portfolio (never an IDGT) sells each year as much as fits with taxable income staying within the LTCG bracket chosen on one slider (0%, 15%, or 20% = no limit). There are no start or end ages: a portfolio is used for as long as it is inside its own age range. The portfolios are taken in order, so a later one only gets the room an earlier one left. It is a sale whose proceeds are household cash income, so they are counted in step (1) of the funding order above, ahead of dividends and asset sales, and any excess is reinvested as below. The sale realizes LTCG on the portfolio's gain share exactly like any other sale. The qualified rates stack on top of ordinary income (IRC §1(h)), so ordinary taxable income and QDIV use up the 0% room first. It is solved after the Roth conversions, inside the same tax ↔ LTCG iteration.</p>
 ${fpEq(
-  `Withdraw = largest W (at most balance after growth − tax-exempt income − other withdraws) such that&ensp;ordinary taxable income + QDIV + net LTCG ≤ top of chosen LTCG bracket&ensp;(20% = no limit)`,
+  `Withdraw = largest W (at most balance after growth − tax-exempt income − other withdraws) such that&ensp;taxable ordinary income + taxable qualified income (QDIV + net LTCG) ≤ top of chosen LTCG bracket&ensp;(20% = no limit)`,
   `Household income = wages + Social Security + pension + rental cash income + tax-exempt income + annuity payouts + IRA RMD + Σ withdraws`,
   `LTCG realized = ( Sold + Withdraw ) × gain share`
 )}

@@ -194,6 +194,7 @@ body.chart-dragging .chart-cell{border-color:var(--border-strong);}
 .input-col::-webkit-scrollbar,.chart-col::-webkit-scrollbar{width:8px;}
 .input-col::-webkit-scrollbar-track,.chart-col::-webkit-scrollbar-track{background:transparent;}
 .input-col::-webkit-scrollbar-thumb,.chart-col::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px;}
+.chart-col{padding-top:0;}   /* the sticky .scale-bar supplies the top gap itself, so scrolled charts can't show through above it */
 .input-col .sec-head:first-child{margin-top:0;}
 @media (max-width:960px){
   .layout{grid-template-columns:1fr;gap:0;}

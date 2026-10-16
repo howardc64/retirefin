@@ -637,42 +637,50 @@ function xlsxMainColumns(proj,acctSheets){
   F('ordTI','Ordinary taxable income (as on the Taxable Ordinary Income chart)',r=>r.ordTI,X=>`MAX(0,${X('ordInc')}-${X('ded')}-${X('sen')})`);
   F('absorbed','Deduction absorbed by ordinary income',r=>Math.max(0,v(r.ordIncome)-v(r.ordTI)),X=>`MAX(0,${X('ordInc')}-${X('ordTI')})`);
   F('qual','Qualified income (QDIV + LTCG net of SCGL)',r=>v(r.qualIncome),X=>`${X('qdiv')}+${X('ltcg')}`);
-  F('tiTot','Taxable income, total (ordinary + qualified)',r=>v(r.ordTI)+v(r.qualIncome),X=>`${X('ordTI')}+${X('qual')}`);
+  // Qualified Dividends and Capital Gain Tax Worksheet: taxable income = ordinary + qualified − deduction (floored at 0); the deduction takes ordinary income first, so a deduction larger
+  // than the ordinary income shelters qualified income. Taxable qualified income = taxable income − taxable ordinary income.
+  F('qualT','Taxable qualified income = MAX(0, ordinary + qualified − deductions) − taxable ordinary income (the deduction\'s excess over ordinary income shelters qualified income)',r=>v(r.qualTaxable!=null?r.qualTaxable:r.qualIncome),
+    X=>`MAX(0,MAX(0,${X('ordInc')}+${X('qual')}-${X('ded')}-${X('sen')})-${X('ordTI')})`);
+  F('tiTot','Taxable income, total (taxable ordinary + taxable qualified)',r=>v(r.ordTI)+v(r.qualTaxable!=null?r.qualTaxable:r.qualIncome),X=>`${X('ordTI')}+${X('qualT')}`);
   V('noConvOrd','Ordinary taxable income, no conversion (a bracket start tests this)',r=>r.noConvOrdTI==null?'':r.noConvOrdTI);
   V('noConvItem','Itemized deductions, no conversion (an itemized start tests this)',r=>r.noConvItemized==null?'':r.noConvItemized);
   for(let i=0;i<n;i++) add({key:'trig_'+i,head:(married?`${displayPersonName(proj.people[i],i)} `:'')+'Annual withdraw trigger met this year (trigger starts only)',kind:'v',text:true,v:r=>r.convTriggerStartedByPerson[i]?'Yes':''});
   F('ordTax','Ordinary tax',r=>r.ordTax,X=>ordTaxFml(X,X('ordTI')));
-  // Taxable Qualified Income chart: its two dashed lines are the qualified tax brackets themselves (the 0% / 15% limits for the filing status in force).
+  // Taxable Qualified Income chart: its two lines are where the 15% and 20% rates start (the filing status' limit minus taxable ordinary income).
   // Qualified income is stacked on top of taxable ordinary income, so the room each tier has left is the limit minus taxable ordinary income;
   // the amounts below split qualified income across the tiers (the qualified tax column prices the same split).
   const qLim=(idx,r)=>(r.filing==='married'?MFJ_QDIV:SGL_QDIV)[idx].lim;
-  F('qLine0','Qualified bracket: 0% tier ends (lower dashed line on the Taxable Qualified Income chart)',r=>qLim(0,r),X=>`IF(${M(X)},QD_MFJ_1,QD_SGL_1)`);
-  F('qLine15','Qualified bracket: 15% tier ends (upper dashed line on that chart)',r=>qLim(1,r),X=>`IF(${M(X)},QD_MFJ_2,QD_SGL_2)`);
+  F('qLine0','Qualified bracket: 0% tier ends = where the 15% rate starts (lower line on the Taxable Qualified Income chart)',r=>qLim(0,r),X=>`IF(${M(X)},QD_MFJ_1,QD_SGL_1)`);
+  F('qLine15','Qualified bracket: 15% tier ends = where the 20% rate starts (upper line on that chart)',r=>qLim(1,r),X=>`IF(${M(X)},QD_MFJ_2,QD_SGL_2)`);
   F('qRoom0','Room left for qualified income in the 0% tier = 0% tier limit − taxable ordinary income, floored at 0',r=>Math.max(0,qLim(0,r)-v(r.ordTI)),X=>`MAX(0,${X('qLine0')}-${X('ordTI')})`);
   F('qRoom15','Room left for qualified income up to the end of the 15% tier = 15% tier limit − taxable ordinary income, floored at 0',r=>Math.max(0,qLim(1,r)-v(r.ordTI)),X=>`MAX(0,${X('qLine15')}-${X('ordTI')})`);
-  F('qAt0','Qualified income taxed at 0%',r=>Math.min(v(r.qualIncome),Math.max(0,qLim(0,r)-v(r.ordTI))),X=>`MIN(${X('qual')},${X('qRoom0')})`);
-  F('qAt15','Qualified income taxed at 15%',r=>Math.max(0,Math.min(v(r.qualIncome),Math.max(0,qLim(1,r)-v(r.ordTI)))-Math.min(v(r.qualIncome),Math.max(0,qLim(0,r)-v(r.ordTI)))),X=>`MIN(${X('qual')},${X('qRoom15')})-${X('qAt0')}`);
-  F('qAt20','Qualified income taxed at 20%',r=>Math.max(0,v(r.qualIncome)-Math.min(v(r.qualIncome),Math.max(0,qLim(1,r)-v(r.ordTI)))),X=>`${X('qual')}-MIN(${X('qual')},${X('qRoom15')})`);
-  F('qualTax','Qualified tax (QDIV+LTCG)',r=>r.qualTax,X=>qualTaxFml(X,X('ordTI'),X('qual')));
+  F('qAt0','Qualified income taxed at 0%',r=>Math.min(v(r.qualTaxable),Math.max(0,qLim(0,r)-v(r.ordTI))),X=>`MIN(${X('qualT')},${X('qRoom0')})`);
+  F('qAt15','Qualified income taxed at 15%',r=>Math.max(0,Math.min(v(r.qualTaxable),Math.max(0,qLim(1,r)-v(r.ordTI)))-Math.min(v(r.qualTaxable),Math.max(0,qLim(0,r)-v(r.ordTI)))),X=>`MIN(${X('qualT')},${X('qRoom15')})-${X('qAt0')}`);
+  F('qAt20','Qualified income taxed at 20%',r=>Math.max(0,v(r.qualTaxable)-Math.min(v(r.qualTaxable),Math.max(0,qLim(1,r)-v(r.ordTI)))),X=>`${X('qualT')}-MIN(${X('qualT')},${X('qRoom15')})`);
+  F('qualTax','Qualified tax (QDIV+LTCG)',r=>r.qualTax,X=>qualTaxFml(X,X('ordTI'),X('qualT')));
   F('incTax','Income tax before foreign tax credit (ordinary + qualified)',r=>r.ordTax+r.qualTax,X=>`${X('ordTax')}+${X('qualTax')}`);
   // Social Security Tax (SST) = income tax (ordinary + qualified, before FTC, no NIIT) minus the same tax in a hypothetical where none of the SS is taxed
   // (non-SS income, qualified income, filing status and the deduction held fixed; the senior deduction re-evaluated at that lower AGI).
   F('sstTI','SST hypothetical: ordinary taxable income with no SS taxed',r=>r.sstOrdTI,
     X=>`MAX(0,${X('nonSS')}-${X('ded')}-${senFml(X,`(${X('nonSS')}+${X('qual')})`)})`);
+  F('sstQT','SST hypothetical: taxable qualified income with no SS taxed',r=>r.sstQT,
+    X=>`MAX(0,MAX(0,${X('nonSS')}+${X('qual')}-${X('ded')}-${senFml(X,`(${X('nonSS')}+${X('qual')})`)})-${X('sstTI')})`);
   F('sstTax','SST hypothetical: ordinary + qualified tax with no SS taxed',r=>r.sstTaxNoSS,
-    X=>`${ordTaxFml(X,X('sstTI'))}+${qualTaxFml(X,X('sstTI'),X('qual'))}`);
+    X=>`${ordTaxFml(X,X('sstTI'))}+${qualTaxFml(X,X('sstTI'),X('sstQT'))}`);
   F('sst','Social Security Tax (SST) = income tax − income tax with no SS taxed (floored at 0)',r=>r.sst,X=>`MAX(0,${X('incTax')}-${X('sstTax')})`);
   // Marginal tax rate = (tax with MargBump more non-SS ordinary income − tax) / MargBump, re-running taxable SS and the senior deduction at the higher income.
   F('mProv','Marginal rate: provisional income + step',r=>r.mProv,X=>`${X('prov')}+MargBump`);
   F('mTSS','Marginal rate: taxable SS at the higher income',r=>r.mTSS,X=>tssFml(X,X('mProv')));
   F('mTI','Marginal rate: ordinary taxable income at the higher income',r=>r.mTI,
     X=>`MAX(0,${X('nonSS')}+MargBump+${X('mTSS')}-${X('ded')}-${senFml(X,`(${X('nonSS')}+MargBump+${X('mTSS')}+${X('qual')})`)})`);
+  F('mQT','Marginal rate: taxable qualified income at the higher income',r=>r.mQT,
+    X=>`MAX(0,MAX(0,${X('nonSS')}+MargBump+${X('mTSS')}+${X('qual')}-${X('ded')}-${senFml(X,`(${X('nonSS')}+MargBump+${X('mTSS')}+${X('qual')})`)})-${X('mTI')})`);
   F('mTax','Marginal rate: ordinary + qualified tax at the higher income',r=>r.mTax,
-    X=>`${ordTaxFml(X,X('mTI'))}+${qualTaxFml(X,X('mTI'),X('qual'))}`);
+    X=>`${ordTaxFml(X,X('mTI'))}+${qualTaxFml(X,X('mTI'),X('mQT'))}`);
   F('marg','Marginal tax rate on ORDINARY income = (tax at higher income − tax) / step, floored at 0 (includes the SS torpedo and senior-deduction phase-out; not the rate on the next dollar of qualified income)',r=>pct(r.marginalRate),
     X=>`MAX(0,(${X('mTax')}-${X('incTax')})/MargBump)`,XLSX_PCT);
   F('margQ','  of which: ordinary income pushing qualified income into a higher tier',r=>pct(r.marginalQual),
-    X=>`MAX(0,(${qualTaxFml(X,X('mTI'),X('qual'))}-${X('qualTax')})/MargBump)`,XLSX_PCT);
+    X=>`MAX(0,(${qualTaxFml(X,X('mTI'),X('mQT'))}-${X('qualTax')})/MargBump)`,XLSX_PCT);
   F('margO','  of which: ordinary brackets (incl. SS torpedo and senior-deduction phase-out)',r=>pct(r.marginalOrd),X=>`${X('marg')}-${X('margQ')}`,XLSX_PCT);
   F('nii','Net investment income (NII)',r=>r.niiIncome,X=>`${X('odivNQ')}+${X('qdiv')}+${X('ltcg')}+${X('annNII')}`);
   F('niit','NIIT (3.8%)',r=>r.niit,X=>{

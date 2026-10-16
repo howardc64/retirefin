@@ -112,7 +112,7 @@ function buildIncomeChart(){
         lines.push(mrow('Taxable ordinary income',fmt(r.ordTI||0)+'/yr'));
         if((r.qualIncome||0)>0.5){
           lines.push(mrow('Qualified income (QDIV + LTCG)',fmt(r.qualIncome)+'/yr'));
-          lines.push(mrow('Taxable income (ordinary + qualified)',fmt((r.ordTI||0)+(r.qualIncome||0))+'/yr'));
+          lines.push(mrow('Taxable income (ordinary + qualified)',fmt((r.ordTI||0)+(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0)))+'/yr'));
         }
         // Household expense funding (income → dividends → asset sales), when there are any expenses.
         if(r.expTotal>0){
@@ -305,26 +305,30 @@ function buildIncomeChart(){
     })});
 
   // ── Fourth equal-size chart: taxable QUALIFIED income (QDIV + LTCG net of SCGL) ──
-  // Only the qualified income is stacked (QDIV, LTCG, in the primary's colors); ordinary income is not drawn. The dashed lines are the qualified
-  // tax brackets themselves: the 0% / 15% limits for the filing status in force (MFJ_QDIV / SGL_QDIV `lim`), each labeled with the rate that applies above it. A line above the chart's Y scale is not
+  // Only the TAXABLE qualified income is stacked (QDIV, LTCG, in the primary's colors); ordinary income is not drawn. The lines are the qualified
+  // tax brackets: where the 15% and the 20% rate start, each labeled with that rate. The bracket limits (MFJ_QDIV / SGL_QDIV `lim`, filing status in force) apply to TOTAL taxable income
+  // and the qualified income sits on top of the taxable ordinary income (Qualified Dividends and Capital Gain Tax Worksheet), so on this chart a line is the limit minus that year's taxable
+  // ordinary income, floored at 0: the room left for qualified income before the rate steps up. The lines therefore move with the year's ordinary income (they are not flat). A line above the chart's Y scale is not
   // drawn. Same X labels, Y scale and 1:1 ratio as the other charts. The popup lists every qualified component with its color.
   const qualKeys=['qdiv','ltcg'];
-  const qualSeries={ qdiv:rows.map(r=>r.qdiv||0), ltcg:rows.map(r=>r.ltcg||0) };
+  const qualSeries={ qdiv:rows.map(r=>r.qdivT!=null?r.qdivT:(r.qdiv||0)), ltcg:rows.map(r=>r.ltcgT!=null?r.ltcgT:(r.ltcg||0)) };   // taxable parts (a deduction larger than ordinary income shelters qualified income)
+  const qLimOf=(r,j)=>Math.max(0,(r.filing==='married'?MFJ_QDIV:SGL_QDIV)[j].lim-(r.ordTI||0));   // room under bracket j's limit once the ordinary income has used its share
+  const nQ=MFJ_QDIV.length-1;   // the top tier (20%) has no upper limit, so the last line is where the 15% tier ends = where the 20% rate starts
+  const qLineVals=Array.from({length:nQ},(_,j)=>rows.map(r=>qLimOf(r,j)));
   const qualAligned={}; qualKeys.forEach(k=>{ qualAligned[k]=alignToAges(ages, qualSeries[k], labels); });
-  const YQ=lockedYMax('incomeQual', ()=>{ let m=0; rows.forEach(r=>{ m=Math.max(m,(r.qdiv||0)+(r.ltcg||0)); }); return niceMax(m,5000); });
+  const YQ=lockedYMax('incomeQual', ()=>{
+    let m=0; rows.forEach((r,ri)=>{ m=Math.max(m,qualSeries.qdiv[ri]+qualSeries.ltcg[ri]); });
+    const data=m; qLineVals.forEach(vs=>{ const lm=Math.max(...vs,0); if(lm<=Math.max(4*data,20000)) m=Math.max(m,lm*1.05); });   // a line is brought on scale when it is within reach of the data (so the 20% start shows when the stack gets near it)
+    return niceMax(m,5000);
+  });
   const qualDs=qualKeys.map(k=>({
     label:INC_LABELS[k], data:qualAligned[k],
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
     borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'qual', order:3
   }));
-  const qTops=fs=>rows.filter(r=>(r.filing==='married')===fs).map(r=>(r.qdiv||0)+(r.ltcg||0));
-  const nQ=MFJ_QDIV.length-1;   // the top tier (20%) has no upper limit, so the last line is where the 15% tier ends
-  const qKeep=crowdedBracketKeep([
-    rows.some(r=>r.filing==='married')?{vals:MFJ_QDIV.slice(0,nQ).map(b=>b.lim), tops:qTops(true)}:null,
-    rows.some(r=>r.filing!=='married')?{vals:SGL_QDIV.slice(0,nQ).map(b=>b.lim), tops:qTops(false)}:null], YQ);
   for(let j=0;j<nQ;j++){
-    const vals=rows.map(r=>(r.filing==='married'?MFJ_QDIV:SGL_QDIV)[j].lim);   // the qualified bracket limit itself, for the filing status in force
-    const off=Math.min(...vals)>=YQ||!qKeep.has(j);   // off the chart's scale, or too far from the data (see crowdedBracketKeep): all-null, but still a dataset (fixed dataset count, see the ordinary chart)
+    const vals=qLineVals[j];   // limit − taxable ordinary income, per year (the filing status in force)
+    const off=Math.min(...vals)>=YQ;   // off the chart's scale: all-null, but still a dataset (fixed dataset count, see the ordinary chart); both lines are otherwise always drawn
     const rate=Math.round(MFJ_QDIV[j+1].r*100)+'%';
     qualDs.push({data:off?labels.map(()=>null):alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:THIN_W, pointRadius:0, tension:0, fill:false, spanGaps:false,
       borderDash:QUAL_DASH, thin:true, borderColor:BRACKET_COLOR, stack:'ql'+j, order:0});
@@ -340,7 +344,10 @@ function buildIncomeChart(){
       const r=rowByAge[labels[items[0]?items[0].dataIndex:0]]; if(!r) return [];
       const lines=[''];
       if((r.scglUsed||0)>0.5) lines.push(mrow('  LTCG realized (gross, before SCGL)', fmt(r.ltcgGross!=null?r.ltcgGross:(r.ltcg||0)+(r.scglUsed||0))+'/yr'), mrow('  SCGL used', '\u2212'+fmt(r.scglUsed)+'/yr'));
-      lines.push(mrow('Qualified income', fmt(r.qualIncome||0)+'/yr'));
+      const shel=Math.max(0,(r.qualIncome||0)-(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0)));
+      if(shel>0.5) lines.push(mrow('  Qualified income before deduction', fmt(r.qualIncome||0)+'/yr'), mrow('  Sheltered by the deduction', '\u2212'+fmt(shel)+'/yr'));
+      lines.push(mrow('Taxable qualified income', fmt(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0))+'/yr'));
+      lines.push(mrow('  Taxable ordinary income (below it)', fmt(r.ordTI||0)+'/yr'));
       if((r.qualTax||0)>0.5) lines.push(mrow('Qualified tax', fmt(r.qualTax)+'/yr'));
       return lines;
     }

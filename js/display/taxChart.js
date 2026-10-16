@@ -15,8 +15,9 @@ function buildTaxChart(){
   const ftcArr=[], ordArr=[], qTiers=[[],[],[]], lTiers=[[],[],[]], niitArr=[];
   rows.forEach(r=>{
     const qBrk = r.filing==='married'?MFJ_QDIV:SGL_QDIV;
-    const qt=qualTaxTiers(r.ordTI, r.qdiv, qBrk);
-    const lt=qualTaxTiers(r.ordTI+r.qdiv, r.ltcg, qBrk);
+    const qdT=r.qdivT!=null?r.qdivT:r.qdiv, lgT=r.ltcgT!=null?r.ltcgT:r.ltcg;   // the taxable parts (a deduction larger than ordinary income shelters qualified income)
+    const qt=qualTaxTiers(r.ordTI, qdT, qBrk);
+    const lt=qualTaxTiers(r.ordTI+qdT, lgT, qBrk);
     // §9.4: foreign tax credit offsets ordinary tax first, then each qualified-dividend/LTCG tier
     // in turn, so the visual stack's total height matches r.totalTax (which already nets the
     // credit out) instead of drawing a taller bar than the tooltip's Total Tax figure.
@@ -120,7 +121,7 @@ function buildTaxChart(){
       if(showDetails){
         lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
         // Taxable income = taxable ordinary income + qualified income (QDIV + net LTCG), the same total the Taxable Income chart shows.
-        lines.push(mrow('Taxable income (TI)', fmt((r.ordTI||0)+(r.qualIncome||0))+'/yr'));
+        lines.push(mrow('Taxable income (TI)', fmt((r.ordTI||0)+(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0)))+'/yr'));
         if((r.qualIncome||0)>0) lines.push(mrow('  of which taxable ordinary income', fmt(r.ordTI||0)+'/yr'));
         lines.push(mrow(r.usedItemized?'Itemized deduction (LTC)':'Standard deduction', '('+fmt(r.std)+')'));
         if(r.seniorDeduction>0) lines.push(mrow('Enhanced senior deduction (Schedule 1-A)', '('+fmt(r.seniorDeduction)+')'));
