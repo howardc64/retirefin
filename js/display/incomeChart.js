@@ -316,8 +316,12 @@ function buildIncomeChart(){
   const nQ=MFJ_QDIV.length-1;   // the top tier (20%) has no upper limit, so the last line is where the 15% tier ends = where the 20% rate starts
   const qLineVals=Array.from({length:nQ},(_,j)=>rows.map(r=>qLimOf(r,j)));
   const qualAligned={}; qualKeys.forEach(k=>{ qualAligned[k]=alignToAges(ages, qualSeries[k], labels); });
+  // Red dashed line (as on the ordinary chart): the excess deduction that shelters qualified income, stacked on top of the taxable qualified income, i.e. the qualified income before the
+  // deduction (`qualIncome`). The gap between the top of the stack and the line is the part of the deduction left over after ordinary income (itemized LTC / medical costs, say). Null where nothing is sheltered.
+  const qualShel=rows.map(r=>{ const d=Math.max(0,(r.qualIncome||0)-(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0))); return d>0.5?d:null; });
+  const qualDedLine=rows.map((r,ri)=>qualShel[ri]!=null?(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0))+qualShel[ri]:null);
   const YQ=lockedYMax('incomeQual', ()=>{
-    let m=0; rows.forEach((r,ri)=>{ m=Math.max(m,qualSeries.qdiv[ri]+qualSeries.ltcg[ri]); });
+    let m=0; rows.forEach((r,ri)=>{ m=Math.max(m,qualSeries.qdiv[ri]+qualSeries.ltcg[ri],qualDedLine[ri]||0); });   // stack, or the red deduction line above it
     const data=m; qLineVals.forEach(vs=>{ const lm=Math.max(...vs,0); if(lm<=Math.max(4*data,20000)) m=Math.max(m,lm*1.05); });   // a line is brought on scale when it is within reach of the data (so the 20% start shows when the stack gets near it)
     return niceMax(m,5000);
   });
@@ -333,6 +337,8 @@ function buildIncomeChart(){
     qualDs.push({data:off?labels.map(()=>null):alignToAges(ages, vals, labels), label:rate, ordLabel:rate, borderWidth:THIN_W, pointRadius:0, tension:0, fill:false, spanGaps:false,
       borderDash:QUAL_DASH, thin:true, borderColor:BRACKET_COLOR, stack:'ql'+j, order:0});
   }
+  qualDs.push({data:alignToAges(ages, qualDedLine, labels), ciValues:alignToAges(ages, qualShel, labels), label:'Deduction', borderWidth:THIN_W, pointRadius:0, tension:0, fill:false, spanGaps:false,
+    borderDash:[], thin:true, borderColor:DEDUCTION_COLOR, stack:'ded', order:0});
   const qualTip={
     title:tooltipCallbacks.title,   // owners + ages
     // One colored line per qualified component (the tier lines have no label of their own).
@@ -345,7 +351,7 @@ function buildIncomeChart(){
       const lines=[''];
       if((r.scglUsed||0)>0.5) lines.push(mrow('  LTCG realized (gross, before SCGL)', fmt(r.ltcgGross!=null?r.ltcgGross:(r.ltcg||0)+(r.scglUsed||0))+'/yr'), mrow('  SCGL used', '\u2212'+fmt(r.scglUsed)+'/yr'));
       const shel=Math.max(0,(r.qualIncome||0)-(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0)));
-      if(shel>0.5) lines.push(mrow('  Qualified income before deduction', fmt(r.qualIncome||0)+'/yr'), mrow('  Sheltered by the deduction', '\u2212'+fmt(shel)+'/yr'));
+      if(shel>0.5) lines.push(mrow('  Qualified income before deduction (red line)', fmt(r.qualIncome||0)+'/yr'), mrow('  Excess deduction (sheltered)', '\u2212'+fmt(shel)+'/yr'));
       lines.push(mrow('Taxable qualified income', fmt(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0))+'/yr'));
       lines.push(mrow('  Taxable ordinary income (below it)', fmt(r.ordTI||0)+'/yr'));
       if((r.qualTax||0)>0.5) lines.push(mrow('Qualified tax', fmt(r.qualTax)+'/yr'));

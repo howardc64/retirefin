@@ -69,6 +69,7 @@ function ciDescribe(key, ds, kidx){
       if(label==='Deduction') return 'Top of the gross ordinary income: the gap between the stack and this red line is the deduction (standard or itemized, plus the senior deduction) absorbed that year.';
       { const t=pick(CI_INCOME); return t?t+' '+CI_ORD:null; }
     case 'incomeQual':
+      if(label==='Deduction') return 'Qualified income before the deduction: the gap between the stack and this red line is the part of the deduction left over after ordinary income (e.g. itemized LTC costs), which shelters qualified income (LTCG first).';
       if(ds.ordLabel) return 'Qualified-income tax threshold: where the '+ds.ordLabel+' rate starts. The bracket limit applies to total taxable income and qualified income sits on top of the taxable ordinary income (Qualified Dividends and Capital Gain Tax Worksheet), so this line is the limit minus that year\'s taxable ordinary income — it moves with the ordinary income. Qualified dividends and long-term gains stacked above it are taxed at '+ds.ordLabel+'.';
       return pick(CI_INCOME);
     case 'tss':
