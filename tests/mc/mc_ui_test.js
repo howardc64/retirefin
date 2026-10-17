@@ -208,4 +208,18 @@ ok(run(`(()=>{ REC_RATES=false; const pr=computeProjection(); REC_RATES=true; re
   ok(run(`!!ciDescribe('market',{label:'x'},0)&&!!ciDescribe('inflation',{label:'Plan inflation rate'},0)`),'Chart Element descriptions exist for both new charts'); }
 run(`mcTrialExit()`);
 ok(run(`CHART_PANELS.some(p=>p.key==='inflation') && CHART_KEYS.includes('inflation') && defaultChartHidden().inflation===true`),'inflation panel is registered and hidden by default');
+// Loading another file / Reset to defaults clears the Monte Carlo card (results, trial view, running run); only Reset puts its settings back
+{ const seed=()=>run(`(()=>{ const cfg=JSON.parse(JSON.stringify(MC_DEFAULTS)); cfg.ltc.prob=0.9; cfg.returns.volEquity=24; const res=[]; for(let t=0;t<120;t++) res.push(mcRunTrial(cfg,t));
+    mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcPlanKey(); mcLoadTrial(mcResults.R.list[0].trial); })()`);
+  seed(); ok(run(`!!mcResults && !!mcTrialView`),'(setup) results and a trial are loaded');
+  run(`buildMcPanel(); mcCfg.returns.volEquity=21; mcSaveCfg()`);
+  run(`applyLoadedFileText(JSON.stringify(__plan))`);
+  ok(run(`mcResults===null && mcTrialView===null && mcStateAtRun===null`),'loading a file drops the Monte Carlo results and the loaded trial');
+  ok(document.getElementById('mcOut').style.display==='none' && document.getElementById('mcTrialBanner').hidden===true,'loading a file hides the results area and the trial banner');
+  ok(run(`mcCfg.returns.volEquity`)===21,'loading a file keeps the card\'s own settings (they are not part of a plan file)');
+  ok(run(`lastProjection!==null`)&&run(`lastProjection.rows.length`)>0,'charts are back on the plan after the load');
+  seed(); run(`mcRun={cancel:false,done:3,results:[]}`);
+  run(`resetState()`);
+  ok(run(`mcResults===null && mcTrialView===null && mcRun===null`),'Reset to defaults drops results, the trial and a running run');
+  ok(run(`mcCfg.returns.volEquity`)===16 && run(`mcCfg.hidden`)===true && run(`localStorage.getItem(MC_STORE_KEY)`)===null,'Reset to defaults puts the card\'s settings back to the defaults, collapsed'); }
 console.log(fails?fails+' FAILED':'all passed'); process.exit(fails?1:0);

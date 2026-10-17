@@ -111,7 +111,7 @@ state = {
   },
   ui: {                           // display-only flags that are nevertheless saved, autosaved, restored and reset with the plan
     chartHidden: { expense, incomeMagi, income, incomeOrd, incomeQual, tax, taxOrd, taxQual, asset, idgt, ira, ltcg, inhIncome, ss, tss: boolean }  // each chart panel's **Hide** checkbox (§6.1a). true = collapsed to its title bar. Default: true for `CHART_DEFAULT_HIDE_KEYS` = expense, income, tax, asset, idgt, ira, ltcg; false (shown) for every other chart (`defaultChartHidden`, `core/state.js`)
-    gridCols: 2 | 3                      // the chart grid's column count, set by the **Grid: 2×N / 3×N** toggle right of the Same-scale buttons (§6.1a). Default 2 (`GRID_COLS_DEFAULT`). Older saves with no `gridCols` load as 3, keeping the fixed 3-column layout they were saved with
+    gridCols: 2 | 3                      // the chart grid's column count, set by the **Grid: 2×N / 3×N** toggle right of the Same-scale buttons (§6.1a). Default 3 (`GRID_COLS_DEFAULT`). Older saves with no `gridCols` load as 3, keeping the fixed 3-column layout they were saved with
     chartPos: { <chart key>: {r, c} }   // each panel's grid row / column in the grid that is ON SCREEN (0-based, `gridCols` columns), moved by dragging its title bar; empty cells stay blank. Defaults per grid size in `CHART_DEFAULT_POS_BY_COLS`; an invalid / duplicate / missing position is repaired to the first free cell on load (`normalizeChartPos(p, cols)`)
     chartPosAlt: { <chart key>: {r, c} }   // the same, for the OTHER grid size, so toggling 2×N ↔ 3×N brings back the arrangement that size had (`toggleGridCols` swaps `chartPos` and `chartPosAlt`)
     chartYMax: { [chartKey]: number | null }   // each chart's locked Y-axis maximum (null = fit on the next draw), saved/restored with the plan. Written by `captureChartYMax()` after every render, read by `restoreChartYMax()` in `renderAll()`. The **Same scale** buttons (§6.1) and each **Rescale** button change it
@@ -216,7 +216,7 @@ that changes.
 | `saveToFile()` | Saves the plan (every scenario). **Supported browser: Chrome** (all testing was done there; the Usage page says so at the top): only it has the File System Access API for an in-place overwrite, while Safari / Firefox fall back to a download that asks for a name and goes to Downloads each time. With the File System Access API it overwrites the file remembered by `setSaveTarget()` (set by Load file or a first Save As; cleared by Reset, never kept across a reload) with no dialog, and asks Save As for a sample plan or when nothing is remembered; `saveDone()` shows the green "✓ Saved" button and toast. Without the API it prompts for a file name and downloads |
 | `loadFromFile()` | The **Choose file from local directory…** menu entry's action (§5.6). Uses `showOpenFilePicker` (with a stable `id: 'retirementPlannerLoad'`, so browsers that support it remember the last-used folder across sessions) when available; otherwise clicks the hidden `<input type="file" id="importFile">`. **Limitation (browser security, not fixable here):** no web API lets a page force its *first-ever* file dialog to open in a chosen folder such as `Samples/` — the Load file menu (§5.6) lists the shipped `Samples/` folder instead; after the user opens a file from it once, supporting browsers remember it. |
 | `applyLoadedFileText(text)` | Shared by both load paths: parse JSON → **destroy every chart → reset to defaults → hydrate the loaded file on top** — always in that order, so no stale state or chart instance survives a restore. Every Hide flag (per card and `state.ui.chartHidden` / `chartPos` / `scaleLinks`) comes back exactly as saved |
-| `applyDefaultHiddenFromEnabled(s)` | Sets `hidden = !enabled` on every income item and brokerage portfolio (§8 "Default coupling"). Called by **Reset to defaults only** — never by load or autosave-restore, which keep the saved `hidden` values |
+| `applyDefaultHiddenFromEnabled(s)` | Sets `hidden = true` on every income-source / asset card and the Inheritance card (§8 "Reset to defaults"). Called by **Reset to defaults only** — never by load or autosave-restore, which keep the saved `hidden` values |
 | `setPath(path, value)` | Dot-path set into `state`, e.g. `setPath('people.0.wage.amount', 5000)` — every input control's `onchange` goes through this (via `onFieldInput`/`onNumberInput` in `controls.js`) |
 
 **Rule:** this is the *only* file allowed to declare what a default value is. Every Input file reads
@@ -917,9 +917,9 @@ These apply everywhere, not to one file — listed once here instead of repeated
   (§6) only ever check `enabled`; nothing there ever reads `hidden`. Input (§5) only ever uses `hidden`
   to decide whether a card body is open; it never uses `hidden` to skip rendering a field's value into
   its input, since a hidden card's data must remain editable.
-  **Default coupling:** a *fresh default* plan — first-ever boot with no autosave, or **Reset to defaults** —
-  starts with `hidden = !enabled` on every item (`defaultState()` / `applyDefaultHiddenFromEnabled()` in
-  `core/state.js`, §3.3), so the screen shows only what's turned on, and every chart panel Hide checked.
+  **Reset to defaults** (`applyDefaultHiddenFromEnabled()` in `core/state.js`, §3.3) starts with
+  `hidden = true` on every income-source and asset card (enabled or not, and the Inheritance card), and the
+  chart grid on 3 columns (`GRID_COLS_DEFAULT = 3`); the charts that start hidden are `CHART_DEFAULT_HIDE_KEYS`. A first-ever boot with no autosave uses `defaultState()` as is.
   **A saved plan is different:** **Load file** and autosave-restore keep every Hide flag exactly as it was
   saved (per card, and `state.ui.chartHidden` per chart panel) — they are never re-derived from `enabled`.
   Only a legacy file that has no `hidden` flag falls back to `!enabled` (§3.3, `fillLegacyHide`).
@@ -973,6 +973,7 @@ At import and at every live-link update (`inheritance.js`, `liveLink.js`) the so
 
 ### 10.3 The card (`mcPanel.js`)
 - `buildMcPanel()` builds `<section id="mcPanel">`: Hide box (starts collapsed), five setting groups (returns, lifespans, LTC, inheritance, inflation), Trials / Seed, Run / Cancel, then the results (summary, "Why trials ran short", the *Study one trial* row, a fan chart and a funded-share chart). Settings live in their own `localStorage` key `retirementPlannerMC_v1` (`MC_DEFAULTS`), NOT in `state`; adding a setting to `state` means a default in `state.js` and an entry in §2. `mcStart()` runs trials in ~40 ms chunks on the main thread (so `file://` works). `mcMarkStale()` (called from `recompute()`) flags results that no longer match the plan (`mcPlanKey()` = `state` without `ui`).
+- `mcResetCard(settings)` drops the results (`mcResults`, `mcStateAtRun`), the loaded trial (`mcTrialClear`), the card's two charts and any run in progress (`mcRun.discard`, so `mcFinish` shows nothing). `applyLoadedFileText()` (file and sample loads) calls it with `false` (the card's settings are kept: they are in their own `localStorage` key, not in the plan file); `resetState()` calls it with `true` (also removes that key and rebuilds the card from `MC_DEFAULTS`, collapsed). Scenario switches do not call it: the stale note covers them.
 - The card's two canvases are not chart panels (no Hide / drag / Same-scale); `MC_NO_OVERLAYS` turns the app's overlay plugins off for them.
 
 ### 10.4 Trial view: A / B / C

@@ -182,7 +182,7 @@ function defaultPerson(idx){
 // Chart panels. Every chart lives in its own panel on a 2- or 3-column grid (display/chartPanels.js). Display-only settings are part of `state.ui`, so they are
 // saved to file / autosave, restored on load and put back to these defaults on Reset:
 //   ui.chartHidden[key] — the panel's Hide checkbox (true = collapsed to its title bar). Default: hidden for CHART_DEFAULT_HIDE_KEYS, shown for every other chart.
-//   ui.gridCols         — 2 or 3: the number of grid columns (the 2×N / 3×N toggle right of the Scale buttons). Default 2.
+//   ui.gridCols         — 2 or 3: the number of grid columns (the 2×N / 3×N toggle right of the Scale buttons). Default 3.
 //   ui.chartPos[key]    — {r,c}, the panel's grid row and column in the grid that is on screen (0-based; `gridCols` columns). The user can drag a panel to any free or
 //                         occupied cell; cells nobody occupies stay blank. Defaults below, one per layout.
 //   ui.chartPosAlt[key] — the same, for the OTHER layout, kept so toggling 2×N ↔ 3×N brings back the arrangement that layout had.
@@ -190,7 +190,7 @@ function defaultPerson(idx){
 //                         Rescale button change it (see chartHelpers.js).
 // Keys are the keys of the `charts` registry (display/chartHelpers.js).
 const CHART_KEYS=['expense','incomeMagi','income','incomeOrd','incomeQual','tax','taxOrd','taxQual','asset','idgt','ira','ltcg','inhIncome','ss','tss','inflation','market'];
-const GRID_COLS_DEFAULT=2;
+const GRID_COLS_DEFAULT=3;
 const CHART_DEFAULT_HIDE_KEYS=['expense','income','tax','asset','idgt','ira','ltcg','inflation','market'];   // Hide checked by default; every other chart starts shown
 // Left → right, top → bottom.
 // 2 × N:  Annual expenses · Annual income  /  IRA · LTCG  /  Total tax · Asset value  /  Taxable ordinary · Taxable qualified  /  MAGI · Inheritance income  /
@@ -451,23 +451,20 @@ function flashMsg(text){
   m.textContent=text;
   setTimeout(()=>{ if(m.textContent===text) m.textContent=''; },3000);
 }
-// Reset to defaults starts every disabled income-source card collapsed (Hide checked) and every enabled one
-// shown. This is applied ONLY to a fresh default state (Reset) — never to a loaded file or an autosave,
-// whose own saved `hidden` values (per card and, in `state.ui`, per chart panel) are restored exactly as saved.
+// Reset to defaults starts every income-source and asset card collapsed (Hide checked), enabled or not. This is applied ONLY to a
+// fresh default state (Reset) — never to a loaded file or an autosave, whose own saved `hidden` values (per card and, in
+// `state.ui`, per chart panel) are restored exactly as saved.
 function applyDefaultHiddenFromEnabled(s){
   (s.people||[]).forEach(p=>{
-    ['wage','ss','pension','ira','roth'].forEach(key=>{
-      if(p[key]) p[key].hidden = !p[key].enabled;
-    });
-    (p.rentals||[]).forEach(r=>{ r.hidden = !(r.enabled!==false); });
-    (p.annuities||[]).forEach(a=>{ a.hidden = !(a.enabled!==false); });
-    (p.brokerage||[]).forEach(b=>{ b.hidden = !(b.enabled!==false); });
-    (p.realEstate||[]).forEach(r=>{ r.hidden = !(r.enabled!==false); });
+    ['wage','ss','pension','ira','roth'].forEach(key=>{ if(p[key]) p[key].hidden=true; });
+    ['rentals','annuities','brokerage','realEstate'].forEach(key=>(p[key]||[]).forEach(x=>{ x.hidden=true; }));
+    if(p.inheritance) p.inheritance.hidden=true;
   });
   return s;
 }
 function resetState(){
   if(!confirm('Reset all inputs to defaults? This cannot be undone.')) return;
+  if(typeof mcResetCard==='function') mcResetCard(true);   // Monte Carlo results, trial view and settings back to the defaults (display/mcPanel.js)
   state=applyDefaultHiddenFromEnabled(defaultState());
   setSaveTarget(null);   // the default plan must not silently overwrite the file that was loaded
   if(typeof scnReset==='function') scnReset();   // back to the single scenario A
@@ -556,6 +553,7 @@ async function saveToFile(){
 // loading the saved data").
 function applyLoadedFileText(text){
   const parsed=JSON.parse(text); // throws on malformed JSON — caller decides how to report it
+  if(typeof mcResetCard==='function') mcResetCard(false);   // Monte Carlo results / loaded trial belong to the old plan (display/mcPanel.js); its settings are kept
   destroyCharts();             // discard every visual/data closure from the old plan
   state=defaultState();        // reset before restoring, per spec
   state=hydrateState(parsed);  // then apply the restored file on top of that clean default (its Hide flags are kept as saved)

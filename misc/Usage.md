@@ -140,7 +140,7 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 | **Save** | Saves the whole plan (all scenarios and notes) as a file. See *Save and Load* below. |
 | **Load file** | Brings a saved plan back (or loads a sample plan if any are available). |
 | **Scenario** | Popup card for working with several versions of a plan. See *Scenarios* below. |
-| **Reset to defaults** | Clears the plan back to its starting values. Also forgets the remembered save file. |
+| **Reset to defaults** | Clears the plan back to its starting values: every income and asset card collapsed, the chart grid on 3 columns, and the Monte Carlo card cleared and back to its defaults. Also forgets the remembered save file. |
 | **Notes** | Text box for your own notes about the whole plan; the same notes show in every scenario. Saved in the plan file. |
 | **Scenario Notes** | Text box for notes about the scenario on screen only. Each scenario has its own, saved in the plan file. |
 | **Export Excel** | Downloads the year-by-year projection as a workbook. See *Export Excel* below. |
@@ -572,6 +572,8 @@ A card stays at the top of the chart column, above the scale buttons, so you can
 - The Inflation rate and Market return % charts show the trial's drawn inflation and returns.
 
 Trial views are display only; nothing is saved with the plan.
+
+**Loading and resetting.** Loading another plan (a file or a sample) clears the card's results, any loaded trial and a run in progress, because they belonged to the old plan. The card's own settings (volatility, trials, seed and so on) are kept, since they are not part of a plan file. **Reset to defaults** clears the results too and also puts those settings back to their defaults (card collapsed).
 
 ## Ask about this plan
 

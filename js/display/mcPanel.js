@@ -93,6 +93,7 @@ function mcStart(){
 }
 
 function mcFinish(run,cfg,complete){
+  if(run.discard){ mcRun=null; return; }   // the plan was replaced (load / reset) while it ran: nothing to show
   mcRun=null; mcEl('mcRunBtn').disabled=false; mcEl('mcCancelBtn').style.display='none';
   if(run.results.length<50){ return; }
   mcResults={cfg, S:mcSummarize(run.results), R:mcFailureReasons(run.results), complete, results:run.results};
@@ -287,6 +288,19 @@ function mcShowBanner(keep){
   b.hidden=false; const g=mcEl('chartGrid'); if(g){ g.classList.toggle('trial-view',v.view==='B'); g.classList.toggle('trial-view-c',v.view==='C'); g.classList.toggle('trial-view-a',v.view==='A'); }
 }
 
+// A different plan is being loaded (file, sample) or the app is reset: the old results, the loaded trial and a run in progress belong to the old plan. Drop them.
+// `settings` (Reset to defaults only): also put the card's own settings (volatility, trials, seed ...) back to MC_DEFAULTS, collapsed; loading a file keeps them (they are not part of a plan file).
+function mcResetCard(settings){
+  if(mcRun){ mcRun.cancel=true; mcRun.discard=true; mcRun=null; }   // a running chunk loop stops at its next tick
+  if(mcTrialView) mcTrialClear();
+  Object.keys(mcCharts).forEach(k=>{ if(mcCharts[k]){ mcCharts[k].destroy(); mcCharts[k]=null; } });
+  mcResults=null; mcStateAtRun=null;
+  if(settings){ try{ localStorage.removeItem(MC_STORE_KEY); }catch(e){} buildMcPanel(); return; }
+  ['mcOut','mcStale'].forEach(id=>{ const e=mcEl(id); if(e) e.style.display='none'; });
+  ['mcSummary','mcReasons','mcStudy','mcCaveats','mcProg'].forEach(id=>{ const e=mcEl(id); if(e){ if(id==='mcProg') e.textContent=''; else e.innerHTML=''; } });
+  const run=mcEl('mcRunBtn'), can=mcEl('mcCancelBtn'); if(run) run.disabled=false; if(can) can.style.display='none';
+  mcUpdateInhStatus();
+}
 // Called from recompute() (app.js): flag results that no longer match the plan.
 function mcMarkStale(){
   mcUpdateInhStatus();

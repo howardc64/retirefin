@@ -1,6 +1,6 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// DISPLAY / CHART PANELS — every chart sits in its own panel on a 2- or 3-column grid (the 2×N / 3×N toggle, state.ui.gridCols; default 2).
+// DISPLAY / CHART PANELS — every chart sits in its own panel on a 2- or 3-column grid (the 2×N / 3×N toggle, state.ui.gridCols; default 3).
 //   • Hide checkbox per panel (state.ui.chartHidden[key]; default hidden only for Annual expenses, Annual income, Total tax, Asset value, IDGT value). A hidden panel keeps its place as a title bar.
 //   • Rescale button per panel (chartHelpers.js rescaleChart: refits that chart only).
 //   • Drag a panel by its title bar to any cell: a free cell moves it there (the vacated cell stays blank), an occupied cell swaps the two. Holding the pointer on the gap between two rows
