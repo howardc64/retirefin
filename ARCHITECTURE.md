@@ -58,16 +58,18 @@ css/
   styles.css    (all page styling; linked from index.html)
 tests/
   check.js  snapshot.js  compare.js  baseline.json  README.md   (Node regression harness; not loaded by the app)
+  mc/           mc_harness.js  mc_test.js  mc_inherit_test.js  mc_replay_test.js  mc_ui_test.js  mc_runplan.js  mc_sweep.js  mc_infl_cmp.js   (Monte Carlo tests, §10)
+docs/           MONTE_CARLO.md  (what the Monte Carlo add-on changed, how it works, how to test it)  + design spec and slide decks
 js/
   core/         constants.js  helpers.js  markdown.js  state.js
   compute/      socialSecurityCalc.js  rmd.js  tax.js  dates.js  ageRange.js
-                projection.js  whatIf.js
+                projection.js  whatIf.js  donorTraj.js  monteCarlo.js
   input/        controls.js  household.js  assumptions.js  loadMenu.js
                 wage.js  socialSecurity.js  pension.js  rental.js
                 brokerage.js  realEstate.js  ira.js  roth.js  inheritance.js  liveLink.js  incomeForms.js
   display/      chartHelpers.js  chartPanels.js  chartInfo.js  overlayPlugin.js
-                ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  iraLtcgChart.js  inhIncomeChart.js  footer.js  print.js
-                formulasPage.js  mdPage.js  excelExport.js  scenarios.js  userNotes.js  chat.js
+                ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  iraLtcgChart.js  inhIncomeChart.js  inflationChart.js  marketChart.js  footer.js  print.js
+                formulasPage.js  mdPage.js  excelExport.js  scenarios.js  userNotes.js  chat.js  mcPanel.js
   app.js
 misc/      Usage.md            (how to use the app; rendered to HTML by the Usage button, §6.10)
            Note4User.md        (user-facing tips; rendered to HTML by the Tips button, §6.10)
@@ -424,7 +426,7 @@ The IRMAA surcharge uses the MAGI (AGI + tax-exempt income) from two years earli
 | `aumBalance`, `aumFee` | AUM balance (start of year) and the total AUM fee charged this year (equals `expAum`) |
 | `taxIters`, `taxConverged` | Rounds the tax↔LTCG iteration took (≥1) and whether it met `TAX_TOL` |
 | `cashIncome`, `expFromIncome`, `expFromDiv`, `expFromSales`, `expFromIra`, `expFromRoth`, `expFromRe`, `expUnfunded` | The expense-funding waterfall (§4.6): household cash income available (wage+SS+pension+rental+RMD), and the expense amount paid by income, by dividends, by asset sales, by pre-tax IRA, by Roth IRA, and left unfunded (`expTotal = expFromIncome + expFromDiv + expFromSales + expFromIra + expFromRoth + expUnfunded`) |
-| `iraExpByPerson`, `iraExpTotal`, `rothExpByPerson`, `rothExpTotal` | Pre-tax IRA withdrawn / Roth IRA withdrawn to pay expenses (per person and total). `iraExpTotal` is taxable ordinary income (income chart key `iraExp`, "Pre-tax IRA withdraw (for expenses)"; also in the MAGI and taxable-income stacks); `rothExpTotal` is untaxed, not in AGI/MAGI: shown in the funding split and as the income-chart key `rothExp` ("Roth IRA withdraw (tax-exempt, untaxed)", primary chart only — excluded from the MAGI stack via `mKeys`). `buildExpenseAlert` (expenseChart.js) fills `#expenseAlert` (`.unfunded-alert`, big bold red) with the first/last age where `expUnfunded > 1`, the year count and the total shortfall; hidden when nothing is unfunded |
+| `iraExpByPerson`, `iraExpTotal`, `rothExpByPerson`, `rothExpTotal` | Pre-tax IRA withdrawn / Roth IRA withdrawn to pay expenses (per person and total). `iraExpTotal` is taxable ordinary income (income chart key `iraExp`, "Pre-tax IRA withdraw (for expenses)"; also in the MAGI and taxable-income stacks); `rothExpTotal` is untaxed, not in AGI/MAGI: shown in the funding split and as the income-chart key `rothExp` ("Roth IRA withdraw (tax-exempt, untaxed)", primary chart only — excluded from the MAGI stack via `mKeys`). `buildExpenseAlert` (expenseChart.js) fills `#expenseAlert` (`.unfunded-alert`, bold red, the single word UNFUNDED, in the Annual expenses panel's tools row right of the Rescale button) when any `expUnfunded > 1`; the first/last age, who is living, the year count and the total shortfall are in its Chart Element popup; hidden when nothing is unfunded |
 | `irmaaSurcharge` | Household IRMAA surcharge for the year (tier of the MAGI from two years earlier × enrolled people 65+; $0 in years 0 and 1) ; always charged as a household expense (`expIrmaa`) |
 | `totalTax` | Final Total Tax: `max(0, ordTax+qualTax−foreignTaxCredit) + niit` |
 | `agi` | Adjusted gross income |
@@ -609,7 +611,7 @@ presentation is fine; new financial logic is not).
 | `updateChartInPlace(chart, labels, datasets)` | Mutates an existing Chart.js instance's data arrays in place (instead of replacing the chart) so points animate smoothly from their prior value instead of resetting to zero |
 
 ### 6.1a `chartPanels.js` — chart panels, layout and Same-scale buttons
-`CHART_PANELS` lists the 13 panels (key, title, optional extra tool/body HTML). `buildChartPanels()` creates them once inside `#chartGrid` (`index.html`): each is a `.chart-panel` with a title bar (`.cp-head`, the drag handle, plus the **Hide** checkbox), a tool row (**↕ Rescale** → `rescaleChart(key)`; the Total tax panel adds **view IRMAA as tax**) and `.cp-body` holding `<canvas id="<key>Chart">`. Panels are never re-parented (the Chart.js instances hold their canvas); a move only changes the panel's `grid-row` / `grid-column`.
+`CHART_PANELS` lists the 17 panels (key, title, optional extra tool/body HTML). `buildChartPanels()` creates them once inside `#chartGrid` (`index.html`): each is a `.chart-panel` with a title bar (`.cp-head`, the drag handle, plus the **Hide** checkbox), a tool row (**↕ Rescale** → `rescaleChart(key)`; the Total tax panel adds **view IRMAA as tax**) and `.cp-body` holding `<canvas id="<key>Chart">`. Panels are never re-parented (the Chart.js instances hold their canvas); a move only changes the panel's `grid-row` / `grid-column`.
 
 | Function | Contract |
 |---|---|
@@ -619,13 +621,22 @@ presentation is fine; new financial logic is not).
 | `expandAllChartPanels()` / `syncChartPanels()` | `renderAll()` runs `expandAllChartPanels()` → `recompute()` → `syncChartPanels()`, so charts are built in visible containers and then each panel's Hide state, grid cell and the Scale buttons are put into the state held in `state.ui` |
 | `setChartAvailable(key, on)` | A chart with nothing to draw (no IDGT portfolio, no Roth conversion, Social Security off for the older person) has no panel on screen (`.no-data`); its saved position is kept and its cell is blank |
 
-Default layout (row, column, left → right, top → bottom): Annual expenses · *(blank)* · MAGI / Annual income · Taxable ordinary income · Taxable qualified income / Total tax · Ordinary income tax · QDIV/LTCG/NIIT tax / Asset value · IDGT value · Roth conversion / Cumulative household SS · Social Security tax.
+Default layout (`CHART_DEFAULT_POS_BY_COLS` in `core/state.js`; 17 charts; the chart-key lists `CHART_KEYS` / `CHART_DEFAULT_HIDE_KEYS` are there too):
+- **2 × N** (row by row): Annual expenses · Annual income / IRA · LTCG / Total tax · Asset value / Taxable ordinary · Taxable qualified / MAGI · Inheritance income / Ordinary income tax · QDIV/LTCG/NIIT tax / IDGT value · (blank) / **Inflation rate · Market return %** / Cumulative household SS · Social Security tax.
+- **3 × N**: Annual expenses · (blank) · MAGI / Annual income · Taxable ordinary · Taxable qualified / (blank) · IRA · LTCG / Total tax · Ordinary income tax · QDIV/LTCG/NIIT tax / Asset value · IDGT value · Inheritance income / **Inflation rate · Market return %** / Cumulative household SS · Social Security tax.
+- Hidden by default: expense, income, tax, asset, idgt, ira, ltcg, inflation, market.
+- A saved layout whose four cells for Inflation, Market return, Cumulative SS and Social Security tax still hold the previous default is moved to the current default (`normalizeChartPos`); one where any of them was moved by the user is kept.
+- The Annual expenses panel's tools row carries the red **UNFUNDED** tag (`#expenseAlert`, filled by `expenseChart.js`); the Market return panel's tools row carries the ◀ ▶ buttons (`#marketNav`, §6.7d). The IRA-stretch alert (`#assetAlert`) sits in the scale-button row.
 
 ### 6.2 `overlayPlugin.js`
 Chart.js plugins drawing black (`OVERLAY_COLOR`) dashed horizontal lines with label decluttering
 (`declutterLabels`): `incomeOverlay` (IRMAA tiers) is registered a second time as `magiOverlay` for the
 MAGI chart — lines carrying `pct` are labeled `$<bracket>k +<Part B % over standard>%` — and
 The `ordLabels` plugin labels the taxable ordinary income chart's bracket lines at their right ends.
+Plugins added for the Monte Carlo trial view (all display only, switched off for the two charts inside the Monte Carlo card by `MC_NO_OVERLAYS`):
+- `inhArrival`: a small purple triangle just below the age axis of every time-based chart at the year an inherited asset arrives (always on; it follows the loaded trial's drawn arrival year). The age-axis tick labels are padded 11px lower to make room; the Chart Element popup describes it.
+- `abGhost`: while a trial (B or C) is on screen, draws the plan's (A) lines behind it as thin dashed grey lines. `mcCaptureGhosts()` (mcPanel.js) stores them as (age index, value) points per Y axis, so they survive a resize; the Y axes are fixed across A, B and C (`mcFitBoth`).
+- `unfundedYears`: a faint red band behind the data in every year with `row.expUnfunded`, on every time-based chart, so a failure shows on whichever chart you look at and when you flip A / B / C.
 
 ### 6.3 `ssChart.js` — Social Security start-age breakeven
 Reads: `js/compute/whatIf.js`'s `computeSSScenario` for a fixed set of candidate ages (`VZ_SS_AGES =
@@ -682,7 +693,7 @@ Any number of plans (**A**, **B**, **C** … up to 26) behind one **🆎 Scenari
 **🖨️ Print** sits right of Export to Excel and calls `window.print()`. Printing behaves as if every Hide checkbox (chart Hides and per-card Hides) were unchecked, with no visible or saved change. `beforeprint`: removes `.sec-hidden`, opens collapsed `.item-body` cards, adds `body.printing-all`, then for every chart in `charts{}` builds a fresh non-animated copy of its config on an off-screen canvas at the print size, copies its pixels onto a plain canvas and shows that in place of the live `<canvas>` (live charts are never resized or redrawn, so no animation/resize timing can blank them; an `<img>` data-URL snapshot isn't used because it decodes asynchronously). `afterprint` undoes all of it. `state` is never touched, so Ctrl/Cmd+P gives the same result. Print layout rules (`body.printing-all …` in `css/styles.css`, deliberately not inside `@media print` because they must apply before print media does): single column; panes flow; income-card grid drops subgrid (it overlapped cards when fragmented); three panels per row; Scale buttons, tool rows, Hide boxes and empty cells hidden.
 
 ### 6.6a `expenseChart.js` — Household Expenses
-Panel `expense` (`#expenseChart`; the red unfunded-expenses alert `#expenseAlert` sits at the top of its panel). Reads rows' `expLiving`, `expLtc`, `expTax`, `expIrmaa`, `expAum`, `expTotal`,
+Panel `expense` (`#expenseChart`; the red UNFUNDED tag `#expenseAlert` sits right of the panel's Rescale button). Reads rows' `expLiving`, `expLtc`, `expTax`, `expIrmaa`, `expAum`, `expTotal`,
 plus the funding split `expFromIncome`, `expFromDiv`, `expFromSales`, `expUnfunded`. Styled like the tax chart: stacked
 filled bands, segments bottom→top: **living expenses, Long Term Care, income tax (tax drag), IRMAA surcharge, AUM fee**, so the stack's
 height always equals `expTotal`. Single $ axis, Y locked (`chartYMax.expense`). Tooltip: one line per non-zero component
@@ -736,6 +747,18 @@ the unrealized gain. Legend and notes are gone; the tooltip shows "Cost basis (d
 step-up.
 The "Unrealized gain at end of plan" note and the chart legends were removed with the other chart text.
 
+### 6.7c `inflationChart.js` — Inflation rate chart
+- `buildInflationChart()`: `charts.inflation`, `#inflationChart`, panel key `inflation` ("Inflation rate", hidden by default). A dashed grey line, the plan's constant rate (`state.inflation`, or the loaded trial's mean `cap.meanInfl`), and, while a Monte Carlo trial with Random inflation is on screen (view B or C), the trial's own yearly rate (`cap.infl.pi[k]`). On A the trial dataset stays but is empty, so the dataset list never changes.
+- The popup (and the Chart Element text, `chartInfo.js`, `CI_PCT_KEYS`) shows percentages, not dollars, plus the price level relative to the plan's rate (1.15 = prices 15% above what the constant rate would have given).
+- Own Y scale, in no Same-scale group; while a trial is loaded the scale comes from `lockedYMax('inflation', …)` so it is the same across A, B and C.
+
+### 6.7d `marketChart.js` — Market return % chart
+- `computeProjection()` records, for every growing asset, the real growth rate the engine used in each year (`proj.rates[k][assetKey]`) and that year's inflation (`proj.inflRate[k]`). Batch Monte Carlo trials switch this off (`REC_RATES`); `mcReplayTrial` turns it on.
+- `marketSeries(proj)` → `{keys, at}`: nominal % per asset key and row, `((1 + rate) × (1 + inflRate) − 1) × 100`, `null` outside the years the asset exists. `marketAssetLabel(proj, key)` names a key (`pf:<id>`, `ira:<person>`, `roth:<person>`, `re:<id>`, `inh:<holder>:<name>`): portfolio / property names, "(IDGT)", "Pre-tax IRA", "Roth IRA", "Inherited …", with the owner's name when married.
+- `buildMarketChart()`: `charts.market`, `#marketChart`, panel key `market` ("Market return %", hidden by default), one line per asset in `MARKET_COLORS`. Flat in the plan; in a trial it moves with the market shock (real estate with its own) and with the trial's inflation.
+- `marketStep(±1)` (the ◀ ▶ in the panel's tools row, `#marketNav`): cycles All lines → asset 1 → … → All lines. No text beside the buttons (it would resize the card). Display state only, not saved. The Y scale stays fitted to every line; the popup names each line.
+- Read-only, own Y scale, in no Same-scale group.
+
 ### 6.8 `footer.js`
 `renderFooter()` — one static line summarizing the app's simplifying tax/benefit assumptions, shown
 beneath the charts. It states the 2026 tax basis (TCJA permanent under OBBBA), that the only itemized deduction modelled is Long Term Care cost above 7.5% of AGI, the NIIT threshold, the expense funding order and tax iteration, and the RMD table. **Keep it in step with Compute:** its IRMAA clause says the surcharge uses the AGI from two years earlier (2-year lookback), matching §4.6.
@@ -757,6 +780,8 @@ same `js/core/constants.js` globals Compute uses (`MFJ_ORD`, `IRMAA_MFJ`, `RMD_T
 tax-year bracket update in `constants.js` (§3.1) is automatically reflected here with no second edit.
 Only the *formula prose* is hand-maintained (formulas change far less often than bracket numbers) —
 if you change a formula in §4, update its description on this page in the same change.
+
+The last group, **Monte Carlo simulation and chart rates**, documents the Market return formula `(1 + real growth) × (1 + inflation) − 1` and the Monte Carlo samplers (§10): lognormal return factor, Gompertz lifespans, Long Term Care, AR(1) inflation, inheritance and the success condition.
 
 ### 6.10 `core/markdown.js` and `mdPage.js` (Usage and Tips pages)
 **`core/markdown.js`** is the one Markdown → HTML converter of the app, `mdToHtml(md, opts)`: headings (each gets a GitHub-style slug `id`, so `[text](#slug)` links work), bold/italic, inline code, fenced code, links (a `javascript:` / `data:` URL is never made a link; `rel="noopener"`), **tables** (header row, `|---|---|` separator row, body rows; cells may use inline formatting but no `|`), bullet / numbered lists **nested by indentation** (2+ spaces or a tab per level; `-` `*` `+` `•` markers; indented lines under an item continue it), blockquotes, rules, paragraphs. Everything is HTML-escaped first. Options: `breaks` (a single newline is a `<br>`), `flatHeadings` (a heading is a bold paragraph), `tableWrap` (class of a scroll `<div>` around each table), `links:false`, `ids:false`. Extend this function rather than adding a CDN library, so it keeps working offline. It has two users: the pages below (defaults) and the chat bubbles (`chatMarkdown()` in `chat.js`: `breaks`, `flatHeadings`, `tableWrap:'chat-tablewrap'`, `links:false`, because a model reply is untrusted).
@@ -855,16 +880,17 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
   the charts) — see §1 for the overall shape. The topbar holds, in order: **Save**, **Load file ▾**
   (dropdown, §5.6), **Reset to defaults**, **Usage** (§6.10), **Formulas** (§6.9), **Tips** (§6.10), **Notes** (§6.6c), **Export Excel**
   (§6.11), and the `show_details` checkbox.
+- The chart column starts with `<div class="chart-sticky" id="chartSticky">` (`position:sticky; top:0`, `.chart-col{padding-top:0}`): it holds the Monte Carlo trial card (`#mcTrialBanner`, hidden until a trial is loaded) above the scale-button row, so both stay in view while the charts scroll. `<section id="mcPanel">` (the Monte Carlo card, §6.13) follows the chart grid.
 - **Script load order** (dependency-driven — a file may only use a name defined by a file *earlier* in
   this list):
   `core/constants → core/helpers → core/markdown → compute/socialSecurityCalc → compute/rmd → compute/tax →
-  core/state → compute/dates → compute/ageRange → compute/projection → compute/whatIf →
+  core/state → compute/dates → compute/ageRange → compute/projection → compute/whatIf → compute/donorTraj → compute/monteCarlo →
   input/controls → input/household → input/assumptions → input/wage → input/socialSecurity →
   input/pension → input/rental → input/brokerage → input/ira → input/roth → input/incomeForms →
   input/loadMenu →
   display/chartHelpers → display/chartPanels → display/chartInfo → display/overlayPlugin → display/ssChart → display/incomeChart →
   display/tssChart → display/taxChart → display/expenseChart → display/assetChart → display/iraLtcgChart → display/inhIncomeChart → display/footer →
-  display/formulasPage → display/mdPage → display/excelExport → display/chat → app.js`
+  display/formulasPage → display/mdPage → display/excelExport → display/scenarios → display/userNotes → display/print → display/chat → display/mcPanel → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
   that reads from it. Function *calls* deferred to a later event (a click, `DOMContentLoaded`) don't
   need this — only code that runs immediately when the script loads (top-level `let`/`const`
@@ -933,3 +959,35 @@ Use this order; skipping ahead usually means redoing work.
 - Default placement: 2×N right of MAGI (r4,c1); 3×N right of IDGT (r4,c2). A saved layout lacking the key gets its default cell when free (`normalizeChartPos`).
 - **Asset-chart warning** (`buildAssetAlert`, `#assetAlert`, same red style as the unfunded-expenses alert): shown when an enabled pre-tax / Roth IRA that holds a balance has *IRA stretch* NOT checked (not forwarded to heirs at the last passing); names the IRAs.
 - **IRA chart** now has separate bands for inherited IRAs: RMD / final withdraw (`inhIraWdByPerson`), annual withdraw (`rothConvByPerson − convMainByPerson`) and inherited Roth withdraw (`inhRothWdByPerson`); the own-IRA RMD / annual withdraw bands exclude them.
+
+
+## 10. Monte Carlo (add-on)
+
+Files: `compute/monteCarlo.js` (seeded RNG, samplers, trial runner `mcRunTrial`, `mcReplayTrial`, `mcSummarize`, `mcFailureReasons`, `mcMeasure`; no DOM), `compute/donorTraj.js` (`buildDonorBlock`, `sanitizeDonorBlock`), `display/mcPanel.js` (the card). Notes and the model are in `docs/MONTE_CARLO.md`; the user-facing description is in `misc/Usage.md`.
+
+### 10.1 Engine hooks (`projection.js`)
+`computeProjection()` re-runs on a temporary copy of `state` (`withTempState`). `MC_HOOK` + `gk()` sit at every growth site (random returns); `MC_INFL` + `cpiAt()/infAt()/growIdx()` replace every constant-rate inflation formula. Both are null in normal use, so the deterministic output is unchanged. Random lifespans, Long Term Care and inheritance replace the matching fields of the private state copy.
+
+### 10.2 Inheritance donor table (`donorTraj.js`)
+At import and at every live-link update (`inheritance.js`, `liveLink.js`) the source plan is run once more on a private copy with its LTC off and its last person alive to 110, and `inheritance.sources[].donor` stores each asset's value at the end of every year plus birth dates, planned passing ages and LTC settings (no names). Sources without it stay as planned. See `docs/MONTE_CARLO.md`.
+
+### 10.3 The card (`mcPanel.js`)
+- `buildMcPanel()` builds `<section id="mcPanel">`: Hide box (starts collapsed), five setting groups (returns, lifespans, LTC, inheritance, inflation), Trials / Seed, Run / Cancel, then the results (summary, "Why trials ran short", the *Study one trial* row, a fan chart and a funded-share chart). Settings live in their own `localStorage` key `retirementPlannerMC_v1` (`MC_DEFAULTS`), NOT in `state`; adding a setting to `state` means a default in `state.js` and an entry in §2. `mcStart()` runs trials in ~40 ms chunks on the main thread (so `file://` works). `mcMarkStale()` (called from `recompute()`) flags results that no longer match the plan (`mcPlanKey()` = `state` without `ui`).
+- The card's two canvases are not chart panels (no Hide / drag / Same-scale); `MC_NO_OVERLAYS` turns the app's overlay plugins off for them.
+
+### 10.4 Trial view: A / B / C
+- `mcLoadTrial(trial)` / `mcLoadSuccess(trial)` call `mcReplayTrial(cfg, i)` (same seed and trial number give the same draws; nothing is stored) and keep it in `mcTrialView = {planProj, key, view, cur, b, c, …}`: `planProj` = A (the plan as entered), `b` = the failed trial loaded from the study row, `c` = the successful run of the C button. `view` is `'A' | 'B' | 'C'`; `cur` is whichever of B / C was shown last. The fields of the shown trial (`trial, proj, state, cap, pos, cause`) are also copied onto the view (`mcUseTrial`), so code that reads `mcTrialView.state` / `.cap` works for both.
+- `recompute()` (`app.js`): if a trial is loaded and `mcTrialStillValid()` is false (the plan was edited) it calls `mcTrialClear()`; otherwise `lastProjection = mcTrialShown()` (A → `planProj`, else the trial's `proj`). A new run, editing the plan or **Back to plan** (`mcTrialExit`) ends the view.
+- `mcFitBoth()` fits every chart's Y scale to the largest of A, B and C (a dry pass: `window.dryPass`); `mcCaptureGhosts()` keeps A's lines for the `abGhost` plugin; `chartHelpers.js` never saves a trial's scales into the plan. Rescale refits one chart to what is showing.
+- `mcOkTrials()` lists the successful trials (`failK<0`, trial order); `mcCPress()` / key **C** → next, **Shift+C** → previous (`mcCStep`, wraps); key **B** (`mcAbToggle`) flips A and the last of B / C. `mcTrialStep(±1)` (◀ ▶) steps through failed trials while B is on and through successful runs while C is on (greyed out when none).
+- The banner (`mcShowBanner`, `#mcTrialBanner`, inside `.chart-sticky`) is one layout for B and C: row 1 is the A · Plan / B · Failure #N / C · Success switch, ◀ ▶ and Back to plan; below it is a message block that always has room for two lines, including how many other failed trials share this one's main cause. It stays at the top of the chart column.
+
+### 10.5 Tests (`tests/mc/`, Node, real engine in a `vm`)
+Run from the app folder; plan files are supplied by the caller (no plan data is stored in the tests).
+```
+PLAN=your-plan.json node tests/mc/mc_test.js
+HEIR=heir.json DONOR=donor.json node tests/mc/mc_inherit_test.js
+PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/mc_replay_test.js
+node tests/mc/mc_ui_test.js        # card, banner, A/B/C, inflation / market charts, arrival markers, with a stub DOM
+```
+`mc_runplan.js`, `mc_sweep.js` and `mc_infl_cmp.js` are run-and-print helpers; `mc_harness.js` loads the engine.

@@ -18,6 +18,31 @@ function realGrowth(change, inflation){
   }
 }
 
+// ── Monte Carlo hook (see js/compute/monteCarlo.js) ─────────────────────────────────────────
+// MC_HOOK is null in normal use, so every gk() call returns its input unchanged and the projection is
+// identical to before. During a Monte Carlo trial it is set to f(g, key, k) -> the real growth rate for
+// that asset (`key`) in year row `k`. It MUST be a pure function of (key, k) within one trial: the engine
+// evaluates the same year's growth several times (tax <-> LTCG iterations).
+let MC_HOOK=null;
+// REC_RATES / GROWTH_REC: computeProjection() also records the real growth rate every asset actually got in each year (proj.rates[k][key]) for the Market return chart.
+// Monte Carlo trials switch recording off (mcRunTrial) except a replay, so thousands of trials do not pay for it.
+let REC_RATES=true, GROWTH_REC=null;
+function gk(g,key,k,ch){ const v=MC_HOOK?MC_HOOK(g,key,k,ch):g; if(GROWTH_REC){ (GROWTH_REC[k]||(GROWTH_REC[k]={}))[key]=v; } return v; }   // ch = the Change spec the rate came from (the hook re-prices 'fixed' / 'custom' nominal rates by the year's actual inflation)
+// MC_INFL = null normally. In a Monte Carlo trial: {pi: inflation rate of year k, cpi: price level at the START of year k (cpi[0]=1)}.
+// cpiAt/infAt replace every `(1+inflation)^k` and per-year `/(1+inflation)` in the engine, so fixed-dollar items (no-COLA pension, un-indexed
+// thresholds, cost basis, depreciation, fixed AUM fee, home-sale exemption) follow the random price level. With MC_INFL=null they equal the old constant-rate formulas.
+let MC_INFL=null;
+function cpiAt(k,inflation){ return MC_INFL?MC_INFL.cpi[k]:Math.pow(1+inflation,k); }
+function infAt(k,inflation){ return MC_INFL?MC_INFL.pi[k]:inflation; }
+// Today's-$ multiplier of an amount after k years for a Change spec; nominal-fixed modes ('fixed', 'custom') follow the actual price level.
+function growIdx(change,g,k,inflation){
+  if(MC_INFL&&change){
+    if(change.mode==='fixed') return 1/cpiAt(k,inflation);
+    if(change.mode==='custom') return Math.pow(1+(change.value||0)/100,k)/cpiAt(k,inflation);
+  }
+  return Math.pow(1+g,k);
+}
+
 // Share of a portfolio's value that is unrealized gain (average-cost method): 0 when basis >= value.
 function pfGainFraction(bal, basis){ return bal>0 ? Math.max(0,(bal-basis)/bal) : 0; }
 
@@ -31,6 +56,7 @@ function inhStartRow(item){ const y=Number(item&&item.startYear); return (item&&
 const TAX_TOL=0.005, TAX_MAX_ITERS=60;
 function computeProjection(){
   const inflation=state.inflation;
+  GROWTH_REC=REC_RATES?[]:null;
   const married=state.filingStatus==='married';
   const people=married?state.people:[state.people[0]];
   const curAges=people.map(p=>currentAge(p));
@@ -116,7 +142,7 @@ function computeProjection(){
           // (through the last passing here, then STRETCH_YEARS more in the stretch block at the end).
           if(!p.ira.stretch){ sim.done=true; return; }
           iraW[i][k]=0;
-          sim.bal=sim.bal*(1+g);
+          sim.bal=sim.bal*(1+gk(g,'ira:'+p.id,k,p.ira.growth));
           iraBal[i][k]=sim.bal;
           return;
         }
@@ -146,7 +172,7 @@ function computeProjection(){
     sim.post=function(k,conv,draw){
       if(!sim.open) return;
       iraConv[i][k]=conv;
-      sim.bal=Math.max(0,sim.bal-conv-(draw||0))*(1+g);
+      sim.bal=Math.max(0,sim.bal-conv-(draw||0))*(1+gk(g,'ira:'+p.id,k,p.ira.growth));
       iraBal[i][k]=sim.bal;
     };
     return sim;
@@ -176,7 +202,7 @@ function computeProjection(){
         if(!(p.roth.bene&&spouseAlive)){
           // Same "IRA stretch" rule as the pre-tax IRA above: held by heirs and still compounding.
           if(!p.roth.stretch){ sim.done=true; return; }
-          sim.bal=sim.bal*(1+g);
+          sim.bal=sim.bal*(1+gk(g,'roth:'+p.id,k,p.roth.growth));
           rothBal[i][k]=sim.bal;
           return;
         }
@@ -187,7 +213,7 @@ function computeProjection(){
     };
     sim.post=function(k,conv,draw){
       if(!sim.open) return;
-      sim.bal=Math.max(0,sim.bal+conv-(draw||0))*(1+g);
+      sim.bal=Math.max(0,sim.bal+conv-(draw||0))*(1+gk(g,'roth:'+p.id,k,p.roth.growth));
       rothBal[i][k]=sim.bal;
     };
     return sim;
@@ -215,7 +241,7 @@ function computeProjection(){
     const kind=(x&&x.kind==='roth')?'roth':'ira';
     const cMode=(x&&x.convStartMode)||'rmd';
     return {on:!!x&&x.enabled!==false&&bal0>0, kind, rmdOn:kind==='ira'&&!(x&&x.rmdStarted===false), kS:inhStartRow(x||{inh:1}), bal0, bal:0,
-            g:realGrowth(x&&x.growth,inflation), wd:0, eoy:0, live:false, done:false, name:(x&&x.name&&x.name.trim())||'',
+            g:realGrowth(x&&x.growth,inflation), gch:x&&x.growth, wd:0, eoy:0, live:false, done:false, name:(x&&x.name&&x.name.trim())||'',
             holder:i, bene:!!(x&&x.bene), sle:null,
             // conversion state (pre-tax only), same names as iraSim's so the conversion solve treats both alike
             open:false, room:0, fixed:0, mode:'fixed', trigger:(cMode==='bracket'||cMode==='itemized'||cMode==='ltc')?cMode:null, cMode, started:false, startedK:null, rothOk:false, toRoth:false, convAmt:0};
@@ -257,17 +283,17 @@ function computeProjection(){
       const rangeAge=ownerAlive?ownerAge:passAges[i]-1;
       const inWindow=rangeAge>=sA&&rangeAge<eA;
       let payout=0;
-      if(inWindow&&V>0) payout=byPct?V*pct:Math.min(fixedNom/Math.pow(1+inflation,k), V);
+      if(inWindow&&V>0) payout=byPct?V*pct:Math.min(fixedNom/cpiAt(k,inflation), V);
       yr[k]={bal:V, payout, fromV:payout};
       V=Math.max(0,V-payout)*(1+g);
     }
     // Tax split of each payout.
     const mode=a.tax||'lifo', exPct=clamp(Number(a.exemptPct!=null?a.exemptPct:100)||0,0,100)/100;
     let premRem=prem0, expTotalNom=0;
-    yr.forEach((y,k)=>{ expTotalNom+=y.payout*Math.pow(1+inflation,k); });
+    yr.forEach((y,k)=>{ expTotalNom+=y.payout*cpiAt(k,inflation); });
     const ER=expTotalNom>0?Math.min(1,prem0/expTotalNom):0;
     yr.forEach((y,k)=>{
-      const nk=Math.pow(1+inflation,k), payNom=y.payout*nk, vNom=y.bal*nk;
+      const nk=cpiAt(k,inflation), payNom=y.payout*nk, vNom=y.bal*nk;
       let taxNom=payNom, freeNom=0, embedded=y.bal;
       if(mode==='exempt'){ freeNom=payNom*exPct; taxNom=payNom-freeNom; embedded=y.bal*(1-exPct); }
       else if(mode==='exclusion'){
@@ -285,7 +311,7 @@ function computeProjection(){
     });
     // Passing benefit, recorded on the contract's last live year.
     if(endK!==null&&endK>=1&&yr[endK-1]){
-      const nk=Math.pow(1+inflation,endK), opt=a.pb||'value';
+      const nk=cpiAt(endK,inflation), opt=a.pb||'value';
       const bNom=opt==='fixed'?Math.max(0,Number(a.pbFixed)||0):(opt==='initial'?V0:V*nk);
       let tax=bNom, free=0;
       if(mode==='exempt'){ free=bNom*exPct; tax=bNom-free; }
@@ -319,10 +345,10 @@ function computeProjection(){
     if(depreciation){
       // Straight-line depreciation is a fixed nominal dollar amount, so in today's $ it shrinks by inflation each year
       // (same convention as the fixed-$ AUM fee). Entered in today's $ for year 0.
-      return Math.max(0,Number(item.depreciation)||0)/Math.pow(1+inflation,k);
+      return Math.max(0,Number(item.depreciation)||0)/cpiAt(k,inflation);
     }
     const g=realGrowth(item.change, inflation);
-    return item.amount*Math.pow(1+g,k);
+    return item.amount*growIdx(item.change,g,k,inflation);
   }
 
   // ── Brokerage portfolio balances (today's $) ──
@@ -465,7 +491,7 @@ function computeProjection(){
       const [sA,eA]=resolveAgeRange(p.wage.ar, p);
       if(ages[i]<sA||ages[i]>=eA) return 0;
       const g=realGrowth(p.wage.change, inflation);
-      return p.wage.amount*Math.pow(1+g,k);
+      return p.wage.amount*growIdx(p.wage.change,g,k,inflation);
     });
 
     // social security (with survivor switch-over)
@@ -663,7 +689,7 @@ function computeProjection(){
     const aumVal=(state.aumFee&&state.aumFee.enabled===false)?0:Math.max(0,Number(state.aumFee&&state.aumFee.value)||0);   // unchecked Enable → no fee
     const aumBase=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>(b&&b.aum&&!b.idgt&&pfVals[i][bi].active&&!pfState[i][bi].dead&&pfBalNow[i][bi]>0)?pfBalNow[i][bi]:0));
     const aumBalance=aumBase.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
-    const aumFee=aumBalance>0?(aumMode==='pct'?aumBalance*aumVal/100:aumVal/Math.pow(1+inflation,k)):0;
+    const aumFee=aumBalance>0?(aumMode==='pct'?aumBalance*aumVal/100:aumVal/cpiAt(k,inflation)):0;
     // ── Household expense funding waterfall (spec §4.6) ──
     // Expenses = household living expenses (today's $, flat in real terms) + the household IRMAA surcharge + the
     // AUM fee + THIS YEAR'S INCOME TAX (tax drag is an expense). Funded by, in order: (1) household
@@ -679,7 +705,7 @@ function computeProjection(){
     // untaxed — never in AGI — but is household cash income, so it pays expenses and any excess can be reinvested.
     const teByPerson=people.map((p,i)=>(p.brokerage||[]).reduce((a,b,bi)=>{
       const v=pfVals[i][bi]; if(!v.active||pfState[i][bi].dead) return a;
-      const avail=Math.max(0,pfBalNow[i][bi]*(1+realGrowth(b.growth,inflation)));
+      const avail=Math.max(0,pfBalNow[i][bi]*(1+gk(realGrowth(b.growth,inflation),'pf:'+b.id,k,b.growth)));
       return a+Math.min(v.te||0, avail);
     },0));
     const teIncome=teByPerson.reduce((a,b)=>a+b,0);
@@ -693,7 +719,7 @@ function computeProjection(){
       const st=pfState[i][bi], bal=pfBalNow[i][bi];
       if(st.dead||!(bal>0)) return;
       const v=pfVals[i][bi];
-      const g=realGrowth(b.growth,inflation), avail=Math.max(0,bal*(1+g));
+      const g=gk(realGrowth(b.growth,inflation),'pf:'+b.id,k,b.growth), avail=Math.max(0,bal*(1+g));
       const feeShare=aumBalance>0?aumFee*aumBase[i][bi]/aumBalance:0;   // this portfolio's share of the AUM fee
       const feeD=feeShare;   // informational: the AUM fee charged on this balance (paid by the pool, not by this portfolio)
       const x={active:v.active, idgt:!!b.idgt, payExp:!!b.payExp, reinvest:!!b.reinvest, feeShare, bal, g, avail, feeD, odiv:v.odiv+(v.cgd||0), cgd:v.cgd||0, te:Math.min(v.te||0, avail),
@@ -746,7 +772,7 @@ function computeProjection(){
     // Ordinary side of the return that does not depend on LTCG, computed once outside the iteration. (Taxable Social Security does
     // depend on LTCG — provisional income includes QDIV and LTCG — so it is computed inside taxOn() below.)
     const filing = married && alive[0] && alive[1] ? 'married' : 'single';
-    const ssThresholdFactor = Math.pow(1+inflation,-k); // un-indexed SS-tax thresholds, in today's $
+    const ssThresholdFactor = (1/cpiAt(k,inflation)); // un-indexed SS-tax thresholds, in today's $
     const nonSSBase = wageTotal+pension+rental+annuity+iraTotal+odivNQ;   // + the Roth conversion (decided below) = nonSSOrdinary
     // Standard deduction = the basic amount + the additional amount for age 65 or older, per living person who is 65 by the end of the tax year (birth year
     // + 65 ≤ year, the same rule as the senior deduction below; the additional amount for blindness is not modeled). The additional amount is $1,650 per person
@@ -797,14 +823,14 @@ function computeProjection(){
       const spouseAlive=married&&people.length===2&&alive[1-i];
       if(!alive[i]&&!(r.bene&&spouseAlive)) return;
       const pick=pickSaleTarget(i,r,aliveNext); if(!pick) return;
-      const valEnd=st.bal*(1+realGrowth(r.growth,inflation));
+      const valEnd=st.bal*(1+gk(realGrowth(r.growth,inflation),'re:'+r.id,k,r.growth));
       const jointSpouseGone=!!r.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];
       const basisNow=((!alive[i]||jointSpouseGone)&&!st.stepped)?st.bal:st.basis;   // (1) stepped up on the owner's passing (or the spouse's, if jointly owned)
-      const basEnd=clamp(basisNow/(1+inflation), 0, valEnd);
+      const basEnd=clamp(basisNow/(1+infAt(k,inflation)), 0, valEnd);
       // Exemption per living owner (this property's owner, plus the spouse when it is jointly owned). It is a fixed nominal amount, so like the cost basis it
       // erodes with inflation in today's $: the amount entered, divided by (1 + inflation) for each year up to this year's end.
       const ownersAlive=(alive[i]?1:0)+((r.bene&&married&&people.length===2&&alive[1-i])?1:0);
-      const exempt=Math.max(0,Number(r.exempt)||0)/Math.pow(1+inflation,k+1)*ownersAlive;
+      const exempt=Math.max(0,Number(r.exempt)||0)/cpiAt(k+1,inflation)*ownersAlive;
       reSales.push({i, ri, ti:pick.ti, bi:pick.bi, name:saleLabel(r,ri), valEnd, basEnd, ownersAlive, exempt, gain:Math.max(0,valEnd-exempt-basEnd), tax:0, net:valEnd});
     }));
     const reGainTotal=reSales.reduce((a,x)=>a+x.gain,0);
@@ -822,7 +848,7 @@ function computeProjection(){
       const jointSpouseGone=!!r.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];
       const value=st.bal, basis=clamp(((!alive[i]||jointSpouseGone)&&!st.stepped)?st.bal:st.basis, 0, value);
       const ownersAlive=(alive[i]?1:0)+((r.bene&&married&&people.length===2&&alive[1-i])?1:0);
-      const exempt=Math.max(0,Number(r.exempt)||0)/Math.pow(1+inflation,k)*ownersAlive;
+      const exempt=Math.max(0,Number(r.exempt)||0)/cpiAt(k,inflation)*ownersAlive;
       const pick=pickSaleTarget(i,r,aliveNext);
       return {i, ri, ti:pick?pick.ti:null, bi:pick?pick.bi:null, name:saleLabel(r,ri), value, basis, exempt, ownersAlive, gain:Math.max(0,value-exempt-basis)};
     }
@@ -1087,7 +1113,7 @@ function computeProjection(){
     convUnits.forEach((u,ui)=>{ if(!u.main) u.sim.convOut=convByUnit[ui]; });
     inhSim.forEach(list=>list.forEach(sm=>{
       if(!sm.open) return;
-      sm.bal=Math.max(0,sm.bal-(sm.convOut||0))*(1+sm.g); sm.convOut=0; sm.eoy=sm.bal;
+      sm.bal=Math.max(0,sm.bal-(sm.convOut||0))*(1+gk(sm.g,'inh:'+sm.holder+':'+sm.name,k,sm.gch)); sm.convOut=0; sm.eoy=sm.bal;
       if(k>=sm.kS+INH_IRA_YEARS) sm.done=true;
     }));
     const iraExpByPerson=wf.iraExpByPerson, iraExpTotal=wf.expFromIra, rothExpByPerson=wf.rothExpByPerson, rothExpTotal=wf.expFromRoth;
@@ -1147,7 +1173,7 @@ function computeProjection(){
       st.bal=Math.max(0, x.avail-x.divUsed-x.sold-x.wd-x.te+x.excessIn);   // tax-exempt income is paid out to the household   // excess income is added at year-end, like the sales come out
       const reinvested=Math.max(0,x.odiv-x.divUsed);
       // Reinvested dividends and reinvested excess income are after-tax money put in, so both add cost basis.
-      if(st.tracked) st.basis=clamp((st.basis-(x.sold+x.wd)*(1-x.f)+reinvested+x.excessIn)/(1+inflation), 0, st.bal);
+      if(st.tracked) st.basis=clamp((st.basis-(x.sold+x.wd)*(1-x.f)+reinvested+x.excessIn)/(1+infAt(k,inflation)), 0, st.bal);
       const entry=portfoliosByPerson[i][bi];
       entry.feeDrag=x.feeD; entry.growthPct=x.g*100;
       entry.divUsed=x.divUsed; entry.divReinvested=reinvested; entry.sold=x.sold; entry.withdrawn=x.wd; entry.excessReinvested=x.excessIn; entry.taxExempt=x.te;
@@ -1181,8 +1207,8 @@ function computeProjection(){
     people.forEach((p,i)=>(p.realEstate||[]).forEach((r,ri)=>{
       const st=reState[i][ri], e=realEstateByPerson[i][ri];
       if(!(e.balance>0)){ st.bal=0; st.basis=0; return; }
-      st.bal=e.balance*(1+realGrowth(r.growth,inflation));
-      st.basis=clamp(st.basis/(1+inflation), 0, st.bal);
+      st.bal=e.balance*(1+gk(realGrowth(r.growth,inflation),'re:'+r.id,k,r.growth));
+      st.basis=clamp(st.basis/(1+infAt(k,inflation)), 0, st.bal);
     }));
     // Property sales made at the end of this year (step 3): the value after the sale tax, at a 100% basis, joins the designated portfolio (added after that
     // portfolio's own roll-forward above, so it is in the balance from the start of next year); the property is gone.
@@ -1264,7 +1290,9 @@ function computeProjection(){
     }
     if(!any) stretch.length=0;
   }
-  return {rows, stretch, people, idxP0, married};
+  const rates=GROWTH_REC; GROWTH_REC=null;
+  // rates[k][assetKey] = real (today's $) growth in year row k; inflRate[k] = that year's inflation (the trial's own in a Monte Carlo trial): nominal = (1+real)(1+inflRate)-1
+  return {rows, stretch, people, idxP0, married, rates, inflRate:rates?rows.map((r,i)=>infAt(i,inflation)):null};
 }
 
 function displayPersonName(person, idx){

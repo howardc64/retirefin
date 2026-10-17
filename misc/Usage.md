@@ -21,7 +21,8 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 13. [Annual withdraw and Roth conversions](#annual-withdraw-and-roth-conversions)
 14. [Asset Value chart: the withdraw cost sliders](#asset-value-chart-the-withdraw-cost-sliders)
 15. [Tax features worth knowing](#tax-features-worth-knowing)
-16. [Ask about this plan](#ask-about-this-plan)
+16. [Monte Carlo simulation](#monte-carlo-simulation)
+17. [Ask about this plan](#ask-about-this-plan)
 
 ## Quick start
 
@@ -38,6 +39,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 - **Roth conversions**, RMDs and IRA stretch after the last passing.
 - **Tax modeling**: federal brackets, taxable Social Security, long-term gains, NIIT, IRMAA and the senior deduction.
 - **Charts** for Social Security claiming age, annual income, taxes, expenses, asset value, IRA, LTCG and inheritance income.
+- **Monte Carlo simulation**: re-runs the plan with random returns, lifespans, care, inflation and inheritance, then lets you load any single trial into the charts.
 - **Inheritance** from another plan file, and **two plans linked live** (parent in one tab, heir in another).
 - **Drag to reorder** the income cards (spouses move together); the order is saved with the plan.
 - **Save / load** plans, **Export Excel**, a **Formulas** reference and an optional **chat** to ask about your plan.
@@ -196,6 +198,8 @@ The small charts beside Annual Household Income, Total Income Tax and Asset Valu
 | **IRA** | Everything that leaves the pre-tax IRAs each year (details below). | A pre-tax IRA is on, or an inherited IRA pays out |
 | **LTCG** | Long-term capital gain realized each year (details below). | A portfolio or property can be sold |
 | **Inheritance asset income** | Income paid each year by assets created with the Inheritance card (details below). | An inherited asset pays something |
+| **Inflation rate** | The plan's inflation rate each year (flat). While a Monte Carlo trial is loaded it also shows that trial's drawn rate. | Always (starts hidden) |
+| **Market return %** | The nominal yearly return of every portfolio, IDGT, pre-tax / Roth / inherited IRA and property in the years it is in the plan: (1 + growth) × (1 + that year's inflation) − 1. Flat in the plan; it moves with the market shocks while a Monte Carlo trial is loaded. The ◀ ▶ buttons in the panel's tools row step through the lines one asset at a time (All lines → asset 1 → … → All lines); the Y scale stays fitted to every line. Display only, not saved. | Always (starts hidden) |
 
 Charts that have nothing to show have no panel.
 
@@ -247,7 +251,7 @@ The four charts are the same size, in a 2 × 2 grid.
 | Control | What it does |
 |---|---|
 | **Grid** button (right of the Same scale buttons) | Switches between a **2×N** and a **3×N** grid; each size remembers its own arrangement. |
-| **Hide** box on a panel | Hides the chart; a hidden panel keeps its place as a title bar. Annual expenses, Annual income, Total tax, Asset value, IDGT value, IRA and LTCG start hidden; the others, including Inheritance asset income, start shown. |
+| **Hide** box on a panel | Hides the chart; a hidden panel keeps its place as a title bar. Annual expenses, Annual income, Total tax, Asset value, IDGT value, IRA, LTCG, Inflation rate and Market return % start hidden; the others, including Inheritance asset income, start shown. |
 | **↕ Rescale** | Refits only that chart's vertical scale. |
 | **Title bar drag** | Moves the chart (see below). |
 
@@ -256,6 +260,13 @@ Moving a chart:
 - To add a new row, hold the pointer on the gap between two rows for a moment until a blank row opens, then drop into it (move away without dropping and it closes).
 - The chart column scrolls by itself when the pointer nears its top or bottom edge, so a chart can be moved above or below what is on screen.
 - Which charts are hidden, which grid size is on and where each chart sits is saved with the plan.
+- In the default layout (2 and 3 columns) **Inflation rate** and **Market return %** sit in the row directly above **Cumulative household SS** and **Social Security tax**. A saved layout that still has the old default takes the new order; one where you moved any of those four charts is kept.
+
+### Marks that appear on every age chart
+
+- **Purple triangle** just below the age axis: the year an inherited asset arrives in your plan. While a Monte Carlo trial is loaded it follows that trial's arrival year.
+- **Faint red band** behind the data: a year whose expenses could not be paid.
+- **IRA stretch alert**: the red note about an IRA whose stretch is not set sits in the row of scale buttons, so every chart card keeps the same height.
 
 ### Same scale buttons
 
@@ -290,7 +301,7 @@ Each year's expenses are paid in this order:
 - The IRA and Roth balances in the charts drop by these amounts.
 - The pre-tax IRA withdraw appears as its own band in the Annual Household Income, MAGI and Taxable income charts (*Pre-tax IRA withdraw (for expenses)*).
 - The Roth IRA withdraw appears in the Annual Household Income chart as a tax-exempt band (*Roth IRA withdraw (tax-exempt, untaxed)*). It is not in MAGI or Taxable income because it is untaxed.
-- When some year's expenses cannot be paid at all, a big red **UNFUNDED EXPENSES** alert with the age (or age range) appears above the Household Expenses chart.
+- When some year's expenses cannot be paid at all, a red **UNFUNDED** tag appears in the Household Expenses panel, right of its Rescale button. Hover the chart with Chart Element on for the first and last age and who is living. A faint red band behind the data also marks every such year on every chart that runs by age.
 - No early-withdrawal penalty or age limit is modeled.
 
 ### Portfolio withdraw
@@ -520,6 +531,47 @@ The two rows of sliders above the Asset Value chart show roughly what the balanc
 - **Standard deduction** includes the additional amount for each living person 65 or older ($1,650 joint / $2,050 single for 2026), on top of which the enhanced senior deduction applies.
 - **IRMAA surcharge** looks back two years, uses the MAGI (AGI plus tax-exempt income) from two years earlier, and uses the joint or single table of the filing status of that earlier year's return. A surviving spouse keeps the joint table until the lookback year is a single return (the SSA life-changing-event reduction is not modeled).
 - **Enhanced deduction for seniors** (Schedule 1-A): applied from 2025 through 2028 for each person who is 65 by year-end, phased out above $75,000 (single) or $150,000 (joint) of MAGI.
+
+## Monte Carlo simulation
+
+The **Monte Carlo simulation** card sits under the charts and starts collapsed (clear its **Hide** box to open it). It re-runs the whole plan many times with random draws. It is a scenario analysis, not a forecast: the result depends on the assumptions in the card. Your plan is never changed.
+
+### Settings
+
+Each group has a checkbox. A group that is switched off uses the plan's own figures, so with every group off each trial equals the plan exactly.
+
+| Group | What is random |
+|---|---|
+| **Random returns** | A yearly market shock on every growth rate (average unchanged). Equity volatility, real estate volatility and the correlation between portfolios are set here. |
+| **Random lifespans** | Each person's age at passing, replacing the "passes at age" sliders. Modal age and spread are set here. |
+| **Random Long Term Care** | Whether care is needed, for how long and at what cost; it replaces every LTC card, an inheritance source's too. |
+| **Random inflation** | Inflation drifts around the plan's rate; fixed-dollar items and fixed or custom growth follow it. |
+| **Random inheritance** | Each inheritance source plan gets its own lifespan, care and the same market shocks, and the asset arrives in that plan's last-passing year. An optional **haircut %** discounts what you count on. Sources imported before this feature say "re-import (or live-link) it to simulate" and stay as planned until you do. |
+
+Below the groups set the number of **Trials** (50 to 10,000) and the **Seed**. The same seed and trial number always give the same draws. **Run simulation** works in small steps so the page stays usable; **Cancel** keeps the partial result. A red note says when the plan changed since the run.
+
+Not random: Social Security and pension amounts, and tax law.
+
+### Results
+
+- The share of trials that stayed fully funded, plus the 10th, median and 90th percentile of assets in the last projected year and of lifetime income tax.
+- **Why trials ran short**: the main cause of each failure and a table of risk factors (how often each appears, and the failure rate with versus without it).
+- **Assets by age**: a fan chart (10th, 25th, median, 75th, 90th percentile) with the plan as entered dashed on top, and **Share of trials**, by age.
+
+### Study one trial
+
+Load any trial into the chart grid: **Earliest failure**, **Median failure**, **Largest shortfall**, a pick from the list of failed trials, or any trial number. Every chart then shows that trial. The trial is replayed from its seed, nothing is stored, and the plan is not changed.
+
+A card stays at the top of the chart column, above the scale buttons, so you can scroll through the charts and keep stepping:
+
+- **A · Plan / B · Failure #N / C · Success**: flip the charts between the plan as entered (A), the failed trial you loaded (B) and a successful run (C, one that stayed funded to the end). While B or C is on, the plan's lines stay behind as thin dashed grey lines, and every chart's scale is fitted to the largest of A, B and C so only the data moves.
+- Keys: **B** flips the plan and whichever of B / C was shown last; **C** shows the next successful run, **Shift+C** the previous one (the list wraps).
+- **◀ ▶** step through failed trials while B is on and through successful runs while C is on (greyed out when there are none).
+- **Back to plan** returns the charts to the plan. Starting a new run or editing the plan also ends the trial view.
+- The message under the buttons has room for two lines and says what failed and how many other failed trials share the main cause.
+- The Inflation rate and Market return % charts show the trial's drawn inflation and returns.
+
+Trial views are display only; nothing is saved with the plan.
 
 ## Ask about this plan
 

@@ -137,7 +137,7 @@ const AXIS_COLOR='#a09d98', AXIS_GRID={color:'rgba(0,0,0,0.05)'};
 const AXIS_TICKS={color:AXIS_COLOR,font:{size:10}};
 const axisTitle=text=>({display:true,text,font:{size:11},color:AXIS_COLOR});
 // Every chart panel is a third of the chart area, so all charts share the compact axis labeling: at most 7 age labels, at most 5 $ labels in $k.
-const ageXAxis=text=>({type:'category',title:axisTitle(text),ticks:{...AXIS_TICKS,maxTicksLimit:7},grid:AXIS_GRID});
+const ageXAxis=text=>({type:'category',title:axisTitle(text),ticks:{...AXIS_TICKS,maxTicksLimit:7,padding:11},grid:AXIS_GRID});   // padding: room between the axis line and the tick labels for the inheritance-arrival ▲ (overlayPlugin.js)
 const fmtAxisK=v=>{
   if(!v) return '$0';
   if(Math.abs(v)>=1e6){ const m=v/1e6; return '$'+(Number.isInteger(m)?m:m.toFixed(m<10?2:1).replace(/0$/,''))+'M'; }
@@ -183,7 +183,7 @@ function ageLabelRange(fromAge,toAge){
 // One live Chart.js instance per key (null until first drawn). Every chart file reads/writes
 // `charts.<key>` through upsertLineChart(); destroy/resize below walk the registry, so adding a
 // chart never means editing a hand-written list of chart variables.
-const charts={ss:null, income:null, incomeMagi:null, incomeOrd:null, incomeQual:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, idgt:null, ira:null, ltcg:null, inhIncome:null};
+const charts={ss:null, income:null, incomeMagi:null, incomeOrd:null, incomeQual:null, tss:null, tax:null, taxOrd:null, taxQual:null, expense:null, asset:null, idgt:null, ira:null, ltcg:null, inhIncome:null, inflation:null, market:null};
 function allCharts(){ return Object.values(charts).filter(Boolean); }
 
 // Y-axis maximum per chart. It is computed once and then held ("locked") so the scale doesn't
@@ -196,6 +196,7 @@ const chartYMax=Object.fromEntries(Object.keys(charts).map(k=>[k,null]));
 function lockedYMax(key, compute){ if(chartYMax[key]==null) chartYMax[key]=compute(); return chartYMax[key]; }
 // Copy the locked maxima into / out of state.ui.chartYMax so they travel with the saved plan.
 function captureChartYMax(){
+  if(typeof mcTrialView!=='undefined' && mcTrialView) return;   // a loaded Monte Carlo trial has its own scales: never saved into the plan
   if(!state.ui) state.ui={};
   const cur=state.ui.chartYMax||{};
   let changed=false; const next={};
@@ -335,7 +336,7 @@ function upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, create
     if(opts.scales&&opts.scales.y1) opts.scales.y1.afterFit=sc=>{ sc.width=RIGHT_PAD; };
     else opts.layout={...(opts.layout||{}), padding:{...((opts.layout||{}).padding||{}), right:RIGHT_PAD}};
     if(key!=='ss'){   // every time-based chart carries the LTC bar (plugin 'ltcBar') and reserves room for it above the plot area
-      opts.plugins={...(opts.plugins||{}), ltcBar:true};
+      opts.plugins={...(opts.plugins||{}), ltcBar:true, inhArrival:true, abGhost:true, unfundedYears:true};   // inhArrival: the small ▲ on the x-axis where an inheritance arrives (overlayPlugin.js)
       opts.layout={...(opts.layout||{}), padding:{...((opts.layout||{}).padding||{}), top:ltcTopPad({data:{labels},options:opts})}};
     }
     charts[key]=new Chart(document.getElementById(canvasId),{type:'line',data:{labels,datasets},options:opts});

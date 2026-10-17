@@ -10,16 +10,21 @@ const VZ_EXP = { living:'#3F7CAC', tax:'#C8600A', irmaa:'#17A398', aum:'#7B3FBE'
 const EXP_KEYS=['expLiving','expLtc','expTax','expIrmaa','expAum'];
 const EXP_LABELS={expLiving:'Living expenses', expLtc:'Long Term Care', expTax:'Income tax (tax drag)', expIrmaa:'IRMAA surcharge', expAum:'AUM fee'};
 const EXP_COLORS={expLiving:VZ_EXP.living, expLtc:VZ_EXP.ltc, expTax:VZ_EXP.tax, expIrmaa:VZ_EXP.irmaa, expAum:VZ_EXP.aum};
-// Big red alert above the chart when any year's expenses could not be funded: the first age it happens (and the last, if it runs on),
+// Red UNFUNDED tag inside the Annual expenses panel (right of its Rescale button) when any year's expenses could not be funded: the first age it happens (and the last, if it runs on),
 // by the same age the chart's x axis uses (the older person's), plus the total shortfall in today's $.
 function buildExpenseAlert(proj){
   const el=document.getElementById('expenseAlert'); if(!el) return;
   const bad=(proj&&proj.rows||[]).filter(r=>r.expUnfunded>1);
-  if(!bad.length){ el.hidden=true; el.innerHTML=''; return; }
+  if(!bad.length){ el.hidden=true; el.textContent=''; delete el.dataset.detail; el.title=''; return; }
   const a0=Math.floor(bad[0].age0), a1=Math.floor(bad[bad.length-1].age0);
   const total=bad.reduce((s,r)=>s+r.expUnfunded,0);
-  el.innerHTML='\u26A0 UNFUNDED EXPENSES \u2014 '+(a0===a1?'AGE '+a0:'AGE '+a0+(bad.length===a1-a0+1?'\u2013':' TO ')+a1)+
-    '<small>'+bad.length+' year'+(bad.length>1?'s':'')+' with expenses no source can pay (total shortfall '+fmt(total)+" in today's $; "+ageAxisLabel(proj)+')</small>';
+  const living=(r)=>proj.married?(r.alive||[]).map((al,i)=>al?displayPersonName(proj.people[i],i):null).filter(Boolean):[];
+  const who=living(bad[0]).join(' & ');
+  // One line only (the chart below never moves); the details are in the Chart Element popup over the line (chartInfo.js).
+  el.textContent='UNFUNDED';   // just the word: the first / last age and who is living are in the Chart Element popup below
+  setAlertDetail(el,'Unfunded expenses', mrow('Total shortfall:',fmt(total)+" (today's $)"),
+    bad.length+' year'+(bad.length>1?'s':'')+' with expenses no source can pay, first at age '+a0+(a1!==a0?' and last at '+a1:'')+' ('+ageAxisLabel(proj)+(who?'; living then: '+who:'')+'). '+
+    'Income, dividends, asset sales and withdrawals together fall short; open the Withdrawal order, living expenses or the passing ages to see what changes it.');
   el.hidden=false;
 }
 function buildExpenseChart(){

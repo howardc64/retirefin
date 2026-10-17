@@ -183,7 +183,7 @@ if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('stretchTint')) Cha
 const LTC_BAR_H=6, LTC_PAD=22;
 // How many people are on LTC in each year of `labels` (the age axis): 0, 1 or 2.
 function ltcCounts(labels){
-  const l=state.ltc, rows=lastProjection&&lastProjection.rows;
+  const l=(typeof mcShowingTrial==='function'&&mcShowingTrial()&&mcTrialView.state.ltc)||state.ltc, rows=lastProjection&&lastProjection.rows;   // a loaded Monte Carlo trial has its own care draw
   if(!l||!l.enabled||!rows||!labels) return null;
   const byAge={}; rows.forEach(r=>{ byAge[Math.round(r.age0)]=r; });
   const out=labels.map(a=>{
@@ -214,3 +214,74 @@ const ltcBarPlugin={
   }
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('ltcBar')) Chart.register(ltcBarPlugin);
+
+// Inheritance arrivals: a small ▲ just below the x-axis line, in the year an inherited asset enters the plan, on every time-based chart (always on; the x ticks reserve room
+// for it, see ageXAxis). Hover it with the "Chart Element" box checked for what arrives (chartInfo.js ciOverlayAt reads chart._inhArrows).
+// Sources: every inherited brokerage portfolio / property / IRA (items with `inh`) at its start row (inhStartRow); the plan's own copy, or the loaded Monte Carlo trial's
+// (which has the drawn arrival year and scaled balances). Several sources in one year share one ▲.
+function inhArrivals(){
+  const s=(typeof mcShowingTrial==='function'&&mcShowingTrial())?mcTrialView.state:state, rows=lastProjection&&lastProjection.rows, by={};
+  if(!s||!rows||!rows.length) return [];
+  (s.people||[]).forEach(p=>['brokerage','realEstate','inhIras'].forEach(L=>(p[L]||[]).forEach(it=>{
+    if(!it||!it.inh||it.enabled===false||!(Number(it.balance)>0)) return;
+    const row=inhStartRow(it); if(row>=rows.length) return;
+    const e=by[row]||(by[row]={row, age:Math.round(rows[row].age0), value:0, files:[]});
+    e.value+=Number(it.balance)||0; const f=String(it.inh.file||'').replace(/\.json$/i,''); if(f&&!e.files.includes(f)) e.files.push(f);
+  })));
+  return Object.values(by).sort((a,b)=>a.row-b.row);
+}
+const INH_ARROW_COLOR='#7a4fb5', INH_ARROW_H=7, INH_ARROW_GAP=2;
+const inhArrivalPlugin={
+  id:'inhArrival',
+  afterDatasetsDraw(chart,args,opts){
+    chart._inhArrows=[]; if(!opts) return;
+    const x=chart.scales.x, area=chart.chartArea, labels=chart.data.labels; if(!x||!area||!labels) return;
+    const arr=inhArrivals(); if(!arr.length) return;
+    const ctx=chart.ctx, y0=area.bottom+INH_ARROW_GAP, y1=y0+INH_ARROW_H; ctx.save(); ctx.fillStyle=INH_ARROW_COLOR;
+    arr.forEach(a=>{
+      const i=labels.indexOf(a.age); if(i<0) return;
+      const px=x.getPixelForValue(i); if(px<area.left-1||px>area.right+1) return;
+      ctx.beginPath(); ctx.moveTo(px,y0); ctx.lineTo(px-INH_ARROW_H*0.6,y1); ctx.lineTo(px+INH_ARROW_H*0.6,y1); ctx.closePath(); ctx.fill();   // apex up, standing on the label side of the axis
+      chart._inhArrows.push({px, a});
+    });
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('inhArrival')) Chart.register(inhArrivalPlugin);
+
+// A/B comparison ghost: while the Monte Carlo trial (B) is showing, the plan's (A) lines are drawn behind it as thin dashed grey lines. mcCaptureGhosts() (mcPanel.js) keeps
+// them as (age index, value) points per Y axis, so they stay put when a chart is resized, and the axes are fixed across A and B (mcFitBoth) so they line up.
+const abGhostPlugin={
+  id:'abGhost',
+  beforeDatasetsDraw(chart,args,opts){
+    if(!opts||!chart._abGhost||typeof mcShowingTrial!=='function'||!mcShowingTrial()) return;
+    const x=chart.scales.x, area=chart.chartArea; if(!x||!area) return;
+    const ctx=chart.ctx; ctx.save(); ctx.beginPath(); ctx.rect(area.left,area.top,area.right-area.left,area.bottom-area.top); ctx.clip();
+    ctx.strokeStyle='rgba(90,90,90,0.6)'; ctx.lineWidth=1.2; ctx.setLineDash([4,3]); ctx.lineJoin='round';
+    chart._abGhost.forEach(g=>{
+      const sc=chart.scales[g.ax]; if(!sc) return;
+      ctx.beginPath(); let pen=false;
+      g.pts.forEach((v,j)=>{ if(v==null){ pen=false; return; } const px=x.getPixelForValue(j), py=sc.getPixelForValue(v); if(pen) ctx.lineTo(px,py); else { ctx.moveTo(px,py); pen=true; } });
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('abGhost')) Chart.register(abGhostPlugin);
+
+// Unfunded years: a faint red band behind the data in every year whose expenses no source could pay (row.expUnfunded), on every time-based chart, so a failure is visible
+// on whichever chart you look at and when you flip A / B. The one-line red alert above the Annual expenses chart holds the age(s) and the details (its Chart Element popup).
+const UNFUNDED_BAND='rgba(208,0,0,0.10)';
+const unfundedYearsPlugin={
+  id:'unfundedYears',
+  beforeDatasetsDraw(chart,args,opts){
+    if(!opts) return;
+    const x=chart.scales.x, area=chart.chartArea, labels=chart.data.labels, rows=lastProjection&&lastProjection.rows; if(!x||!area||!labels||!rows) return;
+    const bad=rows.filter(r=>r.expUnfunded>1); if(!bad.length) return;
+    const step=labels.length>1?Math.abs(x.getPixelForValue(1)-x.getPixelForValue(0)):0, ctx=chart.ctx;
+    ctx.save(); ctx.beginPath(); ctx.rect(area.left,area.top,area.right-area.left,area.bottom-area.top); ctx.clip(); ctx.fillStyle=UNFUNDED_BAND;
+    bad.forEach(r=>{ const i=labels.indexOf(Math.round(r.age0)); if(i<0) return; const px=x.getPixelForValue(i); ctx.fillRect(px-step/2,area.top,step,area.bottom-area.top); });
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('unfundedYears')) Chart.register(unfundedYearsPlugin);

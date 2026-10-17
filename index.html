@@ -107,14 +107,19 @@
 <div class="chart-col">
 
 <!-- ═══ CHARTS: scale buttons, then one panel per chart on a 2- or 3-column grid (panels are built by display/chartPanels.js) ═══ -->
+<div class="chart-sticky" id="chartSticky"><!-- stays at the top while the charts scroll: the Monte Carlo A / B / C card (when a trial is loaded) above the scale buttons -->
+<div class="mc-trial-banner" id="mcTrialBanner" hidden></div><!-- shown while a Monte Carlo trial is loaded into the charts (display/mcPanel.js) -->
 <div class="scale-bar" id="scaleBar">
   <button type="button" class="scale-btn" data-scale="incomeExpense" onclick="toggleScaleLink('incomeExpense')">Same scale: income &amp; expense</button>
   <button type="button" class="scale-btn" data-scale="tax" onclick="toggleScaleLink('tax')">Same scale: tax</button>
   <button type="button" class="scale-btn" data-scale="incomeExpenseTax" onclick="toggleScaleLink('incomeExpenseTax')">Same scale: income, expense &amp; tax</button>
   <button type="button" class="scale-btn" data-scale="asset" onclick="toggleScaleLink('asset')">Same scale: asset &amp; IDGT</button>
   <button type="button" class="scale-btn grid-toggle" id="gridToggle" onclick="toggleGridCols()">Grid: 2&times;N</button>
+  <span class="chart-alerts"><span class="unfunded-alert" id="assetAlert" hidden></span></span><!-- condensed red line (display/assetChart.js); details in the Chart Element popup. The UNFUNDED tag lives in the Annual expenses panel (chartPanels.js) -->
+</div>
 </div>
 <div class="chart-grid" id="chartGrid"></div>
+<section class="panel" id="mcPanel"></section><!-- Monte Carlo card (display/mcPanel.js) -->
 
 </div><!-- /.chart-col -->
 </div><!-- /.layout -->
@@ -184,6 +189,8 @@
 <script src="js/compute/ageRange.js"></script>
 <script src="js/compute/projection.js"></script>
 <script src="js/compute/whatIf.js"></script>
+<script src="js/compute/donorTraj.js"></script>
+<script src="js/compute/monteCarlo.js"></script>
 
 <!-- input -->
 <script src="js/input/controls.js"></script>
@@ -213,6 +220,8 @@
 <script src="js/display/ssChart.js"></script>
 <script src="js/display/incomeChart.js"></script>
 <script src="js/display/tssChart.js"></script>
+<script src="js/display/inflationChart.js"></script>
+<script src="js/display/marketChart.js"></script>
 <script src="js/display/taxChart.js"></script>
 <script src="js/display/expenseChart.js"></script>
 <script src="js/display/assetChart.js"></script>
@@ -226,6 +235,7 @@
 <script src="js/display/userNotes.js"></script>
 <script src="js/display/print.js"></script>
 <script src="js/display/chat.js"></script>
+<script src="js/display/mcPanel.js"></script>
 
 <!-- app wiring / entry point -->
 <script src="js/app.js"></script>

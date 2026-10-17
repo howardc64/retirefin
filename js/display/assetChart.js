@@ -351,16 +351,18 @@ function buildAssetChartFor(cfg){
 function buildAssetAlert(proj){
   const el=document.getElementById('assetAlert'); if(!el) return;
   const rows=(proj&&proj.rows)||[], last=rows[rows.length-1];
-  const items=[];
+  const items=[], holders=[];
   if(last) proj.people.forEach((p,i)=>{
-    const who=proj.married?' ('+displayPersonName(p,i)+')':'';
+    const nm=displayPersonName(p,i), who=proj.married?' ('+nm+')':'';
     const held=f=>rows.some(r=>((r[f]&&r[f][i])||0)>1);
-    if(p.ira&&p.ira.enabled&&!p.ira.stretch&&held('iraBalByPerson')) items.push('Pre-tax IRA'+who);
-    if(p.roth&&p.roth.enabled&&!p.roth.stretch&&held('rothBalByPerson')) items.push('Roth IRA'+who);
+    let any=false;
+    if(p.ira&&p.ira.enabled&&!p.ira.stretch&&held('iraBalByPerson')){ items.push('Pre-tax IRA'+who); any=true; }
+    if(p.roth&&p.roth.enabled&&!p.roth.stretch&&held('rothBalByPerson')){ items.push('Roth IRA'+who); any=true; }
+    if(any&&proj.married) holders.push(nm);
   });
-  if(!items.length){ el.hidden=true; el.innerHTML=''; return; }
-  el.innerHTML='\u26A0 IRA STRETCH NOT SET \u2014 AGE '+Math.floor(last.age0)+
-    '<small>'+items.join('; ')+' not forwarded to heirs at the last passing ('+ageAxisLabel(proj)+'): the balance ends there. Check "IRA stretch" on the IRA card to carry it '+STRETCH_YEARS+' more years.</small>';
+  if(!items.length){ el.hidden=true; el.textContent=''; delete el.dataset.detail; el.title=''; return; }
+  el.textContent='⚠ IRA STRETCH NOT SET'+(holders.length?' · '+holders.join(' & '):'');
+  setAlertDetail(el,'IRA stretch not set','',items.join('; ')+' not forwarded to heirs at the last passing ('+ageAxisLabel(proj)+'): the balance ends there and is missing from the stretch years. Check "IRA stretch" on the IRA card to carry it '+STRETCH_YEARS+' more years.');
   el.hidden=false;
 }
 function buildAssetChart(){

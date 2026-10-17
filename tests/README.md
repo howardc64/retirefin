@@ -52,4 +52,10 @@ behavior (file pickers, `localStorage` across reloads, the Hide checkboxes' visu
 quick look in a browser.
 
 `baseline.json` was captured from the refactored code (ChangeLog entry 57) after a before/after comparison
-against the pre-refactor code showed identical output, so it also represents the pre-refactor behavior.
+against the pre-refactor code showed identical output, so it also represents the pre-refactor behavior.against the pre-refactor code showed identical output, so it also represents the pre-refactor behavior.
+
+`baseline.json` was re-captured after entry 276, when the scenario in `snapshot.js` was updated to the current state shape (rentals are now a list) and the baseline caught up with the 270-odd entries since it was first written (17 charts instead of 7).
+
+## Monte Carlo tests
+
+`tests/mc/` holds the Monte Carlo tests; see ARCHITECTURE.md §10.5 and `docs/MONTE_CARLO.md`. They take plan files from the caller (`PLAN=… node tests/mc/mc_test.js`) except `mc_ui_test.js`, which needs nothing.

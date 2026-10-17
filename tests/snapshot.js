@@ -58,7 +58,7 @@ state.futureTax={enabled:true,niitStartYear:THIS_YEAR+8,niitSingle:400000,niitMa
 const [a,b]=state.people;
 a.wage.enabled=true; a.wage.amount=120000; a.wage.ar=defaultAgeRange('now',0,'custom',66);
 a.ss.pia=3000; a.ss.claimAge=67; b.ss.pia=1800; b.ss.claimAge=65;
-a.pension.enabled=true; a.pension.amount=24000; b.rental.enabled=true; b.rental.amount=18000;
+a.pension.enabled=true; a.pension.amount=24000; const rn=defaultRental(); rn.amount=18000; b.rentals=[rn];
 a.ira.enabled=true; a.ira.balance=900000; a.ira.aum=true; a.ira.stretch=true; a.ira.conv=20000;
 b.roth.enabled=true; b.roth.balance=250000; b.roth.stretch=true;
 const p1=defaultBrokeragePortfolio(600000); p1.payExp=true; p1.aum=true; p1.basisPct=55; p1.foreignPct=10; p1.name='Main';

@@ -7,11 +7,14 @@
 function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
 let lastProjection=null;
 function recompute(){
-  lastProjection = computeProjection();
+  if(typeof mcTrialView!=='undefined' && mcTrialView && !mcTrialStillValid()) mcTrialClear();   // the plan was edited: leave the Monte Carlo trial view (display/mcPanel.js)
+  const inTrial=(typeof mcTrialView!=='undefined' && mcTrialView);
+  lastProjection = inTrial ? mcTrialShown() : computeProjection();   // a loaded Monte Carlo trial stays on screen (Rescale, Same-scale etc. still work on it)
   renderCharts();
   refreshWithdrawOrderPanel();   // asset names in the withdrawal-order card (assumptions.js)
   renderScenarioCard();   // Scenario card (scenarios.js): refreshed after every edit while it is open
-  if(typeof liveAfterRecompute==='function') liveAfterRecompute();   // live link (input/liveLink.js): publish this plan's inheritance snapshot when it changed
+  if(typeof mcMarkStale==='function') mcMarkStale();   // Monte Carlo card (display/mcPanel.js): flag results that no longer match the plan
+  if(!inTrial && typeof liveAfterRecompute==='function') liveAfterRecompute();   // live link (input/liveLink.js): publish this plan's inheritance snapshot when it changed
 }
 const recomputeDebounced = debounce(recompute, 80);
 const saveDebounced = debounce(autosave, 500);
@@ -32,6 +35,8 @@ function buildAllCharts(){
   buildIraChart();
   buildLtcgChart();
   buildInhIncomeChart();
+  buildInflationChart();
+  buildMarketChart();
 }
 function renderCharts(){
   // A plan with no saved scales (first draw, Reset, an older file) starts with the income, expense and tax charts on one common scale: a dry pre-pass

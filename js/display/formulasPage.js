@@ -140,7 +140,8 @@ function buildFormulasHtml(){
 <li><a href="#g-tax">Taxes and Medicare surcharge</a><ul><li><a href="#f-tss">Taxable Social Security and Social Security tax (SST)</a></li><li><a href="#f-tt">Total tax (TT): ordinary and qualified income</a></li><li><a href="#f-ded">Additional standard deduction (65+) and senior deduction</a></li><li><a href="#f-scgl">Suspended capital-gain loss (SCGL)</a></li><li><a href="#f-ftc">Foreign tax credit (FTC)</a></li><li><a href="#f-niit">Net investment income tax (NIIT)</a></li><li><a href="#f-state">State income tax</a></li><li><a href="#f-irmaa">IRMAA (Medicare Part B/D surcharge)</a></li></ul></li>
 <li><a href="#g-exp">Expenses and how they are funded</a><ul><li><a href="#f-ltc">Long-term care (LTC) expense</a></li><li><a href="#f-wf">Household expense funding waterfall</a></li><li><a href="#f-order">Expense shortfall withdrawal order</a></li><li><a href="#f-last">Pre-tax IRA and Roth IRA as last resorts</a></li><li><a href="#f-pw">Portfolio withdraw</a></li><li><a href="#f-reinv">Reinvest excess income</a></li><li><a href="#f-aum">AUM fee</a></li></ul></li>
 <li><a href="#g-pf">Brokerage portfolios</a><ul><li><a href="#f-bal">Annual balance change</a></li><li><a href="#f-div">Dividends</a></li><li><a href="#f-tex">Tax-exempt income</a></li><li><a href="#f-b0">Starting cost basis</a></li><li><a href="#f-broll">Cost basis roll-forward, today's-dollar conversion and step-up at death</a></li><li><a href="#f-ltcg">Realized long-term capital gains (LTCG)</a></li><li><a href="#f-circ">Tax ↔ LTCG circularity</a></li><li><a href="#f-swap">Asset / basis swap</a></li><li><a href="#f-adisp">Asset Value chart withdraw cost (display only)</a></li></ul></li>
-<li><a href="#g-re">Real estate</a><ul><li><a href="#f-re">Real estate</a></li></ul></li></ul></li>
+<li><a href="#g-re">Real estate</a><ul><li><a href="#f-re">Real estate</a></li></ul></li>
+<li><a href="#g-mc">Monte Carlo simulation and chart rates</a><ul><li><a href="#f-mkt">Market return and inflation charts</a></li><li><a href="#f-mc">Monte Carlo trials</a></li></ul></li></ul></li>
 </ul></nav>
 
 <h2 id="glossary">Glossary <a class="fp-top" href="#toc">↑ contents</a></h2>
@@ -589,6 +590,35 @@ ${fpWhere('V is the value at the sale. The exemption is the per-owner amount ent
 <p><strong>Asset Value chart.</strong> Real estate is stacked above the brokerage portfolios and below the IRAs. It is not reduced by either withdraw cost slider. The dotted cost-basis line inside each property's band plots at:</p>
 ${fpEq(`line height = top of everything stacked below the band + basis`)}
 <p>so it sits at the basis % of the way up the band, and the part of the band above it is the unrealized gain.</p>
+
+<h2 id="g-mc">Monte Carlo simulation and chart rates <a class="fp-top" href="#toc">↑ contents</a></h2>
+<h3 id="f-mkt">Market return and inflation charts <a class="fp-top" href="#toc">↑</a></h3>
+<p>The projection works in today's dollars, so each asset grows at a <em>real</em> rate. The <strong>Market return %</strong> chart converts it back to the nominal return you would see on a statement, for every portfolio, IDGT, pre-tax IRA, Roth IRA, inherited IRA and property in the years it is in the plan.</p>
+${fpEq(
+  `nominal return<sub>k</sub> = ( 1 + real growth<sub>k</sub> ) × ( 1 + inflation<sub>k</sub> ) − 1`
+)}
+${fpWhere('Real growth<sub>k</sub> is the growth rate the projection actually used in year k. In the plan it is flat (for example "inflation + 4%" at 3% inflation shows as 7.1%); in a Monte Carlo trial it includes that year\'s market shock, and inflation<sub>k</sub> is the trial\'s drawn rate. The <strong>Inflation rate</strong> chart shows inflation<sub>k</sub>: the plan\'s constant rate, and the trial\'s yearly rate while a trial is loaded.')}
+<h3 id="f-mc">Monte Carlo trials <a class="fp-top" href="#toc">↑</a></h3>
+<p>The Monte Carlo card re-runs the whole projection many times on a private copy of the plan. Every trial is derived from the seed and the trial number, so the same seed gives the same trials; a part switched off uses the plan\'s own figure. With every part off a trial equals the plan exactly. Nothing here changes the plan\'s own calculations.</p>
+<p><strong>Returns.</strong> Every growth rate is multiplied each year by a lognormal factor whose average is exactly 1, so the average return is the one entered and only the spread is added.</p>
+${fpEq(
+  `factor = exp( σ × z − σ² ÷ 2 )`,
+  `z = √ρ × z<sub>market</sub> + √( 1 − ρ ) × z<sub>own</sub>&emsp;(equity-like assets);&emsp;z = z<sub>real estate</sub>&emsp;(property)`
+)}
+${fpWhere('σ is the equity volatility (or the real estate volatility for property), ρ the correlation of each portfolio with the market shock, and each z an independent standard normal draw per year.')}
+<p><strong>Lifespans.</strong> Each person\'s passing age is drawn from a Gompertz survival curve conditional on being alive today, capped at 110; it replaces the "passes at age" setting.</p>
+${fpEq(
+  `P( alive at age t | alive at age a ) = exp( − e<sup>(a − m) ÷ b</sup> × ( e<sup>(t − a) ÷ b</sup> − 1 ) )`
+)}
+${fpWhere('m is the modal age at death and b the spread (years), both set in the card.')}
+<p><strong>Long Term Care.</strong> A person needs care with the entered probability, not before 65 and only if they live past the start. Years of care are lognormal around the entered median and end at passing; the annual cost is the plan\'s cost times a mean-1 lognormal factor. This replaces every LTC card, including an inheritance source\'s.</p>
+<p><strong>Inflation.</strong> Yearly inflation follows an AR(1) process around the plan\'s rate, limited to the range −2% to 12%:</p>
+${fpEq(
+  `inflation<sub>k</sub> = plan rate + φ × ( inflation<sub>k−1</sub> − plan rate ) + σ<sub>π</sub> × z<sub>k</sub>`
+)}
+${fpWhere('φ is the persistence and σ<sub>π</sub> the yearly volatility (percentage points). Because the projection is in today\'s dollars and Social Security COLA and indexed brackets follow inflation, this moves only what is fixed in nominal dollars: a pension without COLA, un-indexed tax thresholds, cost basis, depreciation, a home-sale exclusion and any growth entered as a fixed or custom nominal rate. Growth entered as "inflation ± X%" keeps its real rate.')}
+<p><strong>Inheritance.</strong> Each source plan gets its own lifespan, care and the household\'s market shocks, using the table of that plan\'s asset values stored at import. The asset arrives in the year that plan\'s last person passes, scaled by (value from the table ÷ the plan\'s own value), then reduced by the haircut %.</p>
+<p><strong>Result.</strong> A trial <em>stays funded</em> when no year has more than $1 of unpaid expenses (the same condition as the UNFUNDED tag). Success rate = trials that stayed funded ÷ all trials. Each failure is given one main cause, by a fixed order of priority, and the risk-factor table compares the failure rate with and without each factor. Not random: Social Security and pension amounts, and tax law.</p>
 
 <hr style="margin:32px 0;border:none;border-top:1px solid #ddd;">
 <p class="fp-src">This page is a snapshot — it does not update if you keep changing inputs in the main app tab. Close and reopen it (via the Formulas button) any time you want a fresh copy.</p>

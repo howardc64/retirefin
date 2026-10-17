@@ -12,7 +12,8 @@
 // ═══════════════════════════════════════════════════════════════
 // key → panel title and the canvas id (`<key>Chart`). `tools` is extra control HTML for the panel's tool row.
 const CHART_PANELS=[
-  {key:'expense',    title:'Annual expenses',            body:'<div class="unfunded-alert" id="expenseAlert" hidden></div>'},
+  {key:'expense',    title:'Annual expenses',
+    tools:'<span class="unfunded-alert" id="expenseAlert" hidden></span>'},   // red UNFUNDED tag, right of Rescale (display/expenseChart.js)
   {key:'incomeMagi', title:'MAGI'},
   {key:'income',     title:'Annual income'},
   {key:'incomeOrd',  title:'Taxable ordinary income'},
@@ -22,13 +23,16 @@ const CHART_PANELS=[
   {key:'taxOrd',     title:'Ordinary income tax'},
   {key:'taxQual',    title:'QDIV / LTCG / NIIT tax'},
   {key:'asset',      title:'Asset value',
-    body:'<div class="unfunded-alert" id="assetAlert" hidden></div><div class="xscroll" id="assetXScroll" hidden><button type="button" onclick="scrollAssetX(-1)" title="Scroll the age axis back" aria-label="Scroll back">&#9664;</button><button type="button" onclick="scrollAssetX(1)" title="Scroll the age axis forward (to the IRA stretch years)" aria-label="Scroll forward">&#9654;</button></div>'},
+    body:'<div class="xscroll" id="assetXScroll" hidden><button type="button" onclick="scrollAssetX(-1)" title="Scroll the age axis back" aria-label="Scroll back">&#9664;</button><button type="button" onclick="scrollAssetX(1)" title="Scroll the age axis forward (to the IRA stretch years)" aria-label="Scroll forward">&#9654;</button></div>'},
   {key:'idgt',       title:'IDGT value'},
   {key:'ira',        title:'IRA: RMD &amp; withdraw'},
   {key:'ltcg',       title:'LTCG: realized sales'},
   {key:'inhIncome',   title:'Inheritance asset income'},
   {key:'ss',         title:'Cumulative household SS'},
-  {key:'tss',        title:'Social Security tax'}
+  {key:'tss',        title:'Social Security tax'},
+  {key:'inflation',  title:'Inflation rate'},
+  {key:'market',     title:'Market return %',
+    tools:'<span class="market-nav" id="marketNav"><button type="button" class="rescale-btn" onclick="marketStep(-1)" title="Show the previous line (cycles through every asset, then all lines)" aria-label="Previous line">&#9664;</button><button type="button" class="rescale-btn" onclick="marketStep(1)" title="Show the next line (cycles through every asset, then all lines)" aria-label="Next line">&#9654;</button></span>'}
 ];
 // Charts with nothing to draw right now (no IDGT portfolio, no pre-tax IRA, no portfolio or property to sell, Social Security off) have no panel on screen; their grid cell stays blank
 // and their saved position is kept. Builders report this through setChartAvailable().
@@ -259,7 +263,7 @@ function syncChartPanels(){
   if(state.ui.gridCols!==2&&state.ui.gridCols!==3) state.ui.gridCols=GRID_COLS_DEFAULT;
   if(!state.ui.chartPos) state.ui.chartPos=defaultChartPos(state.ui.gridCols);
   if(!state.ui.chartPosAlt) state.ui.chartPosAlt=defaultChartPos(otherGridCols(state.ui.gridCols));
-  CHART_KEYS.forEach(k=>applyChartHide(k,!!state.ui.chartHidden[k]));
+  CHART_KEYS.forEach(k=>applyChartHide(k,state.ui.chartHidden[k]===undefined?CHART_DEFAULT_HIDE_KEYS.includes(k):!!state.ui.chartHidden[k]));   // a save from before a chart existed has no flag for it: its default
   layoutChartGrid();
   syncGridButton();
   if(typeof resizeAllCharts==='function') resizeAllCharts();

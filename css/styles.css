@@ -146,7 +146,8 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
    Hide / position / shared-scale settings live in state.ui (chartHidden, chartPos, chartYMax), default: every panel hidden. */
 .hide-cb{display:flex;align-items:center;gap:5px;font-family:'DM Sans',system-ui,sans-serif;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-muted);cursor:pointer;flex-shrink:0;}
 .sec-hidden{display:none!important;}
-.scale-bar{display:flex;flex-wrap:wrap;gap:6px;position:sticky;top:0;z-index:5;background:var(--bg);padding:2px 0 10px;}
+.chart-sticky{position:sticky;top:0;z-index:5;background:var(--bg);}   /* holds the Monte Carlo trial card and the scale buttons: both stay in view while the charts scroll under them */
+.scale-bar{display:flex;flex-wrap:wrap;gap:6px;background:var(--bg);padding:2px 0 10px;}
 .scale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:11px;font-weight:400;padding:4px 11px;color:var(--text-muted);font-family:inherit;line-height:1.2;}
 .scale-btn:hover{background:var(--border);}
 .scale-btn.grid-toggle{margin-left:6px;border-color:var(--teal);color:var(--teal-text);font-weight:500;}
@@ -170,8 +171,13 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .xscroll button{pointer-events:auto;cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);color:var(--text-muted);border-radius:4px;font-size:9px;line-height:1;padding:3px 7px;}
 .xscroll button:hover:not(:disabled){background:var(--border);}
 .xscroll button:disabled{opacity:.3;cursor:default;}
-.cp-body .unfunded-alert{font-size:13px;margin:0 0 6px;}
-.cp-body .unfunded-alert small{font-size:10.5px;}
+/* Red alerts live in the scale-button row, right of the buttons: no chart card carries one, so every card has the same height and a chart never moves or resizes when an alert comes and goes (plan <-> trial, A <-> B) */
+.chart-alerts{flex:1 1 0;min-width:150px;display:flex;justify-content:flex-end;align-items:center;gap:14px;overflow:hidden;}
+.chart-alerts:not(:has(.unfunded-alert:not([hidden]))){display:none;}
+.scale-bar .unfunded-alert{margin:0;font-size:11px;font-weight:800;line-height:22px;letter-spacing:.01em;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;cursor:default;}
+.cp-tools .unfunded-alert{margin:0;font-size:11px;font-weight:800;line-height:22px;letter-spacing:.01em;text-align:left;white-space:nowrap;cursor:default;}   /* the UNFUNDED tag right of Rescale in the Annual expenses panel */
+.market-nav{display:inline-flex;align-items:center;gap:5px;}
+.market-nav[hidden]{display:none;}
 .cn{font-size:11px;color:var(--text-faint);margin-top:12px;line-height:1.5;text-align:center;}   /* small note under an input (IRA / portfolio-withdraw sliders) */
 .cn:empty{display:none;}
 /* an empty grid cell: a blank spot, and a drop target for moving a chart there (outlined only while a chart is being dragged) */
@@ -381,3 +387,56 @@ body.printing-all .note-more{display:none;}
 /* ── Numbers are right-justified: every number input, so digits line up down a card; fields sharing a row put their inputs on one line ── */
 input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
 .item-body > .field:not(.full){justify-content:flex-end;}
+
+/* ── Monte Carlo card (display/mcPanel.js) ── */
+.mc-note{font-size:12px;color:var(--text-faint);line-height:1.5;margin:0 0 12px}
+.mc-row{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end;margin-bottom:12px}
+.mc-f{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em}
+.mc-f input[type=number]{width:110px;font-size:13px;padding:5px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface2);color:var(--text);font-family:inherit}
+.mc-chk{flex-direction:row;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text)}
+.mc-prog{font-size:12px;color:var(--text-faint)}
+.mc-stale{font-size:12px;color:var(--red);margin:6px 0}
+.mc-big{font-size:28px;font-weight:600;color:var(--teal);margin:8px 0}
+.mc-big span{font-size:13px;font-weight:400;color:var(--text-faint)}
+.mc-tbl{font-size:12px;border-collapse:collapse;margin-bottom:14px}
+.mc-tbl td{padding:3px 14px 3px 0;vertical-align:top}.mc-tbl td:first-child{color:var(--text-faint)}
+.mc-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:10px}
+.mc-cwrap{position:relative;height:300px}
+
+.mc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:14px}
+.mc-grp{border:1px solid var(--border);border-radius:10px;padding:8px 14px 12px;margin:0;min-width:0}
+.mc-grp legend{font-size:12px;font-weight:600;color:var(--text);padding:0 6px}.mc-grp legend small{font-weight:400;color:var(--text-faint)}
+.mc-grp legend label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.mc-grp .mc-row{margin:0}.mc-grp.mc-off .mc-row{opacity:.4;pointer-events:none}
+.mc-run{padding-top:2px;margin-bottom:6px}.mc-run .btn{height:32px}
+.mc-f input[type=number]{width:96px}
+.mc-h{font-size:13px;font-weight:600;margin:18px 0 8px;color:var(--text)}.mc-h small{font-weight:400;color:var(--text-faint);margin-left:6px}
+.mc-sub{font-size:12px;font-weight:600;margin:12px 0 6px}.mc-sub small{font-weight:400;color:var(--text-faint)}
+.mc-bar{display:grid;grid-template-columns:minmax(200px,1.3fr) 2fr 70px;gap:10px;align-items:center;font-size:12px;margin:5px 0}
+.mc-bar-track{background:var(--surface2);border-radius:5px;height:12px;overflow:hidden}.mc-bar-fill{background:var(--teal);height:100%;border-radius:5px}
+.mc-bar-val{text-align:right;font-weight:600}.mc-bar-val small{font-weight:400;color:var(--text-faint)}
+.mc-ftbl th{text-align:left;font-weight:500;font-size:11px;color:var(--text-faint);padding:3px 14px 3px 0}.mc-ftbl td:first-child{color:var(--text)}
+.mc-cwrap{height:300px}.mc-charts .mc-h{margin-top:6px}
+@media(max-width:700px){.mc-bar{grid-template-columns:1fr 60px}.mc-bar-track{grid-column:1/-1;order:3}}
+
+.mc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.mc-head .panel-title{margin-bottom:14px}
+#mcPanel.mc-collapsed #mcBody{display:none}#mcPanel.mc-collapsed .mc-head .panel-title{margin-bottom:0}
+
+.mc-src{flex-basis:100%;font-size:11px;color:var(--text-faint);line-height:1.5}.mc-warn{color:var(--red)}
+
+/* Monte Carlo: a replayed trial loaded into the chart grid */
+.mc-trial-banner{border:1px solid #b45309;background:rgba(180,83,9,.08);border-radius:10px;padding:8px 12px;margin:0 0 10px;font-size:12px;line-height:1.5;color:var(--text)}
+.mc-trial-banner[hidden]{display:none}
+.mc-trial-banner b{color:#b45309}.mc-trial-banner .mc-tb-top{display:flex;flex-wrap:nowrap;gap:6px 10px;align-items:center}.mc-trial-banner .mc-tb-top .btn{padding:2px 9px;font-size:11px}
+.mc-trial-banner .mc-tb-msg{margin-top:5px;min-height:3em}   /* room for two lines whichever trial (B or C) is shown, so the banner never changes height */
+.mc-trial-banner .mc-tb-draws{color:var(--text-faint);margin-top:2px}.mc-tb-sp{flex:1}
+.chart-grid.trial-view .chart-panel{outline:2px solid rgba(180,83,9,.45);outline-offset:-1px}
+.mc-study{margin-top:6px}.mc-study select{max-width:100%;font-size:12px;padding:5px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface2);color:var(--text);font-family:inherit}
+.mc-study .btn{height:30px}
+/* A/B flip in the trial banner */
+.mc-ab{display:inline-flex;border:1px solid #b45309;border-radius:8px;overflow:hidden}
+.mc-ab-btn{border:0;background:transparent;color:var(--text);font:inherit;font-size:11px;padding:3px 10px;cursor:pointer}
+.mc-ab-btn.on{background:#b45309;color:#fff}.mc-ab-btn.c.on{background:#0f6e56}.mc-ab-btn:disabled{opacity:.4;cursor:default}.mc-ab-btn:first-child.on{background:#3B6FA0}.mc-ab{border-color:var(--border-strong)}
+.chart-grid.trial-view-c .chart-panel{outline:2px solid rgba(15,110,86,.45);outline-offset:-1px}
+.chart-grid.trial-view-a .chart-panel{outline:2px solid rgba(59,111,160,.45);outline-offset:-1px}

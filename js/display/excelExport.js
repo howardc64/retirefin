@@ -806,5 +806,5 @@ function exportToExcel(){
   const wb=XLSX.utils.book_new();
   built.sheets.forEach(s=>XLSX.utils.book_append_sheet(wb,s.ws,s.name));
   wb.Workbook={Names:built.names, CalcPr:{fullCalcOnLoad:true}};
-  XLSX.writeFile(wb,'retirement-plan.xlsx');
+  XLSX.writeFile(wb,(typeof mcShowingTrial==='function'&&mcShowingTrial())?'retirement-plan-mc-trial-'+(mcTrialView.trial+1)+'.xlsx':'retirement-plan.xlsx');
 }

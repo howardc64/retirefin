@@ -189,19 +189,19 @@ function defaultPerson(idx){
 //   ui.chartYMax[key]   — each chart's Y-axis maximum (null = fit automatically on the next draw). Saved and restored with the plan; the Same-scale buttons and each chart's
 //                         Rescale button change it (see chartHelpers.js).
 // Keys are the keys of the `charts` registry (display/chartHelpers.js).
-const CHART_KEYS=['expense','incomeMagi','income','incomeOrd','incomeQual','tax','taxOrd','taxQual','asset','idgt','ira','ltcg','inhIncome','ss','tss'];
+const CHART_KEYS=['expense','incomeMagi','income','incomeOrd','incomeQual','tax','taxOrd','taxQual','asset','idgt','ira','ltcg','inhIncome','ss','tss','inflation','market'];
 const GRID_COLS_DEFAULT=2;
-const CHART_DEFAULT_HIDE_KEYS=['expense','income','tax','asset','idgt','ira','ltcg'];   // Hide checked by default; every other chart starts shown
+const CHART_DEFAULT_HIDE_KEYS=['expense','income','tax','asset','idgt','ira','ltcg','inflation','market'];   // Hide checked by default; every other chart starts shown
 // Left → right, top → bottom.
 // 2 × N:  Annual expenses · Annual income  /  IRA · LTCG  /  Total tax · Asset value  /  Taxable ordinary · Taxable qualified  /  MAGI · Inheritance income  /
-//         Ordinary income tax · QDIV/LTCG/NIIT tax  /  IDGT value · (blank)  /  Cumulative household SS · Social Security tax.
+//         Ordinary income tax · QDIV/LTCG/NIIT tax  /  IDGT value · (blank)  /  Inflation rate · Market return %  /  Cumulative household SS · Social Security tax.
 // 3 × N:  Annual expenses · (blank) · MAGI  /  Annual income · Taxable ordinary · Taxable qualified  /  (blank) · IRA · LTCG  /
-//         Total tax · Ordinary income tax · QDIV/LTCG/NIIT tax  /  Asset value · IDGT value · Inheritance income  /  Cumulative household SS · Social Security tax.
+//         Total tax · Ordinary income tax · QDIV/LTCG/NIIT tax  /  Asset value · IDGT value · Inheritance income  /  Inflation rate · Market return %  /  Cumulative household SS · Social Security tax.
 const CHART_DEFAULT_POS_BY_COLS={
   2:{expense:{r:0,c:0}, income:{r:0,c:1}, ira:{r:1,c:0}, ltcg:{r:1,c:1}, tax:{r:2,c:0}, asset:{r:2,c:1}, incomeOrd:{r:3,c:0}, incomeQual:{r:3,c:1}, incomeMagi:{r:4,c:0}, inhIncome:{r:4,c:1},
-     taxOrd:{r:5,c:0}, taxQual:{r:5,c:1}, idgt:{r:6,c:0}, ss:{r:7,c:0}, tss:{r:7,c:1}},
+     taxOrd:{r:5,c:0}, taxQual:{r:5,c:1}, idgt:{r:6,c:0}, inflation:{r:7,c:0}, market:{r:7,c:1}, ss:{r:8,c:0}, tss:{r:8,c:1}},
   3:{expense:{r:0,c:0}, incomeMagi:{r:0,c:2}, income:{r:1,c:0}, incomeOrd:{r:1,c:1}, incomeQual:{r:1,c:2}, ira:{r:2,c:1}, ltcg:{r:2,c:2},
-     tax:{r:3,c:0}, taxOrd:{r:3,c:1}, taxQual:{r:3,c:2}, asset:{r:4,c:0}, idgt:{r:4,c:1}, inhIncome:{r:4,c:2}, ss:{r:5,c:0}, tss:{r:5,c:1}}
+     tax:{r:3,c:0}, taxOrd:{r:3,c:1}, taxQual:{r:3,c:2}, asset:{r:4,c:0}, idgt:{r:4,c:1}, inhIncome:{r:4,c:2}, inflation:{r:5,c:0}, market:{r:5,c:1}, ss:{r:6,c:0}, tss:{r:6,c:1}}
 };
 function otherGridCols(cols){ return cols===3?2:3; }
 function defaultChartHidden(hidden){
@@ -209,8 +209,15 @@ function defaultChartHidden(hidden){
 }
 function defaultChartPos(cols){ const d=CHART_DEFAULT_POS_BY_COLS[cols===3?3:2], o={}; CHART_KEYS.forEach(k=>{ o[k]={...d[k]}; }); return o; }
 // A saved layout is kept as far as it is valid: a missing / out-of-range / duplicate position is replaced by the first free cell (row-major).
+// Where the Inflation chart used to sit by default (earlier builds): a saved layout with it still there gets the current default cell (a new bottom row) instead.
+const LEGACY_INFLATION_CELLS={2:[[6,1],[7,1]], 3:[[5,2]]};
+// The default of the build before this one: Cumulative household SS · Social Security tax, then Inflation · Market return below them. A saved layout that is exactly that (nobody moved them) takes the current default (Inflation · Market return above SS · SS tax).
+const PREV_DEFAULT_BOTTOM={2:{ss:[7,0],tss:[7,1],inflation:[8,0],market:[8,1]}, 3:{ss:[5,0],tss:[5,1],inflation:[6,0],market:[6,1]}};
 function normalizeChartPos(p, cols){
   cols=(cols===3?3:2);
+  const pd=PREV_DEFAULT_BOTTOM[cols];
+  if(p&&Object.keys(pd).every(k=>p[k]&&p[k].r===pd[k][0]&&p[k].c===pd[k][1])){ p=Object.assign({},p); Object.keys(pd).forEach(k=>{ p[k]={...CHART_DEFAULT_POS_BY_COLS[cols][k]}; }); }
+  if(p&&p.inflation&&(LEGACY_INFLATION_CELLS[cols]||[]).some(([r,c])=>p.inflation.r===r&&p.inflation.c===c)){ p=Object.assign({},p); delete p.inflation; }
   const out={}, taken=new Set(), cell=(r,c)=>r+','+c, bad=[];
   CHART_KEYS.forEach(k=>{
     const v=p&&p[k], r=Number(v&&v.r), c=Number(v&&v.c);

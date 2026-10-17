@@ -9,8 +9,13 @@
 // ═══════════════════════════════════════════════════════════════
 let chartInfo=true;   // default on; the header checkbox (index.html) starts checked to match
 
+// An alert strip above a chart (expense / asset): one red line; its details live in the Chart Element popup (or the browser tooltip when that box is off).
+function setAlertDetail(el,name,value,text){
+  el.dataset.name=name; el.dataset.value=value||''; el.dataset.detail=text; el.title=chartInfo?'':text;
+}
 function setChartInfo(on){
   chartInfo=!!on;
+  document.querySelectorAll('.unfunded-alert[data-detail]').forEach(a=>{ a.title=chartInfo?'':a.dataset.detail; });
   const el=document.getElementById('extTooltip');
   if(el){ el.style.opacity=0; el._shown=false; }
 }
@@ -75,6 +80,12 @@ function ciDescribe(key, ds, kidx){
     case 'tss':
       if(/^Total Social Security/.test(label)) return 'Total Social Security (TSS): everything the household receives from Social Security that year, before any of it is taxed.';
       if(/^Actual Social Security Tax/.test(label)) return 'Actual Social Security Tax (SST): the income tax actually due because of Social Security — the extra tax caused by the taxable part of the benefit (0%, up to 50% or up to 85% of it).';
+      return null;
+    case 'market':
+      return 'Nominal yearly return of this asset in the years it is in the plan: (1 + the growth rate the projection used) × (1 + that year\'s inflation) − 1, i.e. the rate you enter on its card ("inflation + 4%" shows as 7% at 3% inflation). In the plan it is flat; in a Monte Carlo trial it follows that trial\'s market shocks (equity-like assets share one market, real estate has its own) and its inflation.';
+    case 'inflation':
+      if(/^Plan inflation/.test(label)) return 'The inflation rate the plan assumes every year (the Inflation slider). Prices, tax thresholds that are indexed, and "today\'s $" amounts all follow it.';
+      if(/^Monte Carlo trial/.test(label)) return 'The inflation rate drawn for this Monte Carlo trial: it drifts around the plan\'s rate and tends to stay high or low for a few years in a row. It moves fixed-dollar items (a pension with no COLA, un-indexed tax thresholds, cost basis) and nominal-rate growth.';
       return null;
     case 'expense':
       return pick(CI_EXP);
@@ -177,6 +188,12 @@ function ciOverlayAt(key, chart, e, datasetHit){
   if(!area||!xs||!ys||px<area.left||px>area.right) return null;
   const n=(chart.data.labels||[]).length; if(!n) return null;
   const idx=Math.max(0,Math.min(n-1,Math.round(xs.getValueForPixel(px))));
+  // Inheritance arrival ▲: just below the x-axis line (overlayPlugin.js inhArrivalPlugin).
+  if(py>area.bottom && py<=area.bottom+INH_ARROW_GAP+INH_ARROW_H+4 && chart._inhArrows){
+    const t=chart._inhArrows.find(t=>Math.abs(px-t.px)<=INH_ARROW_H*0.9);
+    if(t) return {name:'Inheritance arrives', color:INH_ARROW_COLOR, value:mrow('Arrives at age '+t.a.age+':',fmt(t.a.value)),
+      text:(t.a.files.length?'From '+t.a.files.join(', ')+'. ':'')+'The asset(s) inherited this year (value in today\'s $, shown here) join the plan from this year on: portfolios earn growth and dividends, a pre-tax IRA starts its 10-year payout clock, a property can be sold. Before this age they are not in the plan.'};
+  }
   // Long Term Care bar: sits in the padding above the plot area of every time-based chart.
   if(py<area.top && py>=area.top-LTC_PAD){
     const so=stretchBarOpts(chart);
@@ -282,12 +299,14 @@ function ciAgeText(label){
 // Value of the hovered element at the hovered year, shown under the name when the element has one (null/zero/missing → no line).
 // Rates are percents already; flows (income, tax, expense charts) are per year; balances (asset charts) and cumulative Social Security are not.
 const CI_STOCK_KEYS=['asset','idgt','ss'];
+const CI_PCT_KEYS=['inflation','market'];   // charts whose values are rates (%), not dollars
 function ciValueLine(key, f, chart){
   const src=f&&f.ds&&(f.ds.ciValues||f.ds.data);   // ciValues: true values of a dataset whose plotted height is not its value (cost-basis lines)
   const raw=src?src[f.idx]:null;
   const v=(raw!=null&&typeof raw==='object')?raw.y:raw;
-  if(typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)<0.5&&!/^Effective tax rate/.test(String(f.ds.label))) return null;
+  if(typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)<0.5&&!/^Effective tax rate/.test(String(f.ds.label))&&!CI_PCT_KEYS.includes(key)) return null;
   const age=' '+ciAgeText(chart.data.labels&&chart.data.labels[f.idx]);
+  if(CI_PCT_KEYS.includes(key)) return mrow('Value'+age+':',v.toFixed(key==='inflation'?2:1)+'%');
   if(/^Effective tax rate/.test(String(f.ds.label))) return v>0?mrow('Value'+age+':',v.toFixed(1)+'%'):null;
   return mrow('Value'+age+':',fmt(v)+(CI_STOCK_KEYS.includes(key)||f.ds.ciStock?'':'/yr'));
 }
@@ -311,6 +330,9 @@ function ciShow(e){
     }
   }
   if(!info) return ciHide();
+  ciRender(e,info);
+}
+function ciRender(e,info){
   const el=ciEl(), th=tipTheme();
   const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const {name,text,color,value,owner}=info;
@@ -327,7 +349,9 @@ function ciShow(e){
 }
 document.addEventListener('mousemove',e=>{
   if(!chartInfo){ return; }
-  if(e.target&&e.target.tagName==='CANVAS') ciShow(e); else ciHide();
+  if(e.target&&e.target.tagName==='CANVAS') ciShow(e);
+  else { const a=e.target&&e.target.closest&&e.target.closest('.unfunded-alert[data-detail]');
+    if(a&&!a.hidden) ciRender(e,{name:a.dataset.name,text:a.dataset.detail,color:'#D00000',value:a.dataset.value||null,owner:''}); else ciHide(); }
 });
 document.addEventListener('mouseleave',()=>{ if(chartInfo) ciHide(); });
 

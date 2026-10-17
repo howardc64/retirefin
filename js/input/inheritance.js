@@ -92,7 +92,9 @@ function inhExtractFromProj(parent, proj){
         snap:{name:'Inherited '+lbl+' ('+pname(p,i)+')', balance:v, growth:inhClone(acct.growth), rmdStarted}});
     });
   });
-  return {startYear, assets};
+  // donor: each asset's value in every year + the people's ages, for the Monte Carlo card (compute/donorTraj.js). Optional: a plan saved before it existed has none.
+  let donor=null; try{ if(typeof buildDonorBlock==='function') donor=buildDonorBlock(parent, proj, assets); }catch(e){ donor=null; }
+  return {startYear, assets, donor};
 }
 
 // Whether the pre-tax IRA of person `i` of the source plan was already paying RMDs when its last holder passed (see inhExtractFromState).
@@ -207,6 +209,7 @@ function inhApplySource(p, file, res){
   const pctOf={}; if(old) old.assets.forEach(a=>{ pctOf[a.key]=a.pct; });
   const src={id:old?old.id:uid(), file:old?old.file:file, importedAt:new Date().toISOString(), startYear:res.startYear,
     assets:res.assets.map(a=>({key:a.key, type:a.type, label:a.label, value:a.value, snap:a.snap, pct:pctOf[a.key]!=null?pctOf[a.key]:0}))};
+  if(res.donor) src.donor=res.donor;   // refreshed with every import / live update, so it never goes stale against `assets`
   if(old) ['live','liveId','liveName','liveHash','liveChain'].forEach(k=>{ if(old[k]!==undefined) src[k]=old[k]; });   // the live link (input/liveLink.js) survives a refresh
   if(old) p.inheritance.sources[p.inheritance.sources.indexOf(old)]=src; else p.inheritance.sources.push(src);
 }

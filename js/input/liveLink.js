@@ -41,10 +41,14 @@ function liveAnn(){ return {liveId:liveEnsureId(), name:liveName(), fileName:sav
 function liveWantsPublish(){ const now=Date.now(); for(const [k,v] of liveSubs){ if(now-v.at>LIVE_STALE_MS) liveSubs.delete(k); } return liveSubs.size>0; }
 let livePublishDebounced=null;   // made on first use: debounce() lives in app.js, which loads after this file
 function liveAfterRecompute(){ if(liveCh&&liveWantsPublish()){ if(!livePublishDebounced) livePublishDebounced=debounce(()=>livePublish(false),LIVE_PUBLISH_MS); livePublishDebounced(); } }
+let liveBodyCache=null;   // the donor table costs one extra projection, so build the body once per computed projection
 function liveBody(){
   if(!lastProjection) return null;
+  if(liveBodyCache&&liveBodyCache.proj===lastProjection) return liveBodyCache.body;
   const res=inhExtractFromProj(state,lastProjection);
-  return {startYear:res?res.startYear:null, assets:res?res.assets:[]};
+  const body={startYear:res?res.startYear:null, assets:res?res.assets:[], donor:res?res.donor:null};
+  liveBodyCache={proj:lastProjection, body};
+  return body;
 }
 function livePublish(force){
   const body=liveBody(); if(!body) return;
@@ -119,7 +123,7 @@ function liveFlush(){
   livePending.forEach(({m,i},id)=>{
     const p=state.people[i], src=p&&p.inheritance&&p.inheritance.sources.find(s=>s.id===id); if(!src||src.live===false) return;
     const assets=liveSanitize(m.assets); if(!assets) return;
-    inhApplySource(p, src.file, {startYear:m.startYear!=null?m.startYear:src.startYear, assets});
+    inhApplySource(p, src.file, {startYear:m.startYear!=null?m.startYear:src.startYear, assets, donor:(typeof sanitizeDonorBlock==='function')?sanitizeDonorBlock(m.donor):null});
     const ns=p.inheritance.sources.find(s=>s.id===id);
     ns.liveId=m.liveId; ns.liveName=m.name; ns.liveHash=m.hash; ns.liveChain=m.chain||[];
     touched.add(i);
