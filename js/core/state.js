@@ -257,11 +257,11 @@ function defaultState(){
     scgl:0, scglEnabled:true,   // SCGL carryforward; scglEnabled=false makes the projection ignore it (the amount is kept)
     ltc:{enabled:false, people:[{startAge:85,cost:100000},{startAge:85,cost:100000}], living1:null, living2:LTC_LIVING2_DEFAULT},   // Long Term Care: per person start age (own age) and cost; household living expenses from the 1st / 2nd LTC start (today's $)
     withdrawOrder:{enabled:false, steps:[]},   // Expense-shortfall withdrawal order (Expenses panel): off = the built-in order (pay-expenses portfolios, pre-tax IRA, Roth IRA). On = `steps` [{id, asset}] in order, asset = 'pf:<portfolio id>' | 'ira:<person id>' | 'roth:<person id>' | 're:<property id>' (see projection.js, runWaterfall)
-    pfWithdraw:{enabled:false, ltcgPct:0},   // Portfolio withdraw (Tax & Optimizations): when on, EVERY non-IDGT portfolio sells each year as much as fits with taxable income (ordinary + qualified) staying within the LTCG bracket `ltcgPct` (a stop of LTCG_STOPS = [0,15,20]; 20 = no limit). Proceeds are household cash income; the gain share is realized LTCG. No age window beyond the portfolio's own range (projection.js, "Brokerage withdraws")
+    pfWithdraw:{enabled:false, ltcgPct:0, acceptNiit:false, acceptTorpedo:false},   // Portfolio withdraw (Tax & Optimizations): when on, EVERY non-IDGT portfolio sells each year as much as fits with taxable income (ordinary + qualified) staying within the LTCG bracket `ltcgPct` (a stop of LTCG_STOPS = [0,15,20]; 20 = no limit). Proceeds are household cash income; the gain share is realized LTCG. acceptNiit (default false): when false a sale is also capped so it does not push MAGI over the NIIT threshold (a portfolio with no unrealized gain is not capped); true accepts the 3.8% NIIT. acceptTorpedo (default false): when false a sale is also capped so it does not raise this year's taxable Social Security (the "tax torpedo": each extra $ of LTCG making up to another 85c of Social Security taxable); true accepts it. No age window beyond the portfolio's own range (projection.js, "Brokerage withdraws")
     aumFee:{enabled:true, mode:'pct',value:0},   // AUM fee: mode 'pct' = % of the AUM balance (portfolios with `aum` checked), 'fixed' = $/yr in today's $
     stateTax:{enabled:false, state:'CA'},   // State income tax (Tax & Optimizations panel): 'CA' or 'WA'; off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), chartHidden:defaultChartHidden(), gridCols:GRID_COLS_DEFAULT, chartPos:defaultChartPos(GRID_COLS_DEFAULT), chartPosAlt:defaultChartPos(otherGridCols(GRID_COLS_DEFAULT)), chartYMax:Object.fromEntries(CHART_KEYS.map(k=>[k,null])), assumpHide:{...ASSUMP_HIDE_DEFAULT}}   // display-only, but saved/restored/reset with the plan (see above)
+    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), chartHidden:defaultChartHidden(), gridCols:GRID_COLS_DEFAULT, chartPos:defaultChartPos(GRID_COLS_DEFAULT), chartPosAlt:defaultChartPos(otherGridCols(GRID_COLS_DEFAULT)), chartYMax:Object.fromEntries(CHART_KEYS.map(k=>[k,null])), assumpHide:{...ASSUMP_HIDE_DEFAULT}, hidePerson:null}   // display-only, but saved/restored/reset with the plan (see above)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
@@ -416,6 +416,7 @@ function hydrateState(loaded){
   });
   if(!out.ui) out.ui={};
   out.ui.incomeOrder=normalizeIncomeOrder(out.ui.incomeOrder);
+  out.ui.hidePerson=(out.ui.hidePerson===0||out.ui.hidePerson===1)?out.ui.hidePerson:null;   // married: which person's Income & Assets column is collapsed (null = both shown)
   out.ui.gridCols=(out.ui.gridCols===3?3:2);
   out.ui.chartPos=normalizeChartPos(out.ui.chartPos, out.ui.gridCols);   // a layout from a file is kept as saved, repaired only if it is invalid
   out.ui.chartPosAlt=normalizeChartPos(out.ui.chartPosAlt, otherGridCols(out.ui.gridCols));
@@ -464,6 +465,7 @@ function applyDefaultHiddenFromEnabled(s){
 }
 function resetState(){
   if(!confirm('Reset all inputs to defaults? This cannot be undone.')) return;
+  if(typeof stResetCard==='function') stResetCard(true);   // Stress test results and settings back to the defaults (display/stressPanel.js)
   if(typeof mcResetCard==='function') mcResetCard(true);   // Monte Carlo results, trial view and settings back to the defaults (display/mcPanel.js)
   state=applyDefaultHiddenFromEnabled(defaultState());
   setSaveTarget(null);   // the default plan must not silently overwrite the file that was loaded
@@ -553,6 +555,7 @@ async function saveToFile(){
 // loading the saved data").
 function applyLoadedFileText(text){
   const parsed=JSON.parse(text); // throws on malformed JSON — caller decides how to report it
+  if(typeof stResetCard==='function') stResetCard(false);   // Stress test results belong to the old plan (display/stressPanel.js); its settings are kept
   if(typeof mcResetCard==='function') mcResetCard(false);   // Monte Carlo results / loaded trial belong to the old plan (display/mcPanel.js); its settings are kept
   destroyCharts();             // discard every visual/data closure from the old plan
   state=defaultState();        // reset before restoring, per spec

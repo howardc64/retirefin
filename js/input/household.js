@@ -31,6 +31,7 @@ function renderPeopleSetup(){
 function onFilingChange(){
   const v=document.querySelector('input[name=filingStatus]:checked').value;
   state.filingStatus=v;
+  if(state.ui) state.ui.hidePerson=null;   // a collapsed column only exists for a married couple
   renderAll();
 }
 
@@ -133,6 +134,8 @@ function relabel(){
     if(setupHdr) setupHdr.textContent=name;
     const incomeHdr=document.getElementById('personIncomeHeader_'+i);
     if(incomeHdr) incomeHdr.textContent=state.people[i].name;
+    const incomeTab=document.getElementById('personIncomeTab_'+i);
+    if(incomeTab) incomeTab.innerHTML=escHtml(name)+' &#9656; show';
     const ltcHdr=document.getElementById('ltcName_'+i);
     if(ltcHdr) ltcHdr.textContent=name;
   }

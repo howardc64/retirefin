@@ -72,7 +72,7 @@ run(`mcLoadTrial(${tr})`);
 ok(run(`!!mcTrialView && mcTrialView.trial===${tr} && lastProjection===mcTrialView.proj && lastProjection!==null`),'mcLoadTrial: trial view is active and the charts read the replayed projection');
 ok(run(`lastProjection.rows.length`)>0 && run(`lastProjection`)!==planProj,'replayed projection differs from the plan projection object');
 const banner=document.getElementById('mcTrialBanner');
-ok(banner.hidden===false && banner.innerHTML.includes('trial <b>#'+(tr+1)+'</b>') && /runs out at age/.test(banner.innerHTML),'banner shows trial number and the failure age');
+ok(banner.hidden===false && banner.innerHTML.includes('failure <b>#'+(tr+1)+'</b>') && /runs out at age/.test(banner.innerHTML),'banner shows trial number and the failure age');
 inf=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, t:c.data.datasets[1]&&c.data.datasets[1].data.filter(x=>x!=null).length, spread:c.data.datasets[1]&&(Math.max(...c.data.datasets[1].data.filter(x=>x!=null))-Math.min(...c.data.datasets[1].data.filter(x=>x!=null)))}})()`);
 ok(inf.n===2&&inf.t>20&&inf.spread>0,'trial mode: inflation chart gets the trial\'s own varying rate line ('+inf.t+' points, spread '+inf.spread.toFixed(2)+' pts)');
 ok(run(`state.ui.chartYMax && Object.values(state.ui.chartYMax).every(v=>v===null || typeof v==='number')`),'trial scales are not written into the plan (captureChartYMax is skipped)');
@@ -144,7 +144,7 @@ run(`mcAbToggle()`); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.d
     mcCPress(); out.v1=mcTrialView.view; out.t1=mcTrialView.trial; out.ok1=mcResults.results[mcTrialView.trial].failK<0; out.shown1=mcTrialShown()===mcTrialView.c.proj; out.cur1=mcTrialView.cur;
     mcCPress(); out.v2=mcTrialView.view; out.t2=mcTrialView.trial; out.ok2=mcResults.results[mcTrialView.trial].failK<0;
     mcCStep(-1); out.back=mcTrialView.trial;
-    out.state=mcTrialView.state===mcTrialView.c.state; out.btn=/class="mc-ab-btn c on"[^>]*>C &middot; Success #/.test(mcEl('mcTrialBanner').innerHTML);
+    out.state=mcTrialView.state===mcTrialView.c.state; out.btn=/class="mc-ab-btn c on"[^>]*>C &middot; Monte Carlo Success/.test(mcEl('mcTrialBanner').innerHTML);
     mcAbToggle(); out.toA=mcTrialView.view; mcAbToggle(); out.backToC=mcTrialView.view;
     mcAbSet('B'); out.b=mcTrialView.trial===b0&&mcTrialView.b.trial===b0&&mcTrialView.view==='B'; out.shownB=mcTrialShown()===mcTrialView.b.proj;
     mcCPress(); out.fromB=mcTrialView.view+':'+(mcTrialView.trial===mcTrialView.c.trial);   // from B the C button returns to the chosen run, not the next one
@@ -156,7 +156,7 @@ run(`mcAbToggle()`); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.d
     mcAbSet('B'); const b1=mcTrialView.b.trial, c1=mcTrialView.c.trial; mcTrialStep(1);
     out.bMoved=mcTrialView.view==='B'&&mcTrialView.b.trial!==b1&&mcResults.results[mcTrialView.b.trial].failK>=0&&mcTrialView.c.trial===c1;
     const h=mcEl('mcTrialBanner').innerHTML; out.layout=h.indexOf('mc-tb-top')<h.indexOf('Back to plan')&&h.indexOf('Back to plan')<h.indexOf('mc-tb-msg');
-    out.title=h.includes('Previous failed trial (B)'); mcAbSet('C'); out.titleC=mcEl('mcTrialBanner').innerHTML.includes('Previous successful run (C)'); mcAbSet('B'); return out; })()`);
+    out.title=h.includes('Previous Monte Carlo failure (B)'); mcAbSet('C'); out.titleC=mcEl('mcTrialBanner').innerHTML.includes('Previous Monte Carlo success (C)'); mcAbSet('B'); return out; })()`);
   ok(q.cMoved&&q.bMoved,'◀ ▶ step successful runs while C is on and failed trials while B is on, each leaving the other unchanged');
   ok(q.layout&&q.title&&q.titleC,'banner layout is the same for B and C (switch + buttons on one row, message below); the ◀ ▶ titles name the kind'); }
 // ghost drawing: B draws, A does not

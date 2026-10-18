@@ -99,11 +99,15 @@ function computeSeniorDeduction(nEligible, magi, filing, f=1){
   return nEligible*each;
 }
 // §9.4 NIIT: 3.8% of the lesser of net investment income or MAGI over the threshold.
-function computeNIIT(nii, magi, filing, f=1, futureTax, year){
+// The MAGI above which NIIT applies this year (today's $): the un-indexed statutory threshold deflated by f, or the speculative future threshold.
+function niitThreshold(filing, f=1, futureTax, year){
   const useFuture = futureTax && futureTax.enabled && year!=null && year>=Number(futureTax.niitStartYear);
-  const thresh = useFuture
+  return useFuture
     ? Math.max(0, Number(filing==='married'?futureTax.niitMarried:futureTax.niitSingle)||0)
     : (filing==='married'?NIIT_THRESH_MFJ:NIIT_THRESH_SGL)*f;
+}
+function computeNIIT(nii, magi, filing, f=1, futureTax, year){
+  const thresh = niitThreshold(filing, f, futureTax, year);
   const excess=Math.max(0, magi-thresh);
   return NIIT_RATE*Math.min(Math.max(0,nii), excess);
 }

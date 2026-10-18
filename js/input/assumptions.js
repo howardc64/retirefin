@@ -61,7 +61,7 @@ function syncAssumpEnable(){
   set(['scglInput'], state.scglEnabled!==false);
   set(['aumFeeMode','aumFeeValue'], !(state.aumFee&&state.aumFee.enabled===false));
   set(['swapYears'], !!state.basisSwap);
-  set(['pfWdSlider'], !!(state.pfWithdraw&&state.pfWithdraw.enabled));
+  set(['pfWdSlider','pfWdNiit','pfWdTorp'], !!(state.pfWithdraw&&state.pfWithdraw.enabled));
   set(['stateTaxSel'], !!(state.stateTax&&state.stateTax.enabled));
 }
 function onAumFeeMode(mode){
@@ -205,11 +205,18 @@ function renderPfWithdrawPanel(){
   const body=`<div class="field full"><label style="font-weight:400;font-size:11px">LTCG bracket to fill</label>
       <input type="range" id="pfWdSlider" min="0" max="${LTCG_STOPS.length-1}" step="1" value="${idx}" oninput="onPfWithdrawStop(this.value)">
       <div class="cn" id="pfWdLbl" style="margin-top:2px">${ltcgStopText(val)}</div></div>
+    <div class="field full"><label style="font-weight:400;font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="pfWdNiit" ${w.acceptNiit?'checked':''} onclick="onPfAccept('acceptNiit',this.checked)">Accept NIIT</label></div>
+    <div class="item-note">Unchecked (default): a sale is also limited so it does not push MAGI over the 3.8% Net Investment Income Tax threshold, even under the 20% (no limit) bracket. Checked: sell up to the bracket and pay the NIIT.</div>
+    <div class="field full"><label style="font-weight:400;font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="pfWdTorp" ${w.acceptTorpedo?'checked':''} onclick="onPfAccept('acceptTorpedo',this.checked)">Accept Social Security Tax Torpedo</label></div>
+    <div class="item-note">Unchecked (default): a sale is also limited so it does not increase the year's taxable Social Security (no effect when there is no Social Security). Checked: the sale may pull more Social Security into taxable income (up to 85%).</div>
     <div class="item-note">Applies to <strong>every portfolio that is not an IDGT</strong>. Each year a portfolio sells as much as fits with taxable income (ordinary + qualified dividends + LTCG) staying within the chosen bracket, after any Roth conversion; the portfolios are taken in order, so a later one only gets what room is left. It applies only while a portfolio is inside its own age range. The proceeds count as household cash income (paying expenses first, any excess reinvested) and the gain share of the sale is realized long-term capital gain.</div>`;
   const el=document.getElementById('pfWithdrawPanel'); if(!el) return;
   el.innerHTML=featureBlock('pfWithdraw','Portfolio withdraw','pfWithdraw.enabled',!!w.enabled,body);
   syncAssumpEnable();
 }
+// The two "Accept …" checkboxes recompute like every other feature toggle (onEnableToggle): the charts tween smoothly (450 ms). A toggle can move MAGI across an IRMAA tier
+// and so add / remove the IRMAA or State tax line; updateChartInPlace (chartHelpers.js) keeps the surviving datasets so that does not rebuild the Total tax card.
+function onPfAccept(field,on){ setPath('pfWithdraw.'+field, !!on); saveDebounced(); recompute(); }
 function onPfWithdrawStop(idx){
   const v=LTCG_STOPS[+idx];
   setPath('pfWithdraw.ltcgPct', v);

@@ -53,7 +53,7 @@ function buildMarketChart(){
   const datasets=shown.map(i=>({key:S.keys[i], i})).map(({key,i})=>({label:marketAssetLabel(proj,key), data:alignToAges(ages,S.at[key],labels), borderColor:MARKET_COLORS[i%MARKET_COLORS.length], backgroundColor:'transparent', borderWidth:THIN_W,
     pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.15, fill:false, spanGaps:false, yAxisID:'y'}));
   // One scale for the plan and a loaded trial alike (so flipping A / B moves only the lines): the range of both.
-  const all=[]; (tv?[tv.planProj,(tv.b||tv).proj].concat(tv.c?[tv.c.proj]:[]):[proj]).forEach(pr=>{ const s=marketSeries(pr); s.keys.forEach(k=>s.at[k].forEach(v=>{ if(v!=null) all.push(v); })); });
+  const all=[]; (tv?mcViewProjs(tv):[proj]).forEach(pr=>{ const s=marketSeries(pr); s.keys.forEach(k=>s.at[k].forEach(v=>{ if(v!=null) all.push(v); })); });
   const lo=Math.min(0,Math.floor(Math.min(...all)/5)*5), hi=Math.max(5,Math.ceil(Math.max(...all)/5)*5);
 
   const rowAt=idx=>rows.findIndex(x=>Math.round(x.age0)===labels[idx]);

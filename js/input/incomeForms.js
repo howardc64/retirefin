@@ -17,7 +17,13 @@ function renderIncomeForms(){
   for(let i=0;i<n;i++){
     const p=state.people[i];
     const pid='people.'+i;
-    html+=`<div class="person-col"><h3 id="personIncomeHeader_${i}">${escHtml(p.name)}</h3>`;
+    const colHidden = married && state.ui && state.ui.hidePerson===i;
+    // Header row: name, a Hide button (married only) and, while this column is collapsed, a Show tab. The cards of a collapsed column stay in the page (hidden by CSS),
+    // so every id, handler and the card order keep working and the person's data still feeds every calculation and chart.
+    html+=`<div class="person-col${colHidden?' col-hidden':''}"><div class="pcol-head"><h3 id="personIncomeHeader_${i}">${escHtml(p.name)}</h3>`+
+      (married?`<button type="button" class="pcol-hide" onclick="setHiddenPerson(${i})" title="Hide ${escAttr(p.name||('Person '+(i+1)))}'s column so the other column can use the full width (the data is still used)">Hide</button>`:'')+
+      (colHidden?`<button type="button" class="pcol-tab" id="personIncomeTab_${i}" onclick="setHiddenPerson(null)" title="Show this column again">${escHtml(p.name||('Person '+(i+1)))} &#9656; show</button>`:'')+
+      `</div>`;
     const builders={
       wage:()=>buildWageCard(pid, p), ss:()=>buildSSCard(pid, p, i, married), pension:()=>buildPensionCard(pid, p),
       rental:()=>buildRentalCard(pid, p), brokerage:()=>buildBrokerageCard(pid, i, p, married), realestate:()=>buildRealEstateCard(pid, i, p, married), annuity:()=>buildAnnuityCard(pid, i, p, married),
@@ -29,7 +35,8 @@ function renderIncomeForms(){
     html+='</div>';
   }
   const incomeEl = document.getElementById('perPersonIncome');
-  incomeEl.className = 'income-grid' + (married ? ' two-col' : '');
+  const hid = married && state.ui ? state.ui.hidePerson : null;
+  incomeEl.className = 'income-grid' + (married ? ' two-col' : '') + (hid===0||hid===1 ? ' hide-'+hid : '');
   incomeEl.style.gridTemplateRows = married ? `repeat(${rowCount}, auto)` : '';
   // autocomplete="off": stops a browser's form-state restore (reload / back) from putting a stale checkbox or value on top of the
   // state-derived one — e.g. a Hide box that is checked while its card is open.
@@ -241,4 +248,12 @@ function removeBrokerage(i,bi){
   inhDropEntryFor(state.people[i], state.people[i].brokerage[bi]);   // an inherited portfolio stays removed (its % goes to 0)
   state.people[i].brokerage.splice(bi,1);
   renderIncomeForms(); recompute(); saveDebounced();
+}
+
+// Collapse one person's Income & Assets column (married) so the other column gets the whole width; null shows both again. Display only: nothing is removed or recomputed.
+function setHiddenPerson(i){
+  if(!state.ui) state.ui={};
+  state.ui.hidePerson=(i===0||i===1)?i:null;
+  saveDebounced();
+  renderIncomeForms();
 }

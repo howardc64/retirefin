@@ -22,6 +22,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 14. [Asset Value chart: the withdraw cost sliders](#asset-value-chart-the-withdraw-cost-sliders)
 15. [Tax features worth knowing](#tax-features-worth-knowing)
 16. [Monte Carlo simulation](#monte-carlo-simulation)
+    - [Stress tests](#stress-tests)
 17. [Ask about this plan](#ask-about-this-plan)
 
 ## Quick start
@@ -122,6 +123,13 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 
 - It is long-term capital gain income and is taxed every year, whether or not any shares are sold. It counts with LTCG everywhere (qualified income, taxable Social Security, NIIT, state tax, the LTCG chart).
 - Like a dividend it is cash the portfolio pays out: it can pay household expenses, and whatever is not spent is reinvested and adds to the cost basis.
+
+### Hiding one person's column
+
+- In a married plan every person's Income & Assets column has a **Hide** button at the top right. Hiding John collapses his column to a thin tab (his name, reading *John ▸ show*) and gives Jane's column the whole width of the input area; click the tab to bring him back. Hide Jane instead and John gets the width.
+- Only one column can be hidden at a time.
+- This is display only: the hidden person's income and assets are still used in every calculation and chart, and their cards keep their settings.
+- The choice is saved with the plan. Switching to *Single* or Reset to defaults shows everything again. On a narrow window the columns stack and the hidden one becomes a one-line bar. Printing shows both columns.
 
 ### Reordering cards
 
@@ -315,6 +323,8 @@ Tax & Optimizations panel; unchecked by default.
 - Portfolios are taken in order, so a later one only gets the room an earlier one left. Withdraws are sized after any Roth conversion.
 - The proceeds count as household cash income, so they pay expenses first. Anything left over is reinvested like other excess income (into this portfolio too, if it has Reinvest excess income, which resets its cost basis).
 - The sale realizes LTCG on the portfolio's gain share.
+- **Accept NIIT** (unchecked by default): unchecked, a sale is also limited so that MAGI stays at or under the 3.8% Net Investment Income Tax threshold, even with the slider at 20% (no limit); a portfolio with no unrealized gain is not limited. Checked, the portfolio sells up to the bracket and pays the NIIT. Plans saved before this option load with it unchecked.
+- **Accept Social Security Tax Torpedo** (unchecked by default): unchecked, a sale is also limited so it does not raise that year's taxable Social Security. A household already inside the torpedo zone (part of Social Security taxed, not yet 85%) sells nothing under this rule; once 85% is taxed, extra income no longer adds taxable Social Security and sales are allowed again. Checked, sales may pull more Social Security into taxable income. Plans saved before this option load with it unchecked. Both checkboxes animate the charts smoothly, like any other toggle.
 
 ### Excess income
 
@@ -563,11 +573,12 @@ Not random: Social Security and pension amounts, and tax law.
 
 Load any trial into the chart grid: **Earliest failure**, **Median failure**, **Largest shortfall**, a pick from the list of failed trials, or any trial number. Every chart then shows that trial. The trial is replayed from its seed, nothing is stored, and the plan is not changed.
 
-A card stays at the top of the chart column, above the scale buttons, so you can scroll through the charts and keep stepping:
+The **Stress test card** stays at the top of the chart column, above the scale buttons, so you can scroll through the charts and keep stepping:
 
-- **A · Plan / B · Failure #N / C · Success**: flip the charts between the plan as entered (A), the failed trial you loaded (B) and a successful run (C, one that stayed funded to the end). While B or C is on, the plan's lines stay behind as thin dashed grey lines, and every chart's scale is fitted to the largest of A, B and C so only the data moves.
-- Keys: **B** flips the plan and whichever of B / C was shown last; **C** shows the next successful run, **Shift+C** the previous one (the list wraps).
-- **◀ ▶** step through failed trials while B is on and through successful runs while C is on (greyed out when there are none).
+- **A · Plan / B · Monte Carlo Failure / C · Monte Carlo Success / D · Stress Test**: flip the charts between the plan as entered (A), the Monte Carlo failure you loaded (B), a Monte Carlo success (C, a trial that stayed funded to the end) and a stress test (D). While B, C or D is on, the plan's lines stay behind as thin dashed grey lines, and every chart's scale is fitted to the largest of the loaded views so only the data moves. The message under the buttons names the failure / success number or the stress test.
+- **D** cycles through the scenarios of the Stress tests card (Lost Decade, Stagflation, 1966 retiree, whichever are ticked), one per click, wrapping around. If the stress tests have not been run for this plan yet, D runs them with the card's current settings first. The **Show in charts** button next to a scenario in the Stress tests table loads that one directly. B and C stay greyed out until you have loaded a Monte Carlo trial.
+- Keys: **B** flips the plan and whichever of B / C / D was shown last; **C** shows the next Monte Carlo success, **Shift+C** the previous one; **D** shows the next stress test, **Shift+D** the previous one (the lists wrap).
+- **◀ ▶** step through Monte Carlo failures while B is on, Monte Carlo successes while C is on and stress tests while D is on.
 - **Back to plan** returns the charts to the plan. Starting a new run or editing the plan also ends the trial view.
 - The message under the buttons has room for two lines and says what failed and how many other failed trials share the main cause.
 - The Inflation rate and Market return % charts show the trial's drawn inflation and returns.
@@ -576,7 +587,20 @@ Trial views are display only; nothing is saved with the plan.
 
 **Loading and resetting.** Loading another plan (a file or a sample) clears the card's results, any loaded trial and a run in progress, because they belonged to the old plan. The card's own settings (volatility, trials, seed and so on) are kept, since they are not part of a plan file. **Reset to defaults** clears the results too and also puts those settings back to their defaults (card collapsed).
 
-## Ask about this plan
+## Stress tests
+
+The **Stress tests** and **Monte Carlo** cards sit under the charts, Stress tests first. Drag a card by its title bar and drop it on the upper or lower half of the other one to swap places. The order is remembered in the browser (not in the plan file) and **Reset to defaults** puts it back.
+
+The **Stress tests** card (under the Monte Carlo card, collapsed until you untick Hide) forces a fixed bad stretch onto your plan and shows whether the money lasts. Unlike Monte Carlo these are single, repeatable scenarios; your passing ages, Social Security, Long Term Care and taxes stay as entered.
+
+- **When the shock starts**: *Day 1 of retirement* (the first year without wages; the default), *Today*, or a number of years from now. *Share of assets hit %* is how much of each portfolio and IRA takes the scenario's stock return (the rest keeps the plan's own return; property is never changed).
+- **Lost Decade**: the actual 2000–2009 S&P 500 returns. Tick *Also use that decade's actual inflation* to add that decade's CPI.
+- **Stagflation**: flat stock returns (default 0% a year) for 10 years while inflation ramps from 6% to 11%. All four numbers are editable.
+- **1966 retiree**: actual 1966–1981 stock returns and inflation, the classic worst starting date for a retiree.
+- **Show in charts / D button**: load a scenario into every chart (see the Stress test card under Study one trial); the Inflation rate and Market return % charts then show the scenario's inflation and returns.
+- **Results**: for the plan and each scenario, whether the money lasts (or the age it runs out), the unpaid expenses, invested assets at the end of the shock and as a % of the plan, the lowest invested assets after the start, and the assets in the last projected year; the card has no chart of its own, because the D button / *Show in charts* loads each scenario into the real charts. Everything is in today's $. Press **Run stress tests** again after changing the plan or the settings (a red note tells you when a result is out of date).
+
+
 
 The chat box answers questions about your plan using a text snapshot of your inputs and results.
 

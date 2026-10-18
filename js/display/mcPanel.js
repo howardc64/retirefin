@@ -50,6 +50,7 @@ function buildMcPanel(){
   mcEl('mcHide').addEventListener('change',()=>{ mcCfg.hidden=mcEl('mcHide').checked; mcSaveCfg(); applyHide(); }); applyHide();
   mcUpdateInhStatus();
   mcEl('mcRunBtn').onclick=mcStart; mcEl('mcCancelBtn').onclick=()=>{ if(mcRun) mcRun.cancel=true; };
+  if(typeof cardStackDecorate==='function') cardStackDecorate();   // draggable title bar (display/cardStack.js)
   ['mcRet','mcMort','mcLtc','mcInh','mcInf'].forEach(id=>{ const sync=()=>mcEl(id+'Grp').classList.toggle('mc-off',!mcEl(id).checked); mcEl(id).addEventListener('change',sync); sync(); });
 }
 
@@ -173,10 +174,12 @@ function mcTrialStillValid(){ return !!mcTrialView && mcPlanKey()===mcTrialView.
 const mcTrialShown=()=>mcTrialView?(mcTrialView.view==='A'?mcTrialView.planProj:mcTrialView.proj):null;
 const mcShowingTrial=()=>!!mcTrialView&&mcTrialView.view!=='A';
 
+// Every projection of the card: A (the plan) and whichever of B (Monte Carlo failure), C (Monte Carlo success), D (stress test) are loaded.
+function mcViewProjs(v){ return [v.planProj].concat([v.b,v.c,v.d].filter(Boolean).map(t=>t.proj)); }
 // Fit every chart's Y scale to the larger of A and B (dry passes, nothing drawn), so flipping A/B changes only the data, never the axes.
 function mcFitBoth(){
   const v=mcTrialView, keys=Object.keys(chartYMax), mx={};
-  [v.planProj,(v.b||v).proj].concat(v.c?[v.c.proj]:[]).forEach(pr=>{
+  mcViewProjs(v).forEach(pr=>{
     keys.forEach(k=>{ chartYMax[k]=null; }); lastProjection=pr; window.dryPass=true;
     try{ buildAllCharts(); } finally{ window.dryPass=false; }
     keys.forEach(k=>{ if(chartYMax[k]!=null) mx[k]=Math.max(mx[k]||0,chartYMax[k]); });
@@ -205,7 +208,7 @@ function mcReplayOk(){
   return true;
 }
 // Put trial B's or C's fields on the view itself: the other charts and overlays read mcTrialView.state / .cap / .trial / .proj for the trial on screen.
-function mcUseTrial(v,which){ const t=which==='C'?v.c:v.b; if(!t) return; ['trial','proj','state','cap','pos','cause'].forEach(f=>{ v[f]=t[f]; }); v.cur=which==='C'?'C':'B'; }
+function mcUseTrial(v,which){ const t=which==='C'?v.c:(which==='D'?v.d:v.b); if(!t) return; ['trial','proj','state','cap','pos','cause'].forEach(f=>{ v[f]=t[f]; }); v.cur=which==='C'?'C':(which==='D'?'D':'B'); }
 // C: successful trials (the ones that stayed funded), in trial order. Each C click shows the next one.
 function mcOkTrials(){ if(!mcResults) return []; if(!mcResults._ok) mcResults._ok=mcResults.results.reduce((a,r,i)=>{ if(r.failK<0) a.push(i); return a; },[]); return mcResults._ok; }
 function mcLoadSuccess(trial){
@@ -223,13 +226,31 @@ function mcCStep(d){   // next / previous successful trial (wraps around)
 }
 // The C button: from A or B it shows the successful run already chosen (the first one the first time); on C it moves on to the next.
 function mcCPress(){ const v=mcTrialView; if(!v) return; if(v.view==='C'||!v.c) mcCStep(1); else mcAbSet('C'); }
+// D: stress tests (display/stressPanel.js). The list is the card's scenarios in table order; each D click shows the next one (key D; Shift+D goes back; wraps).
+// Pressing D with no stress results for this plan runs the stress tests with the card's current settings first.
+function mcDList(){ return (typeof stResults!=='undefined'&&stResults)?stResults.results:[]; }
+function mcLoadStress(idx){
+  if(typeof stEnsureFresh!=='function'||mcRun) return;
+  stEnsureFresh(); const L=mcDList(); if(!L.length) return;
+  idx=((idx%L.length)+L.length)%L.length;
+  const rp=stReplay(stResults.cfg,L[idx].id); if(!rp) return;
+  const t={trial:-1, proj:rp.proj, state:rp.state, cap:rp, pos:-1, cause:null, idx, id:L[idx].id, label:L[idx].label};
+  const old=mcTrialView, planProj=(old&&old.planProj)||computeProjection();
+  if(old){ old.d=t; mcUseTrial(old,'D'); old.view='D'; }
+  else mcTrialView=Object.assign({planProj, key:mcPlanKey(), view:'D', cur:'D', b:null, c:null, d:t}, t);
+  mcFitBoth(); mcCaptureGhosts();
+  lastProjection=mcTrialView.proj; renderCharts(); mcShowBanner();
+  const bn=mcEl('mcTrialBanner'); if(bn&&bn.scrollIntoView&&!old) bn.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function mcDStep(d){ const v=mcTrialView, n=mcDList().length||3; mcLoadStress(v&&v.d?v.d.idx+d:(d>0?0:n-1)); }
+function mcDPress(){ const v=mcTrialView; if(!v||v.view==='D'||!v.d) mcDStep(1); else mcAbSet('D'); }
 function mcLoadTrial(trial){
   if(!mcResults||mcRun) return;
   if(!mcReplayOk()) return;
   const cap=mcReplayTrial(mcResults.cfg,trial), L=mcResults.R.list||[], pos=L.findIndex(f=>f.trial===trial);
   const planProj=(mcTrialView&&mcTrialView.planProj)||computeProjection();   // A: the plan as entered (the plan cannot have changed while a trial is loaded)
   const t={trial, proj:cap.proj, state:cap.state, cap, pos, cause:pos>=0?L[pos].causeShort:null};
-  mcTrialView=Object.assign({planProj, key:mcPlanKey(), view:'B', cur:'B', b:t, c:(mcTrialView&&mcTrialView.c)||null}, t);   // b = the trial loaded by the study row / ◀ ▶, c = the successful run of the C button; the fields of whichever is shown are copied onto the view (mcUseTrial)
+  mcTrialView=Object.assign({planProj, key:mcPlanKey(), view:'B', cur:'B', b:t, c:(mcTrialView&&mcTrialView.c)||null, d:(mcTrialView&&mcTrialView.d)||null}, t);   // b = the trial loaded by the study row / ◀ ▶, c = the successful run of the C button; the fields of whichever is shown are copied onto the view (mcUseTrial)
   mcFitBoth(); mcCaptureGhosts();
   lastProjection=cap.proj; renderCharts(); mcShowBanner();
   const b=mcEl('mcTrialBanner'); if(b&&b.scrollIntoView) b.scrollIntoView({behavior:'smooth',block:'start'});
@@ -238,26 +259,29 @@ function mcTrialClear(){
   mcTrialView=null; restoreChartYMax();
   allCharts().forEach(c=>{ c._abGhost=null; });
   const b=mcEl('mcTrialBanner'); if(b){ b.hidden=true; b.innerHTML=''; }
-  const g=mcEl('chartGrid'); if(g){ g.classList.remove('trial-view'); g.classList.remove('trial-view-a'); g.classList.remove('trial-view-c'); }
+  const g=mcEl('chartGrid'); if(g){ g.classList.remove('trial-view'); g.classList.remove('trial-view-a'); g.classList.remove('trial-view-c'); g.classList.remove('trial-view-d'); }
 }
 function mcTrialExit(){ mcTrialClear(); recompute(); }
 // Flip between A (plan) and B (trial): the charts tween from one to the other on fixed axes; B also shows A as a faint dashed ghost.
 function mcAbSet(view){
   const v=mcTrialView; if(!v||v.view===view) return;
   if(view==='C'&&!v.c){ mcCStep(1); return; }
+  if(view==='D'&&!v.d){ mcDStep(1); return; }
   if(view!=='A') mcUseTrial(v,view);
   v.view=view; lastProjection=mcTrialShown(); renderCharts(); mcShowBanner(true);
 }
 function mcAbToggle(){ if(mcTrialView) mcAbSet(mcTrialView.view==='A'?(mcTrialView.cur||'B'):'A'); }   // B key: plan <-> the trial last shown (B or C)
 document.addEventListener('keydown',e=>{
-  if(!mcTrialView||e.ctrlKey||e.metaKey||e.altKey||!/^[bBcC]$/.test(e.key)) return;
+  if(!mcTrialView||e.ctrlKey||e.metaKey||e.altKey||!/^[bBcCdD]$/.test(e.key)) return;
   const t=e.target, tag=t&&t.tagName; if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable)) return;
   e.preventDefault();
-  if(e.key==='b'||e.key==='B') mcAbToggle();
+  if(e.key==='d'||e.key==='D'){ if(e.shiftKey) mcDStep(-1); else mcDPress(); }
+  else if(e.key==='b'||e.key==='B') mcAbToggle();
   else if(e.shiftKey&&mcTrialView.view==='C') mcCStep(-1);   // Shift+C: previous successful run
   else mcCPress();
 });
-function mcTrialStep(d){   // previous / next trial of the kind on screen: a failed trial while B is on, a successful run while C is on
+function mcTrialStep(d){   // previous / next trial of the kind on screen: a failed trial while B is on, a successful run while C is on, a stress test while D is on
+  if(mcTrialView&&mcTrialView.cur==='D'){ mcDStep(d); return; }
   if(mcTrialView&&mcTrialView.cur==='C'){ mcCStep(d); return; }
   const L=mcResults&&mcResults.R.list||[]; if(!mcTrialView||!L.length) return;
   const bp=mcTrialView.b?mcTrialView.b.pos:mcTrialView.pos, i=bp<0?(d>0?0:L.length-1):Math.max(0,Math.min(L.length-1,bp+d));
@@ -265,27 +289,39 @@ function mcTrialStep(d){   // previous / next trial of the kind on screen: a fai
 }
 function mcShowBanner(keep){
   const v=mcTrialView, b=mcEl('mcTrialBanner'); if(!v||!b) return;
-  const m=v.cap.measure, inf=v.cap.info, cfg=mcResults.cfg, n=v.proj.married?2:1, L=mcResults.R.list||[];
+  const m=v.cap.measure, cfg=mcResults?mcResults.cfg:null, n=v.proj.married?2:1, L=(mcResults&&mcResults.R.list)||[];
   const pctS=x=>(x>=0?'+':'\u2212')+Math.abs(Math.round(x*100))+'%';
-  const draws=[];
-  if(cfg.mortality.enabled) draws.push('passes at '+inf.pass.slice(0,n).join(' / '));
-  if(cfg.ltc.enabled) draws.push('care '+inf.ltcYears.slice(0,n).map(y=>y>0?y.toFixed(1)+' yr':'none').join(' / '));
-  if(cfg.returns.enabled) draws.push('market, first 10 yrs '+pctS(Math.exp(m.early10)-1)+' vs expected');
-  if(cfg.inflation.enabled) draws.push('prices after 15 yrs '+pctS(m.inflRatio15-1)+' vs plan');
-  if(cfg.inheritance.enabled&&m.inhN>0) draws.push('inheritance '+(m.inhShift===0?'on time':Math.abs(m.inhShift)+' yr '+(m.inhShift>0?'late':'early'))+', '+Math.round(m.inhRatio*100)+'% of planned');
-  let similar='';
-  if(v.pos>=0){ const me=L[v.pos], same=L.filter(f=>f.cause===me.cause).length-1;
-    similar=same>0?' <span title="Failed trials whose main cause is the same as this one ('+me.causeShort+')">'+same+' other failed trial'+(same>1?'s':'')+' share this cause ('+Math.round((same+1)/L.length*100)+'% of failures).</span>':' No other failed trial shares this cause.'; }
+  const isD=v.cur==='D', draws=[];
+  let similar='', head;
   const verdict=m.failK>=0?'<b>money runs out at age '+Math.round(m.failAge)+'</b>'+(v.cause?' ('+v.cause+')':''):'<b>stays funded</b> to the end';
+  if(isD){
+    const rp=v.cap, sc=rp.scen, st=mcDList().length;
+    head='Stress test <b>'+v.d.label+'</b> ('+(v.d.idx+1)+' of '+st+'): '+verdict+'. D is a replay, not your plan; the dashed grey lines are A.';
+    draws.push('shock starts at age '+(rp.proj.rows[0].age0+rp.start).toFixed(0)+' · '+sc.eq.length+' years · stock return '+Math.round((sc.eq.reduce((a,x)=>a*(1+x),1)-1)*100)+'% compounded'+(sc.infl?' · inflation '+Math.round(sc.infl[0]*1000)/10+'% to '+Math.round(Math.max.apply(null,sc.infl)*1000)/10+'% peak':' · plan\'s inflation'));
+  } else {
+    const inf=v.cap.info;
+    if(cfg.mortality.enabled) draws.push('passes at '+inf.pass.slice(0,n).join(' / '));
+    if(cfg.ltc.enabled) draws.push('care '+inf.ltcYears.slice(0,n).map(y=>y>0?y.toFixed(1)+' yr':'none').join(' / '));
+    if(cfg.returns.enabled) draws.push('market, first 10 yrs '+pctS(Math.exp(m.early10)-1)+' vs expected');
+    if(cfg.inflation.enabled) draws.push('prices after 15 yrs '+pctS(m.inflRatio15-1)+' vs plan');
+    if(cfg.inheritance.enabled&&m.inhN>0) draws.push('inheritance '+(m.inhShift===0?'on time':Math.abs(m.inhShift)+' yr '+(m.inhShift>0?'late':'early'))+', '+Math.round(m.inhRatio*100)+'% of planned');
+    if(v.pos>=0){ const me=L[v.pos], same=L.filter(f=>f.cause===me.cause).length-1;
+      similar=same>0?' <span title="Failed trials whose main cause is the same as this one ('+me.causeShort+')">'+same+' other failed trial'+(same>1?'s':'')+' share this cause ('+Math.round((same+1)/L.length*100)+'% of failures).</span>':' No other failed trial shares this cause.'; }
+    head='Monte Carlo '+(v.cur==='C'?'success':'failure')+' <b>#'+(v.trial+1)+'</b> of '+mcResults.S.N+': '+verdict+'. '+v.cur+' is a replay, not your plan; the dashed grey lines are A.'+similar;
+  }
   const on=x=>v.view===x?' on':'';
-  const stepC=v.cur==='C', stepN=stepC?mcOkTrials().length:L.length, stepWhat=stepC?'successful run (C)':'failed trial (B)';   // ◀ ▶ step through whichever kind is on screen
-  b.innerHTML='<div class="mc-tb-top"><span class="mc-ab" title="Flip the charts between the plan (A), the failed trial you loaded (B) and a successful run (C). Keys: B flips plan / trial, C shows the next successful run, Shift+C the previous"><button type="button" class="mc-ab-btn'+on('A')+'" onclick="mcAbSet(\'A\')">A &middot; Plan</button><button type="button" class="mc-ab-btn'+on('B')+'" onclick="mcAbSet(\'B\')">B &middot; Failure #'+(v.b.trial+1)+'</button><button type="button" class="mc-ab-btn c'+on('C')+'" onclick="mcCPress()"'+(mcOkTrials().length?'':' disabled')+' title="A successful run (one that stayed funded to the end). Click again for the next one (key: C; Shift+C goes back)">C &middot; '+(v.c?'Success #'+(v.c.trial+1):'Success')+'</button></span>'+
+  const stepC=v.cur==='C', stepD=isD, stepN=stepD?(mcDList().length||3):(stepC?mcOkTrials().length:L.length), stepWhat=stepD?'stress test (D)':(stepC?'Monte Carlo success (C)':'Monte Carlo failure (B)');   // ◀ ▶ step through whichever kind is on screen
+  b.innerHTML='<div class="mc-tb-top"><span class="mc-tb-title">Stress test card</span><span class="mc-ab" title="Flip the charts between the plan (A), a Monte Carlo failure you loaded (B), a Monte Carlo success (C) and a stress test (D). Keys: B flips plan / trial, C shows the next Monte Carlo success (Shift+C the previous), D shows the next stress test (Shift+D the previous)">'+
+    '<button type="button" class="mc-ab-btn'+on('A')+'" onclick="mcAbSet(\'A\')">A &middot; Plan</button>'+
+    '<button type="button" class="mc-ab-btn'+on('B')+'" onclick="mcAbSet(\'B\')"'+(v.b?'':' disabled')+' title="The Monte Carlo failure you loaded from the Monte Carlo card (Study one trial)">B &middot; Monte Carlo Failure</button>'+
+    '<button type="button" class="mc-ab-btn c'+on('C')+'" onclick="mcCPress()"'+(mcOkTrials().length?'':' disabled')+' title="A Monte Carlo trial that stayed funded to the end. Click again for the next one (key: C; Shift+C goes back)">C &middot; Monte Carlo Success</button>'+
+    '<button type="button" class="mc-ab-btn d'+on('D')+'" onclick="mcDPress()" title="The stress tests of the Stress tests card. Click again for the next one (key: D; Shift+D goes back)">D &middot; Stress Test</button></span>'+
     '<span class="mc-tb-sp"></span>'+
     '<button type="button" class="btn" onclick="mcTrialStep(-1)" title="Previous '+stepWhat+'"'+(stepN?'':' disabled')+'>&#9664;</button><button type="button" class="btn" onclick="mcTrialStep(1)" title="Next '+stepWhat+'"'+(stepN?'':' disabled')+'>&#9654;</button>'+
     '<button type="button" class="btn btn-primary" onclick="mcTrialExit()">Back to plan</button></div>'+
-        '<div class="mc-tb-msg">Monte Carlo trial <b>#'+(v.trial+1)+'</b> of '+mcResults.S.N+': '+verdict+'. '+v.cur+' is a replay, not your plan; the dashed grey lines are A.'+similar+'</div>'+
+    '<div class="mc-tb-msg">'+head+'</div>'+
     (draws.length?'<div class="mc-tb-draws">'+draws.join(' · ')+'</div>':'');
-  b.hidden=false; const g=mcEl('chartGrid'); if(g){ g.classList.toggle('trial-view',v.view==='B'); g.classList.toggle('trial-view-c',v.view==='C'); g.classList.toggle('trial-view-a',v.view==='A'); }
+  b.hidden=false; const g=mcEl('chartGrid'); if(g){ g.classList.toggle('trial-view',v.view==='B'); g.classList.toggle('trial-view-c',v.view==='C'); g.classList.toggle('trial-view-d',v.view==='D'); g.classList.toggle('trial-view-a',v.view==='A'); }
 }
 
 // A different plan is being loaded (file, sample) or the app is reset: the old results, the loaded trial and a run in progress belong to the old plan. Drop them.

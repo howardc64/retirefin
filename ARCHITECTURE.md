@@ -58,18 +58,18 @@ css/
   styles.css    (all page styling; linked from index.html)
 tests/
   check.js  snapshot.js  compare.js  baseline.json  README.md   (Node regression harness; not loaded by the app)
-  mc/           mc_harness.js  mc_test.js  mc_inherit_test.js  mc_replay_test.js  mc_ui_test.js  mc_runplan.js  mc_sweep.js  mc_infl_cmp.js   (Monte Carlo tests, §10)
+  mc/           mc_harness.js  mc_test.js  mc_inherit_test.js  mc_replay_test.js  mc_ui_test.js  mc_runplan.js  mc_sweep.js  mc_infl_cmp.js  stress_test.js   (Monte Carlo tests, §10; stress tests, §11)
 docs/           MONTE_CARLO.md  (what the Monte Carlo add-on changed, how it works, how to test it)  + design spec and slide decks
 js/
   core/         constants.js  helpers.js  markdown.js  state.js
   compute/      socialSecurityCalc.js  rmd.js  tax.js  dates.js  ageRange.js
-                projection.js  whatIf.js  donorTraj.js  monteCarlo.js
+                projection.js  whatIf.js  donorTraj.js  monteCarlo.js  stressTest.js
   input/        controls.js  household.js  assumptions.js  loadMenu.js
                 wage.js  socialSecurity.js  pension.js  rental.js
                 brokerage.js  realEstate.js  ira.js  roth.js  inheritance.js  liveLink.js  incomeForms.js
   display/      chartHelpers.js  chartPanels.js  chartInfo.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  iraLtcgChart.js  inhIncomeChart.js  inflationChart.js  marketChart.js  footer.js  print.js
-                formulasPage.js  mdPage.js  excelExport.js  scenarios.js  userNotes.js  chat.js  mcPanel.js
+                formulasPage.js  mdPage.js  excelExport.js  scenarios.js  userNotes.js  chat.js  mcPanel.js  stressPanel.js  cardStack.js
   app.js
 misc/      Usage.md            (how to use the app; rendered to HTML by the Usage button, §6.10)
            Note4User.md        (user-facing tips; rendered to HTML by the Tips button, §6.10)
@@ -152,7 +152,7 @@ BrokeragePortfolio = {
   ftcPct: number,            // foreign tax credit %, default 0.25 — always active, ungated
 }
 
-// Portfolio withdraw is NOT per portfolio any more: it is the household setting `state.pfWithdraw = { enabled, ltcgPct }` (Tax & Optimizations panel,
+// Portfolio withdraw is NOT per portfolio any more: it is the household setting `state.pfWithdraw = { enabled, ltcgPct, acceptNiit, acceptTorpedo }` (`acceptTorpedo` default false: a sale is also capped so it does not raise `taxableSS` above its value before the sale; the two checkboxes call `onPfAccept(field,on)`, a plain `recompute()` like `onEnableToggle`, so the charts tween; see `updateChartInPlace` for why a toggle no longer rebuilds the Total tax card) (`acceptNiit` default false: a sale is also capped so MAGI stays at or under the NIIT threshold, `niitThreshold()` in tax.js; a portfolio with no unrealized gain is not capped; true = accept the NIIT) (Tax & Optimizations panel,
 // `renderPfWithdrawPanel`). When enabled, EVERY live, in-range, non-IDGT portfolio gets a 'bracket' withdraw: `ltcgPct` is a stop of LTCG_STOPS (core/constants.js,
 // 0 | 15 | 20; 20 = no limit). There is no start / end age and no fixed amount. Proceeds are household cash income (`cashIncome`, so they pay expenses first, ahead
 // of dividends and asset sales; any excess is reinvested per the portfolio's `reinvest` flag). The sale realizes LTCG on the gain share and removes basis like any
@@ -541,6 +541,7 @@ Two tabs of the same page, each its own plan, linked through a `BroadcastChannel
 
 ### 5.5 `incomeForms.js`
 
+(Hiding a column: `state.ui.hidePerson` = `null | 0 | 1` (married only; normalized in `hydrateState`, cleared by `onFilingChange` and Reset). `renderIncomeForms` adds `hide-0` / `hide-1` to `#perPersonIncome` and `col-hidden` to that person's `.person-col`, whose header row (`.pcol-head`: name, `Hide` button, `Show` tab) stays while every card is hidden by CSS, so ids, handlers, card order and compute are untouched; `setHiddenPerson(i|null)` sets it and re-renders the forms. The vertical tab is absolutely positioned so it does not stretch the subgrid's header row.)
 (Card order: `state.ui.incomeOrder` — a permutation of `INCOME_CARD_KEYS`, normalized in `hydrateState` — is shared by all person columns. `renderIncomeForms` builds each column in that order and `dndCard` tags each top-level card with `data-card` and a ⋮⋮ drag handle. Delegated HTML5 drag events on `#perPersonIncome` call the pure `moveIncomeCard`, highlight both spouses' cards of the type, then re-render and save. `dndCardAt` makes the whole income grid a drop zone: over a gap, a column heading or padding it snaps to the vertically nearest card. Display-only: no recompute.)
 **Purpose:** orchestrates the person-column(s), calling each §5.4 builder in the same fixed order for
 every person-column, so the two-column grid (married) keeps every income type's row aligned via CSS
@@ -885,13 +886,13 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
 - **Script load order** (dependency-driven — a file may only use a name defined by a file *earlier* in
   this list):
   `core/constants → core/helpers → core/markdown → compute/socialSecurityCalc → compute/rmd → compute/tax →
-  core/state → compute/dates → compute/ageRange → compute/projection → compute/whatIf → compute/donorTraj → compute/monteCarlo →
+  core/state → compute/dates → compute/ageRange → compute/projection → compute/whatIf → compute/donorTraj → compute/monteCarlo → compute/stressTest →
   input/controls → input/household → input/assumptions → input/wage → input/socialSecurity →
   input/pension → input/rental → input/brokerage → input/ira → input/roth → input/incomeForms →
   input/loadMenu →
   display/chartHelpers → display/chartPanels → display/chartInfo → display/overlayPlugin → display/ssChart → display/incomeChart →
   display/tssChart → display/taxChart → display/expenseChart → display/assetChart → display/iraLtcgChart → display/inhIncomeChart → display/footer →
-  display/formulasPage → display/mdPage → display/excelExport → display/scenarios → display/userNotes → display/print → display/chat → display/mcPanel → app.js`
+  display/formulasPage → display/mdPage → display/excelExport → display/scenarios → display/userNotes → display/print → display/chat → display/mcPanel → display/stressPanel → display/cardStack → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
   that reads from it. Function *calls* deferred to a later event (a click, `DOMContentLoaded`) don't
   need this — only code that runs immediately when the script loads (top-level `let`/`const`
@@ -983,6 +984,7 @@ At import and at every live-link update (`inheritance.js`, `liveLink.js`) the so
 - `mcFitBoth()` fits every chart's Y scale to the largest of A, B and C (a dry pass: `window.dryPass`); `mcCaptureGhosts()` keeps A's lines for the `abGhost` plugin; `chartHelpers.js` never saves a trial's scales into the plan. Rescale refits one chart to what is showing.
 - `mcOkTrials()` lists the successful trials (`failK<0`, trial order); `mcCPress()` / key **C** → next, **Shift+C** → previous (`mcCStep`, wraps); key **B** (`mcAbToggle`) flips A and the last of B / C. `mcTrialStep(±1)` (◀ ▶) steps through failed trials while B is on and through successful runs while C is on (greyed out when none).
 - The banner (`mcShowBanner`, `#mcTrialBanner`, inside `.chart-sticky`) is one layout for B and C: row 1 is the A · Plan / B · Failure #N / C · Success switch, ◀ ▶ and Back to plan; below it is a message block that always has room for two lines, including how many other failed trials share this one's main cause. It stays at the top of the chart column.
+- **D (stress tests).** `mcTrialView` also holds `d` (`{trial:-1, proj, state, cap, idx, id, label}`) next to `b` / `c`; `mcUseTrial(v,'D')` copies its fields onto the view like B / C, and `cur` is `'B'|'C'|'D'`. `mcLoadStress(idx)` (D click, ◀ ▶ while D is on, the table's *Show in charts*) calls `stEnsureFresh()` (runs the stress tests when there are no results for the plan as it is now) then `stReplay(cfg, id)` (compute/stressTest.js: the scenario's projection with rates recorded, a private copy of the plan, the scenario's inflation path as `cap.infl`, `cap.meanInfl`, `cap.scen`, `cap.start`, `cap.measure`) and loads it as view `D`. It works without Monte Carlo results (B / C are then disabled). `mcDList()` = `stResults.results`; `mcDStep(±1)` wraps; key **D** / **Shift+D**. `mcViewProjs(v)` lists A plus every loaded view for `mcFitBoth` and the Market return chart's scale. Button labels: **A · Plan, B · Monte Carlo Failure, C · Monte Carlo Success, D · Stress Test**; the card's name is *Stress test card*. The Excel export of D is named `retirement-plan-stress-test.xlsx` (`xlsxTrialContext().label`).
 
 ### 10.5 Tests (`tests/mc/`, Node, real engine in a `vm`)
 Run from the app folder; plan files are supplied by the caller (no plan data is stored in the tests).
@@ -993,3 +995,34 @@ PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/mc_replay_test.js
 node tests/mc/mc_ui_test.js        # card, banner, A/B/C, inflation / market charts, arrival markers, with a stub DOM
 ```
 `mc_runplan.js`, `mc_sweep.js` and `mc_infl_cmp.js` are run-and-print helpers; `mc_harness.js` loads the engine.
+
+## 11. Stress tests (add-on)
+
+Deterministic sequence-of-returns / inflation scenarios. Where Monte Carlo (§10) asks "how likely is a shortfall", this asks "does the plan survive *this* bad decade". Files: `compute/stressTest.js` (no DOM), `display/stressPanel.js` (the card, `<section id="stressPanel">` under `#mcPanel`), `tests/mc/stress_test.js`.
+
+### 11.1 Mechanism (reuses the Monte Carlo hooks, no change to `projection.js`)
+- A scenario is `{id, label, note, eq:[nominal yearly stock return …], infl:[yearly inflation …] | null}` placed at start row `start` (years from today). Row `k` uses `eq[k-start]` while `0 ≤ k-start < eq.length`.
+- `stRun(scen, start, cfg)` runs `computeProjection()` on a `withTempState` clone with `MC_HOOK = stHook(...)` and `MC_INFL = stInflation(...)`, and restores both (and `REC_RATES`) in `finally`. `stRun(null, …)` is the plan as entered (hooks null).
+- The engine is in today's $, so a nominal return `r` in a year of inflation `π` enters as the real rate `(1+r)/(1+π)−1`; the scenario's price level is the engine's `MC_INFL`, so nominal-fixed items (no-COLA pension, un-indexed thresholds, cost basis, depreciation) follow it. Living expenses, Social Security COLA and indexed brackets are flat in today's $, i.e. they rise with the scenario's inflation in nominal terms.
+- Hit assets: every growth key except property (`re:`). `equityShare` % earns the scenario's stock return; the rest keeps the plan's own *nominal* rate (`fixed` / `custom` growth stay nominal; `inflation ± x` follows the year's inflation, i.e. keeps its real rate). Outside the window the plan's own real rate is returned unchanged.
+- Start row (`start.mode`): `retire` = first row after the last row with `wageTotal > 0` (0 if the plan has no wages), `now` = 0, `custom` = `start.years`. A start beyond the projection leaves the plan unaffected (the card says so).
+
+### 11.2 Scenarios (`stScenarios(cfg)`)
+| id | what | data |
+|---|---|---|
+| `lost` | Lost Decade, 2000–2009 | S&P 500 total return (Damodaran, NYU Stern); inflation = the plan's, or CPI-U if *actual inflation* is ticked |
+| `stag` | Synthetic stagflation | `years` (default 10) of a fixed nominal stock return (default 0%) with inflation ramping linearly `inflStart → inflEnd` (default 6% → 11%) |
+| `y1966` | 1966 retiree, 1966–1981 | S&P 500 total return and CPI-U Dec/Dec (BLS), both actual |
+Historical arrays live in `ST_HIST` (rounded as published, %); defaults in `ST_DEFAULTS`.
+
+### 11.3 Output (`stRunAll(cfg)`)
+`{start, startAge, startCovered, base, baseEstate, results[]}`; each result: `m` (the `mcMeasure` summary — `failK`, `failAge`, `shortfall`, `fin[]`, `re[]`…), `atEnd` / `planAtEnd` (invested assets at the end of the shock vs the plan), `low` / `lowAge` (lowest invested assets from the start on), `gapYears` (years with unpaid expenses), `estate`.
+
+### 11.4 The card
+`buildStressPanel()` (Hide box, starts collapsed; start-mode, share-hit, per-scenario groups; Run), `stRender()` (the results table only; the card has no chart of its own, the D button shows each scenario in the real charts), `stMarkStale()` (called from `recompute()` and on any edit in the card), `stResetCard(settings)` (called from `resetState` and `applyLoadedFileText` next to `mcResetCard`). Settings are stored in `localStorage` under `retirementPlannerStress_v1`, not in `state`. Runs are synchronous (about 4 projections).
+
+### 11.5 Tests
+`PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/stress_test.js`: null scenario == deterministic; `equityShare 0` == deterministic; a crash lowers assets; bad-first beats good-first ordering; exact real-rate arithmetic of the hook; inflation path placement; flat stocks with high inflation end lower; state and hooks restored. The scenarios can be loaded into the chart grid with the D button of the Stress test card (§10.4). Not yet built: guardrail spending rules, correlation convergence in the Monte Carlo draw, and a Long Term Care liquidity / tax-shock scenario.
+
+### 11.6 Card stack (`display/cardStack.js`)
+`<div id="cardStack">` holds `#stressPanel` then `#mcPanel` (default order). Each card's `.mc-head` is draggable (`cardStackDecorate()`, also called at the end of `buildMcPanel` / `buildStressPanel` because a reset rebuilds the header); dropping on the upper / lower half of the other card inserts before / after it. Order is stored in `localStorage` key `retirementPlannerCardOrder_v1` (not in `state`); `cardStackReset()` (called by `stResetCard(true)`, i.e. Reset to defaults) restores the default. Not a chart-grid citizen: the cards cannot be dropped among the chart panels.

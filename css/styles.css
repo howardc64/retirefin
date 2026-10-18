@@ -437,6 +437,54 @@ input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
 /* A/B flip in the trial banner */
 .mc-ab{display:inline-flex;border:1px solid #b45309;border-radius:8px;overflow:hidden}
 .mc-ab-btn{border:0;background:transparent;color:var(--text);font:inherit;font-size:11px;padding:3px 10px;cursor:pointer}
-.mc-ab-btn.on{background:#b45309;color:#fff}.mc-ab-btn.c.on{background:#0f6e56}.mc-ab-btn:disabled{opacity:.4;cursor:default}.mc-ab-btn:first-child.on{background:#3B6FA0}.mc-ab{border-color:var(--border-strong)}
+.mc-ab-btn.on{background:#b45309;color:#fff}.mc-ab-btn.c.on{background:#0f6e56}.mc-ab-btn.d.on{background:#7c3aed}.mc-ab-btn:disabled{opacity:.4;cursor:default}.mc-ab-btn:first-child.on{background:#3B6FA0}.mc-ab{border-color:var(--border-strong)}
 .chart-grid.trial-view-c .chart-panel{outline:2px solid rgba(15,110,86,.45);outline-offset:-1px}
 .chart-grid.trial-view-a .chart-panel{outline:2px solid rgba(59,111,160,.45);outline-offset:-1px}
+
+/* Stress test card (display/stressPanel.js) reuses the .mc-* rules */
+#stressPanel.mc-collapsed #stBody{display:none}#stressPanel.mc-collapsed .mc-head .panel-title{margin-bottom:0}
+#stressPanel .panel-title small{font-weight:400;color:var(--text-faint)}
+.mc-f select{font-size:13px;padding:5px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface2);color:var(--text);font-family:inherit;max-width:260px}
+.st-tbl td,.st-tbl th{vertical-align:top;padding-right:16px}.st-tbl small{color:var(--text-faint)}
+.st-tbl .st-note{font-size:11px;color:var(--text-faint);margin-top:2px;max-width:360px;line-height:1.4}
+.st-tbl tr.st-plan td{color:var(--text-faint)}.st-ok{color:var(--teal);font-weight:600}.st-bad{color:var(--red);font-weight:600}
+
+.chart-grid.trial-view-d .chart-panel{outline:2px solid rgba(124,58,237,.45);outline-offset:-1px}
+.mc-tb-title{font-weight:600;font-size:11px;color:var(--text);white-space:nowrap}
+.mc-trial-banner .mc-tb-top{flex-wrap:wrap}
+.st-tbl .st-show{padding:1px 8px;font-size:11px;margin-left:6px}
+
+/* Card stack (display/cardStack.js): the Stress tests and Monte Carlo cards swap places by dragging their title bar */
+#cardStack{display:flex;flex-direction:column;gap:16px;margin-bottom:18px}#cardStack>.panel{margin:0}
+.card-grab{cursor:grab}.card-grab:active{cursor:grabbing}
+#cardStack .card-dragging{opacity:.45}
+#cardStack .card-drop-before{box-shadow:0 -3px 0 0 var(--teal)}#cardStack .card-drop-after{box-shadow:0 3px 0 0 var(--teal)}
+
+/* Hide one person's Income & Assets column (married): the other column takes the width, the hidden one is a thin tab (incomeForms.js setHiddenPerson) */
+.pcol-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+.pcol-head h3{margin-bottom:0}
+.pcol-hide{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:11px;cursor:pointer;padding:2px 6px;border-radius:6px}
+.pcol-hide:hover{background:var(--surface);color:var(--text)}
+.pcol-tab{display:none}
+.income-grid.two-col.hide-0{grid-template-columns:44px minmax(0,1fr)}
+.income-grid.two-col.hide-1{grid-template-columns:minmax(0,1fr) 44px}
+.person-col.col-hidden{padding:10px 6px;position:relative}
+/* the vertical tab floats over the collapsed column so its height does not stretch the shared header row of the subgrid */
+.person-col.col-hidden .pcol-head{height:0;margin:0;overflow:visible}
+.person-col.col-hidden>*:not(.pcol-head){display:none}
+.person-col.col-hidden .pcol-head h3,.person-col.col-hidden .pcol-hide{display:none}
+.person-col.col-hidden .pcol-tab{display:block;width:100%;border:0;background:transparent;color:var(--teal-text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;writing-mode:vertical-rl;text-orientation:mixed;padding:6px 0;white-space:nowrap;position:absolute;top:10px;left:0}
+.person-col.col-hidden .pcol-tab:hover{text-decoration:underline}
+@container col (max-width:560px){
+  .income-grid.two-col.hide-0,.income-grid.two-col.hide-1{grid-template-columns:1fr}
+  .person-col.col-hidden .pcol-tab{writing-mode:horizontal-tb;text-align:left;padding:2px 6px;position:static}
+  .person-col.col-hidden .pcol-head{height:auto}
+}
+@media (max-width:700px){
+  .income-grid.two-col.hide-0,.income-grid.two-col.hide-1{grid-template-columns:1fr}
+  .person-col.col-hidden .pcol-tab{writing-mode:horizontal-tb;text-align:left;padding:2px 6px;position:static}
+  .person-col.col-hidden .pcol-head{height:auto}
+}
+body.printing-all .person-col.col-hidden>*:not(.pcol-head){display:block}
+body.printing-all .person-col.col-hidden .pcol-head h3{display:block}
+body.printing-all .person-col.col-hidden .pcol-tab,body.printing-all .pcol-hide{display:none !important}

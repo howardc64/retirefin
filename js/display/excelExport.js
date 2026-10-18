@@ -266,7 +266,7 @@ function xlsxInputsSheet(proj,trial){
   const inhNote=o=>(o&&o.inh)?{note:`Inherited from ${o.inh.file||'another plan'}: enters the plan in ${Number(o.startYear)||'its start year'}; the balance is its value then (today's $)`}:undefined;
   xlsxPut(sh,r++,0,xlsxTxt('INPUTS & ASSUMPTIONS of the saved plan (all money in today\'s $). Cells marked as a name below are used by formulas in the other sheets; the rest document the plan the app solved.')); 
   xlsxPut(sh,r++,0,xlsxTxt('Changing a named cell here recalculates the formula columns, but the income / expense-funding / Roth-conversion amounts on "Projection by year" are the app\'s solved values: re-export after changing the plan in the app for those.'));
-  if(trial){ xlsxPut(sh,r++,0,xlsxTxt(`MONTE CARLO TRIAL #${trial.n}: the passing ages, Long Term Care and inheritance below are this trial's random draws; its yearly inflation and market returns are on the "MC trial" sheet.`)); }
+  if(trial){ xlsxPut(sh,r++,0,xlsxTxt(`${trial.label}: the passing ages, Long Term Care and inheritance below are ${trial.view==='D'?'the plan\'s own':'this trial\'s random draws'}; its yearly inflation and market returns are on the "MC trial" sheet.`)); }
   head('General (filing status, inflation; passing ages are under each person)');
   put('Filing status',st.filingStatus==='married'?'Married (MFJ)':'Single',{key:'filing'});
   put('Year 0 (first projected year)',THIS_YEAR,{name:'BaseYear',fmt:XLSX_YEAR});
@@ -293,7 +293,7 @@ function xlsxInputsSheet(proj,trial){
   xlsxPut(sh,r,0,xlsxTxt('SCGL used by the projection (0 when not enabled)'));
   xlsxPut(sh,r,1,xlsxFml(`IF(${addr.scglOn.replace('Inputs!','')}="Yes",${addr.scgl.replace('Inputs!','')},0)`,st.scglEnabled===false?0:Math.max(0,Number(st.scgl)||0),XLSX_MONEY)); r++;
   put('Asset / basis swap',yn(!!st.basisSwap),{note:'Years before last passing: '+(st.basisSwapYears==null?BASIS_SWAP_YEARS_DEFAULT:st.basisSwapYears)});
-  { const pw=st.pfWithdraw||{}; put('Portfolio withdraw (every non-IDGT portfolio)',yn(!!pw.enabled),{note:'Fills the '+(pw.ltcgPct>=20?'20% (no limit)':(pw.ltcgPct>=15?'15%':'0%'))+' LTCG bracket'}); }
+  { const pw=st.pfWithdraw||{}; put('Portfolio withdraw (every non-IDGT portfolio)',yn(!!pw.enabled),{note:'Fills the '+(pw.ltcgPct>=20?'20% (no limit)':(pw.ltcgPct>=15?'15%':'0%'))+' LTCG bracket; '+(pw.acceptNiit?'NIIT accepted':'kept under the NIIT threshold')+'; '+(pw.acceptTorpedo?'Social Security tax torpedo accepted':'taxable Social Security not raised')}); }
   
   put('Speculative future exemptions and brackets (NIIT thresholds) enabled',yn(st.futureTax&&st.futureTax.enabled),{key:'futOn'});
   names.push({Name:'FutNIIT_On',Ref:`Inputs!$B$${r}`});
@@ -380,7 +380,7 @@ function xlsxRealGrowthFormula(modeCell,valCell,change,inflation){
 // Read-only: it only reads proj.rates / proj.inflRate (recorded by computeProjection) and the trial view; never writes into `state`.
 function xlsxTrialContext(){
   if(typeof mcShowingTrial!=='function'||!mcShowingTrial()||typeof mcTrialView==='undefined'||!mcTrialView) return null;
-  return {n:mcTrialView.trial+1, view:mcTrialView.view, state:mcTrialView.state};
+  return {n:mcTrialView.trial+1, view:mcTrialView.view, state:mcTrialView.state, label:mcTrialView.view==='D'?'STRESS TEST "'+(mcTrialView.d&&mcTrialView.d.label||'')+'"':'MONTE CARLO TRIAL #'+(mcTrialView.trial+1)};
 }
 // Builds the "MC trial" sheet. Returns null when the projection carries no recorded path (then the export stays as for a plan).
 function xlsxTrialSheet(proj,trial,inAddr){
@@ -415,7 +415,7 @@ function xlsxTrialSheet(proj,trial,inAddr){
   const Fval=(a,k)=>{ const r=rateAt(a,k), b=baseAt(a.change,k); return (r==null||!(1+b>0))?1:(1+r)/(1+b); };   // no recorded rate that year: the plan's own rate
   const gval=(a,k)=>{ const r=rateAt(a,k); return r==null?baseAt(a.change,k):r; };
   const sh=xlsxSheet();
-  xlsxPut(sh,0,0,xlsxTxt(`Monte Carlo trial #${trial.n} (${trial.view==='C'?'a successful run':'trial view B'}): this trial's random path. Edit an inflation rate or a shock factor and the Projection and account sheets recalculate. A shock factor of 1 = the plan's own return that year.`));
+  xlsxPut(sh,0,0,xlsxTxt(`${trial.view==='D'?'Stress test':'Monte Carlo trial #'+trial.n} (${trial.view==='D'?'view D':(trial.view==='C'?'a successful run':'trial view B')}): this ${trial.view==='D'?'scenario\'s':'trial\'s random'} path. Edit an inflation rate or a shock factor and the Projection and account sheets recalculate. A shock factor of 1 = the plan's own return that year.`));
   xlsxPut(sh,1,0,xlsxTxt('Columns labelled "trial input" are the trial\'s draws. Real growth = (1 + the plan\'s real rate from Inputs) × shock factor − 1; a nominal fixed / custom rate is re-priced by the year\'s inflation.'));
   const cols=[
     {key:'year',head:'Year',kind:'f',fmt:XLSX_YEAR,v:r=>THIS_YEAR+r.k,f:(X,idx)=>idx===0?'BaseYear':`${X('year',-1)}+1`},
@@ -859,7 +859,7 @@ function xlsxBuildWorkbook(proj,trial){
   const acct=xlsxAccountSheets(proj,inputs.addr,T);
   const cols=xlsxMainColumns(proj,acct,T);
   const main=xlsxSheet();
-  xlsxPut(main,0,0,xlsxTxt('Projection by year (today\'s $)'+(T?`, Monte Carlo trial #${trial.n}`:'')+'. Row 4 says whether a column is an Excel formula or a value solved by the app; formulas read the Inputs and Tax tables sheets'+(T?', the MC trial sheet':'')+' and the account sheets.'));
+  xlsxPut(main,0,0,xlsxTxt('Projection by year (today\'s $)'+(T?`, ${trial.view==='D'?'stress test':'Monte Carlo trial #'+trial.n}`:'')+'. Row 4 says whether a column is an Excel formula or a value solved by the app; formulas read the Inputs and Tax tables sheets'+(T?', the MC trial sheet':'')+' and the account sheets.'));
   const t=xlsxTable(main,2,cols,proj.rows);
   const sheets=[{name:'Inputs',ws:inputs.ws},{name:'Tax tables',ws:tax.ws}].concat(T?[{name:T.name,ws:T.ws,_t:T.t,_cols:T.cols}]:[]).concat([{name:'Projection by year',ws:xlsxFinish(main),_t:t,_cols:cols}]);
   acct.forEach(s=>sheets.push({name:s.name,ws:s.type==='annuity'?xlsxAoa(s.rows):s.ws,_t:s.t,_cols:s.cols,_items:s.items}));
@@ -882,5 +882,5 @@ function exportToExcel(){
   const wb=XLSX.utils.book_new();
   built.sheets.forEach(s=>XLSX.utils.book_append_sheet(wb,s.ws,s.name));
   wb.Workbook={Names:built.names, CalcPr:{fullCalcOnLoad:true}};
-  XLSX.writeFile(wb,(typeof mcShowingTrial==='function'&&mcShowingTrial())?'retirement-plan-mc-trial-'+(mcTrialView.trial+1)+'.xlsx':'retirement-plan.xlsx');
+  XLSX.writeFile(wb,(typeof mcShowingTrial==='function'&&mcShowingTrial())?(mcTrialView.view==='D'?'retirement-plan-stress-test.xlsx':'retirement-plan-mc-trial-'+(mcTrialView.trial+1)+'.xlsx'):'retirement-plan.xlsx');
 }

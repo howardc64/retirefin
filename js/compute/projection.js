@@ -1088,8 +1088,16 @@ function computeProjection(){
       const j=e.pct>=20?-1:(e.pct>=15?1:0), top=j<0?Infinity:qBrk[j].lim;
       const hi=wdRoom(e);
       if(!(hi>0)) return;
-      if(!isFinite(top)){ setWd(e,hi); return; }
-      const slack=w=>{ setWd(e,w); const r=solveTax(rothConvTotal); return top-(r.tx.ordTI+r.tx.qualTaxable); };
+      // "Accept NIIT" unchecked (default): the sale must also keep MAGI (AGI) at or under the NIIT threshold, so it adds no Net Investment Income Tax. A portfolio with no
+      // unrealized gain realizes nothing (no new net investment income), so it is not capped by NIIT.
+      const niitTop=(!state.pfWithdraw.acceptNiit&&e.x.f>0)?niitThreshold(filing,ssThresholdFactor,state.futureTax,THIS_YEAR+k):Infinity;
+      // "Accept Social Security tax torpedo" unchecked (default): the sale must not raise this year's taxable Social Security above what it is before this portfolio sells
+      // (a sale's LTCG is in provisional income, so inside the 50% / 85% phase-in each extra dollar makes up to 85c of Social Security taxable). Taxable SS only rises with the sale,
+      // so the limit is the value at w = 0. Once taxable SS is already at its cap (85%), or provisional income is under the base threshold, there is room up to that point.
+      const noTorpedo=!state.pfWithdraw.acceptTorpedo&&totalSS>0;
+      if(!isFinite(top)&&!isFinite(niitTop)&&!noTorpedo){ setWd(e,hi); return; }
+      let ssTop=Infinity; if(noTorpedo){ setWd(e,0); ssTop=solveTax(rothConvTotal).tx.taxableSS+0.01; }
+      const slack=w=>{ setWd(e,w); const r=solveTax(rothConvTotal); return Math.min(isFinite(top)?top-(r.tx.ordTI+r.tx.qualTaxable):Infinity, isFinite(niitTop)?niitTop-r.tx.agi:Infinity, ssTop-r.tx.taxableSS); };
       let a=0, fa=slack(0);
       if(fa<0){ setWd(e,0); return; }                       // already over the bracket before selling anything
       let b=hi, fb=slack(b);

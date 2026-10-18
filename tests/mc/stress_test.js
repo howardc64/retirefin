@@ -1,0 +1,55 @@
+// Stress tests (compute/stressTest.js). Run from the app folder:  PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/stress_test.js
+const {makeCtx,loadPlan,run}=require('./mc_harness');
+const plan=JSON.parse(require('fs').readFileSync(process.env.PLAN,'utf8'));
+const ctx=makeCtx(); loadPlan(ctx,plan);
+let fails=0; const ok=(c,m)=>{ console.log((c?'PASS ':'FAIL ')+m); if(!c) fails++; };
+const J=x=>{ ctx.__x=x; return run(ctx,'__x'); };
+
+// helper: run a scenario given as data and return the engine rows' invested+property totals
+const totals=(scenJson,start,cfgPatch)=>{ ctx.__s=scenJson; ctx.__st=start; ctx.__cp=cfgPatch||{};
+  return run(ctx,`(()=>{const cfg=JSON.parse(JSON.stringify(ST_DEFAULTS)); Object.assign(cfg,__cp); const p=stRun(__s,__st,cfg); const m=mcMeasure(p,{pass:[0,0],ltcYears:[0,0]}); return {fin:Array.from(m.fin),re:Array.from(m.re),failK:m.failK,tax:m.lifeTax,n:m.n,rows:p.rows.length}})()`); };
+const maxdiff=(a,b)=>Math.max(...a.map((x,i)=>Math.abs(x-b[i])));
+
+// 1. scenario that equals the plan's own assumptions == deterministic projection
+const ref=totals(null,0);
+const plain=run(ctx,`(()=>{const p=computeProjection(); const m=mcMeasure(p,{pass:[0,0],ltcYears:[0,0]}); return {fin:Array.from(m.fin),n:m.n}})()`);
+ok(ref.n===plain.n&&maxdiff(ref.fin,plain.fin)<1e-9,'stRun(null) == computeProjection()');
+// a scenario whose "equity" return equals the plan's own nominal rate and inflation == plan inflation must not move anything
+// (use equityShare 0: nothing is hit, only the inflation path is the plan's)
+const noop=totals({eq:[-0.5,-0.5,-0.5],infl:null},0,{equityShare:0});
+ok(noop.n===plain.n&&maxdiff(noop.fin,plain.fin)<1e-6,'equityShare 0 and plan inflation == deterministic (max diff '+maxdiff(noop.fin,plain.fin).toExponential(1)+')');
+
+// 2. a -30% year on Day 1 lowers invested assets from year 0 on; a +0% real year (return == inflation) is neutral for a plan whose growth is "inflation + 0"
+const crash=totals({eq:[-0.3],infl:null},0);
+ok(crash.fin[0]<plain.fin[0]&&crash.fin[5]<plain.fin[5],'-30% in year 0 lowers invested assets (yr0 '+Math.round(plain.fin[0])+' -> '+Math.round(crash.fin[0])+')');
+
+// 3. sequence matters: same 3 returns, reversed order, same ending only without withdrawals — with withdrawals bad-first is worse
+const bad=totals({eq:[-0.3,0.0,0.3],infl:null},0), good=totals({eq:[0.3,0.0,-0.3],infl:null},0);
+const last=a=>a.fin[a.fin.length-1];
+ok(bad.fin[3]<=good.fin[3]+1e-6,'losses first leave less than gains first (yr3 '+Math.round(bad.fin[3])+' vs '+Math.round(good.fin[3])+')');
+
+// 4. exact real-rate arithmetic of the hook
+const h=run(ctx,`(()=>{const mean=state.inflation; const infl=stInflation({infl:[0.08,0.10],eq:[0,0]},2,mean,10); const hk=stHook({eq:[0,0.05]},2,mean,infl,1);
+ return {pi:Array.from(infl.pi).slice(0,5), mean, r0:hk(0.03,'pf:x',2,{mode:'custom',value:5}), r1:hk(0.03,'pf:x',3,{mode:'custom',value:5}), re:hk(0.03,'re:x',2,{mode:'custom',value:5}), out:hk(0.03,'pf:x',5,{mode:'custom',value:5}), cpi2:infl.cpi[3]/infl.cpi[2]}})()`);
+ok(Math.abs(h.r0-(1/1.08-1))<1e-12,'year of 0% nominal return with 8% inflation = '+(h.r0*100).toFixed(2)+'% real');
+ok(Math.abs(h.r1-(1.05/1.10-1))<1e-12,'+5% nominal with 10% inflation = '+(h.r1*100).toFixed(2)+'% real');
+ok(Math.abs(h.re-((1.03)*(1+h.mean)/1.08-1))<1e-12,'property keeps the plan\'s nominal rate, repriced by the scenario inflation');
+ok(Math.abs(h.out-0.03)<1e-12,'outside the window the plan\'s own real rate is back');
+ok(Math.abs(h.pi[2]-0.08)<1e-12&&Math.abs(h.pi[1]-h.mean)<1e-12&&Math.abs(h.cpi2-1.08)<1e-12,'inflation path placed at the start row; plan\'s rate elsewhere');
+
+// 5. more inflation with flat nominal stocks is worse than the same stocks at plan inflation
+const flatPlanInfl=totals({eq:Array(10).fill(0),infl:null},0), flatHighInfl=totals({eq:Array(10).fill(0),infl:Array(10).fill(0.09)},0);
+ok(flatHighInfl.fin[9]<flatPlanInfl.fin[9],'flat stocks + 9% inflation ends the decade lower than flat stocks at plan inflation ('+Math.round(flatHighInfl.fin[9])+' vs '+Math.round(flatPlanInfl.fin[9])+')');
+
+// 6. full run: the three scenarios, retirement row, summaries
+const all=J(run(ctx,`(()=>{const r=stRunAll(JSON.parse(JSON.stringify(ST_DEFAULTS))); return {start:r.start,startAge:r.startAge,base:{failAge:r.base.failAge,estate:r.baseEstate},res:r.results.map(x=>({id:x.id,label:x.label,failAge:x.m.failAge,estate:x.estate,atEnd:x.atEnd,planAtEnd:x.planAtEnd,low:x.low,lowAge:x.lowAge,gap:x.gapYears,short:x.m.shortfall}))}})()`));
+console.log(JSON.stringify(all,null,1));
+ok(all.res.length===3,'three scenarios by default');
+ok(all.res.every(r=>r.atEnd==null||r.atEnd<=r.planAtEnd+1e-6),'every stress ends its shock window at or below the plan');
+ok(all.start>=0,'start row '+all.start+' (age '+all.startAge.toFixed(1)+')');
+// 7. start modes
+const modes=J(run(ctx,`(()=>{const c=JSON.parse(JSON.stringify(ST_DEFAULTS)); const b=stRun(null,0,c); const o=[]; for(const m of ['now','retire','custom']){ c.start={mode:m,years:7}; o.push(stStartRow(c,b)); } return o})()`));
+ok(modes[0]===0&&modes[2]===7,'start modes now / custom = '+modes[0]+' / '+modes[2]+' (retire = '+modes[1]+')');
+// 8. reproducible and state untouched
+const before=run(ctx,'JSON.stringify(state)'); run(ctx,'stRunAll(JSON.parse(JSON.stringify(ST_DEFAULTS)))'); ok(run(ctx,'JSON.stringify(state)')===before&&run(ctx,'MC_HOOK===null&&MC_INFL===null&&REC_RATES===true'),'plan state and engine hooks restored after a run');
+console.log(fails?('\n'+fails+' FAILED'):'\nall passed'); process.exit(fails?1:0);

@@ -308,7 +308,19 @@ function updateChartInPlace(chart, labels, datasets){
       for(const k in newDs){ if(k!=='data') oldDs[k]=newDs[k]; }
     }
   } else {
-    chart.data.datasets = datasets;
+    // The list changed length (a conditional line such as IRMAA or State tax appears or goes, e.g. when an input moves MAGI across an IRMAA tier). Replacing the
+    // whole array would make Chart.js rebuild every dataset (it matches its per-dataset state by object identity) and the chart would redraw from the baseline.
+    // Instead keep each existing dataset object, matched by label, and give it the new data and options: the surviving lines tween, only the new line is drawn fresh.
+    const pool=new Map(); D.forEach(d=>{ if(!pool.has(d.label)) pool.set(d.label,[]); pool.get(d.label).push(d); });
+    chart.data.datasets = datasets.map(nd=>{
+      const q=pool.get(nd.label), od=q&&q.length?q.shift():null;
+      if(!od) return nd;
+      const oldData=od.data, newData=nd.data;
+      if(Array.isArray(oldData) && Array.isArray(newData) && oldData.length===newData.length){ for(let j=0;j<newData.length;j++) oldData[j]=newData[j]; }
+      else od.data=newData;
+      for(const k in nd){ if(k!=='data') od[k]=nd[k]; }
+      return od;
+    });
   }
 }
 
