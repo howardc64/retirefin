@@ -95,17 +95,17 @@ function xlsxFinish(sh,o){
 }
 // Number formats (width.decimals): dollars 9.2 ($1,234,567.89), ages and percents 3.1 (65.0, 12.5%), years / counts whole numbers.
 // Dollars are the default for any numeric table column that does not name another format.
-const XLSX_MONEY='$#,##0.00', XLSX_PCT='0.0%', XLSX_AGE='0.0', XLSX_YEAR='0', XLSX_COUNT='0', XLSX_PCTNUM='0.0"%"';
+const XLSX_MONEY='$#,##0.00', XLSX_PCT='0.0%', XLSX_PCT2='0.00%', XLSX_AGE='0.0', XLSX_YEAR='0', XLSX_COUNT='0', XLSX_PCTNUM='0.0"%"';
 
 // Generic table: row `top` = column type labels ("formula" / "app value"), top+1 = headers, data below.
-// col = {key, head, kind:'v'|'f', fmt, text, v:(row,idx)=>value, f:(X,idx,R)=>formula string or null (null → falls back to the value)}
+// col = {key, head, kind:'v'|'f', fmt, text, tag, v:(row,idx)=>value, f:(X,idx,R,row)=>formula string or null (null → falls back to the value)}   (tag overrides the "formula" / "app value" label above the header)
 function xlsxTable(sh, top, cols, rows, opts){
   opts=opts||{};
   const letter={}; cols.forEach((c,i)=>letter[c.key]=xlsxCol(i));
   const dataTop=top+2;
   sh.skipRows=sh.skipRows||new Set(); sh.skipRows.add(top); sh.skipRows.add(top+1);   // header rows never set a column's width
   cols.forEach((c,i)=>{
-    xlsxPut(sh,top,i,xlsxTxt(c.kind==='f'?'formula':'app value'));
+    xlsxPut(sh,top,i,xlsxTxt(c.tag||(c.kind==='f'?'formula':'app value')));
     xlsxPut(sh,top+1,i,xlsxTxt(c.head));
   });
   rows.forEach((row,idx)=>{
@@ -247,9 +247,9 @@ function xlsxFieldFmt(key){
 }
 // ═══ Inputs sheet ════════════════════════════════════════════════════════════════════════════════
 // Every assumption / input of the saved plan, laid out label | value | note. `addr(name)` finds a cell for the account sheets.
-function xlsxInputsSheet(proj){
+function xlsxInputsSheet(proj,trial){
   const sh=xlsxSheet(), names=[], addr={}; let r=0;
-  const st=state;
+  const st=trial?trial.state:state;   // a Monte Carlo trial is replayed on its own copy of the plan: its drawn passing ages, care and inheritance
   const put=(label,value,o)=>{
     o=o||{};
     xlsxPut(sh,r,0,xlsxTxt(label));
@@ -266,10 +266,11 @@ function xlsxInputsSheet(proj){
   const inhNote=o=>(o&&o.inh)?{note:`Inherited from ${o.inh.file||'another plan'}: enters the plan in ${Number(o.startYear)||'its start year'}; the balance is its value then (today's $)`}:undefined;
   xlsxPut(sh,r++,0,xlsxTxt('INPUTS & ASSUMPTIONS of the saved plan (all money in today\'s $). Cells marked as a name below are used by formulas in the other sheets; the rest document the plan the app solved.')); 
   xlsxPut(sh,r++,0,xlsxTxt('Changing a named cell here recalculates the formula columns, but the income / expense-funding / Roth-conversion amounts on "Projection by year" are the app\'s solved values: re-export after changing the plan in the app for those.'));
+  if(trial){ xlsxPut(sh,r++,0,xlsxTxt(`MONTE CARLO TRIAL #${trial.n}: the passing ages, Long Term Care and inheritance below are this trial's random draws; its yearly inflation and market returns are on the "MC trial" sheet.`)); }
   head('General (filing status, inflation; passing ages are under each person)');
   put('Filing status',st.filingStatus==='married'?'Married (MFJ)':'Single',{key:'filing'});
   put('Year 0 (first projected year)',THIS_YEAR,{name:'BaseYear',fmt:XLSX_YEAR});
-  put('Inflation (SS COLA assumed equal)',st.inflation,{name:'Inflation',fmt:'0.00%',key:'inflation'});
+  put(trial?'Inflation (SS COLA assumed equal): the plan\'s average rate':'Inflation (SS COLA assumed equal)',st.inflation,{name:'Inflation',fmt:'0.00%',key:'inflation',note:trial?'This trial\'s inflation varies by year: see the MC trial sheet':undefined});
   head('Expenses');
   put('Household living expenses / yr',Number(st.living)||0,{fmt:XLSX_MONEY,key:'living'});
   const ltc=st.ltc||{};
@@ -368,6 +369,72 @@ function xlsxRealGrowthFormula(modeCell,valCell,change,inflation){
   return {f, cached};
 }
 
+// ═══ Monte Carlo trial ═══════════════════════════════════════════════════════════════════════════
+// While a Monte Carlo trial is on screen (B / C in the trial banner) the export is THAT trial, and it is a live model too. A trial differs from the plan in four ways:
+//   • its own lifespans, Long Term Care and inheritance        → the Inputs sheet is written from the trial's private copy of the plan (mcTrialView.state);
+//   • a price level that moves year by year                    → "MC trial" sheet: inflation of each year, the price level and the deflator the Projection formulas use;
+//   • a market shock for every asset in every year             → "MC trial" sheet: the shock factor (a value, the trial's draw) and the real growth rate = (1 + the plan's rate) × factor − 1,
+//     where the plan's rate is a formula of the Inputs growth cell (a nominal "fixed" / "custom" rate is re-priced by that year's inflation, as the engine does);
+//   • the account roll-forwards compound with those yearly rates (a "Real growth this year" column on each account sheet) instead of one constant rate.
+// So editing a growth % on Inputs, or an inflation / shock cell on the MC trial sheet, flows through the balances and the tax chain. The solver-driven amounts stay the app's values.
+// Read-only: it only reads proj.rates / proj.inflRate (recorded by computeProjection) and the trial view; never writes into `state`.
+function xlsxTrialContext(){
+  if(typeof mcShowingTrial!=='function'||!mcShowingTrial()||typeof mcTrialView==='undefined'||!mcTrialView) return null;
+  return {n:mcTrialView.trial+1, view:mcTrialView.view, state:mcTrialView.state};
+}
+// Builds the "MC trial" sheet. Returns null when the projection carries no recorded path (then the export stays as for a plan).
+function xlsxTrialSheet(proj,trial,inAddr){
+  const rows=proj.rows, rates=proj.rates, pis=proj.inflRate;
+  if(!rates||!pis||!rows.length) return null;
+  const mean=proj.inflation!=null?proj.inflation:state.inflation, SHEET='MC trial';
+  const pi=rows.map((r,k)=>(typeof pis[k]==='number'&&isFinite(pis[k]))?pis[k]:mean);
+  const cpi=[1]; for(let k=1;k<rows.length;k++) cpi.push(cpi[k-1]*(1+pi[k-1]));
+  // Every growing asset that has an account sheet, with the key the engine records its yearly rate under (gk() in projection.js).
+  const found=[], add=(key,label,change,valCell)=>found.push({key,label,change,valCell});
+  proj.people.forEach((p,i)=>{
+    const who=displayPersonName(p,i);
+    (p.brokerage||[]).forEach((b,bi)=>{ if(b.enabled===false) return; add('pf:'+b.id,`${who} - ${(b.name&&b.name.trim())||('Portfolio '+(bi+1))}`,b.growth,inAddr[`pf${i}_${bi}GVal`]); });
+    (p.realEstate||[]).forEach((r,ri)=>{ if(r.enabled===false||!(Number(r.balance)>0)) return; add('re:'+r.id,`${who} - ${(r.name&&r.name.trim())||('Property '+(ri+1))}`,r.growth,inAddr[`re${i}_${ri}GVal`]); });
+    if(p.ira&&p.ira.enabled) add('ira:'+p.id,`${who} - Pre-tax IRA`,p.ira.growth,inAddr[`ira${i}GVal`]);
+    if(p.roth&&p.roth.enabled) add('roth:'+p.id,`${who} - Roth IRA`,p.roth.growth,inAddr[`roth${i}GVal`]);
+    (p.inhIras||[]).forEach((x,ii)=>{ if(x.enabled===false||!(Number(x.balance)>0)) return;
+      add('inh:'+i+':'+((x.name&&x.name.trim())||''),`${who} - ${(x.name&&x.name.trim())||('Inherited IRA '+(ii+1))}`,x.growth,inAddr[`inh${i}_${ii}GVal`]); });
+  });
+  const count={}; found.forEach(a=>{ count[a.key]=(count[a.key]||0)+1; });
+  // two inherited IRAs with the same name share one key (and one recorded rate): they keep the constant-rate treatment
+  const assets=found.filter(a=>count[a.key]===1&&a.valCell&&rows.some((r,k)=>rates[k]&&typeof rates[k][a.key]==='number'));
+  const byKey={}; assets.forEach((a,j)=>{ a.j=j; byKey[a.key]=a; });
+  // The plan's real rate for year k. 'fixed' / 'custom' are nominal: re-priced by that year's inflation (the engine's MC hook); the other modes keep their real rate.
+  const baseAt=(ch,k)=>(ch&&(ch.mode==='fixed'||ch.mode==='custom'))?realGrowth(ch,pi[k]):realGrowth(ch,mean);
+  const baseF=(ch,valCell,piRef)=>{ const m=ch&&ch.mode;
+    if(m==='custom') return `(1+${valCell}/100)/(1+${piRef})-1`;
+    if(m==='fixed') return `1/(1+${piRef})-1`;
+    if(m==='offset') return `${valCell}/100/(1+Inflation)`;
+    return '0'; };
+  const rateAt=(a,k)=>(rates[k]&&typeof rates[k][a.key]==='number')?rates[k][a.key]:null;
+  const Fval=(a,k)=>{ const r=rateAt(a,k), b=baseAt(a.change,k); return (r==null||!(1+b>0))?1:(1+r)/(1+b); };   // no recorded rate that year: the plan's own rate
+  const gval=(a,k)=>{ const r=rateAt(a,k); return r==null?baseAt(a.change,k):r; };
+  const sh=xlsxSheet();
+  xlsxPut(sh,0,0,xlsxTxt(`Monte Carlo trial #${trial.n} (${trial.view==='C'?'a successful run':'trial view B'}): this trial's random path. Edit an inflation rate or a shock factor and the Projection and account sheets recalculate. A shock factor of 1 = the plan's own return that year.`));
+  xlsxPut(sh,1,0,xlsxTxt('Columns labelled "trial input" are the trial\'s draws. Real growth = (1 + the plan\'s real rate from Inputs) × shock factor − 1; a nominal fixed / custom rate is re-priced by the year\'s inflation.'));
+  const cols=[
+    {key:'year',head:'Year',kind:'f',fmt:XLSX_YEAR,v:r=>THIS_YEAR+r.k,f:(X,idx)=>idx===0?'BaseYear':`${X('year',-1)}+1`},
+    {key:'pi',head:'Inflation rate this year (this trial\'s path)',kind:'v',tag:'trial input',fmt:XLSX_PCT2,v:(r,idx)=>pi[idx]},
+    {key:'cpi',head:'Price level at the start of the year = prior level × (1 + prior year\'s inflation)',kind:'f',fmt:'0.0000',v:(r,idx)=>cpi[idx],f:(X,idx)=>idx===0?'1':`${X('cpi',-1)}*(1+${X('pi',-1)})`},
+    {key:'defl',head:'Inflation deflator = 1 / price level (the Projection sheet\'s deflator column reads this)',kind:'f',fmt:'0.0000',v:(r,idx)=>1/cpi[idx],f:X=>`1/${X('cpi')}`}
+  ];
+  assets.forEach(a=>{
+    cols.push({key:'F'+a.j,head:`Market shock factor, ${a.label} (this trial; mean 1)`,kind:'v',tag:'trial input',fmt:'0.0000',v:(r,idx)=>Fval(a,idx)});
+    cols.push({key:'g'+a.j,head:`Real growth, ${a.label} = (1 + plan rate) × shock factor − 1`,kind:'f',fmt:XLSX_PCT2,v:(r,idx)=>gval(a,idx),
+      f:X=>`(1+${baseF(a.change,a.valCell,X('pi'))})*${X('F'+a.j)}-1`});
+  });
+  const t=xlsxTable(sh,2,cols,rows);
+  const ref=(col,k)=>`'${SHEET}'!$${t.letter[col]}$${t.firstRow+k}`;
+  return {name:SHEET, ws:xlsxFinish(sh,{minW:12}), t, cols,
+    has:key=>!!byKey[key], gVal:(key,k)=>gval(byKey[key],k), gRef:(key,k)=>ref('g'+byKey[key].j,k),
+    deflVal:k=>1/cpi[k], deflRef:k=>ref('defl',k)};
+}
+
 // ═══ Per-account sheets ══════════════════════════════════════════════════════════════════════════
 function xlsxAccountHeader(sh,title,growth,startAddr,startVal){
   xlsxPut(sh,0,0,xlsxTxt(title));
@@ -375,8 +442,8 @@ function xlsxAccountHeader(sh,title,growth,startAddr,startVal){
   xlsxPut(sh,1,1,xlsxFml(growth.f,growth.cached,XLSX_PCT));
   if(startAddr){ xlsxPut(sh,2,0,xlsxTxt('Starting balance (input)')); xlsxPut(sh,2,1,xlsxFml(startAddr,startVal,XLSX_MONEY)); }
 }
-function xlsxPortfolioSheet(proj,i,bi,inAddr){
-  const person=displayPersonName(proj.people[i],i), b=proj.people[i].brokerage[bi];
+function xlsxPortfolioSheet(proj,i,bi,inAddr,T){
+  const person=displayPersonName(proj.people[i],i), b=proj.people[i].brokerage[bi], gKey='pf:'+b.id, tg=!!(T&&T.has(gKey));   // tg: a Monte Carlo trial — growth comes from the MC trial sheet, year by year
   const sh=xlsxSheet();
   xlsxAccountHeader(sh,`${person} – portfolio ${bi+1}`,xlsxRealGrowthFormula(inAddr[`pf${i}_${bi}GMode`],inAddr[`pf${i}_${bi}GVal`],b.growth,proj.inflation||state.inflation),inAddr[`pf${i}_${bi}Bal`],Number(b.balance)||0);
   const rowsIn=proj.rows.filter(r=>r.portfoliosByPerson[i][bi]);
@@ -387,6 +454,7 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
     {key:'bal',head:'Balance (SOY)',v:r=>ent(r).balance},
     {key:'gr',head:'Growth %',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).growthPct)},
     {key:'ngr',head:'Net growth %',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).netGrowthPct!=null?ent(r).netGrowthPct:ent(r).growthPct)},
+    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: plan rate × this trial\'s market shock)',kind:'f',fmt:XLSX_PCT2,v:r=>T.gVal(gKey,r.k),f:(X,idx,R,r)=>T.gRef(gKey,r.k)}]:[]),
     {key:'fee',head:'AUM fee share',v:r=>ent(r).feeDrag},
     {key:'ltcg',head:'Realized LTCG (gross, before SCGL) = shares sold × gain share + distributed LTCG',v:r=>ent(r).ltcg},
     {key:'cgd',head:'  of which: Distributed LTCG (paid out; taxed whether or not shares are sold)',v:r=>ent(r).cgd||0},
@@ -403,15 +471,15 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr){
     {key:'exc',head:'Excess income reinvested',v:r=>ent(r).excessReinvested||0},
     {key:'te',head:'Tax-exempt income paid',v:r=>ent(r).taxExempt||0},
     {key:'roll',head:'Rolled-forward next-year balance = SOY × (1 + growth) − dividends used − shares sold − withdraws − tax-exempt paid + excess reinvested',kind:'f',
-      v:(r,idx)=>{ const e=ent(r); return Math.max(0,e.balance*(1+realGrowth(b.growth,proj.inflation||state.inflation))-e.divUsed-e.sold-(e.withdrawn||0)-(e.taxExempt||0)+(e.excessReinvested||0)); },
-      f:X=>`MAX(0,${X('bal')}*(1+$B$2)-${X('divu')}-${X('sold')}-${X('wdr')}-${X('te')}+${X('exc')})`}
+      v:(r,idx)=>{ const e=ent(r); return Math.max(0,e.balance*(1+(tg?T.gVal(gKey,r.k):realGrowth(b.growth,proj.inflation||state.inflation)))-e.divUsed-e.sold-(e.withdrawn||0)-(e.taxExempt||0)+(e.excessReinvested||0)); },
+      f:X=>`MAX(0,${X('bal')}*(1+${tg?X('g'):'$B$2'})-${X('divu')}-${X('sold')}-${X('wdr')}-${X('te')}+${X('exc')})`}
   ];
   const t=xlsxTable(sh,4,cols,rowsIn);
   return {sh, ws:xlsxFinish(sh), t, cols, items:rowsIn, type:'pf', i, bi, balCol:'bal', gainCol:'gain', idgt:!!b.idgt, name:null};
 }
 // One sheet per property: the value and cost basis each year, and — in the year it is sold — the gain, exemption, tax and the amount forwarded to the portfolio.
-function xlsxRealEstateSheet(proj,i,ri,inAddr){
-  const person=displayPersonName(proj.people[i],i), r0=proj.people[i].realEstate[ri];
+function xlsxRealEstateSheet(proj,i,ri,inAddr,T){
+  const person=displayPersonName(proj.people[i],i), r0=proj.people[i].realEstate[ri], gKey='re:'+r0.id, tg=!!(T&&T.has(gKey));
   const sh=xlsxSheet();
   xlsxAccountHeader(sh,`${person} – real estate: ${(r0.name&&r0.name.trim())||('Property '+(ri+1))}`,xlsxRealGrowthFormula(inAddr[`re${i}_${ri}GMode`],inAddr[`re${i}_${ri}GVal`],r0.growth,proj.inflation||state.inflation),inAddr[`re${i}_${ri}Val`],Number(r0.balance)||0);
   const ent=r=>r.realEstateByPerson[i][ri];
@@ -422,11 +490,12 @@ function xlsxRealEstateSheet(proj,i,ri,inAddr){
     {key:'age',head:`${person} age`,fmt:XLSX_AGE,v:r=>r.ages[i]},
     {key:'bal',head:'Value (SOY)',v:r=>ent(r).balance},
     {key:'gr',head:'Growth % (real)',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).growthPct)},
+    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: plan rate × this trial\'s property shock)',kind:'f',fmt:XLSX_PCT2,v:r=>T.gVal(gKey,r.k),f:(X,idx,R,r)=>T.gRef(gKey,r.k)}]:[]),
     {key:'basis',head:'Cost basis (SOY)',v:r=>ent(r).basis},
     {key:'gain',head:'Unrealized gain (SOY)',kind:'f',v:r=>Math.max(0,ent(r).balance-ent(r).basis),f:X=>`MAX(0,${X('bal')}-${X('basis')})`},
     {key:'bpct',head:'Basis % of value',kind:'f',fmt:XLSX_PCT,v:r=>ent(r).balance>0?ent(r).basis/ent(r).balance:'',f:X=>`IF(${X('bal')}<=0,"",${X('basis')}/${X('bal')})`},
     {key:'up',head:'Basis stepped up this year (owner passed, or spouse passed if jointly owned)',text:true,v:r=>ent(r).steppedUp?'Yes':''},
-    {key:'eoy',head:'Value at end of year = SOY × (1 + growth)',kind:'f',v:r=>ent(r).balance*(1+ent(r).growthPct/100),f:X=>`${X('bal')}*(1+$B$2)`},
+    {key:'eoy',head:'Value at end of year = SOY × (1 + growth)',kind:'f',v:r=>ent(r).balance*(1+(tg?T.gVal(gKey,r.k):ent(r).growthPct/100)),f:X=>`${X('bal')}*(1+${tg?X('g'):'$B$2'})`},
     {key:'sold',head:'Sold at the end of this year',text:true,v:r=>sale(r)?'Yes':''},
     {key:'sBas',head:'Cost basis at the sale (after the passing step-up, eroded by inflation)',v:r=>sale(r)?sale(r).basEnd:''},
     {key:'sEx',head:'Exemption used (per owner, eroded by inflation × owners alive)',v:r=>sale(r)?sale(r).exempt:''},
@@ -440,8 +509,9 @@ function xlsxRealEstateSheet(proj,i,ri,inAddr){
 // A person's own pre-tax IRA: iraByPerson / rothConvByPerson also carry the withdraws / conversions of the inherited IRAs that person holds (the 10-year rule), which leave those accounts, not this one.
 function ownRmd(r,i){ return Math.max(0,(r.iraByPerson[i]||0)-((r.inhIraWdByPerson&&r.inhIraWdByPerson[i])||0)); }
 function ownConv(r,i){ return r.convMainByPerson?(r.convMainByPerson[i]||0):(r.rothConvByPerson[i]||0); }
-function xlsxIraRothSheet(proj,i,isRoth,inAddr){
+function xlsxIraRothSheet(proj,i,isRoth,inAddr,T){
   const person=displayPersonName(proj.people[i],i), acct=isRoth?proj.people[i].roth:proj.people[i].ira, inf=proj.inflation||state.inflation;
+  const gKey=(isRoth?'roth:':'ira:')+proj.people[i].id, tg=!!(T&&T.has(gKey));   // heirs' stretch years always compound at the plan's constant rate (no market shock)
   const key=isRoth?'roth':'ira', sh=xlsxSheet();
   const g=realGrowth(acct.growth,inf);
   xlsxAccountHeader(sh,`${person} – ${isRoth?'Roth IRA':'Pre-tax IRA'}`,xlsxRealGrowthFormula(inAddr[`${key}${i}GMode`],inAddr[`${key}${i}GVal`],acct.growth,inf),inAddr[`${key}${i}Bal`],Number(acct.balance)||0);
@@ -454,8 +524,9 @@ function xlsxIraRothSheet(proj,i,isRoth,inAddr){
   const predicted=items.map((x,idx)=>{
     const prev=idx===0?(Number(acct.balance)||0):bal(items[idx-1]);
     if(x.heirs) return prev*(1+g);
+    const gy=tg?T.gVal(gKey,x.r.k):g;
     const rmd=ownRmd(x.r,i), conv=(isRoth?x.r.rothInByPerson[i]:ownConv(x.r,i))||0, ex=isRoth?(x.r.rothExpByPerson[i]||0):(x.r.iraExpByPerson[i]||0);
-    return isRoth?Math.max(0,prev+conv-ex)*(1+g):Math.max(0,prev-rmd-conv-ex)*(1+g);
+    return isRoth?Math.max(0,prev+conv-ex)*(1+gy):Math.max(0,prev-rmd-conv-ex)*(1+gy);
   });
   const cols=[
     {key:'year',head:'Year',fmt:XLSX_YEAR,v:x=>THIS_YEAR+x.r.k},
@@ -463,12 +534,14 @@ function xlsxIraRothSheet(proj,i,isRoth,inAddr){
     ...(isRoth?[]:[{key:'rmd',head:'RMD',v:x=>x.heirs?0:ownRmd(x.r,i)}]),
     {key:'conv',head:isRoth?'Converted in from pre-tax IRA (withdraws marked as Roth conversion)':'Pre-tax IRA annual withdraw',v:x=>x.heirs?0:((isRoth?x.r.rothInByPerson[i]:ownConv(x.r,i))||0)},
     {key:'ex',head:isRoth?'Roth IRA sold for expenses':'Pre-tax IRA withdraw for expenses',v:x=>x.heirs?0:(isRoth?(x.r.rothExpByPerson[i]||0):(x.r.iraExpByPerson[i]||0))},
+    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: plan rate × this trial\'s market shock)',kind:'f',fmt:XLSX_PCT2,v:x=>x.heirs?'':T.gVal(gKey,x.r.k),f:(X,idx,R,x)=>x.heirs?null:T.gRef(gKey,x.r.k)}]:[]),
     {key:'bal',head:isRoth?'Roth IRA balance (EOY) = (prior EOY + converted in − sold) × (1 + growth)':'Pre-tax IRA balance (EOY) = (prior EOY − RMD − annual withdraw − expense draw) × (1 + growth)',kind:'f',v:x=>bal(x),
       f:(X,idx)=>{
         if(Math.abs(predicted[idx]-bal(items[idx]))>1) return null;
         const prev=idx===0?'$B$3':X('bal',-1);
         if(items[idx].heirs) return `${prev}*(1+$B$2)`;
-        return isRoth?`MAX(0,${prev}+${X('conv')}-${X('ex')})*(1+$B$2)`:`MAX(0,${prev}-${X('rmd')}-${X('conv')}-${X('ex')})*(1+$B$2)`;
+        const gc=tg?X('g'):'$B$2';
+        return isRoth?`MAX(0,${prev}+${X('conv')}-${X('ex')})*(1+${gc})`:`MAX(0,${prev}-${X('rmd')}-${X('conv')}-${X('ex')})*(1+${gc})`;
       }},
     {key:'heirs',head:'After last passing (heirs)',text:true,v:x=>x.heirs?'Yes':''}
   ];
@@ -478,8 +551,9 @@ function xlsxIraRothSheet(proj,i,isRoth,inAddr){
 // One sheet per inherited IRA (Inheritance card): the withdraw each year under the 10-year rule and the end-of-year balance. The account is emptied by the end of the 10th year after
 // its start year. The withdraw is the app's solved value (RMD by the holder's age if the original owner had started RMDs, plus any annual withdraw / conversion, and everything left in
 // year 10); the balance is a formula where it reproduces the app's number (no conversion taken out of this account that year).
-function xlsxInheritedIraSheet(proj,i,ii,inAddr){
+function xlsxInheritedIraSheet(proj,i,ii,inAddr,T){
   const person=displayPersonName(proj.people[i],i), x=proj.people[i].inhIras[ii], isRoth=x.kind==='roth', inf=proj.inflation||state.inflation;
+  const gKey='inh:'+i+':'+((x.name&&x.name.trim())||''), tg=!!(T&&T.has(gKey));
   const ent=r=>(r.inhIraByPerson&&r.inhIraByPerson[i]||[])[ii];
   const items=proj.rows.filter(r=>{ const e=ent(r); return e&&e.live; }).map(r=>({r}));
   if(!items.length) return null;
@@ -487,13 +561,14 @@ function xlsxInheritedIraSheet(proj,i,ii,inAddr){
   xlsxAccountHeader(sh,`${person} – inherited ${isRoth?'Roth IRA':'pre-tax IRA'}: ${(x.name&&x.name.trim())||('Inherited IRA '+(ii+1))} (emptied by the end of the 10th year after ${Number(x.startYear)||'its start year'})`,
     xlsxRealGrowthFormula(inAddr[`inh${i}_${ii}GMode`],inAddr[`inh${i}_${ii}GVal`],x.growth,inf),inAddr[`inh${i}_${ii}Bal`],Number(x.balance)||0);
   const wd=y=>(ent(y.r).wd)||0, bal=y=>(ent(y.r).balance)||0;
-  const predicted=items.map((y,idx)=>Math.max(0,(idx===0?(Number(x.balance)||0):bal(items[idx-1]))-wd(y))*(1+g));
+  const predicted=items.map((y,idx)=>Math.max(0,(idx===0?(Number(x.balance)||0):bal(items[idx-1]))-wd(y))*(1+(tg?T.gVal(gKey,y.r.k):g)));
   const cols=[
     {key:'year',head:'Year',fmt:XLSX_YEAR,v:y=>THIS_YEAR+y.r.k},
     {key:'age',head:`${person} age`,fmt:XLSX_AGE,v:y=>y.r.ages[i]},
     {key:'wd',head:isRoth?'Withdraw (Roth: untaxed household cash)':'Withdraw (RMD / 10-year schedule; ordinary income)',v:y=>wd(y)},
+    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: plan rate × this trial\'s market shock)',kind:'f',fmt:XLSX_PCT2,v:y=>T.gVal(gKey,y.r.k),f:(X,idx,R,y)=>T.gRef(gKey,y.r.k)}]:[]),
     {key:'bal',head:'Balance (EOY) = (prior EOY − withdraw) × (1 + growth)',kind:'f',v:y=>bal(y),
-      f:(X,idx)=>{ if(Math.abs(predicted[idx]-bal(items[idx]))>1) return null; const prev=idx===0?'$B$3':X('bal',-1); return `MAX(0,${prev}-${X('wd')})*(1+$B$2)`; }}
+      f:(X,idx)=>{ if(Math.abs(predicted[idx]-bal(items[idx]))>1) return null; const prev=idx===0?'$B$3':X('bal',-1); return `MAX(0,${prev}-${X('wd')})*(1+${tg?X('g'):'$B$2'})`; }}
   ];
   const t=xlsxTable(sh,4,cols,items);
   return {sh, ws:xlsxFinish(sh), t, cols, type:isRoth?'inhroth':'inhira', i, balCol:'bal', name:null};
@@ -510,15 +585,15 @@ function xlsxAnnuitySheet(proj,i,ai){
 }
 
 // [{name, ...sheet}] for every enabled portfolio / annuity / IRA / Roth IRA, in person order.
-function xlsxAccountSheets(proj,inAddr){
-  const used=new Set(['inputs','tax tables','projection by year']), out=[];
+function xlsxAccountSheets(proj,inAddr,T){
+  const used=new Set(['inputs','tax tables','mc trial','projection by year']), out=[];
   proj.people.forEach((p,i)=>{
     const person=displayPersonName(p,i);
     (p.brokerage||[]).forEach((b,bi)=>{
       if(b.enabled===false) return;
       const e=proj.rows.length&&proj.rows[0].portfoliosByPerson[i][bi];
       const nm=(e&&e.name)||('Portfolio '+(bi+1));
-      const sh=xlsxPortfolioSheet(proj,i,bi,inAddr); sh.name=xlsxSheetName(`${person} - ${nm}${b.idgt?' (IDGT)':''}`,used); out.push(sh);
+      const sh=xlsxPortfolioSheet(proj,i,bi,inAddr,T); sh.name=xlsxSheetName(`${person} - ${nm}${b.idgt?' (IDGT)':''}`,used); out.push(sh);
     });
     (p.annuities||[]).forEach((a,ai)=>{
       if(a.enabled===false||!(Number(a.value)>0)) return;
@@ -526,13 +601,13 @@ function xlsxAccountSheets(proj,inAddr){
     });
     (p.realEstate||[]).forEach((r,ri)=>{
       if(r.enabled===false||!(Number(r.balance)>0)) return;
-      const sh=xlsxRealEstateSheet(proj,i,ri,inAddr); sh.name=xlsxSheetName(`${person} - ${(r.name&&r.name.trim())||('Property '+(ri+1))} (real estate)`,used); out.push(sh);
+      const sh=xlsxRealEstateSheet(proj,i,ri,inAddr,T); sh.name=xlsxSheetName(`${person} - ${(r.name&&r.name.trim())||('Property '+(ri+1))} (real estate)`,used); out.push(sh);
     });
-    if(p.ira&&p.ira.enabled){ const sh=xlsxIraRothSheet(proj,i,false,inAddr); sh.name=xlsxSheetName(`${person} - Pre-tax IRA`,used); out.push(sh); }
-    if(p.roth&&p.roth.enabled){ const sh=xlsxIraRothSheet(proj,i,true,inAddr); sh.name=xlsxSheetName(`${person} - Roth IRA`,used); out.push(sh); }
+    if(p.ira&&p.ira.enabled){ const sh=xlsxIraRothSheet(proj,i,false,inAddr,T); sh.name=xlsxSheetName(`${person} - Pre-tax IRA`,used); out.push(sh); }
+    if(p.roth&&p.roth.enabled){ const sh=xlsxIraRothSheet(proj,i,true,inAddr,T); sh.name=xlsxSheetName(`${person} - Roth IRA`,used); out.push(sh); }
     (p.inhIras||[]).forEach((x,ii)=>{
       if(x.enabled===false||!(Number(x.balance)>0)) return;
-      const sh=xlsxInheritedIraSheet(proj,i,ii,inAddr); if(!sh) return;
+      const sh=xlsxInheritedIraSheet(proj,i,ii,inAddr,T); if(!sh) return;
       sh.name=xlsxSheetName(`${person} - ${(x.name&&x.name.trim())||('Inherited IRA '+(ii+1))} (inh ${x.kind==='roth'?'Roth':'IRA'})`,used); out.push(sh);
     });
   });
@@ -540,7 +615,7 @@ function xlsxAccountSheets(proj,inAddr){
 }
 
 // ═══ Projection by year ══════════════════════════════════════════════════════════════════════════
-function xlsxMainColumns(proj,acctSheets){
+function xlsxMainColumns(proj,acctSheets,T){
   const married=proj.married, n=married?2:1, inf=proj.inflation||state.inflation;
   const cols=[]; const add=c=>cols.push(c);
   const V=(key,head,get,fmt)=>add({key,head,kind:'v',fmt,v:get});
@@ -559,7 +634,7 @@ function xlsxMainColumns(proj,acctSheets){
   V('age0',ageAxisLabel(proj),r=>r.age0,XLSX_AGE);
   per('ages','Age','age',null); cols.slice(-n).forEach(c=>c.fmt=XLSX_AGE);
   add({key:'filing',head:'Filing status',kind:'v',text:true,v:r=>r.filing==='married'?'Married (MFJ)':'Single'});
-  F('f','Inflation deflator (statutory un-indexed amounts shrink by this in today\'s $)',r=>Math.pow(1+inf,-r.k),X=>`(1+Inflation)^-(${X('year')}-BaseYear)`,'0.0000');
+  F('f','Inflation deflator (statutory un-indexed amounts shrink by this in today\'s $)',r=>T?T.deflVal(r.k):Math.pow(1+inf,-r.k),(X,idx)=>T?T.deflRef(idx):`(1+Inflation)^-(${X('year')}-BaseYear)`,'0.0000');   // a trial: 1 / the trial\'s price level (MC trial sheet)
   per('wageByPerson','Wage','wage');
   F('wageT','Wage total',r=>r.wageTotal,X=>sumF(X,'wage'));
   per('ssByPerson','Social Security (SS)','ss');
@@ -777,15 +852,16 @@ function chartTotalIncome(r){
 }
 
 // Builds every sheet. Returns {sheets:[{name,ws}], names[], calc} — shared by exportToExcel() and the Node test harness.
-function xlsxBuildWorkbook(proj){
+function xlsxBuildWorkbook(proj,trial){
   proj.inflation=proj.inflation!=null?proj.inflation:state.inflation;
-  const inputs=xlsxInputsSheet(proj), tax=xlsxTaxSheet();
-  const acct=xlsxAccountSheets(proj,inputs.addr);
-  const cols=xlsxMainColumns(proj,acct);
+  const inputs=xlsxInputsSheet(proj,trial), tax=xlsxTaxSheet();
+  const T=trial?xlsxTrialSheet(proj,trial,inputs.addr):null;   // null (a plan, or a projection without a recorded path): the constant-rate workbook
+  const acct=xlsxAccountSheets(proj,inputs.addr,T);
+  const cols=xlsxMainColumns(proj,acct,T);
   const main=xlsxSheet();
-  xlsxPut(main,0,0,xlsxTxt('Projection by year (today\'s $). Row 4 says whether a column is an Excel formula or a value solved by the app; formulas read the Inputs and Tax tables sheets and the account sheets.'));
+  xlsxPut(main,0,0,xlsxTxt('Projection by year (today\'s $)'+(T?`, Monte Carlo trial #${trial.n}`:'')+'. Row 4 says whether a column is an Excel formula or a value solved by the app; formulas read the Inputs and Tax tables sheets'+(T?', the MC trial sheet':'')+' and the account sheets.'));
   const t=xlsxTable(main,2,cols,proj.rows);
-  const sheets=[{name:'Inputs',ws:inputs.ws},{name:'Tax tables',ws:tax.ws},{name:'Projection by year',ws:xlsxFinish(main),_t:t,_cols:cols}];
+  const sheets=[{name:'Inputs',ws:inputs.ws},{name:'Tax tables',ws:tax.ws}].concat(T?[{name:T.name,ws:T.ws,_t:T.t,_cols:T.cols}]:[]).concat([{name:'Projection by year',ws:xlsxFinish(main),_t:t,_cols:cols}]);
   acct.forEach(s=>sheets.push({name:s.name,ws:s.type==='annuity'?xlsxAoa(s.rows):s.ws,_t:s.t,_cols:s.cols,_items:s.items}));
   return {sheets, names:inputs.names.concat(tax.names)};
 }
@@ -802,7 +878,7 @@ function xlsxAoa(rows){
 function exportToExcel(){
   if(typeof XLSX==='undefined'){ alert('The Excel export library failed to load (needs an internet connection the first time). Please check your connection and try again.'); return; }
   if(!lastProjection || !lastProjection.rows.length){ alert('Nothing to export yet — enable at least one income source first.'); return; }
-  const built=xlsxBuildWorkbook(lastProjection);
+  const built=xlsxBuildWorkbook(lastProjection,xlsxTrialContext());
   const wb=XLSX.utils.book_new();
   built.sheets.forEach(s=>XLSX.utils.book_append_sheet(wb,s.ws,s.name));
   wb.Workbook={Names:built.names, CalcPr:{fullCalcOnLoad:true}};

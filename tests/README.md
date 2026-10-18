@@ -59,3 +59,6 @@ against the pre-refactor code showed identical output, so it also represents the
 ## Monte Carlo tests
 
 `tests/mc/` holds the Monte Carlo tests; see ARCHITECTURE.md §10.5 and `docs/MONTE_CARLO.md`. They take plan files from the caller (`PLAN=… node tests/mc/mc_test.js`) except `mc_ui_test.js`, which needs nothing.
+
+`tests/mc/xlsx_trial_test.js` checks the Excel export of a Monte Carlo trial (the MC trial sheet, the deflator and account-sheet growth formulas, the trial's own Inputs) and that a plan still exports with constant-rate formulas. It needs only Node.
+For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`), open it once in LibreOffice (or Excel) so it recalculates, and compare each formula cell with the value the app cached: there should be no differences.
