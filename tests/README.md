@@ -65,6 +65,8 @@ For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`)
 
 `tests/mc/niit_withdraw_test.js` checks Portfolio withdraw's Accept NIIT checkbox (`PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/niit_withdraw_test.js`).
 
+`tests/mc/aum_ira_test.js` checks the AUM box on the pre-tax IRA, Roth IRA and inherited IRA cards (fee = rate × start-of-year balance, additive with portfolios, fixed-$ mode, fee off, save/load, older saves): `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/aum_ira_test.js`.
+
 `tests/mc/stress_test.js` checks the stress-test engine (`compute/stressTest.js`, ARCHITECTURE.md §11): `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/stress_test.js`.
 
 `tests/inplace_update_test.js` checks `updateChartInPlace` (chartHelpers.js): when the dataset list changes length, surviving datasets keep their object identity (so Chart.js tweens them) and only the new line is fresh: `node tests/inplace_update_test.js`.

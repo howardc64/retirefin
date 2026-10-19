@@ -333,14 +333,14 @@ function xlsxInputsSheet(proj,trial){
     put('  withdraw start',ira.convStartMode); put('  inherited by spouse',yn(ira.bene)); put('  held by heirs after last passing (stretch)',yn(ira.stretch)); put('  counts toward AUM fee',yn(ira.aum));
     const ro=p.roth||{}; put('Roth IRA',yn(ro.enabled)); put('  balance',Number(ro.balance)||0,{fmt:XLSX_MONEY,key:`roth${i}Bal`});
     put('  growth mode',ro.growth&&ro.growth.mode,{key:`roth${i}GMode`}); put('  growth value (% nominal, or offset %)',ro.growth?Number(ro.growth.value)||0:0,{key:`roth${i}GVal`});
-    put('  inherited by spouse',yn(ro.bene)); put('  held by heirs after last passing (stretch)',yn(ro.stretch));
+    put('  inherited by spouse',yn(ro.bene)); put('  held by heirs after last passing (stretch)',yn(ro.stretch)); put('  counts toward AUM fee',yn(ro.aum));
     (p.inhIras||[]).forEach((x,ii)=>{
       const lab=`Inherited IRA ${ii+1}: ${(x.name&&x.name.trim())||'(unnamed)'} (${x.kind==='roth'?'Roth':'pre-tax'})`;
       put(lab,yn(x.enabled!==false),inhNote(x)); put('  balance when inherited',Number(x.balance)||0,{fmt:XLSX_MONEY,key:`inh${i}_${ii}Bal`});
       put('  growth mode',x.growth&&x.growth.mode,{key:`inh${i}_${ii}GMode`}); put('  growth value (% nominal, or offset %)',x.growth?Number(x.growth.value)||0:0,{key:`inh${i}_${ii}GVal`});
       put('  start year (age of the holder when inherited is on the card)',Number(x.startYear)||0,{fmt:XLSX_YEAR});
       put('  RMDs apply (original owner had started them)',yn(x.kind!=='roth'&&x.rmdStarted!==false),{note:'Emptied by the end of the 10th year after the start year'});
-      put('  inherited by spouse',yn(x.bene));
+      put('  inherited by spouse',yn(x.bene)); put('  counts toward AUM fee',yn(x.aum));
       if(x.kind!=='roth'){ put('  Annual withdraw mode',x.convMode==='bracket'?'Up to bracket / IRMAA limits':'Fixed amount'); put('  fixed withdraw / yr',Number(x.conv)||0,{fmt:XLSX_MONEY}); put('  withdraw start',x.convStartMode); }
     });
     (p.brokerage||[]).forEach((b,bi)=>{

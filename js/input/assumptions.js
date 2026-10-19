@@ -28,7 +28,7 @@ function renderFutureTaxPanel(){
   document.getElementById('futureTaxPanel').innerHTML=featureBlock('futureTax','Speculative future exemptions and brackets','futureTax.enabled',!!ft.enabled,body);
 }
 // AUM fee (household, Expenses card, last): charged on the AUM balance = the sum of the balances of every
-// portfolio whose AUM box is checked. Mode '% AUM balance' (value = percent) or 'Fixed $ / yr' (today's $).
+// portfolio, pre-tax IRA, Roth IRA and inherited IRA whose AUM box is checked. Mode '% AUM balance' (value = percent) or 'Fixed $ / yr' (today's $).
 function renderAumFee(){
   const f=state.aumFee||{mode:'pct',value:0}, fixed=f.mode==='fixed';
   const body=`<div class="field full">
@@ -40,7 +40,7 @@ function renderAumFee(){
         <input type="number" class="money" id="aumFeeValue" min="0" step="0.05" value="0" oninput="onNumberInput('aumFee.value', this.value)">
       </div>
     </div>
-    <div class="item-note">Advisory / management fee. <strong>AUM balance</strong> = the sum of the balances of every <em>Living expense &amp; income</em> brokerage portfolio that has its <em>AUM</em> box checked (never an IDGT, pre-tax IRA or Roth IRA; the portfolio must also be enabled, inside its age range and funded). The fee is that balance × the percentage, or a fixed dollar amount per year (entered in today's $, held flat in nominal terms so it shrinks in today's $ with inflation). It is an expense paid like living expenses — household income, then dividends, then asset sales — and is charged on the AUM portfolios pro rata to balance, but as an expense it is paid only by the portfolios with <em>Pay expenses</em> checked, not by the account it is charged on. The Medicare IRMAA surcharge is also always paid as a household expense, so it needs no setting here.</div>`;
+    <div class="item-note">Advisory / management fee. <strong>AUM balance</strong> = the sum of the balances of every <em>Living expense &amp; income</em> brokerage portfolio, pre-tax IRA, Roth IRA and inherited IRA that has its <em>AUM</em> box checked (never an IDGT; the account must also be enabled and held by the household that year, and a portfolio inside its age range and funded). An IRA is counted at its start-of-year balance, before that year's RMD or forced withdrawal. The fee is that balance × the percentage, or a fixed dollar amount per year (entered in today's $, held flat in nominal terms so it shrinks in today's $ with inflation). It is an expense paid like living expenses — household income, then dividends, then asset sales — and is charged on the AUM portfolios pro rata to balance, but as an expense it is paid only by the portfolios with <em>Pay expenses</em> checked, not by the account it is charged on. The Medicare IRMAA surcharge is also always paid as a household expense, so it needs no setting here.</div>`;
   document.getElementById('aumPanel').innerHTML=featureBlock('aum','AUM fee','aumFee.enabled',f.enabled!==false,body);
   const sel=document.getElementById('aumFeeMode'), inp=document.getElementById('aumFeeValue');
   sel.value=fixed?'fixed':'pct';

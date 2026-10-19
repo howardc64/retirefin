@@ -439,7 +439,11 @@ function computeProjection(){
     const alive=people.map((p,i)=>ages[i]<passAges[i]);
     if(!alive.some(Boolean)) break;
     // Start-of-year IRA / Roth state (RMDs, AUM balances, room to convert); the conversion itself is decided below, after the year's other income is known.
+    // AUM: the start-of-year balance (BEFORE this year's RMD) of a pre-tax / Roth IRA whose AUM box is checked and that the household still holds this year (`open` after pre()).
+    const iraBal0=people.map((p,i)=>iraSim[i].bal), rothBal0=people.map((p,i)=>rothSim[i].bal);
     people.forEach((p,i)=>{ iraSim[i].pre(k); rothSim[i].pre(k); });
+    const aumIra=people.map((p,i)=>(p.ira&&p.ira.aum&&iraSim[i].open&&iraBal0[i]>0)?iraBal0[i]:0);
+    const aumRoth=people.map((p,i)=>(p.roth&&p.roth.aum&&rothSim[i].open&&rothBal0[i]>0)?rothBal0[i]:0);
     // Inherited assets arriving this year (a portfolio / property that is not yet there has no balance).
     people.forEach((p,i)=>{
       pfState[i].forEach(t=>{ if(t.pendK!=null&&k>=t.pendK){ t.bal=t.bal0; t.basis=t.bas0; t.pendK=null; } });
@@ -448,7 +452,7 @@ function computeProjection(){
     // Inherited IRAs: this year's forced withdrawal (see inhSim above). Pre-tax ones join their holder's IRA distributions.
     const inhIraWdByPerson=people.map(()=>0), inhRothWdByPerson=people.map(()=>0);
     people.forEach((p,i)=>inhSim[i].forEach((sm,ii)=>{
-      sm.wd=0; sm.eoy=0; sm.live=false; sm.open=false; sm.room=0; sm.fixed=0;
+      sm.wd=0; sm.eoy=0; sm.live=false; sm.open=false; sm.room=0; sm.fixed=0; sm.aumB=0;
       if(!sm.on||sm.done) return;
       if(!alive[sm.holder]){
         const o=1-sm.holder;
@@ -471,6 +475,7 @@ function computeProjection(){
         }
       }
       w=Math.min(w,sm.bal); sm.wd=w;
+      sm.aumB=(p.inhIras[ii]&&p.inhIras[ii].aum)?sm.bal:0;   // AUM: this inherited IRA's start-of-year balance (before the withdrawal) when its AUM box is checked
       sm.bal-=w; sm.open=true;
       if(sm.kind==='roth') inhRothWdByPerson[h]+=w; else { inhIraWdByPerson[h]+=w; iraW[h][k]=(iraW[h][k]||0)+w; }
       if(sm.kind==='ira'){   // room to convert into the holder's Roth IRA this year
@@ -688,14 +693,16 @@ function computeProjection(){
     const irmaaSurcharge = irmaaTier ? irmaaTier.surch*irmaaEnrolled : 0;
     // The IRMAA surcharge is always a household expense (no per-portfolio opt-in); it is paid by the pool below.
     // AUM fee (spec §4.6): a household assumption (`state.aumFee`) charged on the AUM balance = the start-of-year
-    // balances of every non-IDGT portfolio whose AUM box is checked (and that is enabled, inside its age range and funded). IDGTs and IRAs (pre-tax and Roth) are never charged.
+    // balances of every non-IDGT portfolio whose AUM box is checked (and that is enabled, inside its age range and funded), plus every pre-tax IRA, Roth IRA and inherited IRA whose AUM box is checked (its balance BEFORE the year's RMD / forced withdrawal; held by the household that year). IDGTs are never charged.
     // '% AUM balance' × that sum, or a fixed $/yr (entered in today's $ for year 0, flat nominal, so it shrinks with inflation).
     // The charge is split across the checked accounts pro rata to balance (for display); the whole fee is a household expense
     // paid by the pool below — i.e. only by portfolios with "Pay expenses" checked.
     const aumMode=(state.aumFee&&state.aumFee.mode==='fixed')?'fixed':'pct';
     const aumVal=(state.aumFee&&state.aumFee.enabled===false)?0:Math.max(0,Number(state.aumFee&&state.aumFee.value)||0);   // unchecked Enable → no fee
     const aumBase=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>(b&&b.aum&&!b.idgt&&pfVals[i][bi].active&&!pfState[i][bi].dead&&pfBalNow[i][bi]>0)?pfBalNow[i][bi]:0));
-    const aumBalance=aumBase.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
+    const aumBalPf=aumBase.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
+    const aumBalIra=aumIra.reduce((a,v)=>a+v,0), aumBalRoth=aumRoth.reduce((a,v)=>a+v,0), aumBalInh=inhSim.reduce((a,l)=>a+l.reduce((x,sm)=>x+(sm.aumB||0),0),0);
+    const aumBalance=aumBalPf+aumBalIra+aumBalRoth+aumBalInh;
     const aumFee=aumBalance>0?(aumMode==='pct'?aumBalance*aumVal/100:aumVal/cpiAt(k,inflation)):0;
     // ── Household expense funding waterfall (spec §4.6) ──
     // Expenses = household living expenses (today's $, flat in real terms) + the household IRMAA surcharge + the
@@ -1283,7 +1290,7 @@ function computeProjection(){
       sst, marginalRate, marginalOrd, marginalQual, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mQT, mTax, sstQT,
       niiIncome, niit,
       irmaaSurcharge,
-      ...(guard?{guard}:{}), ...(expMed?{expMed}:{}), expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, brokerageWd:wf.wdCash, brokerageWdByPerson:people.map((p,i)=>wdList.reduce((a,e)=>a+(e.i===i?e.amt:0),0)), excessIncome, excessReinvested, taxIters, taxConverged,
+      ...(guard?{guard}:{}), ...(expMed?{expMed}:{}), expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalPf, aumBalIra, aumBalRoth, aumBalInh, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, brokerageWd:wf.wdCash, brokerageWdByPerson:people.map((p,i)=>wdList.reduce((a,e)=>a+(e.i===i?e.amt:0),0)), excessIncome, excessReinvested, taxIters, taxConverged,
       convTrials,
       totalTax, stateTax, stateCode:stCode, agi, magi:agi+teIncome
     });

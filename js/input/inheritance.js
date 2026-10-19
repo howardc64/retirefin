@@ -22,8 +22,8 @@
 const INH_FIELDS={
   pf:['name','balance','basisPct','growth','yield','qdivPct','cgdMode','cgdPct','cgdAmt','teYield','foreignPct','ftcPct','startYear','ar','type','aum','bene'],
   re:['name','balance','basis','exempt','growth','startYear','sellMode','sellAge','sellTo','bene'],
-  ira:['name','balance','growth','startYear','rmdStarted','bene','conv','convMode','convIrmaaPct','convOrdPct','convStartMode','convStart','convStartBracket','convStartItemized'],
-  roth:['name','balance','growth','startYear','rmdStarted','bene']
+  ira:['name','balance','growth','startYear','rmdStarted','aum','bene','conv','convMode','convIrmaaPct','convOrdPct','convStartMode','convStart','convStartBracket','convStartItemized'],
+  roth:['name','balance','growth','startYear','rmdStarted','aum','bene']
 };
 const INH_LIST={pf:'brokerage', re:'realEstate', ira:'inhIras', roth:'inhIras'};
 function inhClone(v){ return v===undefined?undefined:JSON.parse(JSON.stringify(v)); }
@@ -126,7 +126,7 @@ function inhBase(entry, startYear, i){
   }
   // An inherited IRA starts with the defaults of the matching Pre-tax IRA / Roth IRA card (the source plan's own conversion settings belong to its owner).
   const d=defaultInheritedIra();
-  s.rmdStarted=t==='ira'&&entry.snap.rmdStarted!==false; s.bene=false;
+  s.rmdStarted=t==='ira'&&entry.snap.rmdStarted!==false; s.bene=false; s.aum=false;
   if(t==='ira'){ ['conv','convMode','convIrmaaPct','convOrdPct','convStartMode','convStart','convStartBracket','convStartItemized'].forEach(k=>{ s[k]=inhClone(d[k]); }); }
   return s;
 }
@@ -390,6 +390,7 @@ function buildInhIraCard(pid, i, p, married){
               ${conv}
               <div class="field full"><label>Required withdrawals (${roth?'tax-free':'taxed as ordinary income'})</label>
                 <div class="item-note" style="margin-top:2px">${roth?'A Roth IRA has no yearly requirement: the whole balance is withdrawn in year 10 after the start year.':(x.rmdStarted!==false?'The original owner had already started RMDs, so an RMD is taken every year from year 1 on, by the age of whoever holds the account now (the spouse\'s age once a spouse takes it over), and whatever is left is withdrawn in year 10 after the start year.':'The original owner had not started RMDs, so nothing is required until year 10 after the start year, when the whole balance is withdrawn.')} This is automatic. The 10 years never extend: if the holder passes, a spouse (below) takes over only what is left of them; otherwise the account ends.</div></div>
+              ${chk(x.aum,`onBeneToggle('${xp}.aum', this.checked)`,'AUM (this balance counts toward the AUM balance the AUM fee is charged on)')}
               ${married?chk(x.bene,`onBeneToggle('${xp}.bene', this.checked)`,'Inherited by spouse'):''}
             </div>
           </div>`;}).join(''):`<div class="item-note">Inherited pre-tax and Roth IRAs appear here when you give them a % on the Inheritance card.</div>`}

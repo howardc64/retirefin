@@ -90,7 +90,7 @@ const II_FIELDS=[
   [/^Distributed LTCG (%|amount)/,'n','Yearly distributed long-term capital gains: a percent of the balance, or dollars in today\'s money. Default 0%.'],
   [/^Foreign asset %/,'n','Percent of the portfolio held in foreign assets, which pay foreign tax that can earn a credit.'],
   [/^Foreign tax credit/,'n','Foreign tax withheld as a percent of the foreign assets, taken as a credit against federal income tax.'],
-  [/^AUM \(/,'c','This portfolio\'s balance counts toward the AUM balance on which the household AUM fee (Expenses panel) is charged.'],
+  [/^AUM \(/,'c','This account\'s balance (portfolio, pre-tax IRA, Roth IRA or inherited IRA) counts toward the AUM balance on which the household AUM fee (Expenses panel) is charged.'],
   [/^Pay expenses/,'c','This portfolio may be sold to pay household expenses.'],
   // ── Real estate
   [/^Property name$/,'n','Name used for this property in the cards and charts.'],

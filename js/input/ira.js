@@ -34,6 +34,7 @@ function buildIraCard(pid, p, married){
           </select>
           ${p.ira.convStartMode==='custom'?pairHtml('convStart_'+idx, pid+'.ira.convStart', ab[0], ab[1], 1, Math.min(ab[1],Math.max(ab[0],Number(p.ira.convStart)||ab[0])), {kind:'person',i:idx}):''}
           ${convStartTriggerHtml(pid+'.ira', p.ira)}</div>
+        <div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.ira.aum?'checked':''} onchange="onBeneToggle('${pid}.ira.aum', this.checked)"> AUM (this balance counts toward the AUM balance the AUM fee is charged on)</label></div>
         ${married?`<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.ira.bene?'checked':''} onchange="onBeneToggle('${pid}.ira.bene', this.checked)"> Inherited by spouse</label></div>`:''}
         <div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" ${p.ira.stretch?'checked':''} onchange="onBeneToggle('${pid}.ira.stretch', this.checked)"> IRA stretch: keep growing until 10 years after ${married?'the 2nd':'this person\'s'} passing</label></div>
       </div>

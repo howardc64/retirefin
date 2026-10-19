@@ -61,7 +61,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 | Household living expenses | Yearly spending in today's $. |
 | Long Term Care | Single household: starts at $7,500. Married: the 1st LTC expenses follow your living expenses until you change them; the 2nd defaults to $15,000. |
 | Expense shortfall withdrawal order | Lets you choose where money comes from when income and dividends do not cover the year's expenses (below). |
-| Advisory (AUM) fee | Fee on *Living expense & income* portfolios only; IDGTs are never charged. |
+| Advisory (AUM) fee | Fee on every account whose *AUM* box is checked: *Living expense & income* portfolios, pre-tax IRAs, Roth IRAs and inherited IRAs (IRAs count at their start-of-year balance before the RMD); IDGTs are never charged. |
 | Spending guardrails | Off by default. Cuts next year's discretionary spending when the withdrawal rate drifts too high (below). |
 | Late-life medical shock | Off by default. An extra, itemized medical cost for a few years late in life (below). |
 

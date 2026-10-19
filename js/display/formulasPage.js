@@ -491,13 +491,13 @@ ${fpEq(
 ${fpWhere('Reinvested dividends and reinvested excess income are both after-tax money put in, so both add cost basis (see the roll-forward below). The money goes in at year-end, so it starts earning growth the following year, the same timing as the asset sales it mirrors.')}
 
 <h3 id="f-aum">AUM fee <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>AUM fee.</strong> The AUM balance is the sum of the start-of-year balances of every enabled, funded Living expense &amp; income brokerage portfolio inside its age range whose AUM box is checked (IDGT portfolios, pre-tax IRAs and Roth IRAs are never charged). The fee is a percentage of it, or a fixed dollar amount:</p>
+<p><strong>AUM fee.</strong> The AUM balance is the sum of the start-of-year balances of every enabled, funded Living expense &amp; income brokerage portfolio inside its age range, and of every pre-tax IRA, Roth IRA and inherited IRA the household holds that year (an IRA is counted before that year\'s RMD or forced withdrawal), whose AUM box is checked (IDGT portfolios are never charged). The fee is a percentage of it, or a fixed dollar amount:</p>
 ${fpEq(
-  `AUM balance = Σ balance<sub>i</sub> &ensp;(AUM box checked; Living expense &amp; income portfolios only)`,
+  `AUM balance = Σ balance<sub>i</sub> &ensp;(AUM box checked; Living expense &amp; income portfolios, IRAs, Roth IRAs, inherited IRAs)`,
   `AUM fee = AUM balance × fee %&emsp;or&emsp;Fixed $ ÷ (1 + inflation)<sup>k</sup>`,
   `share<sub>i</sub> = AUM fee × ${fpFr('balance<sub>i</sub>','AUM balance')}`
 )}
-<p>A fixed fee is entered in today\'s dollars for year 0 and held flat in nominal terms, so it shrinks in today\'s dollars as inflation compounds. The fee is split across the AUM portfolios pro rata to balance, but it is one household expense: it is paid through the waterfall above, by the portfolios with <em>Pay expenses</em> checked — not by the account it is charged on unless that account also pays expenses.</p>
+<p>A fixed fee is entered in today\'s dollars for year 0 and held flat in nominal terms, so it shrinks in today\'s dollars as inflation compounds. The fee is split across the AUM accounts pro rata to balance, but it is one household expense: it is paid through the waterfall above, by the portfolios with <em>Pay expenses</em> checked — not by the account it is charged on unless that account also pays expenses (an IRA is never debited for it).</p>
 
 <h2 id="g-pf">Brokerage portfolios <a class="fp-top" href="#toc">↑ contents</a></h2>
 <h3 id="f-bal">Annual balance change <a class="fp-top" href="#toc">↑</a></h3>
