@@ -322,7 +322,7 @@ function buildIncomeChart(){
   const qualDedLine=rows.map((r,ri)=>qualShel[ri]!=null?(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0))+qualShel[ri]:null);
   const YQ=lockedYMax('incomeQual', ()=>{
     let m=0; rows.forEach((r,ri)=>{ m=Math.max(m,qualSeries.qdiv[ri]+qualSeries.ltcg[ri],qualDedLine[ri]||0); });   // stack, or the red deduction line above it
-    const data=m; qLineVals.forEach(vs=>{ const lm=Math.max(...vs,0); if(lm<=Math.max(4*data,20000)) m=Math.max(m,lm*1.05); });   // a line is brought on scale when it is within reach of the data (so the 20% start shows when the stack gets near it)
+    const data=m; qLineVals.forEach(vs=>{ const lm=Math.max(...vs,0); if(lm<=Math.max(1.5*data,20000)) m=Math.max(m,lm*1.05); });   // a line is brought on scale only when it is close to the data (so the 20% start shows when the stack gets near it). A far-off line (the 20% start is often 3x+ the data) is left off the chart: pulling the scale up to it would also stretch every chart the Same-scale buttons share it with
     return niceMax(m,5000);
   });
   const qualDs=qualKeys.map(k=>({
