@@ -61,6 +61,14 @@
 
 ---
 
+## Lifetime Step-Up
+
+* **0% LTCG Bracket Withdraw** If Income allows (can be too high), opportunities exit with withdraw portfolio LTCG at 0%. Basically a step-up. For example, during high LTC expense years (large itemized deduction)
+  * May have to accept NIIT
+  * Likely have to accept Social Security Tax Torpedo
+
+---
+
 ## How to use AI
 
 * **Built-in chatbot** The “ask about this plan” chatbot is quite limited in value because
