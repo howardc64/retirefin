@@ -54,3 +54,13 @@ The banner's switch has a third button, **C · Success**. `mcOkTrials()` lists t
 
 ## Market return chart (added)
 `computeProjection()` records, for every growing asset, the growth rate the engine actually used each year (`proj.rates[k][assetKey]`, real terms) and that year's inflation (`proj.inflRate[k]`). `display/marketChart.js` shows the nominal return, `(1+real)(1+inflation)-1`, per asset. Batch trials switch recording off (`REC_RATES`), so a 10,000-trial run pays nothing; `mcReplayTrial` turns it on.
+
+## Spending guardrails (added)
+With `state.guardrail.enabled` every trial (and every stress scenario) runs with the household cutting discretionary spending when its withdrawal rate drifts too high (rule and settings: Expenses card; code: `projection.js`, `G` / `gMult`). Nothing about the random draws changes, so a paired run (guardrails off, then on, same seed) isolates what the rule does. `mcMeasure` adds `guard` (first cut row, deepest cut, years cut, total given up, living-expense path); `mcSummarize` adds `guard` (share of trials that cut, depth, the P10 / P50 / P90 living-expense fan). A trial counts as failed only if even the essential spending cannot be paid, so always read the success rate next to the cut statistics. Test: `PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/guardrail_test.js`.
+
+## Systemic panic (added)
+`returns.panic` = `{enabled, rhoPanic, trigger, holdYears, includeRE, rhoRE, compare}`. `mcPath` marks panic years (`path.panic[k]`: the market shock is below `trigger` in year k or in one of the previous `holdYears-1` years). In `mcFactor` a panic year uses `rho_k = max(rho, rhoPanic)` for portfolios (`z = sqrt(rho_k) zMkt + sqrt(1-rho_k) idio`) and, with `includeRE`, `rhoRE` for property (otherwise 0). Because rho_k depends on the shock, z is no longer standard normal; the factor is `exp(sig z) / E[exp(sig z)]` with the exact mean from `mcPanicNorm` (so a plan with the same average return as before still averages exactly that). `mcMeasure` / `mcSummarize` add `panicOn`, `panic10` and `S.panic`; the card's optional paired pass re-runs the same trial numbers with `panic.enabled=false`. Test: `PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/panic_test.js`.
+
+## Late-life medical shock (added)
+`state.medShock` adds an itemized medical cost inside the Long Term Care cost line; see `projection.js` (`expMed`) and `stressTest.js` (`stMedRun`, `stMedKeys`). Test: `tests/mc/medshock_test.js`.
+

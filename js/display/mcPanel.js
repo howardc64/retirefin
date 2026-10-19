@@ -34,6 +34,10 @@ function buildMcPanel(){
     '<div id="mcBody"><p class="mc-note">Re-runs this plan many times with random market returns, lifespans and Long Term Care. A scenario analysis, not a forecast: the result depends on the assumptions below.</p>'+
     '<div class="mc-grid">'+
       grp('mcRet','Random returns',mcCfg.returns.enabled,num('mcVol','Equity volatility %',mcCfg.returns.volEquity,0,60,1)+num('mcVolRe','Real estate volatility %',mcCfg.returns.volRE,0,40,1)+num('mcRho','Portfolio correlation',mcCfg.returns.rho,0,1,0.05))+
+      grp('mcPanic','Systemic panic <small>(correlations converge in a crash; needs random returns)</small>',mcCfg.returns.panic.enabled,
+        num('mcPanRho','Panic correlation',mcCfg.returns.panic.rhoPanic,0,1,0.05)+num('mcPanTrig','Crash = market year worse than (std. deviations)',-mcCfg.returns.panic.trigger,0.5,4,0.1)+num('mcPanHold','Lasts (years)',mcCfg.returns.panic.holdYears,1,5,1)+
+        '<label class="mc-f mc-chk"><input type="checkbox" id="mcPanRe"'+(mcCfg.returns.panic.includeRE?' checked':'')+'> Property falls with the market too</label>'+
+        '<label class="mc-f mc-chk"><input type="checkbox" id="mcPanCmp"'+(mcCfg.returns.panic.compare?' checked':'')+'> Also run the same trials without panic <small>(doubles the run time)</small></label>')+
       grp('mcMort','Random lifespans <small>(replaces the "passes at age" sliders)</small>',mcCfg.mortality.enabled,num('mcMode','Modal age at death',mcCfg.mortality.mode,70,100,1)+num('mcScale','Spread (years)',mcCfg.mortality.scale,4,20,0.5))+
       grp('mcLtc','Random Long Term Care <small>(replaces every LTC card, an inheritance source\'s too)</small>',mcCfg.ltc.enabled,num('mcLtcP','Probability of needing care',mcCfg.ltc.prob,0,1,0.05)+num('mcLtcY','Median years of care',mcCfg.ltc.medianYears,0.5,10,0.5))+
       grp('mcInh','Random inheritance <small>(source plans\' lifespans, care and markets)</small>',mcCfg.inheritance.enabled,num('mcInhCut','Haircut % (not counted on)',mcCfg.inheritance.haircutPct,0,100,5)+'<div class="mc-src" id="mcInhSrc"></div>')+
@@ -51,14 +55,17 @@ function buildMcPanel(){
   mcUpdateInhStatus();
   mcEl('mcRunBtn').onclick=mcStart; mcEl('mcCancelBtn').onclick=()=>{ if(mcRun) mcRun.cancel=true; };
   if(typeof cardStackDecorate==='function') cardStackDecorate();   // draggable title bar (display/cardStack.js)
-  ['mcRet','mcMort','mcLtc','mcInh','mcInf'].forEach(id=>{ const sync=()=>mcEl(id+'Grp').classList.toggle('mc-off',!mcEl(id).checked); mcEl(id).addEventListener('change',sync); sync(); });
+  ['mcRet','mcPanic','mcMort','mcLtc','mcInh','mcInf'].forEach(id=>{ const sync=()=>mcEl(id+'Grp').classList.toggle('mc-off',!mcEl(id).checked); mcEl(id).addEventListener('change',sync); sync(); });
 }
 
 function mcReadCfg(){
   const n=(id,d)=>{ const v=parseFloat(mcEl(id).value); return isFinite(v)?v:d; };
   const c=mcCfg;
   c.trials=Math.max(50,Math.min(10000,Math.round(n('mcTrials',c.trials)))); c.seed=Math.max(1,Math.round(n('mcSeed',c.seed)));
-  c.returns={enabled:mcEl('mcRet').checked, volEquity:n('mcVol',16), volRE:n('mcVolRe',8), rho:Math.max(0,Math.min(1,n('mcRho',0.8)))};
+  const pn=(c.returns&&c.returns.panic)||{};
+  c.returns={enabled:mcEl('mcRet').checked, volEquity:n('mcVol',16), volRE:n('mcVolRe',8), rho:Math.max(0,Math.min(1,n('mcRho',0.8))),
+    panic:{enabled:mcEl('mcPanic').checked, rhoPanic:Math.max(0,Math.min(1,n('mcPanRho',0.9))), trigger:-Math.max(0.5,Math.min(4,n('mcPanTrig',1.5))), holdYears:Math.max(1,Math.min(5,Math.round(n('mcPanHold',1)))),
+      includeRE:mcEl('mcPanRe').checked, rhoRE:pn.rhoRE>=0?pn.rhoRE:0.5, compare:mcEl('mcPanCmp').checked}};
   c.mortality={enabled:mcEl('mcMort').checked, mode:n('mcMode',87), scale:Math.max(2,n('mcScale',10))};
   c.ltc=Object.assign({},c.ltc,{enabled:mcEl('mcLtc').checked, prob:Math.max(0,Math.min(1,n('mcLtcP',0.5))), medianYears:Math.max(0.5,n('mcLtcY',2))});
   c.inflation=Object.assign({},c.inflation,{enabled:mcEl('mcInf').checked, sigma:Math.max(0,Math.min(5,n('mcInfSd',1.2))), phi:Math.max(0,Math.min(0.95,n('mcInfPhi',0.6)))});
@@ -80,16 +87,23 @@ function mcStart(){
   mcUpdateInhStatus();
   const cfg=JSON.parse(JSON.stringify(mcReadCfg()));
   if(mcTrialView) mcTrialExit();   // charts back to the plan before a new run
-  mcRun={cancel:false, done:0, results:[]}; mcStateAtRun=mcPlanKey();
+  // Optional paired pass: the same trial numbers (so the same random draws) with the panic switch off, to show what the panic itself costs.
+  const pn=cfg.returns.enabled&&cfg.returns.panic&&cfg.returns.panic.enabled&&cfg.returns.panic.compare, cfgOff=pn?JSON.parse(JSON.stringify(cfg)):null; if(pn) cfgOff.returns.panic.enabled=false;
+  mcRun={cancel:false, done:0, results:[], done2:0, results2:[]}; mcStateAtRun=mcPlanKey();
   mcEl('mcRunBtn').disabled=true; mcEl('mcCancelBtn').style.display=''; mcEl('mcStale').style.display='none';
-  const run=mcRun, t0=Date.now();
+  const run=mcRun, t0=Date.now(), total=cfg.trials*(pn?2:1);
   (function chunk(){
     if(run.cancel){ mcEl('mcProg').textContent='Cancelled after '+run.done+' trials.'; return mcFinish(run,cfg,false); }
     const tEnd=Date.now()+40;                       // ~40 ms of work, then yield to the browser
-    while(run.done<cfg.trials && Date.now()<tEnd){ run.results.push(mcRunTrial(cfg,run.done)); run.done++; }
-    mcEl('mcProg').textContent=run.done+' / '+cfg.trials+' trials';
-    if(run.done<cfg.trials) setTimeout(chunk,0);
-    else { mcEl('mcProg').textContent=cfg.trials+' trials in '+((Date.now()-t0)/1000).toFixed(1)+' s'; mcFinish(run,cfg,true); }
+    while(Date.now()<tEnd){
+      if(run.done<cfg.trials){ run.results.push(mcRunTrial(cfg,run.done)); run.done++; }
+      else if(pn&&run.done2<cfg.trials){ run.results2.push(mcRunTrial(cfgOff,run.done2)); run.done2++; }
+      else break;
+    }
+    const n=run.done+run.done2;
+    mcEl('mcProg').textContent=n+' / '+total+' trials'+(pn&&run.done>=cfg.trials?' (without panic, for comparison)':'');
+    if(n<total) setTimeout(chunk,0);
+    else { mcEl('mcProg').textContent=total+' trials in '+((Date.now()-t0)/1000).toFixed(1)+' s'; mcFinish(run,cfg,true); }
   })();
 }
 
@@ -97,7 +111,7 @@ function mcFinish(run,cfg,complete){
   if(run.discard){ mcRun=null; return; }   // the plan was replaced (load / reset) while it ran: nothing to show
   mcRun=null; mcEl('mcRunBtn').disabled=false; mcEl('mcCancelBtn').style.display='none';
   if(run.results.length<50){ return; }
-  mcResults={cfg, S:mcSummarize(run.results), R:mcFailureReasons(run.results), complete, results:run.results};
+  mcResults={cfg, S:mcSummarize(run.results), R:mcFailureReasons(run.results), complete, results:run.results, cmp:(complete&&run.results2.length===cfg.trials)?mcSummarize(run.results2):null};
   mcRender();
 }
 
@@ -110,14 +124,31 @@ function mcChartOpts(extra){
   o.scales.y=Object.assign({beginAtZero:true},extra.y||{}); return o;
 }
 
+// Spending guardrails (Expenses card): how often the household had to cut, when, how deep, and the living-expense path. Empty when guardrails are off.
+function mcGuardRows(g){
+  if(!g) return '';
+  const pc=v=>Math.round(v*100)+'%', mid=g.livFan[1].filter(v=>v!=null), lo=g.livFan[0].filter(v=>v!=null);
+  return '<tr><td>Trials that had to cut spending</td><td>'+pc(g.pCut)+(g.medianFirstCutAge!=null?' · first cut at a median age of '+Math.round(g.medianFirstCutAge):'')+'</td></tr>'+
+    '<tr><td>Depth of the deepest cut (share of discretionary spending)</td><td>median '+pc(g.medianDepth)+' · 90th pct '+pc(g.p90Depth)+' · '+pc(g.pCutOver25)+' of trials cut 25% or more</td></tr>'+
+    '<tr><td>Years spent below the planned spending</td><td>median '+Math.round(g.medianCutYears)+' · spending given up in total: median '+mcMoney(g.medianCutTotal)+', 90th pct '+mcMoney(g.p90CutTotal)+' (today\'s $)</td></tr>'+
+    (lo.length?'<tr><td>Living expenses, worst-case path (10th pct)</td><td>lowest year '+mcMoney(Math.min(...lo))+' vs. median path lowest '+mcMoney(Math.min(...mid))+'</td></tr>':'');
+}
+// Systemic panic (correlation convergence): how many trials met a crash early on, and, when the paired pass was run, what the panic itself cost.
+function mcPanicRows(pn,cmp,S){
+  if(!pn) return '';
+  const pc=v=>(v*100).toFixed(1)+'%';
+  let h='<tr><td>Systemic panic</td><td>'+Math.round(pn.pFirst10*100)+'% of trials had a panic year in the first 10 years ('+pn.meanFirst10.toFixed(1)+' on average); in those years every portfolio moves more together</td></tr>';
+  if(cmp){ const d=(S.successRate-cmp.successRate)*100; h+='<tr><td>Same trials without panic</td><td>success '+pc(cmp.successRate)+' without, '+pc(S.successRate)+' with &mdash; the panic costs '+(Math.abs(d)<0.05?'nothing measurable':Math.abs(d).toFixed(1)+' points')+'</td></tr>'; }
+  return h;
+}
 function mcRender(){
   const {cfg,S,R}=mcResults, det=lastProjection?mcMeasure(lastProjection,{pass:[0,0],ltcYears:[0,0]}):null;
   mcEl('mcOut').style.display='';
   const pct=v=>(v*100).toFixed(0)+'%', detEnd=det?det.estateFin+det.estateRe:null;
   mcEl('mcSummary').innerHTML=
-    '<div class="mc-big">'+(S.successRate*100).toFixed(1)+'% <span>of '+S.N+' trials stayed fully funded</span></div>'+
+    '<div class="mc-big">'+(S.successRate*100).toFixed(1)+'% <span>of '+S.N+' trials stayed '+(S.guard?'funded <b>with spending guardrails</b> (cutting discretionary spending when needed)':'fully funded')+'</span></div>'+
     '<table class="mc-tbl"><tr><td>Assets in the last projected year (today\'s $)</td><td>10th pct '+mcMoney(S.estate.p10)+' · median '+mcMoney(S.estate.p50)+' · 90th pct '+mcMoney(S.estate.p90)+(detEnd!=null?' · plan as entered '+mcMoney(detEnd):'')+'</td></tr>'+
-    '<tr><td>Lifetime income tax</td><td>median '+mcMoney(S.lifetimeTax.p50)+' · 90th pct '+mcMoney(S.lifetimeTax.p90)+'</td></tr></table>'+(mcResults.complete?'':'<div class="mc-stale">Cancelled run: partial results.</div>');
+    '<tr><td>Lifetime income tax</td><td>median '+mcMoney(S.lifetimeTax.p50)+' · 90th pct '+mcMoney(S.lifetimeTax.p90)+'</td></tr>'+mcGuardRows(S.guard)+mcPanicRows(S.panic,mcResults.cmp,S)+'</table>'+(mcResults.complete?'':'<div class="mc-stale">Cancelled run: partial results.</div>');
 
   // why trials ran short
   if(!R.nFail){ mcEl('mcReasons').innerHTML='<div class="mc-reasons"><h4 class="mc-h">Why trials ran short</h4><p class="mc-note">No trial ran short.</p></div>'; }

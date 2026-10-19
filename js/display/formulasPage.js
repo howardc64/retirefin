@@ -138,10 +138,10 @@ function buildFormulasHtml(){
 <li><a href="#g-inc">Income sources</a><ul><li><a href="#f-ss">Social Security benefits</a></li><li><a href="#f-ann">Annuities</a></li><li><a href="#f-rent">Rental income and depreciation</a></li></ul></li>
 <li><a href="#g-ret">Retirement accounts (IRA, Roth IRA, inheritance)</a><ul><li><a href="#f-rmd">Required minimum distributions (RMD)</a></li><li><a href="#f-iraw">Pre-tax IRA annual withdraw and Roth conversion</a></li><li><a href="#f-inh">Inherited assets and the 10-year rule</a></li></ul></li>
 <li><a href="#g-tax">Taxes and Medicare surcharge</a><ul><li><a href="#f-tss">Taxable Social Security and Social Security tax (SST)</a></li><li><a href="#f-tt">Total tax (TT): ordinary and qualified income</a></li><li><a href="#f-ded">Additional standard deduction (65+) and senior deduction</a></li><li><a href="#f-scgl">Suspended capital-gain loss (SCGL)</a></li><li><a href="#f-ftc">Foreign tax credit (FTC)</a></li><li><a href="#f-niit">Net investment income tax (NIIT)</a></li><li><a href="#f-state">State income tax</a></li><li><a href="#f-irmaa">IRMAA (Medicare Part B/D surcharge)</a></li></ul></li>
-<li><a href="#g-exp">Expenses and how they are funded</a><ul><li><a href="#f-ltc">Long-term care (LTC) expense</a></li><li><a href="#f-wf">Household expense funding waterfall</a></li><li><a href="#f-order">Expense shortfall withdrawal order</a></li><li><a href="#f-last">Pre-tax IRA and Roth IRA as last resorts</a></li><li><a href="#f-pw">Portfolio withdraw</a></li><li><a href="#f-reinv">Reinvest excess income</a></li><li><a href="#f-aum">AUM fee</a></li></ul></li>
+<li><a href="#g-exp">Expenses and how they are funded</a><ul><li><a href="#f-ltc">Long-term care (LTC) expense</a></li><li><a href="#f-med">Late-life medical shock</a></li><li><a href="#f-grd">Spending guardrails</a></li><li><a href="#f-wf">Household expense funding waterfall</a></li><li><a href="#f-order">Expense shortfall withdrawal order</a></li><li><a href="#f-last">Pre-tax IRA and Roth IRA as last resorts</a></li><li><a href="#f-pw">Portfolio withdraw</a></li><li><a href="#f-reinv">Reinvest excess income</a></li><li><a href="#f-aum">AUM fee</a></li></ul></li>
 <li><a href="#g-pf">Brokerage portfolios</a><ul><li><a href="#f-bal">Annual balance change</a></li><li><a href="#f-div">Dividends</a></li><li><a href="#f-tex">Tax-exempt income</a></li><li><a href="#f-b0">Starting cost basis</a></li><li><a href="#f-broll">Cost basis roll-forward, today's-dollar conversion and step-up at death</a></li><li><a href="#f-ltcg">Realized long-term capital gains (LTCG)</a></li><li><a href="#f-circ">Tax ↔ LTCG circularity</a></li><li><a href="#f-swap">Asset / basis swap</a></li><li><a href="#f-adisp">Asset Value chart withdraw cost (display only)</a></li></ul></li>
 <li><a href="#g-re">Real estate</a><ul><li><a href="#f-re">Real estate</a></li></ul></li>
-<li><a href="#g-mc">Monte Carlo simulation and chart rates</a><ul><li><a href="#f-mkt">Market return and inflation charts</a></li><li><a href="#f-mc">Monte Carlo trials</a></li></ul></li></ul></li>
+<li><a href="#g-mc">Monte Carlo simulation and chart rates</a><ul><li><a href="#f-mkt">Market return and inflation charts</a></li><li><a href="#f-mc">Monte Carlo trials</a></li><li><a href="#f-panic">Systemic panic (correlation convergence)</a></li></ul></li></ul></li>
 </ul></nav>
 
 <h2 id="glossary">Glossary <a class="fp-top" href="#toc">↑ contents</a></h2>
@@ -411,6 +411,32 @@ ${fpEq(
 ${fpWhere('AGI includes realized LTCG, which depends on the asset sales that pay the year\'s expenses and tax, so the deduction and the tax are solved together by iteration.')}
 <p>Ordinary tax on TI comes from the bracket table above; QDIV and LTCG are taxed separately at their own bracket rates, stacked on top of ordinary TI.</p>
 
+<h3 id="f-med">Late-life medical shock <a class="fp-top" href="#toc">↑</a></h3>
+<p><strong>Late-life medical shock.</strong> An extra medical cost for a few years late in life, for one chosen person. It is added to the Long Term Care cost, so every rule above and below that applies to the LTC cost applies to it:</p>
+${fpPw('Medical shock<sub>k</sub>',[
+  ['cost','the person is alive and their age is from the start age up to, but not including, start age + years'],
+  ['0','every other year']
+])}
+${fpEq(`LTC expense = Σ LTC cost<sub>person</sub> + Medical shock`,`Itemized = max( 0, LTC expense − 7.5% × AGI )`)}
+${fpWhere('The cost is in today\'s dollars. Living expenses do not switch to the LTC amount because of the shock. The shock is paid by the household expense funding waterfall below; selling taxable holdings to pay it raises realized LTCG and so AGI, which lowers the itemized deduction, and the deduction and the tax are solved together by iteration. The Stress tests card compares the plan with and without the shock: the extra tax is the difference of the two runs\' income tax (federal plus state) over the shock years, and over the shock years plus two.')}
+
+<h3 id="f-grd">Spending guardrails <a class="fp-top" href="#toc">↑</a></h3>
+<p><strong>Spending guardrails.</strong> A rule applied at the end of every year that sets the next year\'s discretionary spending. Living expenses are split into an essential part, which never changes, and a discretionary part (the chosen share), which is multiplied by m<sub>k</sub> (1 at the start):</p>
+${fpEq(
+  `Living expenses<sub>k</sub> = Base<sub>k</sub> × ( 1 − share × ( 1 − m<sub>k</sub> ) )`,
+  `Draw<sub>k</sub> = max( 0, Expenses<sub>k</sub> − wages − Social Security − pension − rental − annuity income )`,
+  `WR<sub>k</sub> = ${fpFr('Draw<sub>k</sub>','B<sub>k</sub>')}`
+)}
+${fpWhere('Base is the living expenses entered (or the Long Term Care living amount once care has started), share the discretionary share, B the invested balance at the start of year k (portfolios, pre-tax and Roth IRAs and inherited IRAs) and Expenses all household expenses (living, LTC, IRMAA, AUM fee and income tax). The starting rate IWR is WR in the first year without wages, or the target rate entered. With the option set, the LTC cost is left out of Draw.')}
+${fpPw('m<sub>k+1</sub>',[
+  ['m<sub>k</sub> × ( 1 − cut )','WR<sub>k</sub> > IWR × ( 1 + band )'],
+  ['min( 1, m<sub>k</sub> × ( 1 + raise ) )','prosperity rule on, and WR<sub>k</sub> < IWR × ( 1 − band ), and m<sub>k</sub> < 1'],
+  ['m<sub>k</sub>','otherwise, and always within the last N years of the projection']
+])}
+<p>The <strong>tripwire</strong> of year k is the start-of-year balance below which the same spending would trigger a cut next year:</p>
+${fpEq(`Tripwire<sub>k</sub> = ${fpFr('Draw<sub>k</sub>','IWR × ( 1 + band )')}`)}
+${fpWhere('A cut is decided exactly when B<sub>k</sub> is below the tripwire. The planner works in today\'s dollars, so a cut is a real-dollar cut; no inflation rule is needed. A trial or scenario counts as unfunded only when even the essential spending cannot be paid.')}
+
 <h3 id="f-wf">Household expense funding waterfall <a class="fp-top" href="#toc">↑</a></h3>
 <p><strong>Household expense funding waterfall.</strong> The household's expenses are:</p>
 ${fpEq(`Expenses = living expenses + LTC expense + IRMAA surcharge + AUM fee + income tax`)}
@@ -619,6 +645,20 @@ ${fpEq(
 ${fpWhere('φ is the persistence and σ<sub>π</sub> the yearly volatility (percentage points). Because the projection is in today\'s dollars and Social Security COLA and indexed brackets follow inflation, this moves only what is fixed in nominal dollars: a pension without COLA, un-indexed tax thresholds, cost basis, depreciation, a home-sale exclusion and any growth entered as a fixed or custom nominal rate. Growth entered as "inflation ± X%" keeps its real rate.')}
 <p><strong>Inheritance.</strong> Each source plan gets its own lifespan, care and the household\'s market shocks, using the table of that plan\'s asset values stored at import. The asset arrives in the year that plan\'s last person passes, scaled by (value from the table ÷ the plan\'s own value), then reduced by the haircut %.</p>
 <p><strong>Result.</strong> A trial <em>stays funded</em> when no year has more than $1 of unpaid expenses (the same condition as the UNFUNDED tag). Success rate = trials that stayed funded ÷ all trials. Each failure is given one main cause, by a fixed order of priority, and the risk-factor table compares the failure rate with and without each factor. Not random: Social Security and pension amounts, and tax law.</p>
+
+<h3 id="f-panic">Systemic panic (correlation convergence) <a class="fp-top" href="#toc">↑</a></h3>
+<p><strong>Systemic panic</strong> (optional). In a <em>panic year</em> the correlation between assets rises. A year is a panic year when its market shock is below the trigger t (for example −1.5), or when one of the previous H − 1 years was (H is how long the panic lasts):</p>
+${fpEq(
+  `ρ<sub>k</sub> = max( ρ, ρ<sub>panic</sub> ) &ensp;(panic year);&emsp;ρ<sub>k</sub> = ρ &ensp;(other years)`,
+  `z = √ρ<sub>k</sub> × z<sub>market</sub> + √( 1 − ρ<sub>k</sub> ) × z<sub>own</sub>`
+)}
+${fpWhere('With the option set, property uses ρ<sub>re</sub> instead of 0 in a panic year (z = √ρ<sub>re</sub> × z<sub>market</sub> + √( 1 − ρ<sub>re</sub> ) × z<sub>re</sub>) and 0 otherwise. ρ here is the correlation of the factor model; measured only inside crash years it looks lower, because a large market drop leaves less market variance to share.')}
+<p>Because ρ now depends on the market shock, z is no longer a standard normal and the factor above would no longer average 1. The factor is therefore divided by its exact average, so the average return stays the one entered:</p>
+${fpEq(
+  `factor = ${fpFr('exp( σ × z )','M<sub>k</sub>')}`,
+  `M<sub>k</sub> = e<sup>σ² ÷ 2</sup> × [ u × ( Φ( t − σ√ρ<sub>panic</sub> ) + 1 − Φ( t − σ√ρ ) ) + ( 1 − u ) ]`
+)}
+${fpWhere('Φ is the standard normal distribution function and u = ( 1 − Φ(t) )<sup>min( k, H − 1 )</sup> the chance that no earlier year of the window was a panic year. With the option off, M = e<sup>σ² ÷ 2</sup> and the factor is the one above.')}
 
 <hr style="margin:32px 0;border:none;border-top:1px solid #ddd;">
 <p class="fp-src">This page is a snapshot — it does not update if you keep changing inputs in the main app tab. Close and reopen it (via the Formulas button) any time you want a fresh copy.</p>

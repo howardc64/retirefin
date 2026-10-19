@@ -8,6 +8,8 @@
 //   • returns   — every growth rate the plan uses (brokerage, IRA, Roth, inherited IRA, real estate) is multiplied
 //                 each year by a lognormal factor with mean exactly 1, so the average return is the one the user
 //                 typed and only the spread is added (no silent "volatility drag" on the plan's assumptions).
+//   • panic     — optional (returns.panic): after a multi-sigma market drop the portfolios stop diversifying — their pairwise correlation rises to
+//                 rhoPanic (and property's to rhoRE) for that year and the next holdYears-1. The mean return stays exactly the plan's (mcPanicNorm).
 //   • mortality — each person's passing age is drawn from a Gompertz survival curve (conditional on current age)
 //                 instead of the fixed "passes at age" slider.
 //   • ltc       — each person needs care with probability `prob`; care lasts a lognormal number of years and ends
@@ -26,7 +28,8 @@
 const MC_DEFAULTS={
   trials:500,
   seed:20261016,
-  returns:{enabled:true, volEquity:16, volRE:8, rho:0.8},   // vol in % per year; rho = correlation of each portfolio's shock with the market shock
+  returns:{enabled:true, volEquity:16, volRE:8, rho:0.8,
+    panic:{enabled:false, rhoPanic:0.9, trigger:-1.5, holdYears:1, includeRE:true, rhoRE:0.5, compare:false}},   // panic = correlation convergence (see mcFactor): in a year the market shock is below `trigger` sigmas (and the next holdYears-1 years) every equity-like asset's correlation with the others rises to rhoPanic, property's to rhoRE   // vol in % per year; rho = correlation of each portfolio's shock with the market shock
   mortality:{enabled:true, mode:87, scale:10},               // Gompertz: modal age at death `mode`, dispersion `scale` (years). Unisex, placeholder for an SSA table
   ltc:{enabled:true, prob:0.5, medianYears:2, yearsSigma:0.7, costSigma:0.25, minStartAge:65},
   inflation:{enabled:true, sigma:1.2, phi:0.6, min:-2, max:12},
@@ -54,6 +57,30 @@ function mcSampleDeathAge(age, cfg, rng){
 // Probability of living from `age` to `to` (for the calibration printout).
 function mcSurvival(age, to, cfg){ return Math.exp(-Math.exp((age-cfg.mode)/cfg.scale)*(Math.exp((to-age)/cfg.scale)-1)); }
 
+// ── systemic panic: correlation convergence ──────────────────────
+// Standard normal CDF by Simpson's rule on the density (exact to ~1e-12; only a handful of distinct arguments per run, see mcPanicNorm).
+const MC_PHI_CACHE=new Map();
+function mcPhi(x){
+  if(x<=-12) return 0; if(x>=12) return 1;
+  let c=MC_PHI_CACHE.get(x); if(c!==undefined) return c;
+  c=mcPhiCalc(x); if(MC_PHI_CACHE.size>500) MC_PHI_CACHE.clear(); MC_PHI_CACHE.set(x,c); return c;
+}
+function mcPhiCalc(x){
+  const n=4000, h=(x+12)/n; let sum=0;
+  for(let i=0;i<=n;i++){ const t=-12+i*h, f=Math.exp(-t*t/2)/Math.sqrt(2*Math.PI); sum+=f*(i===0||i===n?1:(i%2?4:2)); }
+  return Math.min(1,Math.max(0,sum*h/3));
+}
+// With a correlation that depends on the market shock itself, an asset's shock z = sqrt(rho_k) zMkt + sqrt(1-rho_k) idio is no longer standard normal, so the plain factor
+// exp(sig z - sig^2/2) would drift away from mean 1 (a silent change to the average return the user typed). The exact mean of exp(sig z) is
+//   exp(sig^2/2) * [ u (Phi(t - sig sqrt(rhoP)) + 1 - Phi(t - sig sqrt(rho0))) + (1 - u) ]
+// (t = trigger; u = chance that no panic year came before within the hold window, i.e. the panic can only start with this year's own shock); the factor divides by it.
+const MC_PN_CACHE=new Map();
+function mcPanicNorm(sig, rho0, rhoP, t, u){
+  const key=sig+'|'+rho0+'|'+rhoP+'|'+t+'|'+u; let v=MC_PN_CACHE.get(key);
+  if(v===undefined){ v=Math.exp(sig*sig/2)*(u*(mcPhi(t-sig*Math.sqrt(rhoP))+1-mcPhi(t-sig*Math.sqrt(rho0)))+(1-u)); if(MC_PN_CACHE.size>500) MC_PN_CACHE.clear(); MC_PN_CACHE.set(key,v); }
+  return v;
+}
+
 // ── one trial's random draws (all derived from seed + trial index, so scenarios share them) ──
 function mcPath(cfg, trial, nYears){
   const base=(cfg.seed>>>0)^Math.imul(trial+1,0x9E3779B1);
@@ -65,6 +92,11 @@ function mcPath(cfg, trial, nYears){
   path.zMkt=new Float64Array(nYears); path.zRe=new Float64Array(nYears); path.zInf=new Float64Array(nYears+2);
   for(let k=0;k<nYears;k++){ path.zMkt[k]=mcNormal(rngM); path.zRe[k]=mcNormal(rngR); }
   for(let k=0;k<nYears+2;k++) path.zInf[k]=mcNormal(rngI);
+  // Panic years (correlation convergence): a year is a panic year if the market shock is below `trigger` sigmas in it or in one of the previous holdYears-1 years.
+  // Depends on the pre-drawn market shocks only, so mcFactor stays a pure function of (key, k) within the trial.
+  path.panic=null;
+  const PN=cfg.returns&&cfg.returns.enabled&&cfg.returns.panic;
+  if(PN&&PN.enabled){ const hold=Math.max(1,Math.round(Number(PN.holdYears)||1)); path.panic=new Uint8Array(nYears); let last=-1e9; for(let k=0;k<nYears;k++){ if(path.zMkt[k]<PN.trigger) last=k; path.panic[k]=(k-last<hold)?1:0; } }
   path.idio={}; path.cfg=cfg; path.trial=trial; path.base=base; path.nYears=nYears;
   return path;
 }
@@ -76,8 +108,15 @@ function mcFactor(path, key, k){
   const sig=(isRe?R.volRE:R.volEquity)/100;
   let idio=path.idio[key];
   if(!idio){ const r=mcRng(path.base^mcHash(key)); idio=path.idio[key]=new Float64Array(path.nYears); for(let i=0;i<path.nYears;i++) idio[i]=mcNormal(r); }
-  const rho=isRe?0:Math.max(0,Math.min(1,R.rho));
-  const z=isRe?path.zRe[k]:(Math.sqrt(rho)*path.zMkt[k]+Math.sqrt(1-rho)*idio[k]);
+  const rho0=isRe?0:Math.max(0,Math.min(1,R.rho)), PN=path.panic?R.panic:null;
+  if(PN&&(!isRe||PN.includeRE)){
+    // correlation convergence: rho_k jumps to the panic level in a panic year (never below the normal level); property is tied to the market only in a panic
+    const rhoP=Math.max(rho0,Math.min(1,isRe?PN.rhoRE:PN.rhoPanic)), rho=path.panic[k]?rhoP:rho0;
+    const z=Math.sqrt(rho)*path.zMkt[k]+Math.sqrt(1-rho)*(isRe?path.zRe[k]:idio[k]);
+    const hold=Math.max(1,Math.round(Number(PN.holdYears)||1)), p=mcPhi(PN.trigger), u=Math.pow(1-p,Math.min(k,hold-1));
+    return Math.exp(sig*z)/mcPanicNorm(sig,rho0,rhoP,PN.trigger,u);
+  }
+  const z=isRe?path.zRe[k]:(Math.sqrt(rho0)*path.zMkt[k]+Math.sqrt(1-rho0)*idio[k]);
   return Math.exp(sig*z-sig*sig/2);
 }
 
@@ -200,10 +239,21 @@ function mcMeasure(proj, info){
     if(r.expUnfunded>1){ shortfall+=r.expUnfunded; if(failK<0) failK=k; }
     lifeTax+=r.totalTax||0; if((r.irmaaSurcharge||0)>irmaaMax) irmaaMax=r.irmaaSurcharge; convTotal+=r.rothConvTotal||0;
   }
+  // Spending guardrails (rows carry `guard` only when state.guardrail is on): how often and how deep the plan had to cut, and the living-expense path.
+  let guardM=null;
+  if(rows[0]&&rows[0].guard){
+    const liv=new Float64Array(n); let firstCutK=-1, minMult=1, cutYears=0, cutTotal=0, firstCutBal=null;
+    for(let k=0;k<n;k++){
+      const g=rows[k].guard; liv[k]=rows[k].expLiving||0;
+      if(g.mult<1){ cutYears++; cutTotal+=g.cutAmt; if(g.mult<minMult) minMult=g.mult; }
+      if(g.move<0&&firstCutK<0){ firstCutK=k; firstCutBal=g.bal0; }
+    }
+    guardM={liv, firstCutK, firstCutAge:firstCutK>=0?rows[0].age0+firstCutK:null, firstCutBal, minMult, cutYears, cutTotal};
+  }
   const last=n-1, fr=failK>=0?rows[failK]:null;
-  return {ltcAtFail:!!fr&&((fr.expLtc||0)>0||(fr.ltcStarted||0)>0), singleAtFail:!!fr&&fr.filing==='single', n, age0:rows[0].age0, fin, re, failK, failAge:failK>=0?rows[failK].age0:null, shortfall, lifeTax, irmaaMax, convTotal,
+  return {ltcAtFail:!!fr&&(((fr.expLtc||0)-(fr.expMed||0))>0||(fr.ltcStarted||0)>0), singleAtFail:!!fr&&fr.filing==='single', n, age0:rows[0].age0, fin, re, failK, failAge:failK>=0?rows[failK].age0:null, shortfall, lifeTax, irmaaMax, convTotal,
           estateFin:fin[last], estateRe:re[last], estateIra:(rows[last].iraBalByPerson||[]).reduce((a,v)=>a+(v||0),0), pass:info.pass.slice(), ltcYears:info.ltcYears.slice(),
-          inhN:info.inh?info.inh.n:0, inhShift:info.inh&&info.inh.shift!=null?info.inh.shift:0, inhRatio:info.inh&&info.inh.orig>0?info.inh.now/info.inh.orig:1};
+          guard:guardM,           inhN:info.inh?info.inh.n:0, inhShift:info.inh&&info.inh.shift!=null?info.inh.shift:0, inhRatio:info.inh&&info.inh.orig>0?info.inh.now/info.inh.orig:1};
 }
 
 // Run ONE trial. `mutate(s)` (optional) changes the cloned state first — used for what-if sweeps on the same random paths.
@@ -225,6 +275,7 @@ function mcRunTrial(cfg, trial, mutate, capture){
       if(capture){ capture.proj=proj; capture.state=state; capture.info=info; capture.infl=infl; capture.meanInfl=mean; capture.trial=trial; }
       let c=0; for(let k=0;k<10;k++) c+=sg*path.zMkt[k]-sg*sg/2;   // log of the market factor compounded over the first 10 years (0 = as expected)
       m.early10=cfg.returns.enabled?c:0;
+      m.panicOn=!!path.panic; m.panic10=0; if(path.panic) for(let k=0;k<10;k++) m.panic10+=path.panic[k];   // panic years among the first 10
       m.inflRatio15=infl?infl.cpi[15]/Math.pow(1+mean,15):1;      // price level after 15 years vs. the plan's constant rate (1 = as planned, 1.15 = 15% higher)
       return m;
     } finally{ MC_HOOK=null; MC_INFL=null; REC_RATES=true; }
@@ -253,12 +304,24 @@ function mcSummarize(results){
   const estate=results.map(r=>r.estateFin+r.estateRe).sort((a,b)=>a-b);
   const tax=results.map(r=>r.lifeTax).sort((a,b)=>a-b);
   const failAges=fail.map(r=>r.failAge).sort((a,b)=>a-b);
+  // Spending guardrails: share of trials that had to cut, when, how deep, and the fan of the living-expense path (today's $).
+  let guard=null;
+  const gr=results.filter(r=>r.guard);
+  if(gr.length){
+    const cut=gr.filter(r=>r.guard.firstCutK>=0), ages=cut.map(r=>r.guard.firstCutAge).sort((x,y)=>x-y);
+    const depth=gr.map(r=>1-r.guard.minMult).sort((x,y)=>x-y), tot=gr.map(r=>r.guard.cutTotal).sort((x,y)=>x-y), yrs=gr.map(r=>r.guard.cutYears).sort((x,y)=>x-y);
+    const livFan=[0.1,0.5,0.9].map(()=>new Array(maxN).fill(null));
+    for(let k=0;k<maxN;k++){ const col=[]; for(const r of gr) if(k<r.n) col.push(r.guard.liv[k]); if(col.length>=Math.max(20,N*0.05)){ col.sort((x,y)=>x-y); [0.1,0.5,0.9].forEach((q,qi)=>{ livFan[qi][k]=mcQuantile(col,q); }); } }
+    guard={n:gr.length, pCut:cut.length/gr.length, medianFirstCutAge:ages.length?mcQuantile(ages,0.5):null, medianDepth:mcQuantile(depth,0.5), p90Depth:mcQuantile(depth,0.9),
+           medianCutYears:mcQuantile(yrs,0.5), medianCutTotal:mcQuantile(tot,0.5), p90CutTotal:mcQuantile(tot,0.9), pCutOver25:depth.filter(d=>d>=0.25).length/depth.length, livFan};
+  }
+  const panic=results.some(r=>r.panicOn)?{pFirst10:results.filter(r=>r.panic10>0).length/N, meanFirst10:results.reduce((a,r)=>a+r.panic10,0)/N}:null;
   return {N, age0, successRate:1-fail.length/N, failCount:fail.length,
           medianFailAge:failAges.length?mcQuantile(failAges,0.5):null,
           estate:{p10:mcQuantile(estate,0.1),p25:mcQuantile(estate,0.25),p50:mcQuantile(estate,0.5),p75:mcQuantile(estate,0.75),p90:mcQuantile(estate,0.9)},
           lifetimeTax:{p50:mcQuantile(tax,0.5),p90:mcQuantile(tax,0.9)},
           medianShortfall:fail.length?mcQuantile(fail.map(r=>r.shortfall).sort((a,b)=>a-b),0.5):0,
-          fanQ, fan, alive, fundedThrough, estateSorted:estate};
+          guard, panic, fanQ, fan, alive, fundedThrough, estateSorted:estate};
 }
 // Why did trials run short? Two views:
 //  primary: each failing trial gets ONE cause, by what was happening in the year the money ran short (first match wins):
@@ -284,6 +347,7 @@ function mcFailureReasons(results){
     ['High inflation, first 15 years',r=>highInf(r)],
     ['Last passing at 92 or later',  r=>lastDeath(r)>=92]
   ];
+  if(results.some(r=>r.panicOn)) defs.splice(4,0,['A market panic in the first 10 years (correlations surge)',r=>r.panic10>0]);
   if(results.some(r=>r.inhN>0)) defs.splice(5,0,['Inheritance 3+ years late or 25%+ smaller',r=>r.inhN>0&&(r.inhShift>=3||r.inhRatio<=0.75)]);
   const factors=defs.map(([label,pred])=>{
     const has=results.filter(pred), hasF=has.filter(r=>r.failK>=0).length, no=N-has.length, noF=nf-hasF;
@@ -296,4 +360,4 @@ function mcFailureReasons(results){
   return {nFail:nf, primary, factors, list};
 }
 
-if(typeof module!=='undefined') module.exports={MC_DEFAULTS,mcRng,mcNormal,mcSampleDeathAge,mcSurvival,mcPath,mcFactor,mcInflation,mcDonorOutcome,mcRunTrial,mcReplayTrial,mcRunRange,mcSummarize,mcFailureReasons,mcQuantile};
+if(typeof module!=='undefined') module.exports={mcPhi,mcPanicNorm,MC_DEFAULTS,mcRng,mcNormal,mcSampleDeathAge,mcSurvival,mcPath,mcFactor,mcInflation,mcDonorOutcome,mcRunTrial,mcReplayTrial,mcRunRange,mcSummarize,mcFailureReasons,mcQuantile};

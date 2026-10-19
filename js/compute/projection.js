@@ -430,6 +430,10 @@ function computeProjection(){
 
   const sumArr=a=>a.reduce((x,y)=>x+y,0);
   const rows=[];
+  // Spending guardrails (state.guardrail; null = off, and then nothing below changes). gMult = the multiplier on the discretionary part of living expenses
+  // (1 = the plan's amount), decided at the END of each year for the next one. iwr = the initial withdrawal rate the later rates are compared with.
+  const G=(state.guardrail&&state.guardrail.enabled)?state.guardrail:null;
+  let gMult=1, gIwr=(G&&G.iwrMode==='target'&&Number(G.targetWR)>0)?Number(G.targetWR)/100:null, gCutYears=0;
   for(let k=0;k<=yearsToProject;k++){
     const ages=people.map((p,i)=>curAges[i]+k);
     const alive=people.map((p,i)=>ages[i]<passAges[i]);
@@ -485,6 +489,9 @@ function computeProjection(){
     // advances the balances. A conversion leaves the pre-tax IRA and lands in the Roth IRA the same year, so it is netted/added in runWaterfall.
     const iraStart=people.map((p,i)=>iraSim[i].open?Math.max(0,iraSim[i].bal):0);
     const rothStart=people.map((p,i)=>rothSim[i].open?Math.max(0,rothSim[i].bal):0);
+    // Invested balance at the START of this year (same set of accounts as mcMeasure's `fin`): the denominator of the guardrail withdrawal rate.
+    let gBal0=0;
+    if(G){ pfState.forEach(l=>l.forEach(t=>{ if(t.bal>0) gBal0+=t.bal; })); iraStart.forEach(v=>{ gBal0+=v; }); rothStart.forEach(v=>{ gBal0+=v; }); inhSim.forEach(l=>l.forEach(sm=>{ if(sm.open&&sm.bal>0) gBal0+=sm.bal; })); }
     // wages
     const wageByPerson=people.map((p,i)=>{
       if(!p.wage.enabled||!alive[i]) return 0;
@@ -792,6 +799,12 @@ function computeProjection(){
       ltcStarted++;
       if(alive[i]){ ltcCostByPerson[i]=Math.max(0,Number(L.cost)||0); expLtc+=ltcCostByPerson[i]; }
     });
+    // Late-life medical shock (state.medShock; off = nothing here changes). Counted inside the Long Term Care cost (expLtc / ltcCostByPerson) so the itemized deduction,
+    // California medical deduction, expense chart and Excel sheet all see it, but ltcStarted is untouched: household living expenses do not switch to the care amount.
+    let expMed=0;
+    { const M=state.medShock;
+      if(M&&M.enabled){ const mi=(M.person===1&&people.length>1)?1:0, a0=Number(M.age)||0, yrs=Math.max(1,Math.round(Number(M.years)||1));
+        if(alive[mi]&&ages[mi]>=a0&&ages[mi]<a0+yrs){ expMed=Math.max(0,Number(M.cost)||0); ltcCostByPerson[mi]+=expMed; expLtc+=expMed; } } }
     const ltcLiving=ltcStarted>=2?Math.max(0,Number(ltc.living2)||0):(ltcStarted===1?Math.max(0,Number(ltc.living1!=null?ltc.living1:ltcLiving1Default(married))||0):null);
     const ltcActive=ltcLiving!==null;
     // Itemized deduction = LTC cost above the 7.5%-of-AGI floor; AGI includes realized LTCG, so it is computed inside taxOn() below.
@@ -806,7 +819,9 @@ function computeProjection(){
     const stCode=(state.stateTax&&state.stateTax.enabled)?state.stateTax.state:null;
     const stN=people.reduce((n,p,i)=>n+(alive[i]?1:0),0), stSenior=people.reduce((n,p,i)=>n+((alive[i]&&ages[i]>=65)?1:0),0);
     const qBrk = filing==='married'?MFJ_QDIV:SGL_QDIV;
-    const expLiving=Math.max(0,Number(ltcActive?ltcLiving:state.living)||0);
+    const baseLiving=Math.max(0,Number(ltcActive?ltcLiving:state.living)||0);
+    const gUsed=gMult, gDisc=G?baseLiving*Math.max(0,Math.min(100,Number(G.discPct)||0))/100:0;   // the discretionary part and the multiplier this year runs with
+    const expLiving=baseLiving-gDisc*(1-gUsed);
     const expIrmaa=irmaaSurcharge;
     // The whole AUM fee is a household expense (paid by the pay-expenses portfolios via the waterfall).
     const expAum=aumFee;
@@ -1129,6 +1144,23 @@ function computeProjection(){
     // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
     const expTax=taxIn;
     const {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded}=wf;
+    // Guardrail decision for NEXT year. Portfolio-funded spending = all expenses (living, LTC, IRMAA, AUM fee, tax) less income that does not come out of the
+    // portfolios (wages, Social Security, pension, rental, annuity); tax-exempt interest and IRA / Roth / portfolio distributions are portfolio money. It is
+    // independent of which account paid, so it is not distorted by planned withdraws or Roth conversions.
+    let guard=null;
+    if(G){
+      const nonPf=wageTotal+totalSS+pension+rental+rentalDep+annuity+annuityTE;
+      const draw=Math.max(0, expTotal-(G.excludeLtc?expLtc:0)-nonPf);
+      const wr=gBal0>0?draw/gBal0:(draw>0?Infinity:0), band=Math.max(0,Number(G.band)||0)/100;
+      if(gIwr==null&&wageTotal<0.5&&draw>0&&isFinite(wr)) gIwr=wr;                 // the first year without wages that draws on the portfolios sets the baseline
+      let move=0;
+      if(gIwr!=null&&k+1<=lastRowK-Math.max(0,Math.round(Number(G.sunsetYears)||0))){
+        if(wr>gIwr*(1+band)){ gMult=Math.max(0,gMult*(1-Math.max(0,Number(G.cutPct)||0)/100)); move=-1; gCutYears++; }
+        else if(G.prosperity&&wr<gIwr*(1-band)&&gMult<1){ gMult=Math.min(1,gMult*(1+Math.max(0,Number(G.raisePct)||0)/100)); move=1; }
+      }
+      // tripwire: the invested balance at the start of next year below which that year's rate (at this year's spending) passes the cut line
+      guard={mult:gUsed, nextMult:gMult, wr, iwr:gIwr, bandPct:band*100, draw, bal0:gBal0, move, cutAmt:gDisc*(1-gUsed), tripwire:gIwr!=null?draw/(gIwr*(1+band)):null, cutYears:gCutYears};
+    }
     const {scglUsed, ltcg, qualIncome, qualTaxable, qdivT, ltcgT, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, stateTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax}=tx;
     const ltcgGross=wf.ltcgGross;
     scglRemaining=Math.max(0,scglRemaining-scglUsed);
@@ -1251,7 +1283,7 @@ function computeProjection(){
       sst, marginalRate, marginalOrd, marginalQual, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mQT, mTax, sstQT,
       niiIncome, niit,
       irmaaSurcharge,
-      expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, brokerageWd:wf.wdCash, brokerageWdByPerson:people.map((p,i)=>wdList.reduce((a,e)=>a+(e.i===i?e.amt:0),0)), excessIncome, excessReinvested, taxIters, taxConverged,
+      ...(guard?{guard}:{}), ...(expMed?{expMed}:{}), expLiving, expLtc, expIrmaa, expAum, aumBalance, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, brokerageWd:wf.wdCash, brokerageWdByPerson:people.map((p,i)=>wdList.reduce((a,e)=>a+(e.i===i?e.amt:0),0)), excessIncome, excessReinvested, taxIters, taxConverged,
       convTrials,
       totalTax, stateTax, stateCode:stCode, agi, magi:agi+teIncome
     });

@@ -68,3 +68,6 @@ For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`)
 `tests/mc/stress_test.js` checks the stress-test engine (`compute/stressTest.js`, ARCHITECTURE.md §11): `PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/stress_test.js`.
 
 `tests/inplace_update_test.js` checks `updateChartInPlace` (chartHelpers.js): when the dataset list changes length, surviving datasets keep their object identity (so Chart.js tweens them) and only the new line is fresh: `node tests/inplace_update_test.js`.
+
+`tests/mc/guardrail_test.js`, `guardrail_ui_test.js`, `panic_test.js`, `medshock_test.js`, `medshock_ui_test.js` and `xlsx_guardrail_test.js` cover the spending guardrails (ARCHITECTURE.md §4.6a), systemic panic (§10.6), the late-life medical shock (§4.6b, §11.7) and their Excel export (§6.11); run each as `PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/<name>.js` (the `_ui_` ones need no plan arguments beyond `PLAN`). `tests/xlsx_e2e/` recalculates the exported workbook in LibreOffice and compares every formula cell (read its README first: LibreOffice must be set to always recalculate, or the check proves nothing).
+

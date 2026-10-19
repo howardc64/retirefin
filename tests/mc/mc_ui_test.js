@@ -74,7 +74,8 @@ ok(run(`lastProjection.rows.length`)>0 && run(`lastProjection`)!==planProj,'repl
 const banner=document.getElementById('mcTrialBanner');
 ok(banner.hidden===false && banner.innerHTML.includes('failure <b>#'+(tr+1)+'</b>') && /runs out at age/.test(banner.innerHTML),'banner shows trial number and the failure age');
 inf=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, t:c.data.datasets[1]&&c.data.datasets[1].data.filter(x=>x!=null).length, spread:c.data.datasets[1]&&(Math.max(...c.data.datasets[1].data.filter(x=>x!=null))-Math.min(...c.data.datasets[1].data.filter(x=>x!=null)))}})()`);
-ok(inf.n===2&&inf.t>20&&inf.spread>0,'trial mode: inflation chart gets the trial\'s own varying rate line ('+inf.t+' points, spread '+inf.spread.toFixed(2)+' pts)');
+const trialRows=run(`lastProjection.rows.length`);   // the line has one point per year of the trial, and a trial can end early (random lifespans), so compare with its own length
+ok(inf.n===2&&inf.t>=trialRows-1&&inf.t>=10&&inf.spread>0,'trial mode: inflation chart gets the trial\'s own varying rate line ('+inf.t+' points, spread '+inf.spread.toFixed(2)+' pts)');
 ok(run(`state.ui.chartYMax && Object.values(state.ui.chartYMax).every(v=>v===null || typeof v==='number')`),'trial scales are not written into the plan (captureChartYMax is skipped)');
 // stays in trial mode on a recompute with the same plan; leaves it when the plan changes
 run(`recompute()`); ok(run(`!!mcTrialView`),'recompute with the same plan keeps the trial loaded (Rescale etc. work on it)');
@@ -138,7 +139,7 @@ ok(banner.innerHTML.includes('mc-ab-btn on')&&/A &middot; Plan/.test(banner.inne
 ok(run(`inhArrivals()`).length===1 && run(`(()=>{const l=ltcCounts([60,61]); return true})()`),'A uses the real plan for overlays');
 let infA=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, vals:c.data.datasets[1]&&c.data.datasets[1].data.filter(x=>x!=null).length}})()`);
 ok(infA.n===2&&infA.vals===0,'inflation chart on A: trial line empty, same two datasets');
-run(`mcAbToggle()`); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.data.datasets[1].data.filter(x=>x!=null).length`)>20,'toggle (key B) flips back to B and the trial inflation line returns');
+run(`mcAbToggle()`); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.data.datasets[1].data.filter(x=>x!=null).length`)>=run(`mcTrialView.proj.rows.length`)-1,'toggle (key B) flips back to B and the trial inflation line returns');
 // C: cycles through successful runs; B stays the trial that was loaded
 { const c=run(`(()=>{ const b0=mcTrialView.b.trial, out={};
     mcCPress(); out.v1=mcTrialView.view; out.t1=mcTrialView.trial; out.ok1=mcResults.results[mcTrialView.trial].failK<0; out.shown1=mcTrialShown()===mcTrialView.c.proj; out.cur1=mcTrialView.cur;

@@ -49,7 +49,7 @@ function buildExpenseChart(){
   const rowByAge={}; rows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
 
   const datasets=EXP_KEYS.map(k=>({
-    label:EXP_LABELS[k], data:aligned[k],
+    label:(k==='expLtc'&&state.medShock&&state.medShock.enabled)?'Long Term Care / medical shock':EXP_LABELS[k], data:aligned[k],
     borderColor:EXP_COLORS[k], backgroundColor:EXP_COLORS[k]+'cc',
     borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'exp', order:2
   }));

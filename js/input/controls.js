@@ -63,7 +63,7 @@ function toggleItem(headerEl){
 function onEnableToggle(path, checked){
   setPath(path, checked);
   // SCGL / AUM fee / portfolio-withdraw inputs are greyed while their Enable box is off.
-  if(path==='scglEnabled'||path==='aumFee.enabled'||path==='basisSwap'||path==='stateTax.enabled'||path==='pfWithdraw.enabled') syncAssumpEnable();
+  if(path==='scglEnabled'||path==='aumFee.enabled'||path==='basisSwap'||path==='stateTax.enabled'||path==='pfWithdraw.enabled'||path==='guardrail.enabled'||path==='medShock.enabled'){ syncAssumpEnable(); if(typeof syncGuardrailFields==='function') syncGuardrailFields(); }
   if(path==='withdrawOrder.enabled') onWithdrawOrderEnabled();   // seeds the built-in order the first time it is switched on
   if(path==='stateTax.enabled') chartYMax.tax=null;   // re-fit the Total Income Tax chart so the new state-tax line is in view
   recompute(); saveDebounced();

@@ -7,7 +7,7 @@
 // the feature is used in the projection (state.scglEnabled / aumFee.enabled / ltc.enabled / futureTax.enabled / basisSwap / pfWithdraw.enabled /
 // withdrawOrder.enabled / stateTax.enabled); Hide on the right collapses just that card (state.ui.assumpHide.<ltc|withdraw|aum|stateTax|scgl|swap|pfWithdraw|futureTax>,
 // default hidden). Renderers: renderScglPanel, renderSwapPanel, renderFutureTaxPanel, renderPfWithdrawPanel, renderStateTaxPanel, renderLtcPanel,
-// renderWithdrawOrderPanel, renderAumFee.
+// renderWithdrawOrderPanel, renderAumFee, renderGuardrailPanel (Expenses card: spending guardrails, state.guardrail).
 // ═══════════════════════════════════════════════════════════════
 // Spec §4.5: a speculative, off-by-default "future tax threshold change" scenario. Currently only
 // covers the NIIT exemption threshold (start year + today's-$ threshold per filing status); Social
@@ -63,6 +63,8 @@ function syncAssumpEnable(){
   set(['swapYears'], !!state.basisSwap);
   set(['pfWdSlider','pfWdNiit','pfWdTorp'], !!(state.pfWithdraw&&state.pfWithdraw.enabled));
   set(['stateTaxSel'], !!(state.stateTax&&state.stateTax.enabled));
+  set(['msAge','msYears','msCost','msWho'], !!(state.medShock&&state.medShock.enabled));
+  set(['grDisc','grMode','grTarget','grBand','grCut','grPros','grRaise','grSunset','grExLtc'], !!(state.guardrail&&state.guardrail.enabled));
 }
 function onAumFeeMode(mode){
   setPath('aumFee.mode', mode);
@@ -224,3 +226,48 @@ function onPfWithdrawStop(idx){
   saveDebounced();
   window.liveDrag=true; recompute(); window.liveDrag=false;
 }
+
+// Spending guardrails (Expenses card, after the withdrawal order; off by default). Each year the withdrawal rate — what the portfolios must pay for the year's
+// spending, over the invested balance at the start of the year — is compared with the initial rate. Too high: next year's discretionary spending is cut. See projection.js (`G`).
+function renderGuardrailPanel(){
+  const g=state.guardrail||{}, num=(id,label,path,v,min,max,step,unit)=>`<div class="field full inline"><label>${label}${unit?' ('+unit+')':''}</label>
+      <input type="number" id="${id}" min="${min}" max="${max}" step="${step}" value="${v}" oninput="onNumberInput('guardrail.${path}', this.value)"></div>`;
+  const chk=(id,label,path,on)=>`<div class="field full"><label style="font-weight:400;font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="${id}" ${on?'checked':''} onclick="onGuardrailFlag('${path}',this.checked)">${label}</label></div>`;
+  const body=`${num('grDisc','Discretionary share of living expenses','discPct',g.discPct,0,100,5,'%')}
+    <div class="field full inline"><label>Starting withdrawal rate</label>
+      <select id="grMode" onchange="onGuardrailMode(this.value)"><option value="initial" ${g.iwrMode!=='target'?'selected':''}>First year without wages</option><option value="target" ${g.iwrMode==='target'?'selected':''}>Target rate</option></select></div>
+    ${num('grTarget','Target rate','targetWR',g.targetWR,0.5,20,0.1,'%')}
+    ${num('grBand','Cut when the rate is above the starting rate by','band',g.band,0,200,5,'%')}
+    ${num('grCut','Cut discretionary spending by','cutPct',g.cutPct,0,100,1,'%')}
+    ${chk('grPros','Prosperity rule: raise spending when the rate falls by the same margin','prosperity',!!g.prosperity)}
+    ${num('grRaise','Raise by','raisePct',g.raisePct,0,100,1,'%')}
+    ${num('grSunset','No changes in the last','sunsetYears',g.sunsetYears,0,40,1,'years')}
+    ${chk('grExLtc','Leave the Long Term Care cost out of the rate','excludeLtc',!!g.excludeLtc)}
+    <div class="item-note">Instead of spending the same amount until the money runs out, the household cuts back. The rate is what the portfolios pay for the year (living expenses, LTC, IRMAA, fees and tax, less Social Security, pensions, wages, rent and annuities) divided by the invested balance at the start of the year. When it is more than the chosen margin above the starting rate, <strong>next year's</strong> discretionary spending is cut; the essential part of living expenses is never cut. Cuts stay unless the prosperity rule is on. The Stress test card shows the balance at which the first cut fires; the Monte Carlo card shows how often and how deep the cuts go.</div>`;
+  const el=document.getElementById('guardrailPanel'); if(!el) return;
+  el.innerHTML=featureBlock('guardrail','Spending guardrails','guardrail.enabled',!!g.enabled,body);
+  syncAssumpEnable(); syncGuardrailFields();
+}
+function syncGuardrailFields(){
+  const g=state.guardrail||{}, on=!!g.enabled, t=document.getElementById('grTarget'), r=document.getElementById('grRaise');
+  if(t) t.disabled=!on||g.iwrMode!=='target';
+  if(r) r.disabled=!on||!g.prosperity;
+}
+function onGuardrailMode(v){ setPath('guardrail.iwrMode', v); syncGuardrailFields(); recompute(); saveDebounced(); }
+function onGuardrailFlag(path,v){ setPath('guardrail.'+path, !!v); syncGuardrailFields(); recompute(); saveDebounced(); }
+
+// Late-life medical shock (Expenses card, after the guardrails; off by default): an extra itemized medical cost for a few years late in life. It is added to the Long Term Care
+// cost line, so the itemized deduction (above 7.5% of AGI) and the state medical deduction apply, and it is paid by the withdrawal order like any expense. See projection.js (`expMed`).
+// The Stress test card's "Late-life medical shock" shows what it forces (sales, gains, tax) without putting it in the plan.
+function renderMedShockPanel(){
+  const m=state.medShock||{}, married=state.filingStatus==='married'&&(state.people||[]).length>1;
+  const num=(id,label,path,v,min,max,step,unit)=>`<div class="field full inline"><label>${label}${unit?' ('+unit+')':''}</label>
+      <input type="number" id="${id}" min="${min}" max="${max}" step="${step}" value="${v}" oninput="onNumberInput('medShock.${path}', this.value)"></div>`;
+  const who=married?`<div class="field full inline"><label>Whose age</label><select id="msWho" onchange="onMedShockWho(this.value)">${(state.people||[]).slice(0,2).map((p,i)=>`<option value="${i}" ${(m.person===1?1:0)===i?'selected':''}>${displayPersonName(p,i)}</option>`).join('')}</select></div>`:'';
+  const body=`${who}${num('msAge','Starts at age','age',m.age,50,110,1,'')}${num('msYears','Lasts','years',m.years,1,15,1,'years')}${num('msCost','Extra medical cost per year','cost',m.cost,0,2000000,5000,"today's $")}
+    <div class="item-note">A sudden, large medical cost late in life, on top of any Long Term Care card above. It counts as an itemized medical deduction (the part above 7.5% of AGI), is paid from your accounts in the withdrawal order, and living expenses stay as they are. Selling taxable holdings to pay it realises capital gains; the Stress test card's <i>Late-life medical shock</i> shows how much, what tax follows, and which withdrawal order costs least.</div>`;
+  const el=document.getElementById('medShockPanel'); if(!el) return;
+  el.innerHTML=featureBlock('medShock','Late-life medical shock','medShock.enabled',!!m.enabled,body);
+  syncAssumpEnable();
+}
+function onMedShockWho(v){ setPath('medShock.person', parseInt(v,10)===1?1:0); recompute(); saveDebounced(); }

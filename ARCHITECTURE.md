@@ -26,6 +26,8 @@ developer with "update the code to match." The section headers double as a table
 - Every rule below states current, intended behavior — not history. Where a past decision is worth
   preserving context on, it's called out as a *Design note*, not mixed into the rule itself.
 
+- **Diagrams** are [Mermaid](https://mermaid.js.org) blocks (they render on GitHub, in VS Code's Markdown preview and in most Markdown viewers; in a plain viewer they show as readable source). Index: layers and load order (§1, §7.2), the state shape (§2), the per-year loop, the tax circularity and the funding waterfall (§4.6), guardrails and the medical shock (§4.6a, §4.6b), the UI update cycle (§7.1), the Excel pipeline and its LibreOffice check (§6.11), the Monte Carlo pipeline, trial views and return factor (§10), and the stress-test mechanism and medical-shock run (§11).
+
 ---
 
 ## 1. Architecture at a Glance
@@ -50,6 +52,66 @@ developer with "update the code to match." The section headers double as a table
 - **Display never touches `state` directly** and **Compute never touches the DOM**. If you're tempted
   to do either, the logic belongs in a different file.
 
+**Layers and data flow.** Input writes `state`; Compute reads it and produces the projection; Display only reads the projection. The add-ons (Monte Carlo, stress tests) never touch the live `state`: they run `computeProjection()` on a private clone with the two engine hooks set.
+
+```mermaid
+flowchart LR
+  subgraph IN["INPUT  js/input/"]
+    ctl["input cards + controls.js<br/>setPath(), onNumberInput()"]
+  end
+  subgraph CORE["CORE  js/core/"]
+    st[("state<br/>the only input state")]
+    cst["constants.js<br/>tax tables, RMD, IRMAA"]
+  end
+  subgraph CMP["COMPUTE  js/compute/  (never touches the DOM)"]
+    proj["computeProjection()<br/>one row per year, today's $"]
+    rules["tax.js, rmd.js,<br/>socialSecurityCalc.js"]
+  end
+  subgraph DSP["DISPLAY  js/display/  (never writes state)"]
+    chartsn["chart builders<br/>renderCharts()"]
+    pages["Formulas, Usage,<br/>Excel export, Print"]
+  end
+  app["js/app.js<br/>recompute()"]
+  subgraph ADD["ADD-ONS"]
+    mc["monteCarlo.js + mcPanel.js"]
+    sttest["stressTest.js + stressPanel.js"]
+  end
+  ctl -->|"writes"| st
+  st -->|"reads"| proj
+  cst --> proj
+  rules --> proj
+  ctl -.->|"on change"| app
+  app -->|"calls"| proj
+  proj -->|"lastProjection (rows)"| chartsn
+  proj --> pages
+  mc -->|"clone + hooks"| proj
+  sttest -->|"clone + hooks"| proj
+```
+
+**Where the stress features plug in.** The three stress features each add one input, one place in the engine or sampler, and one set of measures that the existing cards, the Excel export and the Formulas page read.
+
+```mermaid
+flowchart LR
+  subgraph F3["Spending guardrails"]
+    direction TB
+    g1["state.guardrail"] --> g2["projection.js<br/>expLiving, row.guard, tripwire"]
+  end
+  subgraph F4["Systemic panic"]
+    direction TB
+    p1["returns.panic"] --> p2["monteCarlo.js<br/>mcPath panic years,<br/>mcFactor + normalizer"]
+  end
+  subgraph F5["Late-life medical shock"]
+    direction TB
+    m1["state.medShock"] --> m2["projection.js<br/>expMed inside expLtc"]
+    m1 --> m3["stressTest.js<br/>stMedRun"]
+  end
+  g2 --> meas["mcMeasure, mcSummarize, stRunAll"]
+  p2 --> meas
+  m2 --> meas
+  meas --> out["mcPanel, stressPanel,<br/>Excel columns, Formulas page"]
+  m3 --> out
+```
+
 ### File tree
 
 ```
@@ -58,7 +120,8 @@ css/
   styles.css    (all page styling; linked from index.html)
 tests/
   check.js  snapshot.js  compare.js  baseline.json  README.md   (Node regression harness; not loaded by the app)
-  mc/           mc_harness.js  mc_test.js  mc_inherit_test.js  mc_replay_test.js  mc_ui_test.js  mc_runplan.js  mc_sweep.js  mc_infl_cmp.js  stress_test.js   (Monte Carlo tests, §10; stress tests, §11)
+  mc/           mc_harness.js  mc_test.js  mc_inherit_test.js  mc_replay_test.js  mc_ui_test.js  mc_runplan.js  mc_sweep.js  mc_infl_cmp.js  stress_test.js  guardrail_test.js  guardrail_ui_test.js  panic_test.js  medshock_test.js  medshock_ui_test.js  xlsx_trial_test.js  xlsx_guardrail_test.js   (Monte Carlo tests, §10; stress tests, §11; guardrails §4.6a; panic §10.6; medical shock §4.6b)
+  xlsx_e2e/     write_workbook.js  compare_recalc.py  README.md   (Excel export recalculated in LibreOffice, §6.11)
 docs/           MONTE_CARLO.md  (what the Monte Carlo add-on changed, how it works, how to test it)  + design spec and slide decks
 js/
   core/         constants.js  helpers.js  markdown.js  state.js
@@ -87,6 +150,24 @@ GitHub Pages, with no build step.
 This is the full shape of the `state` object, as produced by `defaultState()` in `js/core/state.js`.
 Every Input file (§5) writes into one piece of this; every Compute file (§4) reads from it.
 
+```mermaid
+flowchart LR
+  subgraph HH["state: household and assumptions"]
+    h1["filingStatus, inflation, living, passing<br/>scgl, scglEnabled, basisSwap"]
+    h2["ltc, withdrawOrder, pfWithdraw, aumFee<br/>stateTax, futureTax"]
+    h3["guardrail, medShock<br/>(spending guardrails, late-life medical shock)"]
+    h4["notes, liveId, ui"]
+  end
+  subgraph PP["people: 1 or 2, each with"]
+    p1["id, name, birthYear, birthMonth<br/>wage, ss, pension, ira, roth"]
+    p2["lists: annuities, rentals, brokerage,<br/>inhIras, inheritance, realEstate"]
+  end
+  HH -->|"people"| PP
+```
+
+*Overview only; the full field-by-field schema follows.*
+
+
 ```js
 state = {
   filingStatus: 'single' | 'married',
@@ -102,7 +183,8 @@ state = {
     living2: number               // household living expenses, today's $, once the 2nd person's LTC has also started (default $15,000, `LTC_LIVING2_DEFAULT`)
   },
   withdrawOrder: { enabled: boolean, steps: [{id, asset}] },  // expense-shortfall withdrawal order (§4.6, §5.3); asset = 'pf:<portfolio id>' | 'ira:<person id>' | 'roth:<person id>' | 're:<property id>'; off = the built-in order
-  aumFee: { mode: 'pct'|'fixed', value: number },  // AUM fee: 'pct' = % of the AUM balance (sum of balances of portfolios with `aum` checked); 'fixed' = $/yr in today's $ (flat nominal, so it shrinks with inflation). Household-level; UI is below SCGL in the Settings panel (§5.3)
+  guardrail: { enabled, discPct, iwrMode:'initial'|'target', targetWR, band, cutPct, prosperity, raisePct, sunsetYears, excludeLtc },   // spending guardrails (§4.6a); off by default
+  medShock:  { enabled, person:0|1, age, years, cost },   // late-life medical shock, added to the LTC cost line (§4.6b); off by default  aumFee: { mode: 'pct'|'fixed', value: number },  // AUM fee: 'pct' = % of the AUM balance (sum of balances of portfolios with `aum` checked); 'fixed' = $/yr in today's $ (flat nominal, so it shrinks with inflation). Household-level; UI is below SCGL in the Settings panel (§5.3)
   futureTax: {
     enabled: boolean,
     niitStartYear: number,
@@ -276,6 +358,40 @@ consumes — nothing in `js/display/` should recompute anything listed in the ro
 rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/(1+inflation)`,
 `custom`→`(1+value)/(1+inflation)-1`.
 
+**One year at a glance.** The numbered list below is the exact order; this is its shape. The tax is solved as a fixed point inside the year because the expenses include the tax.
+
+```mermaid
+flowchart TD
+  s0["Year k starts<br/>ages; stop when nobody is alive"] --> s1["Arrivals and start-of-year balances<br/>inheritance, IRA, Roth, portfolios<br/>(the guardrail's start balance is taken here)"]
+  s1 --> s2["Income that does not depend on tax<br/>wages, Social Security, pension, rentals,<br/>dividends, foreign tax credit"]
+  s2 --> s3["Expenses known before tax<br/>LTC cost per person + medical shock,<br/>living expenses x guardrail multiplier,<br/>IRMAA, AUM fee"]
+  s3 --> l1
+  subgraph L["Tax fixed point: solveTax(), iterated until it converges"]
+    direction TB
+    l1["Guess realized LTCG and Roth conversion<br/>(the conversion search is itself iterated)"] --> l2["Funding waterfall<br/>income, dividends, sales, IRA, Roth"]
+    l2 --> l3["Sales realize LTCG from cost basis;<br/>RMD and IRA draws are ordinary income"]
+    l3 --> l4["taxOn(): AGI, deduction = max(standard, itemized),<br/>ordinary + qualified tax, NIIT, state tax"]
+    l4 --> l5{"Did the tax or the itemized<br/>deduction change the expenses?"}
+    l5 -- "yes" --> l1
+  end
+  l5 -- "no: converged" --> s5["Settle: IRA and Roth post(), balances grow,<br/>cost basis rolls forward"]
+  s5 --> s6["Guardrail decision for next year<br/>withdrawal rate vs starting rate"]
+  s6 --> s7["Push the row, k = k + 1"]
+```
+
+**Why the tax is iterated.** Paying a larger expense by selling shares realizes gain, which raises AGI, which raises tax and shrinks the medical deduction (the 7.5% floor rises), which raises the expense again.
+
+```mermaid
+flowchart LR
+  e["Expenses<br/>living, LTC / medical shock, IRMAA, fee, TAX"] -->|"not covered by income"| sale["Sell portfolio shares"]
+  sale --> gain["Realized LTCG<br/>(the gain share of the sale)"]
+  gain --> agi["Higher AGI"]
+  agi --> t["More tax"]
+  agi --> d["Smaller medical deduction<br/>(7.5% of AGI floor rises)"]
+  d --> t
+  t -->|"tax is itself an expense"| e
+```
+
 **Per-year order of operations** (one iteration of the row loop, `k` = years from now):
 1. Compute each living person's age this year; stop the whole loop once nobody is alive.
 2. Wages, per person, gated by their age range.
@@ -352,6 +468,21 @@ rate: `fixed`→erodes with inflation, `inflation`→0% real, `offset`→`value/
 - **Allocation:** split across the checked portfolios pro rata to balance. Each account's share is informational (`feeDrag` on a portfolio row): the **whole fee is one household expense** (`expAum = aumFee`) paid by the pool, i.e. only by portfolios with **Pay expenses** checked — not by the account it is charged on unless that account also pays expenses. No portfolio pays a fee share on its own account, and no IDGT is ever charged.
 
 **Expense shortfall withdrawal order** (`state.withdrawOrder`, Expenses panel). Applies only to what remains after household cash income and portfolio dividends (steps 1–2 below, which never change). **Off** (default): the built-in order, steps 3–5 below. **On:** the built-in steps 3–5 are replaced by the user's `steps`, tried top to bottom; each step names ONE asset and takes `min(still needed, what that asset can give)` before the next step runs. An asset that is not listed is never drawn on; a step whose asset no longer exists (or is not in the household) is skipped, as is a repeat of an asset. Tax follows the asset: **portfolio** (`pf:`) — a sale realizing LTCG on its gain share, limited as before to in-range, enabled portfolios of type *Living expense & income* (an IDGT never pays expenses; internally `payExp`, derived from the portfolio type) and to the balance left after dividends and tax-exempt income; **pre-tax IRA** (`ira:`, per person) — ordinary income, grossed up by the tax iteration, limited to the start-of-year balance after the RMD and any conversion; **Roth IRA** (`roth:`) — tax-free; **real estate** (`re:`) — a **sell event**: the whole property is sold at the START of the year at its start-of-year value (`reShortInfo()`), the basis is stepped up first if the owner has passed, the gain over basis and exemption is realized LTCG that year (taxed like any other LTCG; its tax is an ordinary household expense funded by the same waterfall, not netted out of the sale), the sale proceeds pay the shortfall (`expFromRe`), and whatever they do not use joins the property's designated portfolio at a 100% basis from next year (`saleIn`; with no portfolio able to take it, it leaves the model). A property whose scheduled sale (age / LTC / passing) falls in the same year is left to that sale. Once sold the property is gone (`sold`/`dead`) and a later scheduled sale is skipped. Row fields: `expFromRe`, and the sold property's `realEstateByPerson[i][ri].sale` carries `{shortfall:true, value, basis, gain, exempt, tax (informational), applied, net}`; `reSaleGain` includes the gain. The default-seeded list when the card is first switched on is every enabled Living expense & income portfolio, then the pre-tax IRAs, then the Roth IRAs.
+
+**Funding waterfall.** Steps 1 and 2 never change; the withdrawal order card replaces steps 3 to 5.
+
+```mermaid
+flowchart TD
+  X["Household expenses<br/>living + LTC / medical shock + tax + IRMAA + AUM fee"] --> S1["1  Household cash income<br/>wages, Social Security, pension, rental, RMD"]
+  S1 -->|"still needed"| S2["2  Dividends of portfolios with Pay expenses<br/>(unused dividends are reinvested)"]
+  S2 -->|"still needed"| SW{"Withdrawal order card on?"}
+  SW -- "off: built-in" --> B3["3  Sell portfolio shares<br/>(realizes LTCG)"]
+  B3 --> B4["4  Pre-tax IRA draw<br/>(ordinary income)"]
+  B4 --> B5["5  Roth draw<br/>(tax-free)"]
+  SW -- "on" --> U["Your steps, top to bottom<br/>each takes min(needed, available);<br/>unlisted assets are never used"]
+  B5 -->|"still needed"| UN["Unfunded shortfall (expUnfunded)<br/>the plan fails this year"]
+  U -->|"still needed"| UN
+```
 
 **Expense funding** (household-level; replaces the old per-portfolio withdrawal / tax-drag / own-money waterfall):
 - **Expenses** = `expLiving` (`state.living`, flat in today's $, or the post-LTC living amount once LTC has started) + **`expLtc`** (Long Term Care cost, above) + **the year's income tax (`totalTax`, "tax drag")** + the **IRMAA surcharge** + the **AUM fee** (charged on the AUM-checked Living expense & income portfolios, above). Income tax is an expense again, at household level (there is no per-portfolio *tax drag %* input);
@@ -434,6 +565,54 @@ The IRMAA surcharge uses the MAGI (AGI + tax-exempt income) from two years earli
 Also exported: `displayPersonName(person, idx)` (falls back to `"Person N"`), `p0Name(proj)`,
 `ageAxisLabel(proj)` (`"{p0Name}'s age"`) — used by every age-axis chart's X-axis title.
 
+### 4.6a Spending guardrails (`state.guardrail`, `projection.js`)
+Loop-carried state before the year loop: `G` (the settings, or `null` = off and then nothing changes: with it off every row and every chart is identical to before, which `tests/check.js` confirms), `gMult` (multiplier on the discretionary part of living expenses, 1 = the plan), `gIwr` (initial withdrawal rate; preset from `targetWR` in `target` mode).
+**Decision flow** (end of every year; the result applies to the next year):
+
+```mermaid
+flowchart TD
+  a["End of year k, after the waterfall settles"] --> b["draw = expenses - income not from portfolios<br/>WR = draw / invested balance at start of year"]
+  b --> c{"Starting rate IWR known?"}
+  c -- "no: first year without wages" --> c1["IWR = WR"]
+  c -- "yes, or Target mode" --> d
+  c1 --> d{"Within the last N years?"}
+  d -- "yes" --> keep["m unchanged"]
+  d -- "no" --> e{"WR above IWR x (1 + band)?"}
+  e -- "yes" --> cut["m = m x (1 - cut %)"]
+  e -- "no" --> f{"Prosperity on and<br/>WR below IWR x (1 - band)?"}
+  f -- "yes" --> up["m = min(1, m x (1 + raise %))"]
+  f -- "no" --> keep
+  cut --> n["Year k+1 living expenses =<br/>Base x (1 - share x (1 - m))"]
+  up --> n
+  keep --> n
+  b --> tw["Tripwire = draw / (IWR x (1 + band)):<br/>a start balance below it triggers the cut"]
+```
+
+- **Used this year:** `baseLiving = ltcActive ? ltcLiving : state.living`; `expLiving = baseLiving − baseLiving × discPct% × (1 − gMult)`. Only living expenses are cut: LTC, IRMAA, fees and tax are not.
+- **Decided at the end of the year, for the next one** (right after the funding waterfall settles, so there is no circularity with the tax iteration): `draw = max(0, expTotal − (excludeLtc ? expLtc : 0) − (wageTotal + totalSS + pension + rental + rentalDep + annuity + annuityTE))` (what the portfolios must fund; independent of which account paid, so planned withdraws and Roth conversions do not distort it), `bal0` = invested balance at the **start** of the year (portfolios, pre-tax / Roth IRAs, open inherited IRAs; the same set as `mcMeasure`'s `fin`), `wr = draw / bal0`. `gIwr` is set by the first year with `wageTotal < 0.5` and `draw > 0`. Then `wr > gIwr × (1+band)` ⇒ `gMult *= 1 − cutPct`; else with `prosperity` and `wr < gIwr × (1−band)` ⇒ `gMult = min(1, gMult × (1+raisePct))`. No decision when `k+1 > lastRowK − sunsetYears`.
+- **Row field `guard`** (present only when on): `{mult, nextMult, wr, iwr, bandPct, draw, bal0, move (−1 cut / 0 / +1 raise), cutAmt (discretionary spending given up this year), tripwire = draw / (iwr × (1+band)), cutYears}`. A cut is decided exactly when `bal0 < tripwire`; `guardrail_test.js` asserts that on every row.
+- **Consumers:** `mcMeasure` (`guard`: `firstCutK`, `firstCutAge`, `firstCutBal`, `minMult`, `cutYears`, `cutTotal`, `liv[]`), `mcSummarize` (`S.guard`: share of trials that cut, median first-cut age, depth, years, total given up, living-expense fan), `stRunAll` (each result's `guard` incl. `off` = the same scenario with the guardrail switched off), `mcPanel.js` (`mcGuardRows`), `stressPanel.js` (the second table), `excelExport.js` (§6.11). A trial or scenario counts as failed only if even the essential spending cannot be paid, so the success rate must be read with the cut statistics.
+- **Not done:** a tripwire line on the asset chart (the data is in `row.guard.tripwire`).
+
+### 4.6b Late-life medical shock (`state.medShock`, `projection.js`)
+Right after the LTC loop: when enabled, the chosen person (`person`, 0 or 1; 0 if single) is alive and `age ∈ [age, age+years)`, `expMed = cost` is added to `ltcCostByPerson[person]` and to `expLtc` — **not** to `ltcStarted`, so living expenses do not switch to the LTC amount. Because it sits inside `expLtc`, it reaches `expTotal`, the itemized deduction (`max(0, expLtc − 7.5% AGI)` inside `solveTax`'s iteration, so the gain → AGI → deduction circularity is solved as for any LTC cost), the California medical deduction, the funding waterfall / withdrawal order, the expense chart (legend "Long Term Care / medical shock" while enabled) and the Excel sheet with no further changes. The row has `expMed` only in shock years; `mcMeasure`'s `ltcAtFail` subtracts it, so a failure caused by the shock is not reported as a care event. Monte Carlo trials keep the shock as entered (random timing / size is not modelled; use the Random Long Term Care group). Stress diagnostic: `stMedRun` (§11.7).
+
+**Where the cost goes** once `expMed` is set:
+
+```mermaid
+flowchart TD
+  m0{"medShock enabled?"} -- "no" --> none["nothing changes"]
+  m0 -- "yes" --> m1{"chosen person alive and age from<br/>start age up to start age + years?"}
+  m1 -- "no" --> none
+  m1 -- "yes" --> m2["expMed = cost, in today's $"]
+  m2 --> m3["added to ltcCostByPerson and expLtc<br/>(ltcStarted is not touched)"]
+  m3 --> o1["expTotal, the funding waterfall<br/>and the withdrawal order"]
+  m3 --> o2["itemized = max(0, expLtc - 7.5% x AGI)"]
+  m3 --> o3["California medical deduction"]
+  m3 --> o4["expense chart legend,<br/>Excel LTC columns"]
+  m3 -.->|"living expenses do not switch<br/>to the LTC amount"| o5["expLiving unchanged"]
+```
+
 ### 4.7 `whatIf.js`
 **Purpose:** runs the projection engine against a *temporary* clone of `state`, without touching the
 real `state`, real inputs, or any on-screen chart — used exclusively by the SS breakeven chart (§6.3).
@@ -479,7 +658,7 @@ focus). Birth year / month are applied only when they are a real value (year 192
 
 ### 5.3 `assumptions.js` (+ the General / Expenses / Tax & Optimizations panels in `index.html`)
 **Expense shortfall withdrawal order** (`#withdrawPanel`, Expenses card, below Long Term Care; `renderWithdrawOrderPanel()`). Enable = `state.withdrawOrder.enabled`; the first time it is switched on with no steps it is seeded with the built-in order (`defaultWithdrawKeys()`). Each step is a drop-down over the asset list (`withdrawAssets()`: every portfolio, each person's pre-tax IRA and Roth IRA, and every property marked "(sell)" — spouse assets only when married; assets already used in another step are disabled), with ▲ / ▼ (`moveWithdrawStep`), ✕ (`removeWithdrawStep`), and a one-line note of how that asset is taxed or why it would be skipped (disabled asset, IDGT portfolio). **＋ Add step** (`addWithdrawStep`) adds the first unused asset; **Reset to built-in order** (`resetWithdrawSteps`). The card is re-drawn after every recompute (`refreshWithdrawOrderPanel`, skipped while focus is inside it) and after the income forms are rebuilt, so asset names stay current. Compute rules: §4.6.
-
+**Spending guardrails** (`#guardrailPanel`, `renderGuardrailPanel()`) and **Late-life medical shock** (`#medShockPanel`, `renderMedShockPanel()`), two more Expenses cards under the withdrawal order, each a `featureBlock` (`state.ui.assumpHide.guardrail` / `.medShock`, both hidden by default; `ASSUMP_HIDE_DEFAULT`). Fields write with `onNumberInput('guardrail.<field>', …)` / `('medShock.<field>', …)`; the mode select, the check boxes and the person select have their own handlers (`onGuardrailMode`, `onGuardrailFlag`, `onMedShockWho`); `syncAssumpEnable` greys the fields while the card is off, `syncGuardrailFields` the target-rate and raise % fields.
 **Three panels (General / Expenses / Tax & Optimizations).** `index.html` has three `.panel.assump-card` panels (no wrapping panel or header). *General* has a **Hide** box in its title (`state.ui.assumpHide.general`; `syncAssumpHide()` in `controls.js` puts its checkbox/body in that state on every `renderAll`): filing-status radios (`name=filingStatus`, `onFilingChange`), the people setup (`#peopleSetup`), inflation slider and passing-age sliders. *Expenses* holds Living expenses (`#livingInput`, always shown) and then the features LTC (`#ltcPanel`), Expense shortfall withdrawal order (`#withdrawPanel`), AUM fee (`#aumPanel`). *Tax & Optimizations* (in this order): State income tax (`#stateTaxPanel`), SCGL (`#scglPanel`), Asset / basis swap (`#swapPanel`), Portfolio withdraw (`#pfWithdrawPanel`, `renderPfWithdrawPanel`), Speculative future exemptions and brackets (`#futureTaxPanel`). These two panels each have a **Hide** box in their title (`state.ui.assumpHide.expenses` / `.taxOpt`, default hidden; collapses the whole panel; also synced by `syncAssumpHide()`), and **every feature in them is also its own card** rendered with `featureBlock(hideKey, title, enablePath, enabled, bodyHtml)` (`controls.js`) — an `.item` card with the income-card header (`cardHeader`): **Enable** on the left (the feature's own flag, e.g. `state.ltc.enabled`; decides whether the projection uses it) and **Hide** on the right (`state.ui.assumpHide[hideKey]`, `hideKey` = `ltc | withdraw | aum | stateTax | scgl | swap | pfWithdraw | futureTax`; collapses only that card's body and is never read by compute). **Every feature card starts hidden** (`ASSUMP_HIDE_DEFAULT`, also what `assumpHidden(hideKey)` returns for a missing flag), on a fresh session, on **Reset to defaults** and for older saves; the Hide state is saved, autosaved and restored like every other `state.ui` flag, and survives the card being re-rendered (`refreshWithdrawOrderPanel` runs after every recompute). Older saves' `assumpHide.expenses` / `assumpHide.tax` are dropped.
 
 The panels in `index.html` hold two household fields, in this order below the passing-age sliders: **Living expenses** (`state.living`, `#livingInput`, $/yr in today's $, `onNumberInput('living', …)`) directly **above** the **SCGL** input (`state.scgl`), followed **below SCGL** by the **AUM fee** (`state.aumFee`): a mode select (`#aumFeeMode`: **% AUM balance** / **Fixed $ / yr**, `onAumFeeMode` resets the value because the units change) and a value input (`#aumFeeValue`, `onNumberInput('aumFee.value', …)`); `renderAumFee()` (in `assumptions.js`) writes both from `state`. AUM balance = sum of the balances of portfolios with their **AUM** box checked (§4.6). `renderAll()` writes both from `state`. The General panel holds the inflation and passing-age sliders. Typing in Living expenses goes through `onLivingInput`, which also updates the **1st LTC living expenses** box while `ltc.living1` is still `null` (i.e. the user has not set it).
@@ -697,7 +876,7 @@ Any number of plans (**A**, **B**, **C** … up to 26) behind one **🆎 Scenari
 Panel `expense` (`#expenseChart`; the red UNFUNDED tag `#expenseAlert` sits right of the panel's Rescale button). Reads rows' `expLiving`, `expLtc`, `expTax`, `expIrmaa`, `expAum`, `expTotal`,
 plus the funding split `expFromIncome`, `expFromDiv`, `expFromSales`, `expUnfunded`. Styled like the tax chart: stacked
 filled bands, segments bottom→top: **living expenses, Long Term Care, income tax (tax drag), IRMAA surcharge, AUM fee**, so the stack's
-height always equals `expTotal`. Single $ axis, Y locked (`chartYMax.expense`). Tooltip: one line per non-zero component
+height always equals `expTotal` (the medical shock is inside the Long Term Care band; its legend then reads "Long Term Care / medical shock"). Single $ axis, Y locked (`chartYMax.expense`). Tooltip: one line per non-zero component
 with its $ and % of the total; footer shows total expenses and how they were funded (household income → dividends →
 asset sales → pre-tax IRA → Roth IRA, plus any unfunded shortfall); under `show_details`, also filing status, household cash income, AGI, AUM
 balance, the IRMAA surcharge and the tax↔LTCG iteration count.
@@ -783,15 +962,42 @@ Only the *formula prose* is hand-maintained (formulas change far less often than
 if you change a formula in §4, update its description on this page in the same change.
 
 The last group, **Monte Carlo simulation and chart rates**, documents the Market return formula `(1 + real growth) × (1 + inflation) − 1` and the Monte Carlo samplers (§10): lognormal return factor, Gompertz lifespans, Long Term Care, AR(1) inflation, inheritance and the success condition.
-
+New sections: **Late-life medical shock** (`f-med`) and **Spending guardrails** (`f-grd`, the withdrawal rate, the cut / raise rule and the tripwire) under *Expenses and how they are funded*, and **Systemic panic (correlation convergence)** (`f-panic`, ρ in a panic year and the exact normalizer M) at the end of the Monte Carlo group. Checked by rendering `buildFormulasHtml()` and verifying every contents link has a target.
 ### 6.10 `core/markdown.js` and `mdPage.js` (Usage and Tips pages)
 **`core/markdown.js`** is the one Markdown → HTML converter of the app, `mdToHtml(md, opts)`: headings (each gets a GitHub-style slug `id`, so `[text](#slug)` links work), bold/italic, inline code, fenced code, links (a `javascript:` / `data:` URL is never made a link; `rel="noopener"`), **tables** (header row, `|---|---|` separator row, body rows; cells may use inline formatting but no `|`), bullet / numbered lists **nested by indentation** (2+ spaces or a tab per level; `-` `*` `+` `•` markers; indented lines under an item continue it), blockquotes, rules, paragraphs. Everything is HTML-escaped first. Options: `breaks` (a single newline is a `<br>`), `flatHeadings` (a heading is a bold paragraph), `tableWrap` (class of a scroll `<div>` around each table), `links:false`, `ids:false`. Extend this function rather than adding a CDN library, so it keeps working offline. It has two users: the pages below (defaults) and the chat bubbles (`chatMarkdown()` in `chat.js`: `breaks`, `flatHeadings`, `tableWrap:'chat-tablewrap'`, `links:false`, because a model reply is untrusted).
 **`mdPage.js`** is the shared page viewer: `openMdPage(file, label)` opens a new tab, `fetch`es the `.md` file, converts it **at the moment of opening**, wraps it in `mdPageHtml(title, body, file, label)` (page styles incl. tables) and `document.write`s it; when `fetch` is blocked (a `file://` page) it writes an explanation instead. `openUsagePage()` — the **Usage** button (topbar, immediately left of **Save**) shows `misc/Usage.md`; `openNotesPage()` — the **Tips** button (right of **Formulas**) shows `misc/Note4User.md`. Editing either `.md` file needs no code change — the next click shows the new text.
 
 ### 6.11 `excelExport.js`
 
+**Export pipeline.** Each Projection column is either an app value (V) or a live formula (F):
+
+```mermaid
+flowchart LR
+  lp["lastProjection<br/>(the plan, or the trial on screen)"] --> cols["xlsxMainColumns<br/>each column is V (app value)<br/>or F (live Excel formula)"]
+  st["state, or the trial's own state"] --> inp["Inputs sheet<br/>named cells: Inflation, Gr_Band, ..."]
+  cst["constants.js tables"] --> tt["Tax tables sheet"]
+  cols --> pby["Projection by year"]
+  lp --> acct["Account sheets<br/>portfolio, IRA, Roth, annuity, property"]
+  inp --> bld["xlsxBuildWorkbook"]
+  tt --> bld
+  pby --> bld
+  acct --> bld
+  bld --> xl["SheetJS writes the .xlsx<br/>fullCalcOnLoad"]
+  xl --> ex["Excel recalculates every F column"]
+```
+
+**How the workbook is verified.** The Node tests check structure and cached values; the LibreOffice run checks the formulas themselves.
+
+```mermaid
+flowchart LR
+  w["write_workbook.js<br/>real SheetJS, cached values = the app's"] --> lo["LibreOffice headless convert<br/>OOXMLRecalcMode = 0, always recalculate"]
+  lo --> cmp["compare_recalc.py<br/>every formula cell: cached vs recalculated"]
+  cmp --> r["differences grouped by column heading"]
+```
+
 **State tax in the workbook.** `xlsxSelectedState()` returns `'CA'`, `'WA'` or `null` (state tax off). Only that state's scalars, brackets (CA), Projection columns (`stN`/`caTI` for CA, `waGain` for WA) and a single `stateTax` formula are written; the `State_Code` name no longer exists (Inputs shows the state's name as text, `State_On` stays).
 
+**Guardrails and the medical shock in the workbook.** *Inputs* lists both (the guardrail band is the defined name `Gr_Band`, written only when guardrails are on). *Projection by year*: with `proj.rows[0].guard` present, the columns `gMult`, `gDraw`, `gBal0`, `gIwr`, `gMove`, `gCutAmt` are app values and `gWr` (spending ÷ start balance), `gLine` (`IWR × (1 + Gr_Band/100)`), `gTrip` (`gDraw ÷ gLine`) and `gOver` ("Yes"/"No", the rate above the cut line; a zero start balance with spending counts as Yes, as in the engine) are live formulas, so changing the band on Inputs moves the line, the tripwire and the flags (the cuts themselves, and so `expLiving`, stay app values like the rest of the solver's output). With any `expMed` the column `expMed` shows the shock; it is already inside the per-person LTC cost columns, `expLtc` and the `item` (itemized deduction) formula. Tests: `tests/mc/xlsx_guardrail_test.js` (structure, formulas, cached values) and `tests/xlsx_e2e/` (LibreOffice recalculates the file; all ~2,800–3,000 formula cells compared; only three older columns differ, by rounding: *Effective tax rate* 0.0005, *Funding check* and *Income tax paid as expense* under half a cent). **Gotcha:** `soffice --convert-to` does not recalculate an .xlsx unless *Recalculation on file load* is set to *Always* (`OOXMLRecalcMode = 0`); without that a wrong formula passes unnoticed, so check the setup with a planted wrong value (see `tests/xlsx_e2e/README.md`).
 (Annuities: summary-sheet columns for taxable / tax-exempt payouts, account value, the taxable part embedded in it and the passing benefit with its split; plus one sheet per enabled annuity via `xlsxAnnuitySheet`.)
 Projection-by-year columns for the Taxable Qualified Income chart (before `Qualified tax`): `qLine0` / `qLine15` (the qualified bracket limits by filing status — the chart's two dashed lines; `QD_MFJ_1/2`, `QD_SGL_1/2` names), `qRoom0` / `qRoom15` (limit − `ordTI`, floored at 0) and `qAt0` / `qAt15` / `qAt20` (qualified income in each tier; they sum to `qual` and price to `Qualified tax`). The Formulas page documents the same equations.
 
@@ -876,7 +1082,43 @@ and the "Columns:" line) — the model only knows what the snapshot contains.
 | `renderAll()` | Full re-render: household setup, passing sliders, inflation/living/SCGL fields, AUM fee, future-tax panel, LTC panel, income forms, footer, then `recompute()` — called on boot and on a full state restore |
 | *(boot)* | On `DOMContentLoaded`: load autosave if present, else `defaultState()`, then `renderAll()` |
 
+**Update cycle.**
+
+```mermaid
+sequenceDiagram
+  actor U as User
+  participant IN as input card
+  participant S as state
+  participant A as app.js
+  participant P as computeProjection
+  participant D as charts and cards
+  U->>IN: edit a field
+  IN->>S: setPath(path, value)
+  IN->>A: recomputeDebounced() and saveDebounced()
+  A->>P: recompute(): computeProjection(), or the trial on screen
+  P->>S: reads state
+  P-->>A: lastProjection (rows)
+  A->>D: renderCharts()
+  A->>D: mark Monte Carlo and Stress results stale
+  A->>D: refresh scenario card and live link
+  Note over A,S: autosave to localStorage 500 ms later
+```
+
 ### 7.2 `index.html`
+
+**Script load order** (plain scripts in one global scope, no build step; a file may only use names defined above it):
+
+```mermaid
+flowchart LR
+  a["Chart.js + SheetJS<br/>(CDN)"] --> b["core: constants,<br/>helpers, markdown"]
+  b --> c["compute: socialSecurityCalc,<br/>rmd, tax"]
+  c --> d["core/state.js"]
+  d --> e["compute: dates, ageRange, projection,<br/>whatIf, donorTraj,<br/>monteCarlo, stressTest"]
+  e --> f["input/*"]
+  f --> g["display/*<br/>charts, formulasPage, mdPage, excelExport,<br/>mcPanel, stressPanel, cardStack"]
+  g --> h["app.js<br/>boot"]
+```
+
 - Page markup only: styling lives in `css/styles.css` (linked in `<head>`), behavior in `js/`.
 - Layout: independent-scrolling input column (left, one pane per person) and output column (right,
   the charts) — see §1 for the overall shape. The topbar holds, in order: **Save**, **Load file ▾**
@@ -967,6 +1209,26 @@ Use this order; skipping ahead usually means redoing work.
 
 Files: `compute/monteCarlo.js` (seeded RNG, samplers, trial runner `mcRunTrial`, `mcReplayTrial`, `mcSummarize`, `mcFailureReasons`, `mcMeasure`; no DOM), `compute/donorTraj.js` (`buildDonorBlock`, `sanitizeDonorBlock`), `display/mcPanel.js` (the card). Notes and the model are in `docs/MONTE_CARLO.md`; the user-facing description is in `misc/Usage.md`.
 
+**One trial.** Every random draw comes from the seed and the trial number, so a trial can be replayed exactly and nothing is stored.
+
+```mermaid
+flowchart TD
+  cfg["mcCfg: groups on or off,<br/>trials, seed"] --> loop["for each trial t"]
+  loop --> path["mcPath(cfg, t)<br/>seeded RNG: market shocks, own shocks,<br/>panic years, inflation path"]
+  loop --> draws["lifespans, LTC, inheritance<br/>drawn from the same seed"]
+  path --> r1
+  draws --> r1
+  subgraph trial["mcRunTrial"]
+    r1["withTempState: private copy of state<br/>with the drawn lifespans, LTC, inheritance"] --> r2["MC_HOOK = mcFactor(path, key, k)<br/>MC_INFL = the inflation path"]
+    r2 --> r3["computeProjection()"]
+    r3 --> r4["mcMeasure(rows)<br/>fail age, shortfall, assets by year,<br/>guardrail cuts, panic years"]
+  end
+  r4 --> sum["mcSummarize + mcFailureReasons"]
+  sum --> ui["mcPanel: success rate, fan chart, causes"]
+  r4 -.->|"optional second pass:<br/>panic off, same seeds"| sum
+  ui --> view["Load one trial: mcReplayTrial<br/>rebuilds it from the seed"]
+```
+
 ### 10.1 Engine hooks (`projection.js`)
 `computeProjection()` re-runs on a temporary copy of `state` (`withTempState`). `MC_HOOK` + `gk()` sit at every growth site (random returns); `MC_INFL` + `cpiAt()/infAt()/growIdx()` replace every constant-rate inflation formula. Both are null in normal use, so the deterministic output is unchanged. Random lifespans, Long Term Care and inheritance replace the matching fields of the private state copy.
 
@@ -979,6 +1241,31 @@ At import and at every live-link update (`inheritance.js`, `liveLink.js`) the so
 - The card's two canvases are not chart panels (no Hide / drag / Same-scale); `MC_NO_OVERLAYS` turns the app's overlay plugins off for them.
 
 ### 10.4 Trial view: A / B / C
+
+**The four chart views** (display only; nothing is saved with the plan):
+
+```mermaid
+stateDiagram-v2
+  state "A  Plan as entered" as A
+  state "B  Monte Carlo failure" as B
+  state "C  Monte Carlo success" as C
+  state "D  Stress test" as D
+  [*] --> A
+  A --> B: load a failed trial
+  A --> C: C key, load a success
+  A --> D: D key or D button
+  B --> A: B key or Back to plan
+  C --> A: B key or Back to plan
+  D --> A: B key or Back to plan
+  B --> B: arrows step failures
+  C --> C: C or Shift+C
+  D --> D: D or Shift+D
+  B --> C: C key
+  B --> D: D key
+  C --> D: D key
+  D --> C: C key
+  note right of A: editing the plan or starting<br/>a new run also ends the trial view
+```
 - `mcLoadTrial(trial)` / `mcLoadSuccess(trial)` call `mcReplayTrial(cfg, i)` (same seed and trial number give the same draws; nothing is stored) and keep it in `mcTrialView = {planProj, key, view, cur, b, c, …}`: `planProj` = A (the plan as entered), `b` = the failed trial loaded from the study row, `c` = the successful run of the C button. `view` is `'A' | 'B' | 'C'`; `cur` is whichever of B / C was shown last. The fields of the shown trial (`trial, proj, state, cap, pos, cause`) are also copied onto the view (`mcUseTrial`), so code that reads `mcTrialView.state` / `.cap` works for both.
 - `recompute()` (`app.js`): if a trial is loaded and `mcTrialStillValid()` is false (the plan was edited) it calls `mcTrialClear()`; otherwise `lastProjection = mcTrialShown()` (A → `planProj`, else the trial's `proj`). A new run, editing the plan or **Back to plan** (`mcTrialExit`) ends the view.
 - `mcFitBoth()` fits every chart's Y scale to the largest of A, B and C (a dry pass: `window.dryPass`); `mcCaptureGhosts()` keeps A's lines for the `abGhost` plugin; `chartHelpers.js` never saves a trial's scales into the plan. Rescale refits one chart to what is showing.
@@ -996,6 +1283,32 @@ node tests/mc/mc_ui_test.js        # card, banner, A/B/C, inflation / market cha
 ```
 `mc_runplan.js`, `mc_sweep.js` and `mc_infl_cmp.js` are run-and-print helpers; `mc_harness.js` loads the engine.
 
+### 10.6 Systemic panic: correlation convergence (`returns.panic`)
+`MC_DEFAULTS.returns.panic = {enabled:false, rhoPanic:0.9, trigger:-1.5, holdYears:1, includeRE:true, rhoRE:0.5, compare:false}` (the card: group `mcPanic`, `mcReadCfg()` keeps the whole object).
+**What `mcFactor` does in a year.** The panic branch is the only place the factor differs from the plain formula.
+
+```mermaid
+flowchart TD
+  k["mcFactor(path, key, k)"] --> t{"property key (re:...)?"}
+  t -- "no: portfolio" --> p1["rho0 = rho"]
+  t -- "yes" --> p2["rho0 = 0"]
+  p1 --> q
+  p2 --> q{"Panic on, and is year k a panic year?<br/>(market shock below the trigger in k<br/>or in the previous hold - 1 years)"}
+  q -- "no" --> n1["rho_k = rho0"]
+  q -- "yes" --> n2["rho_k = max(rho0, rhoPanic)<br/>property: rhoRE, only if Property too is ticked"]
+  n1 --> z
+  n2 --> z["z = sqrt(rho_k) x zMarket + sqrt(1 - rho_k) x own shock"]
+  z --> f{"Panic on?"}
+  f -- "no" --> f1["factor = exp(sigma z - sigma^2 / 2)"]
+  f -- "yes" --> f2["factor = exp(sigma z) / M_k<br/>M_k is the exact mean of exp(sigma z),<br/>so the average return stays as entered"]
+```
+
+- **`mcPath`** sets `path.panic` (a `Uint8Array`): year k is a panic year if `zMkt[k] < trigger` in k or in one of the previous `holdYears−1` years. It depends only on the pre-drawn market shocks, so `mcFactor(path, key, k)` stays a pure function of `(key, k)` inside one trial (the rule the hooks need).
+- **`mcFactor`**: in a panic year portfolios use `rho_k = max(rho, rhoPanic)` and property (with `includeRE`) `max(0, rhoRE)`: `z = √rho_k zMkt + √(1−rho_k)·idio` (property: `zRe` instead of `idio`). Because `rho_k` depends on `zMkt`, `z` is not standard normal and `exp(σz − σ²/2)` would drift off mean 1 (a silent change of the average return). The factor is `exp(σz) / M_k`, `M_k = e^{σ²/2}·[u(Φ(t−σ√ρp) + 1 − Φ(t−σ√ρ)) + 1 − u]`, `u = (1−Φ(t))^{min(k, H−1)}` (`mcPanicNorm`, `mcPhi` by Simpson's rule, both cached). With the group off the original formula runs, so every result is bit-identical to before.
+- **Reading ρ.** ρ is the factor-model correlation; measured only inside crash years it looks lower (conditioning on a big drop shrinks the market's variance): with ρ 0.95 two portfolios' realised correlation in those years rises from 0.36 (off) to 0.73 (on). The panic mostly matters through property and through clustered crashes: with all non-property assets at the same volatility and drawn pro rata, raising ρ among portfolios alone barely moves their total. A bond / cash sleeve with its own rising correlation is **not** built.
+- **Measures:** `mcMeasure` adds `panicOn` and `panic10` (panic years among the first 10); `mcSummarize` adds `S.panic = {pFirst10, meanFirst10}`; `mcFailureReasons` a factor "A market panic in the first 10 years". `mcStart()` runs, with `compare` ticked, a second pass of the same trial numbers with `panic.enabled=false` (`run.results2`, `mcResults.cmp`) and `mcPanicRows` prints "Same trials without panic".
+- **Tests:** `PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/panic_test.js` (off == old formula; the normalizer equals direct integration; mean factor 1 at several years, hold 1 and 3, portfolios and property; panic frequency; loadings √ρ and residual variance 1−ρ; hold-window frequency; `includeRE` off; a panic ρ below ρ changes nothing; summary / failure factor only when on; reproducible; panic never raises the success rate in aggregate), `medshock_ui_test.js` (card, paired pass, rows).
+
 ## 11. Stress tests (add-on)
 
 Deterministic sequence-of-returns / inflation scenarios. Where Monte Carlo (§10) asks "how likely is a shortfall", this asks "does the plan survive *this* bad decade". Files: `compute/stressTest.js` (no DOM), `display/stressPanel.js` (the card, `<section id="stressPanel">` under `#mcPanel`), `tests/mc/stress_test.js`.
@@ -1006,6 +1319,23 @@ Deterministic sequence-of-returns / inflation scenarios. Where Monte Carlo (§10
 - The engine is in today's $, so a nominal return `r` in a year of inflation `π` enters as the real rate `(1+r)/(1+π)−1`; the scenario's price level is the engine's `MC_INFL`, so nominal-fixed items (no-COLA pension, un-indexed thresholds, cost basis, depreciation) follow it. Living expenses, Social Security COLA and indexed brackets are flat in today's $, i.e. they rise with the scenario's inflation in nominal terms.
 - Hit assets: every growth key except property (`re:`). `equityShare` % earns the scenario's stock return; the rest keeps the plan's own *nominal* rate (`fixed` / `custom` growth stay nominal; `inflation ± x` follows the year's inflation, i.e. keeps its real rate). Outside the window the plan's own real rate is returned unchanged.
 - Start row (`start.mode`): `retire` = first row after the last row with `wageTotal > 0` (0 if the plan has no wages), `now` = 0, `custom` = `start.years`. A start beyond the projection leaves the plan unaffected (the card says so).
+
+**One scenario run:**
+
+```mermaid
+flowchart TD
+  cfgst["Stress card settings<br/>start, share hit %, scenarios"] --> sc["stScenarios(cfg)<br/>Lost Decade, Stagflation, 1966 retiree"]
+  sc --> st1["stRun(scenario, start, cfg)"]
+  st1 --> tmp["withTempState: clone of the plan"]
+  tmp --> h["MC_HOOK = stHook<br/>real return (1+r)/(1+inflation)-1 on every<br/>growth key except property, for the share hit"]
+  tmp --> hi["MC_INFL = the scenario's inflation path"]
+  h --> cp["computeProjection()"]
+  hi --> cp
+  cp --> me["mcMeasure: fails at age, shortfall,<br/>assets at the low point"]
+  me --> g{"Guardrails on?"}
+  g -- "yes" --> g2["rerun the same scenario with guardrails off:<br/>first cut, tripwire balance, spending given up"]
+  me --> dd["D button: load the scenario into every chart"]
+```
 
 ### 11.2 Scenarios (`stScenarios(cfg)`)
 | id | what | data |
@@ -1026,3 +1356,32 @@ Historical arrays live in `ST_HIST` (rounded as published, %); defaults in `ST_D
 
 ### 11.6 Card stack (`display/cardStack.js`)
 `<div id="cardStack">` holds `#stressPanel` then `#mcPanel` (default order). Each card's `.mc-head` is draggable (`cardStackDecorate()`, also called at the end of `buildMcPanel` / `buildStressPanel` because a reset rebuilds the header); dropping on the upper / lower half of the other card inserts before / after it. Order is stored in `localStorage` key `retirementPlannerCardOrder_v1` (not in `state`); `cardStackReset()` (called by `stResetCard(true)`, i.e. Reset to defaults) restores the default. Not a chart-grid citizen: the cards cannot be dropped among the chart panels.
+
+### 11.6a Spending guardrails in the stress card
+With `state.guardrail.enabled`, every scenario runs with the guardrail (it is in the engine), and `stRunAll` adds to each result `guard = {firstCutAge, firstCutBal (the balance that tripped the first cut), tripwire, minMult, cutYears, cutTotal, off: {failAge, shortfall, estate}}`, where `off` re-runs the same scenario with `guardrail.enabled = false` (`withTempState`). `stRender` prints the second table (without vs with, first cut, tripwire balance, deepest cut, years cut, spending given up).
+
+### 11.7 Late-life medical shock (`stMedRun(cfg)`, `cfg.med = {enabled, person, age, years, cost, orders}`)
+Independent of the market scenarios (the card can run it alone: `stStart` accepts `cfg.med.enabled` as the only item). `stMedRunOne` runs the plan under `withTempState`, once with `state.medShock` switched off and once with the card's numbers (the plan's own `medShock` is ignored here), always with `stRun(null, 0, cfg)`; `stMedSummary` compares the rows of the two runs over the shock years `[k0, k1]`: who paid (`expFromIncome / Div / Sales / Ira / Roth / Re` differences), `ltcgGross` realised, `embeddedGain` at the start, `taxShockYears`, `taxThroughTail` (to `k1 + 2`), `taxLifetime`, `irmaaLifetime`, itemized deduction and years itemizing, peak AGI, `taxIters`, `notConverged` (rows with `taxConverged === false`), fail age, shortfall and estate with / without. A shock outside the projection returns `{covered:false}`.
+With `orders`, the same comparison is repeated under four withdrawal orders built by `stMedKeys()` (the household's portfolios that pay expenses, IRAs, Roths): the plan's own order if `withdrawOrder.enabled` (else built-in taxable → IRA → Roth), IRA first, Roth first, taxable → Roth → IRA (duplicates dropped). The result is `stRunAll(cfg).med` and `stMedHtml()` renders it (the best final estate is starred). Test: `tests/mc/medshock_test.js`.
+
+**One medical-shock run.**
+
+```mermaid
+sequenceDiagram
+  participant UI as stressPanel
+  participant ST as stMedRun
+  participant PR as computeProjection
+  UI->>ST: cfg.med (person, age, years, cost, orders)
+  ST->>PR: run with medShock off
+  PR-->>ST: base rows
+  ST->>PR: run with medShock on
+  PR-->>ST: shocked rows
+  ST->>ST: stMedSummary: who paid, gains realized,<br/>extra tax, deduction, IRMAA, estate
+  opt compare withdrawal orders
+    loop four orders
+      ST->>PR: base and shocked run under that order
+      PR-->>ST: rows
+    end
+  end
+  ST-->>UI: summary and orders table (best estate starred)
+```

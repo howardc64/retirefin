@@ -62,6 +62,8 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 | Long Term Care | Single household: starts at $7,500. Married: the 1st LTC expenses follow your living expenses until you change them; the 2nd defaults to $15,000. |
 | Expense shortfall withdrawal order | Lets you choose where money comes from when income and dividends do not cover the year's expenses (below). |
 | Advisory (AUM) fee | Fee on *Living expense & income* portfolios only; IDGTs are never charged. |
+| Spending guardrails | Off by default. Cuts next year's discretionary spending when the withdrawal rate drifts too high (below). |
+| Late-life medical shock | Off by default. An extra, itemized medical cost for a few years late in life (below). |
 
 **Expense shortfall withdrawal order** (switch it on, then build the list):
 - Add, reorder (▲ ▼) and delete steps; each step names one asset: a portfolio, a pre-tax IRA, a Roth IRA or a property to sell.
@@ -69,6 +71,18 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 - Taxes follow the asset: portfolio sales realize capital gain on their gain share, pre-tax IRA draws are ordinary income, Roth draws are tax-free.
 - Selling a property sells the whole property at the start of that year. Its gain is taxed as long-term capital gain and any proceeds not needed move to the property's designated portfolio.
 - With the card off, the built-in order is used: Living expense & income portfolios, then pre-tax IRAs, then Roth IRAs.
+
+**Spending guardrails** (switch the card on). Without them the plan spends the same amount every year until the money runs out. With them the household cuts back when the markets do, and the stress tests and Monte Carlo then show *where* the cut-back starts instead of just whether the plan fails.
+- **The rule.** At the end of each year the planner computes the **withdrawal rate**: what the portfolios must pay for the year (living expenses, Long Term Care, IRMAA, fees and tax, less Social Security, pensions, wages, rent and annuity income) divided by the invested balance (portfolios, IRAs, Roth, inherited IRAs) at the *start* of that year. If it is more than the **band** (default 20%) above the starting rate, **next year's discretionary spending is cut** by the **cut %** (default 10%).
+- **Starting rate.** *First year without wages* (the default) or a *Target rate* you enter. The first year after wages is also the baseline for later years, so a year with a Roth conversion or a lump sum there makes it unrepresentative: use a target rate in that case.
+- **Discretionary share.** The part of living expenses that can be cut (default 30%). The rest is essential and is never cut; a cut applies to the discretionary part only, and compounds (two cuts leave 90% × 90% = 81% of it). Cuts stay unless **Prosperity rule** is on, which raises spending again (never above the plan's amount) when the rate falls by the same margin.
+- **No changes in the last N years** (default 15) follows the Guyton–Klinger rule of not cutting late in life. **Leave the Long Term Care cost out of the rate** makes the rule react to the markets only, not to a care event.
+- **What you see.** In the Stress tests card, a table with and without guardrails, the age of the first cut and the **invested balance that tripped it** (the tripwire), the deepest cut and the spending given up. In the Monte Carlo card, the share of trials that had to cut, when, how deep, and the years below plan. Read the success rate **together with** how often and how deeply the household cut: a plan can "succeed" only because it cut a lot. The Excel export has the rate, cut line and tripwire as formulas.
+
+**Late-life medical shock** (switch the card on). A large medical cost for a few years late in life (default $100,000 a year for 3 years from age 80, in today's $), on top of any Long Term Care card.
+- It is counted as a Long Term Care cost: it is an **itemized medical deduction** (the part above 7.5% of AGI, and California's medical deduction if state tax is on), it is paid from your accounts in the **withdrawal order**, and it appears in the Household Expenses chart under *Long Term Care / medical shock*. Living expenses do **not** switch to the care amount. Nothing is charged for a person who has died.
+- Selling taxable holdings to pay it realizes capital gains, and the gains raise AGI, which shrinks the medical deduction; the planner solves that circularity as it does for any other sale.
+- The **Stress tests** card has a *Late-life medical shock* group that shows what the shock forces without changing your plan (below).
 
 ### Tax & Optimizations panel
 
@@ -174,6 +188,7 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 - **Projection by year** sheet: the full year-by-year projection, including the Annual Household Income popup's *Total income*, ordinary income before deduction, the deduction, ordinary / qualified / total taxable income, and the no-conversion figures and "trigger met" flag used by the Roth conversion start triggers. It also totals real estate value and unrealized gain, and has *Inheritance asset income* columns.
 - **One sheet per account:** portfolios, IRAs, **inherited IRAs** (withdraw and balance under the 10-year rule), annuities, and each **real estate** property (value, cost basis, and any sale's gain, exemption, tax and amount sent to the portfolio).
 - **A Monte Carlo trial exports as that trial.** With a trial loaded (B or a successful run C) the file is named `retirement-plan-mc-trial-N.xlsx`, **Inputs** shows the trial's drawn passing ages, Long Term Care and inheritance, and an extra **MC trial** sheet lists the trial's inflation for each year and every asset's market shock. The portfolio, property and IRA sheets compound with those yearly rates, and the tax thresholds follow the trial's price level, so the workbook stays live: edit an inflation rate or a shock factor (1 = the plan's own return) on the MC trial sheet, or a growth % on Inputs, and the formulas recalculate. As in a plan, the amounts the app solves (income, expense funding, Roth conversions) stay as values. With A (the plan) showing, the export is the plan.
+- **Guardrails and the medical shock.** **Inputs** lists their settings. With guardrails on, the **Projection by year** sheet gains *Guardrail* columns: the multiplier on discretionary spending, the spending the portfolios must fund and the start-of-year balance (values from the app), and the **withdrawal rate, cut line, tripwire and "above the cut line?"** as live formulas (change the band on Inputs and they follow; the cuts themselves are app values, as the rest of the solver's output). The medical shock has its own column and is inside *Long Term Care expense* and the itemized deduction.
 - **State income tax** is exported for the selected state only (California's brackets, deduction and credits, or Washington's capital-gains tax). With state tax off, no state tables or columns are written.
 
 ### Hover helpers
@@ -557,11 +572,14 @@ Each group has a checkbox. A group that is switched off uses the plan's own figu
 | **Random lifespans** | Each person's age at passing, replacing the "passes at age" sliders. Modal age and spread are set here. |
 | **Random Long Term Care** | Whether care is needed, for how long and at what cost; it replaces every LTC card, an inheritance source's too. |
 | **Random inflation** | Inflation drifts around the plan's rate; fixed-dollar items and fixed or custom growth follow it. |
+| **Systemic panic** | Needs random returns. In a year the market falls by more than the **crash** size you set (default 1.5 standard deviations, about 1 year in 15), and for the years it **lasts**, every portfolio's correlation with the others rises to the **panic correlation** (default 0.9) and optionally property falls with the market too: diversification stops working just when it is needed. The average return is unchanged. **Also run the same trials without panic** runs a second pass on the same random draws so the card can say what the panic itself cost (it doubles the run time). |
 | **Random inheritance** | Each inheritance source plan gets its own lifespan, care and the same market shocks, and the asset arrives in that plan's last-passing year. An optional **haircut %** discounts what you count on. Sources imported before this feature say "re-import (or live-link) it to simulate" and stay as planned until you do. |
 
 Below the groups set the number of **Trials** (50 to 10,000) and the **Seed**. The same seed and trial number always give the same draws. **Run simulation** works in small steps so the page stays usable; **Cancel** keeps the partial result. A red note says when the plan changed since the run.
 
 Not random: Social Security and pension amounts, and tax law.
+
+With **Spending guardrails** on (Expenses panel) every trial cuts discretionary spending by the rule, and the Results gain rows for how many trials had to cut, when, how deeply and for how long. A late-life **medical shock** on the Expenses panel applies in every trial (at the person's own age, and only while that person is alive).
 
 ### Results
 
@@ -597,6 +615,8 @@ The **Stress tests** card (under the Monte Carlo card, collapsed until you untic
 - **Lost Decade**: the actual 2000–2009 S&P 500 returns. Tick *Also use that decade's actual inflation* to add that decade's CPI.
 - **Stagflation**: flat stock returns (default 0% a year) for 10 years while inflation ramps from 6% to 11%. All four numbers are editable.
 - **1966 retiree**: actual 1966–1981 stock returns and inflation, the classic worst starting date for a retiree.
+- **Late-life medical shock** (liquidity and tax test, separate from the market scenarios and can be run alone): pick whose age, the starting age, the number of years and the yearly cost. It shows the plan with and without the shock: which accounts paid (dividends, asset sales, IRA, Roth, property), the **capital gains it realizes** against the unrealized gain you started with, the itemized deduction it creates, the highest AGI, the extra income tax in the shock years and two years after, the IRMAA effect and the estate. *Also compare four withdrawal orders* repeats it with your own order (or the built-in one), IRA first, Roth first and taxable → Roth → IRA, and stars the best final estate. The shock in this card does not change your plan; the Expenses card does.
+- **With Spending guardrails on**, every scenario above runs with them, and a second table shows each scenario with and without the guardrails, the age and invested balance of the first cut (the tripwire), the deepest cut and the spending given up.
 - **Show in charts / D button**: load a scenario into every chart (see the Stress test card under Study one trial); the Inflation rate and Market return % charts then show the scenario's inflation and returns.
 - **Results**: for the plan and each scenario, whether the money lasts (or the age it runs out), the unpaid expenses, invested assets at the end of the shock and as a % of the plan, the lowest invested assets after the start, and the assets in the last projected year; the card has no chart of its own, because the D button / *Show in charts* loads each scenario into the real charts. Everything is in today's $. Press **Run stress tests** again after changing the plan or the settings (a red note tells you when a result is out of date).
 

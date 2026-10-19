@@ -281,6 +281,23 @@ function xlsxInputsSheet(proj,trial){
   put('Household living expenses once 2nd LTC starts',Number(ltc.living2)||0,{fmt:XLSX_MONEY});
   { const wo=st.withdrawOrder||{}, lab={}; withdrawAssets().forEach(a=>{ lab[a.key]=a.label; });
     put('Expense shortfall withdrawal order',yn(!!wo.enabled),{note:wo.enabled?((wo.steps||[]).map((x,i)=>(i+1)+'. '+(lab[x.asset]||'(missing)')).join('; ')||'(no steps)'):'built-in order'}); }
+  { const g=st.guardrail||{};
+    put('Spending guardrails enabled',yn(!!g.enabled),{note:g.enabled?'Cut next year\'s discretionary spending when the withdrawal rate passes the cut line (see the Projection columns "Guardrail: ...")':'off'});
+    if(g.enabled){
+      put('  discretionary share of living expenses (%)',Number(g.discPct)||0,{fmt:XLSX_PCTNUM});
+      put('  starting withdrawal rate',g.iwrMode==='target'?'Target rate':'First year without wages',{note:g.iwrMode==='target'?(Number(g.targetWR)||0)+'%':undefined});
+      put('  cut when the rate is above the starting rate by (%)',Number(g.band)||0,{name:'Gr_Band',fmt:XLSX_PCTNUM});
+      put('  cut discretionary spending by (%)',Number(g.cutPct)||0,{fmt:XLSX_PCTNUM});
+      put('  prosperity rule (raise when the rate falls by the same margin)',yn(!!g.prosperity),{note:g.prosperity?'raise by '+(Number(g.raisePct)||0)+'%':undefined});
+      put('  no changes in the last (years)',Number(g.sunsetYears)||0,{fmt:XLSX_COUNT});
+      put('  Long Term Care cost left out of the rate',yn(!!g.excludeLtc));
+    } }
+  { const m=st.medShock||{};
+    put('Late-life medical shock enabled',yn(!!m.enabled),{note:m.enabled?'Added to the Long Term Care cost, so it is itemized like it (above 7.5% of AGI) and paid by the withdrawal order':'off'});
+    if(m.enabled){
+      put('  whose age',st.filingStatus==='married'&&m.person===1?'Person 2':'Person 1');
+      put('  starts at age',Number(m.age)||0); put('  lasts (years)',Number(m.years)||0,{fmt:XLSX_COUNT}); put('  extra medical cost / yr',Number(m.cost)||0,{fmt:XLSX_MONEY});
+    } }
   const aum=st.aumFee||{};
   put('AUM fee enabled',yn(aum.enabled),{}); put('AUM fee mode',aum.mode==='pct'?'% of AUM balance':'Fixed $ / yr (today\'s $)'); put('AUM fee value',Number(aum.value)||0,{fmt:aum.mode==='pct'?XLSX_PCTNUM:XLSX_MONEY});
   head('Tax & Optimizations');
@@ -680,6 +697,7 @@ function xlsxMainColumns(proj,acctSheets,T){
   per('ltcCostByPerson','LTC cost','ltcC');
   V('ltcN','LTC started (count of people)',r=>v(r.ltcStarted),XLSX_COUNT);
   F('expLtc','Long Term Care expense (total)',r=>v(r.expLtc),X=>sumF(X,'ltcC'));
+  if(proj.rows.some(r=>r.expMed>0)) V('expMed','  of which: late-life medical shock (already inside the cost above, and so inside the itemized deduction)',r=>v(r.expMed));
   V('aumBal','AUM balance (start of year)',r=>v(r.aumBalance));
   V('aumFee','AUM fee, total charged',r=>v(r.aumFee));
   F('expAum','AUM fee paid by household (non-IDGT)',r=>v(r.expAum),X=>X('aumFee'));
@@ -794,6 +812,22 @@ function xlsxMainColumns(proj,acctSheets,T){
   }
   F('expTax','Income tax paid as expense (tax drag) = total tax + state tax − tax paid out of a property sale',r=>v(r.expTax),X=>`${X('tt')}+${X('stateTax')}-${X('reTax')}`);
   F('expTot','Total household expenses = living + LTC + IRMAA + AUM fee + income tax',r=>v(r.expTotal),X=>`${X('expLiving')}+${X('expLtc')}+${X('irmaa')}+${X('expAum')}+${X('expTax')}`);
+  // Spending guardrails (rows carry `guard` only when state.guardrail is on). Living expenses above already include the cuts (an app value); these columns show the rule
+  // that produced them: the app's spending / balance, and the rate, cut line, tripwire and "above the line?" test as live formulas (the band is the Inputs name Gr_Band).
+  if(proj.rows[0]&&proj.rows[0].guard){
+    const bandOf=r=>(r.guard.bandPct||0), lineOf=r=>r.guard.iwr==null?'':r.guard.iwr*(1+bandOf(r)/100);
+    V('gMult','Guardrail: multiplier on the discretionary part of living expenses this year (1 = the plan\'s amount)',r=>r.guard.mult,'0.000');
+    V('gDraw','Guardrail: spending the portfolios must fund (total expenses − wages, Social Security, pension, rental and annuity income)',r=>r.guard.draw);
+    V('gBal0','Guardrail: invested balance at the start of the year',r=>r.guard.bal0);
+    F('gWr','Guardrail: withdrawal rate = spending ÷ start-of-year balance',r=>(r.guard.bal0>0?r.guard.draw/r.guard.bal0:''),X=>`IF(${X('gBal0')}>0,${X('gDraw')}/${X('gBal0')},"")`,XLSX_PCT2);
+    V('gIwr','Guardrail: starting withdrawal rate (blank until the first year without wages)',r=>r.guard.iwr==null?'':r.guard.iwr,XLSX_PCT2);
+    F('gLine','Guardrail: cut line = starting rate × (1 + band)',lineOf,X=>`IF(${X('gIwr')}="","",${X('gIwr')}*(1+Gr_Band/100))`,XLSX_PCT2);
+    F('gTrip','Guardrail: tripwire = spending ÷ cut line (a start-of-year balance below this triggers a cut)',r=>r.guard.iwr==null?'':r.guard.draw/lineOf(r),X=>`IF(${X('gLine')}="","",${X('gDraw')}/${X('gLine')})`,XLSX_MONEY);
+    F('gOver','Guardrail: is the rate above the cut line?',r=>(r.guard.iwr!=null&&(r.guard.bal0>0?r.guard.draw/r.guard.bal0>lineOf(r):r.guard.draw>0))?'Yes':'No',
+      X=>`IF(${X('gLine')}="","No",IF(${X('gBal0')}<=0,IF(${X('gDraw')}>0,"Yes","No"),IF(${X('gWr')}>${X('gLine')},"Yes","No")))`,undefined,true);
+    V('gMove','Guardrail: change decided for next year (−1 cut, +1 raise, 0 none; none in the last years)',r=>r.guard.move,XLSX_COUNT);
+    V('gCutAmt','Guardrail: discretionary spending given up this year',r=>r.guard.cutAmt);
+  }
   F('totInc','Total income (as on Annual Household Income chart: every band incl. dividends, LTCG, IRA/Roth withdraws, depreciation)',r=>chartTotalIncome(r),
     X=>`${X('penT')}+${X('annT')}+${X('annTET')}+${X('wageT')}+${X('convT')}+${X('rmdT')}+${X('inhIra')}+${X('inhRoth')}+${X('iraExT')}+${X('rentT')}+${X('rentDep')}+${X('teT')}+${X('expFromRoth')}+${X('qdiv')}+${X('odivNQ')}+${X('ltcg')}+${X('ssT')}`);
   V('cash','Household cash income (wage+SS+pension+rental+depreciation+tax-exempt+annuity+RMD+portfolio withdraw)',r=>v(r.cashIncome));

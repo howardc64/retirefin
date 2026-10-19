@@ -32,7 +32,8 @@ const ST_DEFAULTS={
   equityShare:100,                                                   // % of each non-property asset that earns the scenario's equity return
   lost:{enabled:true, actualInflation:false},                        // 2000–2009 actual returns; inflation stays the plan's unless actualInflation
   stag:{enabled:true, years:10, eqReturn:0, inflStart:6, inflEnd:11},// synthetic: flat nominal equities, inflation ramping inflStart → inflEnd (linear over `years`)
-  y1966:{enabled:true}                                               // 1966–1981 actual returns and CPI
+  y1966:{enabled:true},                                              // 1966–1981 actual returns and CPI
+  med:{enabled:false, person:0, age:80, years:3, cost:100000, orders:true}   // late-life medical shock (stMedRun): `cost` a year (today's $) for `years` years from `age` of person `person`; orders = also compare withdrawal orders
 };
 
 // ── scenario definitions ──────────────────────────────────────
@@ -121,10 +122,76 @@ function stRunAll(cfg){
     const atEnd=start<=end?m.fin[end]:null, planAtEnd=start<=end?base.fin[end]:null;
     let low=Infinity, lowK=-1; for(let k=Math.min(start,m.n-1);k<m.n;k++) if(m.fin[k]<low){ low=m.fin[k]; lowK=k; }
     let gapYears=0; proj.rows.forEach(r=>{ if(r.expUnfunded>1) gapYears++; });
+    // Spending guardrails (state.guardrail on): when the first cut fires and at what portfolio value, how deep the cuts go, and what the same scenario does with no guardrail.
+    let guard=null;
+    if(m.guard){
+      const g=m.guard, off=withTempState(s=>{ s.guardrail.enabled=false; }, ()=>mcMeasure(stRun(sc,start,cfg),{pass:[0,0],ltcYears:[0,0]}));
+      guard={firstCutAge:g.firstCutAge, firstCutBal:g.firstCutBal, minMult:g.minMult, cutYears:g.cutYears, cutTotal:g.cutTotal,
+             tripwire:(()=>{ const r=proj.rows[g.firstCutK>=0?g.firstCutK:Math.min(start,proj.rows.length-1)]; return r&&r.guard?r.guard.tripwire:null; })(),
+             off:{failAge:off.failAge, shortfall:off.shortfall, estate:off.estateFin+off.estateRe}};
+    }
     return {id:sc.id, label:sc.label, note:sc.note, years:sc.eq.length, m, atEnd, planAtEnd, low:isFinite(low)?low:null, lowAge:lowK>=0?m.age0+lowK:null, gapYears,
-            estate:m.estateFin+m.estateRe, covered:start<m.n};
+            estate:m.estateFin+m.estateRe, covered:start<m.n, guard};
   });
-  return {start, startAge:baseProj.rows[0].age0+start, startCovered:start<baseProj.rows.length, base, baseEstate:base.estateFin+base.estateRe, results};
+  return {start, startAge:baseProj.rows[0].age0+start, startCovered:start<baseProj.rows.length, base, baseEstate:base.estateFin+base.estateRe, results, med:stMedRun(cfg)};
 }
 
-if(typeof module!=='undefined') module.exports={ST_HIST,ST_DEFAULTS,stScenarios,stRetireRow,stStartRow,stInflation,stHook,stRun,stReplay,stRunAll};
+// ── late-life medical shock: liquidity and tax drag ──────────────
+// The plan with and without an extra itemized medical cost (cfg.med: cost a year for `years` years from `age` of person `person`; state.medShock of the plan itself is ignored here:
+// the "without" run switches it off, the "with" run uses the card's numbers). Same plan, same returns; only the shock differs, so every difference below is the shock's.
+// Reports what the shock forces: which accounts pay it, how much capital gain it realises, the extra tax in and after the shock years, the itemized deduction it creates, and the IRMAA
+// that follows two years later; with cfg.med.orders also the same comparison under four withdrawal orders (which one pays the least tax).
+function stMedKeys(){
+  const n=state.filingStatus==='married'?2:1, pf=[], ira=[], roth=[];
+  (state.people||[]).slice(0,n).forEach(p=>{
+    (p.brokerage||[]).forEach(b=>{ if(b&&b.id!=null&&b.enabled!==false&&b.payExp) pf.push('pf:'+b.id); });
+    if(p.ira&&p.ira.enabled) ira.push('ira:'+p.id); if(p.roth&&p.roth.enabled) roth.push('roth:'+p.id);
+  });
+  return {pf, ira, roth};
+}
+function stMedRunOne(cfg, shock, keys){
+  const M=cfg.med;
+  return withTempState(s=>{
+    s.medShock=shock?{enabled:true, person:M.person===1?1:0, age:M.age, years:Math.max(1,Math.round(M.years)), cost:M.cost}:Object.assign({}, s.medShock, {enabled:false});
+    if(keys) s.withdrawOrder={enabled:true, steps:keys.map(a=>({asset:a}))};
+  }, ()=>{ const proj=stRun(null,0,cfg), m=mcMeasure(proj,{pass:[0,0],ltcYears:[0,0]}); return {proj, m}; });
+}
+function stMedSummary(sh, base){
+  const R=sh.proj.rows, B=base.proj.rows, win=[]; R.forEach((r,k)=>{ if(r.expMed>0) win.push(k); });
+  if(!win.length) return null;
+  const k0=win[0], k1=win[win.length-1], tail=Math.min(R.length-1,k1+2), inWin=k=>k>=k0&&k<=k1;
+  const sum=(rows,f,a,b)=>{ let t=0; for(let k=a;k<=b&&k<rows.length;k++) t+=f(rows[k])||0; return t; };
+  const tax=r=>(r.totalTax||0)+(r.stateTax||0);
+  const d=f=>sum(R,f,k0,k1)-sum(B,f,k0,k1);          // shock years, shocked minus base
+  const life=(rows)=>sum(rows,tax,0,rows.length-1), irm=(rows)=>sum(rows,r=>r.expIrmaa,0,rows.length-1);
+  const paid={income:d(r=>r.expFromIncome), dividends:d(r=>r.expFromDiv), sales:d(r=>r.expFromSales), ira:d(r=>r.expFromIra), roth:d(r=>r.expFromRoth), property:d(r=>r.expFromRe)};
+  let peakAgi=0, peakAgiBase=0, itemYears=0, bad=0; for(let k=k0;k<=k1;k++){ peakAgi=Math.max(peakAgi,R[k].agi||0); peakAgiBase=Math.max(peakAgiBase,B[k]?B[k].agi||0:0); if(R[k].usedItemized) itemYears++; }
+  R.forEach(r=>{ if(r.taxConverged===false) bad++; });
+  const med=sum(R,r=>r.expMed,k0,k1);
+  return {startAge:R[k0].age0, endAge:R[k1].age0, years:win.length, cost:med,
+    paid, ltcgRealized:d(r=>r.ltcgGross), embeddedGain:(R[k0].embeddedGain||0),
+    taxShockYears:d(tax), taxThroughTail:sum(R,tax,k0,tail)-sum(B,tax,k0,tail), taxLifetime:life(R)-life(B), irmaaLifetime:irm(R)-irm(B),
+    itemized:sum(R,r=>r.itemized,k0,k1), itemizedYears:itemYears, peakAgi, peakAgiBase, maxIters:Math.max(...R.map(r=>r.taxIters||0)), notConverged:bad,
+    failAge:sh.m.failAge, failAgeBase:base.m.failAge, shortfall:sh.m.shortfall, shortfallBase:base.m.shortfall,
+    estate:sh.m.estateFin+sh.m.estateRe, estateBase:base.m.estateFin+base.m.estateRe, lifetimeTax:life(R), lifetimeTaxBase:life(B)};
+}
+function stMedRun(cfg){
+  const M=cfg.med; if(!M||!M.enabled) return null;
+  const base=stMedRunOne(cfg,false,null), sh=stMedRunOne(cfg,true,null), sum=stMedSummary(sh,base);
+  if(!sum) return {covered:false};
+  const out={covered:true, sum, orders:null};
+  if(M.orders){
+    const K=stMedKeys(), cur=state.withdrawOrder&&state.withdrawOrder.enabled?(state.withdrawOrder.steps||[]).map(x=>x.asset):null;
+    const defs=[ {id:'plan', label:cur?'Your withdrawal order':'Built-in: taxable → IRA → Roth', keys:cur||K.pf.concat(K.ira,K.roth)},
+                 {id:'iraFirst', label:'IRA first: IRA → taxable → Roth', keys:K.ira.concat(K.pf,K.roth)},
+                 {id:'rothFirst', label:'Roth first: Roth → taxable → IRA', keys:K.roth.concat(K.pf,K.ira)},
+                 {id:'rothLast', label:'Taxable → Roth → IRA', keys:K.pf.concat(K.roth,K.ira)} ];
+    const seen={}; out.orders=defs.filter(d=>{ const k=d.keys.join(); if(seen[k]) return false; seen[k]=1; return d.keys.length>0; }).map(d=>{
+      const b=stMedRunOne(cfg,false,d.keys), x=stMedRunOne(cfg,true,d.keys), sm=stMedSummary(x,b);
+      return {id:d.id, label:d.label, sum:sm};
+    }).filter(o=>o.sum);
+  }
+  return out;
+}
+
+if(typeof module!=='undefined') module.exports={ST_HIST,ST_DEFAULTS,stScenarios,stRetireRow,stStartRow,stInflation,stHook,stRun,stReplay,stRunAll,stMedRun};

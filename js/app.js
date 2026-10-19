@@ -61,6 +61,8 @@ function renderAll(){
   renderScglPanel();
   renderAumFee();
   renderWithdrawOrderPanel();
+  renderGuardrailPanel();
+  renderMedShockPanel();
   renderFutureTaxPanel();
   renderSwapPanel();
   renderPfWithdrawPanel();
