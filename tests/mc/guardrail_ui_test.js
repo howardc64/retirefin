@@ -1,12 +1,12 @@
 // Spending guardrails in the UI (stub DOM): the Expenses card renders and saves; the Stress test and Monte Carlo cards show the guardrail results.
-//   PLAN=Samples/MFJ.json node tests/mc/guardrail_ui_test.js
+//   PLAN=Samples/Couple_Heir.json node tests/mc/guardrail_ui_test.js
 const fs=require('fs'), vm=require('vm'), path=require('path');
 const src=fs.readFileSync(path.join(__dirname,'mc_ui_test.js'),'utf8');
 const cut=src.indexOf('// stub geometry');                       // reuse the loader (DOM stub + app bundle) of mc_ui_test.js, not its checks
 const mod={exports:{}}; new Function('require','module','__dirname','process',src.slice(0,cut)+'\nmodule.exports={run,els,ctx};')(require,mod,__dirname,process);
 const {run,els}=mod.exports;
 let fails=0; const ok=(c,m)=>{ console.log((c?'PASS ':'FAIL ')+m); if(!c) fails++; };
-mod.exports.ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||'Samples/MFJ.json'),'utf8'));
+mod.exports.ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||'Samples/Couple_Heir.json'),'utf8'));
 run(`state=hydrateState(__plan); recompute(); renderGuardrailPanel();`);
 ok(/Spending guardrails/.test(els.guardrailPanel.innerHTML)&&/grBand/.test(els.guardrailPanel.innerHTML),'Expenses card renders');
 ok(run('state.guardrail.enabled')===false&&run('ASSUMP_HIDE_DEFAULT.guardrail')===true,'off and hidden by default');

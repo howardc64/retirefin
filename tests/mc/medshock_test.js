@@ -1,5 +1,5 @@
 // Late-life medical shock (projection.js state.medShock) and its liquidity / tax-drag diagnostic (stressTest.js stMedRun).
-//   PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/medshock_test.js
+//   PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/medshock_test.js
 const {makeCtx,loadPlan,run}=require('./mc_harness');
 const plan=JSON.parse(require('fs').readFileSync(process.env.PLAN,'utf8'));
 const ctx=makeCtx(); loadPlan(ctx,plan);

@@ -1,4 +1,4 @@
-// Spending guardrails (projection.js, state.guardrail). Run from the app folder:  PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/guardrail_test.js
+// Spending guardrails (projection.js, state.guardrail). Run from the app folder:  PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/guardrail_test.js
 const {makeCtx,loadPlan,run}=require('./mc_harness');
 const plan=JSON.parse(require('fs').readFileSync(process.env.PLAN,'utf8'));
 const ctx=makeCtx(); loadPlan(ctx,plan);

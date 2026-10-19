@@ -1,7 +1,7 @@
 'use strict';
 // Excel export of the spending guardrails and the late-life medical shock: Inputs rows, Projection columns, live formulas and their cached values.
 // Node only (a minimal stand-in for the SheetJS cell helpers; nothing is written to disk).
-//   PLAN=Samples/MFJ.json node tests/mc/xlsx_guardrail_test.js
+//   PLAN=Samples/Couple_Heir.json node tests/mc/xlsx_guardrail_test.js
 // (The end-to-end check, recalculating the exported file in LibreOffice and comparing every formula cell with the app's value: tests/xlsx_e2e/README.md.)
 const fs=require('fs'), vm=require('vm'), path=require('path');
 const root=path.resolve(__dirname,'..','..');
@@ -38,7 +38,7 @@ vm.runInContext(code,ctx,{filename:'app.js'});
 const run=s=>vm.runInContext(s,ctx);
 let fails=0; const ok=(c,m)=>{ console.log((c?'PASS ':'FAIL ')+m); if(!c) fails++; };
 
-ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||path.join(root,'Samples/MFJ.json')),'utf8'));
+ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||path.join(root,'Samples/Couple_Heir.json')),'utf8'));
 const cell=(sheet,a)=>sheet.ws[a];
 const sheetOf=(b,n)=>b.sheets.find(s=>s.name===n);
 const colOf=(s,key)=>{ const i=s._cols.findIndex(c=>c.key===key); return i<0?null:colL(i); };

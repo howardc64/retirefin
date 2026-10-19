@@ -1,7 +1,7 @@
 'use strict';
 // Excel export of a Monte Carlo trial: the workbook must be the trial, with live formulas that follow the trial's own path.
 // Node only (a minimal stand-in for the SheetJS cell helpers; nothing is written to disk).
-//   PLAN=Samples/MFJ.json node tests/mc/xlsx_trial_test.js
+//   PLAN=Samples/Couple_Heir.json node tests/mc/xlsx_trial_test.js
 // (An end-to-end check — recalculating the exported file in Excel / LibreOffice and comparing every formula cell with the app's value — is described in tests/README.md.)
 const fs=require('fs'), vm=require('vm'), path=require('path');
 const root=path.resolve(__dirname,'..','..');
@@ -38,7 +38,7 @@ vm.runInContext(code,ctx,{filename:'app.js'});
 const run=s=>vm.runInContext(s,ctx);
 let fails=0; const ok=(c,m)=>{ console.log((c?'PASS ':'FAIL ')+m); if(!c) fails++; };
 
-ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||path.join(root,'Samples/MFJ.json')),'utf8'));
+ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||path.join(root,'Samples/Couple_Heir.json')),'utf8'));
 run(`state=hydrateState(__plan); recompute();`);
 const cell=(sheet,a)=>sheet.ws[a];
 const sheetOf=(b,n)=>b.sheets.find(s=>s.name===n);

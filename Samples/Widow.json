@@ -1,14 +1,14 @@
 {
-  "filingStatus": "married",
-  "notes": "",
+  "filingStatus": "single",
+  "notes": "Sample: widow in her mid 80s (Social Security, $2M portfolio, $1M house, $0.5M pre-tax IRA) with about 3 years of Long Term Care at the end of life. California (community property state). Her assets are inherited by her daughter Susan in Couple_Heir.json.",
   "liveId": "",
   "inflation": 0.03,
   "people": [
     {
       "id": "p1",
-      "name": "John",
-      "birthYear": 1965,
-      "birthMonth": 7,
+      "name": "Margaret",
+      "birthYear": 1941,
+      "birthMonth": 3,
       "wage": {
         "enabled": false,
         "hidden": true,
@@ -26,11 +26,11 @@
       },
       "ss": {
         "enabled": true,
-        "hidden": true,
-        "pia": 3200,
-        "fra": 67,
-        "started": false,
-        "claimAge": 69
+        "hidden": false,
+        "pia": 3100,
+        "fra": 65.66666666666667,
+        "started": true,
+        "claimAge": 66
       },
       "pension": {
         "enabled": false,
@@ -43,7 +43,7 @@
           "endVal": 0
         },
         "change": {
-          "mode": "fixed",
+          "mode": "inflation",
           "value": 0
         },
         "bene": false
@@ -52,32 +52,35 @@
       "rentals": [],
       "brokerage": [
         {
-          "id": "hp21oac",
+          "id": "p77ha2j",
           "enabled": true,
-          "hidden": true,
-          "name": "John Jane Portfolio",
-          "balance": 1000000,
+          "hidden": false,
+          "name": "Margaret Portfolio",
+          "balance": 2000000,
           "growth": {
             "mode": "custom",
-            "value": 7
+            "value": 5
           },
-          "yield": 1.1,
-          "qdivPct": 70,
+          "yield": 2.2,
+          "qdivPct": 75,
+          "cgdMode": "pct",
+          "cgdPct": 0,
+          "cgdAmt": 0,
           "teYield": 0,
           "aum": false,
           "type": "living",
           "payExp": true,
           "reinvest": true,
-          "basisPct": 50,
+          "basisPct": 60,
           "ar": {
             "startMode": "now",
             "startVal": 0,
             "endMode": "passing",
             "endVal": 0
           },
-          "bene": true,
+          "bene": false,
           "idgt": false,
-          "foreignPct": 33,
+          "foreignPct": 15,
           "ftcPct": 0.25,
           "inh": null,
           "startYear": null
@@ -88,14 +91,34 @@
         "sources": [],
         "hidden": true
       },
-      "realEstate": [],
+      "realEstate": [
+        {
+          "id": "ha3yu1w",
+          "enabled": true,
+          "hidden": false,
+          "name": "Main residence",
+          "balance": 1000000,
+          "basis": 600000,
+          "exempt": 250000,
+          "growth": {
+            "mode": "inflation",
+            "value": 0
+          },
+          "bene": false,
+          "sellMode": "never",
+          "sellAge": 80,
+          "sellTo": "",
+          "inh": null,
+          "startYear": null
+        }
+      ],
       "ira": {
         "enabled": true,
-        "hidden": true,
-        "balance": 400000,
+        "hidden": false,
+        "balance": 500000,
         "growth": {
           "mode": "custom",
-          "value": 7
+          "value": 5
         },
         "ar": {
           "startMode": "rmd",
@@ -103,39 +126,39 @@
           "endMode": "passing",
           "endVal": 0
         },
-        "bene": true,
+        "bene": false,
         "conv": 0,
         "convToRoth": true,
-        "convMode": "bracket",
-        "convIrmaaPct": 100,
-        "convOrdPct": 22,
-        "convStartMode": "now",
+        "convMode": "fixed",
+        "convIrmaaPct": 40,
+        "convOrdPct": 32,
+        "convStartMode": "rmd",
         "convStart": 0,
         "convStartBracket": 24,
         "convStartItemized": 35000,
         "stretch": true
       },
       "roth": {
-        "enabled": true,
+        "enabled": false,
         "hidden": true,
         "balance": 0,
         "growth": {
-          "mode": "custom",
-          "value": 7
+          "mode": "offset",
+          "value": 3
         },
-        "bene": true,
+        "bene": false,
         "stretch": true
       }
     },
     {
       "id": "p2",
-      "name": "Jane",
-      "birthYear": 1969,
+      "name": "Person 2",
+      "birthYear": 1965,
       "birthMonth": 1,
       "wage": {
-        "enabled": true,
+        "enabled": false,
         "hidden": true,
-        "amount": 50000,
+        "amount": 0,
         "ar": {
           "startMode": "now",
           "startVal": 0,
@@ -149,11 +172,11 @@
       },
       "ss": {
         "enabled": true,
-        "hidden": true,
-        "pia": 2500,
+        "hidden": false,
+        "pia": 0,
         "fra": 67,
         "started": false,
-        "claimAge": 70
+        "claimAge": 67
       },
       "pension": {
         "enabled": false,
@@ -186,7 +209,7 @@
         "balance": 0,
         "growth": {
           "mode": "offset",
-          "value": 1
+          "value": 3
         },
         "ar": {
           "startMode": "rmd",
@@ -220,28 +243,28 @@
     }
   ],
   "passing": {
-    "p1": 92,
-    "p2": 92
+    "p1": 95,
+    "p2": 90
   },
-  "living": 90000,
+  "living": 100000,
   "basisSwap": false,
   "basisSwapYears": 3,
   "scgl": 0,
-  "scglEnabled": false,
+  "scglEnabled": true,
   "ltc": {
     "enabled": true,
     "people": [
       {
-        "startAge": 85,
-        "cost": 100000
+        "startAge": 92,
+        "cost": 130000
       },
       {
         "startAge": 85,
         "cost": 100000
       }
     ],
-    "living1": 90000,
-    "living2": 0
+    "living1": 12000,
+    "living2": 15000
   },
   "withdrawOrder": {
     "enabled": false,
@@ -249,15 +272,36 @@
   },
   "pfWithdraw": {
     "enabled": false,
-    "ltcgPct": 0
+    "ltcgPct": 0,
+    "acceptNiit": false,
+    "acceptTorpedo": false
   },
   "aumFee": {
-    "enabled": false,
+    "enabled": true,
     "mode": "pct",
     "value": 0
   },
-  "stateTax": {
+  "medShock": {
     "enabled": false,
+    "person": 0,
+    "age": 80,
+    "years": 3,
+    "cost": 100000
+  },
+  "guardrail": {
+    "enabled": false,
+    "discPct": 30,
+    "iwrMode": "initial",
+    "targetWR": 4,
+    "band": 20,
+    "cutPct": 10,
+    "prosperity": false,
+    "raisePct": 10,
+    "sunsetYears": 15,
+    "excludeLtc": false
+  },
+  "stateTax": {
+    "enabled": true,
     "state": "CA"
   },
   "futureTax": {
@@ -269,15 +313,15 @@
   "ui": {
     "globalNotes": "",
     "incomeOrder": [
-      "brokerage",
-      "ira",
-      "roth",
-      "ss",
       "wage",
+      "ss",
       "pension",
       "rental",
-      "annuity",
+      "brokerage",
       "realestate",
+      "annuity",
+      "ira",
+      "roth",
       "inhira",
       "inheritance"
     ],
@@ -292,11 +336,13 @@
       "taxQual": false,
       "asset": false,
       "idgt": true,
-      "ira": false,
-      "ltcg": false,
+      "ira": true,
+      "ltcg": true,
       "inhIncome": false,
-      "ss": false,
-      "tss": false
+      "ss": true,
+      "tss": true,
+      "inflation": false,
+      "market": false
     },
     "gridCols": 3,
     "chartPos": {
@@ -321,44 +367,52 @@
         "c": 2
       },
       "tax": {
-        "r": 2,
+        "r": 3,
         "c": 0
       },
       "taxOrd": {
-        "r": 2,
+        "r": 3,
         "c": 1
       },
       "taxQual": {
-        "r": 2,
+        "r": 3,
         "c": 2
       },
       "asset": {
-        "r": 3,
-        "c": 0
-      },
-      "idgt": {
-        "r": 3,
-        "c": 1
-      },
-      "ss": {
         "r": 4,
         "c": 0
       },
-      "tss": {
+      "idgt": {
         "r": 4,
         "c": 1
       },
       "ira": {
-        "r": 0,
+        "r": 2,
         "c": 1
       },
       "ltcg": {
-        "r": 3,
+        "r": 2,
         "c": 2
       },
       "inhIncome": {
         "r": 4,
         "c": 2
+      },
+      "ss": {
+        "r": 6,
+        "c": 0
+      },
+      "tss": {
+        "r": 6,
+        "c": 1
+      },
+      "inflation": {
+        "r": 5,
+        "c": 0
+      },
+      "market": {
+        "r": 5,
+        "c": 1
       }
     },
     "chartPosAlt": {
@@ -415,43 +469,56 @@
         "c": 1
       },
       "ss": {
-        "r": 7,
+        "r": 8,
         "c": 0
       },
       "tss": {
+        "r": 8,
+        "c": 1
+      },
+      "inflation": {
+        "r": 7,
+        "c": 0
+      },
+      "market": {
         "r": 7,
         "c": 1
       }
     },
     "chartYMax": {
-      "ss": 2000000,
-      "income": 215000,
-      "incomeMagi": 215000,
-      "incomeOrd": 215000,
-      "incomeQual": 215000,
-      "tss": 90000,
-      "tax": 22000,
-      "taxOrd": 22000,
-      "taxQual": 22000,
-      "expense": 215000,
-      "asset": 2960000,
+      "ss": 450000,
+      "income": 155000,
+      "incomeMagi": 155000,
+      "incomeOrd": 155000,
+      "incomeQual": 155000,
+      "tss": 45000,
+      "tax": 155000,
+      "taxOrd": 155000,
+      "taxQual": 155000,
+      "expense": 155000,
+      "asset": 3610000,
       "idgt": null,
-      "ira": 215000,
-      "ltcg": 215000,
-      "inhIncome": null
+      "ira": 40000,
+      "ltcg": 20000,
+      "inhIncome": null,
+      "inflation": null,
+      "market": null
     },
     "assumpHide": {
       "general": false,
       "expenses": true,
       "taxOpt": true,
-      "ltc": true,
+      "ltc": false,
       "withdraw": true,
+      "guardrail": true,
+      "medShock": true,
       "aum": true,
-      "stateTax": true,
+      "stateTax": false,
       "scgl": true,
       "swap": true,
       "pfWithdraw": true,
       "futureTax": true
-    }
+    },
+    "hidePerson": null
   }
 }

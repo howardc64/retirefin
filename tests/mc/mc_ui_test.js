@@ -56,9 +56,9 @@ Object.defineProperty(Chart.prototype,'chartArea',{get(){ return {left:0,right:5
 Object.defineProperty(Chart.prototype,'scales',{get(){ return {x:{getPixelForValue:i=>i*5, getValueForPixel:p=>p/5}, y:{id:'y', getPixelForValue:v=>300-v/1000, getValueForPixel:p=>(300-p)*1000}}; }});
 Chart.prototype.getDatasetMeta=function(i){ const ds=this.data.datasets[i]; return {yAxisID:'y', data:ds.data.map((v,j)=>({x:j*5,y:300-(v||0)/1000,skip:v==null}))}; };
 // ---- Monte Carlo trial view / inheritance arrivals / inflation chart (stub DOM, recording Chart) ----
-//   PLAN=Samples/MFJ.json node tests/mc/mc_ui_test.js
+//   PLAN=Samples/Couple_Heir.json node tests/mc/mc_ui_test.js
 let fails=0; const ok=(c,m)=>{ console.log((c?'PASS ':'FAIL ')+m); if(!c) fails++; };
-ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||path.join(root,'Samples/MFJ.json')),'utf8'));
+ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||path.join(root,'Samples/Couple_Heir.json')),'utf8'));
 run(`state=hydrateState(__plan); recompute();`);
 ok(charts.some(c=>c.canvas.id==='inflationChart'),'inflation chart is drawn in normal mode');
 let inf=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, label:c.data.datasets[0].label, v:c.data.datasets[0].data.find(x=>x!=null)}})()`);

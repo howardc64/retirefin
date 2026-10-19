@@ -136,7 +136,7 @@ js/
   app.js
 misc/      Usage.md            (how to use the app; rendered to HTML by the Usage button, §6.10)
            Note4User.md        (user-facing tips; rendered to HTML by the Tips button, §6.10)
-Samples/   *.json  manifest.json (example saved plans; each .json is one entry in the Load file menu, §5.6)
+Samples/   *.json  manifest.json (example saved plans: Widow.json, a widow in her mid 80s with LTC at the end of life, and Couple_Heir.json, a married couple whose wife inherits from Widow.json; each .json is one entry in the Load file menu, §5.6)
 ```
 
 All files are plain (non-module) scripts sharing one global scope, loaded via `<script src>` in
@@ -1278,7 +1278,7 @@ Run from the app folder; plan files are supplied by the caller (no plan data is 
 ```
 PLAN=your-plan.json node tests/mc/mc_test.js
 HEIR=heir.json DONOR=donor.json node tests/mc/mc_inherit_test.js
-PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/mc_replay_test.js
+PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/mc_replay_test.js
 node tests/mc/mc_ui_test.js        # card, banner, A/B/C, inflation / market charts, arrival markers, with a stub DOM
 ```
 `mc_runplan.js`, `mc_sweep.js` and `mc_infl_cmp.js` are run-and-print helpers; `mc_harness.js` loads the engine.
@@ -1307,7 +1307,7 @@ flowchart TD
 - **`mcFactor`**: in a panic year portfolios use `rho_k = max(rho, rhoPanic)` and property (with `includeRE`) `max(0, rhoRE)`: `z = √rho_k zMkt + √(1−rho_k)·idio` (property: `zRe` instead of `idio`). Because `rho_k` depends on `zMkt`, `z` is not standard normal and `exp(σz − σ²/2)` would drift off mean 1 (a silent change of the average return). The factor is `exp(σz) / M_k`, `M_k = e^{σ²/2}·[u(Φ(t−σ√ρp) + 1 − Φ(t−σ√ρ)) + 1 − u]`, `u = (1−Φ(t))^{min(k, H−1)}` (`mcPanicNorm`, `mcPhi` by Simpson's rule, both cached). With the group off the original formula runs, so every result is bit-identical to before.
 - **Reading ρ.** ρ is the factor-model correlation; measured only inside crash years it looks lower (conditioning on a big drop shrinks the market's variance): with ρ 0.95 two portfolios' realised correlation in those years rises from 0.36 (off) to 0.73 (on). The panic mostly matters through property and through clustered crashes: with all non-property assets at the same volatility and drawn pro rata, raising ρ among portfolios alone barely moves their total. A bond / cash sleeve with its own rising correlation is **not** built.
 - **Measures:** `mcMeasure` adds `panicOn` and `panic10` (panic years among the first 10); `mcSummarize` adds `S.panic = {pFirst10, meanFirst10}`; `mcFailureReasons` a factor "A market panic in the first 10 years". `mcStart()` runs, with `compare` ticked, a second pass of the same trial numbers with `panic.enabled=false` (`run.results2`, `mcResults.cmp`) and `mcPanicRows` prints "Same trials without panic".
-- **Tests:** `PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/panic_test.js` (off == old formula; the normalizer equals direct integration; mean factor 1 at several years, hold 1 and 3, portfolios and property; panic frequency; loadings √ρ and residual variance 1−ρ; hold-window frequency; `includeRE` off; a panic ρ below ρ changes nothing; summary / failure factor only when on; reproducible; panic never raises the success rate in aggregate), `medshock_ui_test.js` (card, paired pass, rows).
+- **Tests:** `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/panic_test.js` (off == old formula; the normalizer equals direct integration; mean factor 1 at several years, hold 1 and 3, portfolios and property; panic frequency; loadings √ρ and residual variance 1−ρ; hold-window frequency; `includeRE` off; a panic ρ below ρ changes nothing; summary / failure factor only when on; reproducible; panic never raises the success rate in aggregate), `medshock_ui_test.js` (card, paired pass, rows).
 
 ## 11. Stress tests (add-on)
 
@@ -1352,7 +1352,7 @@ Historical arrays live in `ST_HIST` (rounded as published, %); defaults in `ST_D
 `buildStressPanel()` (Hide box, starts collapsed; start-mode, share-hit, per-scenario groups; Run), `stRender()` (the results table only; the card has no chart of its own, the D button shows each scenario in the real charts), `stMarkStale()` (called from `recompute()` and on any edit in the card), `stResetCard(settings)` (called from `resetState` and `applyLoadedFileText` next to `mcResetCard`). Settings are stored in `localStorage` under `retirementPlannerStress_v1`, not in `state`. Runs are synchronous (about 4 projections).
 
 ### 11.5 Tests
-`PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/stress_test.js`: null scenario == deterministic; `equityShare 0` == deterministic; a crash lowers assets; bad-first beats good-first ordering; exact real-rate arithmetic of the hook; inflation path placement; flat stocks with high inflation end lower; state and hooks restored. The scenarios can be loaded into the chart grid with the D button of the Stress test card (§10.4). Not yet built: guardrail spending rules, correlation convergence in the Monte Carlo draw, and a Long Term Care liquidity / tax-shock scenario.
+`PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/stress_test.js`: null scenario == deterministic; `equityShare 0` == deterministic; a crash lowers assets; bad-first beats good-first ordering; exact real-rate arithmetic of the hook; inflation path placement; flat stocks with high inflation end lower; state and hooks restored. The scenarios can be loaded into the chart grid with the D button of the Stress test card (§10.4). Not yet built: guardrail spending rules, correlation convergence in the Monte Carlo draw, and a Long Term Care liquidity / tax-shock scenario.
 
 ### 11.6 Card stack (`display/cardStack.js`)
 `<div id="cardStack">` holds `#stressPanel` then `#mcPanel` (default order). Each card's `.mc-head` is draggable (`cardStackDecorate()`, also called at the end of `buildMcPanel` / `buildStressPanel` because a reset rebuilds the header); dropping on the upper / lower half of the other card inserts before / after it. Order is stored in `localStorage` key `retirementPlannerCardOrder_v1` (not in `state`); `cardStackReset()` (called by `stResetCard(true)`, i.e. Reset to defaults) restores the default. Not a chart-grid citizen: the cards cannot be dropped among the chart panels.

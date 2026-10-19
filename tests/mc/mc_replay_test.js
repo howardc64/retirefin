@@ -1,5 +1,5 @@
 // Replay test: mcReplayTrial(cfg, i) must reproduce trial i of a run exactly (same fail year, same assets), and hand back what the chart view needs.
-//   PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/mc_replay_test.js
+//   PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/mc_replay_test.js
 const {makeCtx,loadPlan,run}=require('./mc_harness');
 const plan=JSON.parse(require('fs').readFileSync(process.env.PLAN,'utf8'));
 const ctx=makeCtx(); loadPlan(ctx,plan);

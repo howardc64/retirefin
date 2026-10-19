@@ -4,7 +4,7 @@ The Node tests (`tests/mc/xlsx_trial_test.js`, `tests/mc/xlsx_guardrail_test.js`
 
 ```
 npm i xlsx                                   # once, anywhere; below it is in /tmp/xl
-NODE_PATH=/tmp/xl/node_modules node tests/xlsx_e2e/write_workbook.js Samples/MFJ.json /tmp/x.xlsx \
+NODE_PATH=/tmp/xl/node_modules node tests/xlsx_e2e/write_workbook.js Samples/Couple_Heir.json /tmp/x.xlsx \
   '{"guardrail":{"enabled":true,"iwrMode":"target","targetWR":1.5,"band":20,"prosperity":true},"medShock":{"enabled":true,"age":75,"years":3,"cost":120000,"person":0}}'
 soffice --headless --convert-to xlsx --outdir /tmp/rc /tmp/x.xlsx
 python3 tests/xlsx_e2e/compare_recalc.py /tmp/x.xlsx /tmp/rc/x.xlsx          # needs openpyxl

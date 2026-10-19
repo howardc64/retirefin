@@ -1,12 +1,12 @@
 // Medical shock + panic in the UI (stub DOM): Expenses card, Stress card group and result tables, Monte Carlo panic rows and paired pass.
-//   PLAN=Samples/MFJ.json node tests/mc/medshock_ui_test.js
+//   PLAN=Samples/Couple_Heir.json node tests/mc/medshock_ui_test.js
 const fs=require('fs'), path=require('path');
 const src=fs.readFileSync(path.join(__dirname,'mc_ui_test.js'),'utf8');
 const cut=src.indexOf('// stub geometry');
 const mod={exports:{}}; new Function('require','module','__dirname','process',src.slice(0,cut)+'\nmodule.exports={run,els,ctx};')(require,mod,__dirname,process);
 const {run,els}=mod.exports;
 let fails=0; const ok=(c,m)=>{ console.log((c?'PASS ':'FAIL ')+m); if(!c) fails++; };
-mod.exports.ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||'Samples/MFJ.json'),'utf8'));
+mod.exports.ctx.__plan=JSON.parse(fs.readFileSync(path.resolve(process.env.PLAN||'Samples/Couple_Heir.json'),'utf8'));
 run(`state=hydrateState(__plan); recompute(); renderMedShockPanel();`);
 ok(/Late-life medical shock/.test(els.medShockPanel.innerHTML)&&/msCost/.test(els.medShockPanel.innerHTML),'Expenses card renders');
 ok(run('state.medShock.enabled')===false&&run('ASSUMP_HIDE_DEFAULT.medShock')===true,'off and hidden by default');

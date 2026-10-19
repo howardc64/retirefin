@@ -1,4 +1,4 @@
-// Portfolio withdraw "Accept NIIT" (projection.js, Brokerage withdraws). Run: PLANNER_ROOT=. PLAN=Samples/MFJ.json node tests/mc/niit_withdraw_test.js
+// Portfolio withdraw "Accept NIIT" (projection.js, Brokerage withdraws). Run: PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/niit_withdraw_test.js
 const {makeCtx,loadPlan,run}=require('./mc_harness');
 const plan=JSON.parse(require('fs').readFileSync(process.env.PLAN,'utf8'));
 const ctx=makeCtx(); loadPlan(ctx,plan);
