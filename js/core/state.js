@@ -187,7 +187,7 @@ function defaultPerson(idx){
 // saved to file / autosave, restored on load and put back to these defaults on Reset:
 //   ui.chartHidden[key] — the panel's Hide checkbox (true = collapsed to its title bar). Default: hidden for CHART_DEFAULT_HIDE_KEYS, shown for every other chart.
 //   ui.gridCols         — 2 or 3: the number of grid columns (the 2×N / 3×N toggle right of the Scale buttons). Default 3.
-//   ui.chartPos[key]    — {r,c}, the panel's grid row and column in the grid that is on screen (0-based; `gridCols` columns). The user can drag a panel to any free or
+//   ui.chartPos[key]    — {r,c[,s:2]} (s:2 = enlarged to a 2×2 block, 3×N only; see display/chartPanels.js), the panel's grid row and column in the grid that is on screen (0-based; `gridCols` columns). The user can drag a panel to any free or
 //                         occupied cell; cells nobody occupies stay blank. Defaults below, one per layout.
 //   ui.chartPosAlt[key] — the same, for the OTHER layout, kept so toggling 2×N ↔ 3×N brings back the arrangement that layout had.
 //   ui.stressCfg / ui.mcCfg — the Stress test card's and the Monte Carlo card's settings (every choice and number in the card, and its Hide box); null = the card's defaults. Saved, restored on load and reset like the rest of `state.ui` (display/stressPanel.js, display/mcPanel.js).

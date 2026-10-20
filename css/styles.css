@@ -544,3 +544,20 @@ body.printing-all .person-col.col-hidden .pcol-tab,body.printing-all .pcol-hide{
 .chat-zoom-canvas{position:relative;height:min(560px,70vh);}
 @media print{.chat-zoom{display:none !important;}}
 .cc-kpis th{text-transform:none;letter-spacing:0;}
+
+/* ── Compact Monte Carlo / Stress test input cards ──
+   Inside each group a field is one line: label on the left, input on the right (was label above input, one field per ~70px). The groups sit in as many columns as fit,
+   so the two cards take far less height. Checkboxes and notes keep their own full-width lines. */
+.mc-grid{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:10px;}
+.mc-grp{padding:4px 12px 9px;}
+.mc-grp .mc-row{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:5px;}
+.mc-grp .mc-f:not(.mc-chk){flex-direction:row;align-items:center;justify-content:space-between;gap:10px;}
+.mc-grp .mc-f:not(.mc-chk) input[type=number]{width:76px;flex:0 0 auto;padding:3px 7px;}
+.mc-grp .mc-f:not(.mc-chk) select{flex:1 1 0;min-width:0;max-width:none;padding:3px 7px;}
+.mc-grp .mc-chk{align-items:flex-start;line-height:1.3;}
+.mc-grp .mc-chk small{display:block;color:var(--text-faint);}
+.mc-grp .mc-src{font-size:11px;line-height:1.4;}
+.mc-note{margin-bottom:8px;}
+.mc-run{margin-bottom:4px;}
+.mc-run{align-items:center;}
+.mc-run .mc-f{flex-direction:row;align-items:center;gap:8px;}   /* Trials / Seed: label beside the box, on the button's line */
