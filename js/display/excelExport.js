@@ -299,7 +299,7 @@ function xlsxInputsSheet(proj,trial){
   { const m=st.medShock||{};
     put('Late-life medical shock enabled',yn(!!m.enabled),{note:m.enabled?'Added to the Long Term Care cost, so it is itemized like it (above 7.5% of AGI) and paid by the withdrawal order':'off'});
     if(m.enabled){
-      put('  whose age',st.filingStatus==='married'&&m.person===1?'Person 2':'Person 1');
+      { const wi=st.filingStatus==='married'&&m.person===1?1:0; put('  whose age',displayPersonName((st.people||[])[wi],wi)); }
       put('  starts at age',Number(m.age)||0); put('  lasts (years)',Number(m.years)||0,{fmt:XLSX_COUNT}); put('  extra medical cost / yr',Number(m.cost)||0,{fmt:XLSX_MONEY});
     } }
   const aum=st.aumFee||{};

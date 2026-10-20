@@ -35,7 +35,7 @@ function buildStressPanel(){
       grp('stStag','Stagflation <small>(flat stocks, rising inflation)</small>',stCfg.stag.enabled,num('stStagY','Years',stCfg.stag.years,1,30,1)+num('stStagEq','Stock return % / yr',stCfg.stag.eqReturn,-20,20,0.5)+num('stStagI0','Inflation, first year %',stCfg.stag.inflStart,0,30,0.5)+num('stStagI1','Inflation, last year %',stCfg.stag.inflEnd,0,30,0.5))+
       grp('stY66','1966 retiree <small>(1966–1981 actual stocks and CPI)</small>',stCfg.y1966.enabled,'<div class="mc-src">16 years of the worst starting date for a retiree: two bear markets inside a decade of rising inflation.</div>')+
       grp('stMed','Late-life medical shock <small>(liquidity and tax test)</small>',stCfg.med.enabled,
-        '<label class="mc-f">Whose age<select id="stMedWho"><option value="0">Person 1</option><option value="1">Person 2</option></select></label>'+num('stMedAge','From age',stCfg.med.age,50,110,1)+num('stMedYears','For (years)',stCfg.med.years,1,15,1)+num('stMedCost','Cost per year ($, today\'s)',stCfg.med.cost,0,2000000,10000)+
+        '<label class="mc-f">Whose age<select id="stMedWho"></select></label>'+num('stMedAge','From age',stCfg.med.age,50,110,1)+num('stMedYears','For (years)',stCfg.med.years,1,15,1)+num('stMedCost','Cost per year ($, today\'s)',stCfg.med.cost,0,2000000,10000)+
         chk('stMedOrd','Also compare four withdrawal orders',stCfg.med.orders)+'<div class="mc-src">An extra itemized medical cost on top of any Long Term Care card, paid from the accounts in the plan\'s withdrawal order. Shows what it forces you to sell, the capital gains and tax it triggers, and how that changes with the order. Independent of the market scenarios above; tick only this one to run it alone.</div>')+
     '</div>'+
     '<div class="mc-row mc-run"><button type="button" class="btn btn-primary" id="stRunBtn">Run stress tests</button><span id="stNote" class="mc-prog"></span></div>'+
@@ -43,7 +43,7 @@ function buildStressPanel(){
     '<div id="stOut" style="display:none"><div id="stSummary"></div><div class="mc-note" id="stCaveats"></div></div></div>';
   const applyHide=()=>{ host.classList.toggle('mc-collapsed',stEl('stHide').checked); };
   stEl('stHide').addEventListener('change',()=>{ stCfg.hidden=stEl('stHide').checked; stSaveCfg(); applyHide(); }); applyHide();
-  stEl('stStartMode').value=stCfg.start.mode; stEl('stMedWho').value=String(stCfg.med.person===1?1:0);
+  stEl('stStartMode').value=stCfg.start.mode; stSyncMedWho(stCfg.med.person);
   const syncMode=()=>{ stEl('stYearsWrap').style.display=stEl('stStartMode').value==='custom'?'':'none'; };
   stEl('stStartMode').addEventListener('change',syncMode); syncMode();
   ['stLost','stStag','stY66','stMed'].forEach(id=>{ const el=stEl(id), sync=()=>stEl(id+'Grp').classList.toggle('mc-off',!el.checked); el.addEventListener('change',sync); sync(); });
@@ -52,6 +52,15 @@ function buildStressPanel(){
   host.addEventListener('input',()=>{ if(stResults) stMarkStale(); });
 }
 
+// "Whose age" choices carry the names entered on the plan (Person 1 / Person 2 only when no name is entered); a single filer has just the one. Called when the card is built and after every
+// recompute (app.js → stMarkStale), so a name typed or a plan loaded later shows up here; the choice is kept.
+function stSyncMedWho(want){
+  const sel=stEl('stMedWho'); if(!sel||typeof state==='undefined'||!state) return;
+  const n=state.filingStatus==='married'?2:1, cur=want!=null?(want===1?1:0):(parseInt(sel.value,10)===1?1:0);
+  const names=(state.people||[]).slice(0,n).map((p,i)=>displayPersonName(p,i)), sig=names.join('\u0001');
+  if(sel.dataset.sig!==sig){ sel.innerHTML=names.map((nm,i)=>'<option value="'+i+'">'+nm.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</option>').join(''); sel.dataset.sig=sig; }
+  sel.value=String(cur<names.length?cur:0);
+}
 function stReadCfg(){ stFormCfg(stCfg); stSaveCfg(); return stCfg; }
 // what a run depends on: the plan (without its display-only `ui` block) and the card's scenario settings (not its Hide state)
 const stKey=c=>JSON.stringify(Object.assign({},state,{ui:null}))+'|'+JSON.stringify(Object.assign({},c,{hidden:undefined}));
@@ -105,7 +114,8 @@ function stResetCard(settings){
   ['stSummary','stCaveats'].forEach(id=>{ const e=stEl(id); if(e) e.innerHTML=''; });
 }
 // Called from recompute() (app.js) and on any edit inside the card: flag results that no longer match the plan or the settings.
-function stMarkStale(){
+function stPersonName(i){ const n=state.filingStatus==='married'?2:1, k=(i===1&&n>1)?1:0, p=(state.people||[])[k]; return String(displayPersonName(p,k)).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function stMarkStale(){ stSyncMedWho();
   const el=stEl('stStale'); if(!el||!stResults) return;
   let cur=stStateAtRun; try{ cur=stKey(stFormCfg(JSON.parse(JSON.stringify(stCfg)))); }catch(e){}
   el.style.display=(cur!==stStateAtRun)?'':'none';
@@ -126,7 +136,7 @@ document.addEventListener('DOMContentLoaded',buildStressPanel);
 // Late-life medical shock (stress card): what the extra cost forces the household to sell, the gains and tax that follow, and how the withdrawal order changes it.
 function stMedHtml(M,cfg){
   const $=v=>'$'+Math.round(v).toLocaleString('en-US'), sgn=v=>(v<0?'−':'+')+$(Math.abs(v)), age=v=>v==null?'–':Math.round(v), c=cfg.med;
-  const head='<p class="mc-note"><b>Late-life medical shock:</b> '+$(c.cost)+' a year for '+c.years+' year'+(c.years===1?'':'s')+' from age '+c.age+' of '+(c.person===1?'person 2':'person 1')+' (today\'s $).</p>';
+  const head='<p class="mc-note"><b>Late-life medical shock:</b> '+$(c.cost)+' a year for '+c.years+' year'+(c.years===1?'':'s')+' from age '+c.age+' of '+stPersonName(c.person)+' (today\'s $).</p>';
   if(!M.covered) return head+'<p class="mc-note">That age falls outside the projection (the person is not alive then or the plan ends first), so nothing changes.</p>';
   const S=M.sum, lasts=(f,b)=>(f==null?'<span class="st-ok">funded to the end</span>':'<span class="st-bad">runs out at age '+age(f)+'</span>');
   const who=[['Income','income'],['Dividends','dividends'],['Asset sales','sales'],['Pre-tax IRA','ira'],['Roth','roth'],['Property sales','property']].filter(x=>Math.abs(S.paid[x[1]])>=500).map(x=>x[0]+' '+$(S.paid[x[1]])).join(' · ');

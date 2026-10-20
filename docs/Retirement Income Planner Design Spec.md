@@ -1018,6 +1018,19 @@ The presentation layer shall provide views for:
 
 Charts shall consume projection results rather than recreate financial calculations.
 
+## 30.1 Layout and interaction requirements
+
+**Card arrangement.** Every analysis view is a card. Chart cards sit on a grid whose column count the user can change; the Stress-test and Monte Carlo cards sit below the grid. The user shall be able to rearrange cards by dragging them by their title bar:
+- A drag handle (grip mark) shall appear on every draggable card, so draggability is visible without trial and error.
+- The drop target shall be forgiving. A chart card dropped on a free grid cell moves there; on an occupied cell the two swap. A Stress-test or Monte Carlo card is dropped anywhere above or below the other one: above its midpoint places the dragged card first, below places it last. The page shall scroll when the pointer nears its top or bottom edge during a drag.
+- Arrangements are display preferences, not financial inputs. Chart positions are saved with the plan; the order of the two lower cards is saved with the user's browser settings. "Reset to defaults" restores both.
+
+**Consistent spacing.** One spacing value shall separate cards everywhere: between chart cards (rows and columns), between the chart grid and the first lower card, and between the lower cards. Spare space that exists only to receive a drop (an empty row below the last chart) shall occupy no room, and add no spacing, until a drag is in progress.
+
+**People are identified by name.** Wherever a control or result refers to a household member (for example, whose age starts the late-life medical shock in the Stress-test card), it shall show the name the user entered, and fall back to "Person 1" / "Person 2" only when no name has been entered. A single filer shall be offered only that one person. Names shall follow later edits and plan loads, shall be escaped when displayed, and shall be used the same way in exports.
+
+**Stress-test and medical-shock separation.** The Stress-test card's late-life medical shock is a what-if: it never changes the plan, whereas the plan's own medical-shock input does. The card shall present the with/without comparison for the person selected by name.
+
 The current architecture follows this principle: display components consume projection rows and are prohibited from recomputing authoritative financial values. :chatgpt-content-reference{index="30"}
 
 ---

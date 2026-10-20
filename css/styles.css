@@ -1,4 +1,4 @@
-:root{
+:root{--card-gap:12px;
   --bg:#f7f5f0;--surface:#fff;--surface2:#f0ede6;
   --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.18);
   --text:#1a1814;--text-muted:#6b6760;--text-faint:#a09d98;
@@ -151,7 +151,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .scale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:11px;font-weight:400;padding:4px 11px;color:var(--text-muted);font-family:inherit;line-height:1.2;}
 .scale-btn:hover{background:var(--border);}
 .scale-btn.grid-toggle{margin-left:6px;border-color:var(--teal);color:var(--teal-text);font-weight:500;}
-.chart-grid{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:12px;align-items:start;}
+.chart-grid{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:var(--card-gap);align-items:start;}
 .chart-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 8px 8px;min-width:0;}
 .chart-panel.no-data{display:none;}
 .chart-panel.dragging{opacity:.4;}
@@ -183,6 +183,8 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 /* an empty grid cell: a blank spot, and a drop target for moving a chart there (outlined only while a chart is being dragged) */
 .chart-cell{min-height:44px;border:1px dashed transparent;border-radius:var(--radius);}
 body.chart-dragging .chart-cell{border-color:var(--border-strong);}
+/* the spare row under the last chart is only there to drop into: it takes no room (and adds no gap above the cards below) until a chart is being dragged */
+.chart-cell.tail{display:none;}body.chart-dragging .chart-cell.tail{display:block;}
 .rescale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:10.5px;font-weight:500;padding:3px 10px;color:var(--text-muted);font-family:inherit;}
 @media (max-width:700px){ .chart-grid{grid-template-columns:1fr;} .chart-cell{display:none;} }
 
@@ -455,7 +457,7 @@ input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
 .st-tbl .st-show{padding:1px 8px;font-size:11px;margin-left:6px}
 
 /* Card stack (display/cardStack.js): the Stress tests and Monte Carlo cards swap places by dragging their title bar */
-#cardStack{display:flex;flex-direction:column;gap:16px;margin-bottom:18px}#cardStack>.panel{margin:0}
+#cardStack{display:flex;flex-direction:column;gap:var(--card-gap);margin:var(--card-gap) 0 18px}#cardStack>.panel{margin:0}
 .card-grab{cursor:grab}.card-grab:active{cursor:grabbing}
 #cardStack .card-dragging{opacity:.45}
 #cardStack .card-drop-before{box-shadow:0 -3px 0 0 var(--teal)}#cardStack .card-drop-after{box-shadow:0 3px 0 0 var(--teal)}

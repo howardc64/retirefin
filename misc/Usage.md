@@ -607,7 +607,7 @@ Trial views are display only; nothing is saved with the plan.
 
 ## Stress tests
 
-The **Stress tests** and **Monte Carlo** cards sit under the charts, Stress tests first. Drag a card by its title bar and drop it on the upper or lower half of the other one to swap places. The order is remembered in the browser (not in the plan file) and **Reset to defaults** puts it back.
+The **Stress tests** and **Monte Carlo** cards sit under the charts, Stress tests first. Drag a card by its title bar (the ⠿ grip) and drop it anywhere above or below the other one: above its middle puts the dragged card first, below puts it last. The order is remembered in the browser (not in the plan file) and **Reset to defaults** puts it back.
 
 The **Stress tests** card (under the Monte Carlo card, collapsed until you untick Hide) forces a fixed bad stretch onto your plan and shows whether the money lasts. Unlike Monte Carlo these are single, repeatable scenarios; your passing ages, Social Security, Long Term Care and taxes stay as entered.
 

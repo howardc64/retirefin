@@ -225,7 +225,7 @@ function layoutChartGrid(){
   for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
     if(occupied.has(r+','+c)) continue;
     const cell=document.createElement('div');
-    cell.className='chart-cell'; cell.dataset.r=r; cell.dataset.c=c;
+    cell.className='chart-cell'+(r===rows-1?' tail':''); cell.dataset.r=r; cell.dataset.c=c;
     cell.style.gridRow=(r+1); cell.style.gridColumn=(c+1);
     grid.appendChild(cell);
   }

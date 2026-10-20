@@ -106,14 +106,14 @@ run(`mcTrialExit()`);
 
 // inheritance arrivals
 run(`(()=>{ const p=state.people[0]; const b=defaultBrokeragePortfolio(250000); b.inh={file:'donor.json',key:'pf1',base:null}; b.startYear=THIS_YEAR+6; p.brokerage.push(b); recompute(); })()`);
-const arr=run(`inhArrivals()`);
+const arr=run(`inhArrivals()`).filter(a=>a.files.includes('donor'));   // the sample plan has its own inheritance (from Widow) in another year: look only at the one added here
 ok(arr.length===1&&arr[0].row===6&&arr[0].value===250000&&arr[0].files[0]==='donor','inhArrivals: one arrival at row 6, $250k from "donor" (age '+(arr[0]&&arr[0].age)+')');
 const calls=[]; const fake={chartArea:{left:10,right:300,top:5,bottom:200}, width:400, height:300, data:{labels:run(`charts.asset.data.labels`)}, scales:{x:{getPixelForValue:i=>10+i*5, getValueForPixel:p=>(p-10)/5},y:{}},
   ctx:new Proxy({},{get:(t,p)=>(...a)=>{calls.push(p)},set:()=>true}), canvas:{getBoundingClientRect:()=>({left:0,top:0,width:400,height:300})}};
 ctx.__fake=fake;
 run(`inhArrivalPlugin.afterDatasetsDraw(__fake,{},true)`);
-ok(fake._inhArrows.length===1 && calls.includes('fill'),'plugin draws one triangle and records it for hover');
-const hit=fake._inhArrows[0];
+ok(fake._inhArrows.some(h=>h.a.files.includes('donor')) && calls.includes('fill'),'plugin draws one triangle and records it for hover');
+const hit=fake._inhArrows.find(h=>h.a.files.includes('donor'));
 ok(calls.includes('moveTo'),'triangle drawn (always on, no toggle)');
 ctx.__ev={clientX:hit.px,clientY:fake.chartArea.bottom+6};
 let info=run(`ciOverlayAt('asset',__fake,__ev)`);
@@ -149,7 +149,7 @@ run(`mcAbSet('A')`);
 ok(run(`mcTrialView.view`)==='A' && !run(`mcShowingTrial()`) && run(`lastProjection===mcTrialView.planProj`),'A shows the plan projection');
 ok(run(`JSON.stringify(chartYMax)`)===ymaxB,'Y scales are identical on A and B (the flip changes only the data)');
 ok(banner.innerHTML.includes('mc-ab-btn on')&&/A &middot; Plan/.test(banner.innerHTML),'banner A/B control highlights A');
-ok(run(`inhArrivals()`).length===1 && run(`(()=>{const l=ltcCounts([60,61]); return true})()`),'A uses the real plan for overlays');
+ok(run(`inhArrivals()`).some(a=>a.files.includes('donor')) && run(`(()=>{const l=ltcCounts([60,61]); return true})()`),'A uses the real plan for overlays');
 let infA=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, vals:c.data.datasets[1]&&c.data.datasets[1].data.filter(x=>x!=null).length}})()`);
 ok(infA.n===2&&infA.vals===0,'inflation chart on A: trial line empty, same two datasets');
 run(`mcAbToggle()`); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.data.datasets[1].data.filter(x=>x!=null).length`)>=run(`mcTrialView.proj.rows.length`)-1,'toggle (key B) flips back to B and the trial inflation line returns');
@@ -198,11 +198,11 @@ run(`(()=>{ const pr=computeProjection(); buildExpenseAlert(pr); })()`); ok(ea.h
   run(`unfundedYearsPlugin.beforeDatasetsDraw(__fk,{},false)`); ok(rects.length===0,'band off when the chart does not enable it'); run(`recompute()`); }
 // ---- Market return chart ----
 run(`state.people[0].brokerage.pop(); recompute()`);
-{ const m=run(`(()=>{ const pr=lastProjection, S=marketSeries(pr); const c=charts.market; return {keys:S.keys, n:c&&c.data.datasets.length, infl:pr.inflRate.slice(0,3), first:S.keys.map(k=>S.at[k][0]), hasRates:!!pr.rates&&pr.rates.length>=pr.rows.length, labels:S.keys.map(k=>marketAssetLabel(pr,k))}; })()`);
+{ const m=run(`(()=>{ const pr=lastProjection, S=marketSeries(pr); const c=charts.market; return {keys:S.keys, n:c&&c.data.datasets.length, infl:pr.inflRate.slice(0,3), first:S.keys.map(k=>S.at[k].find(v=>v!=null)), row0:S.at[S.keys[0]][0], hasRates:!!pr.rates&&pr.rates.length>=pr.rows.length, labels:S.keys.map(k=>marketAssetLabel(pr,k))}; })()`);
   ok(m.hasRates && m.keys.length>=1 && m.n===m.keys.length,'plan: market chart has one line per growing asset ('+m.labels.join(' | ')+')');
 { const st=run(`(()=>{ marketSel=-1; buildMarketChart(); const n=charts.market.data.datasets.length, out={all:n}; marketStep(1); out.first=charts.market.data.datasets.length; out.l1=charts.market.data.datasets[0].label; marketStep(1); out.l2=charts.market.data.datasets[0].label; marketStep(-1); out.back=charts.market.data.datasets[0].label; for(let i=0;i<n;i++) marketStep(1); out.wrapped=charts.market.data.datasets.length; marketStep(-1); out.prevFromAll=charts.market.data.datasets.length; marketSel=-1; buildMarketChart(); return out; })()`);
   ok(st.all>=2&&st.first===1&&st.wrapped===st.all&&st.prevFromAll===1&&st.l1!==st.l2&&st.back===st.l1,'market ◀ ▶ buttons: one line per step, wrap through all lines, ◀ goes back ('+st.l1+' → '+st.l2+')'); }
-  ok(m.first.every(v=>v>0 && v<20) && Math.abs(m.infl[0]-run('state.inflation'))<1e-12,'plan: nominal returns are sensible and inflation per year recorded ('+m.first.map(v=>v.toFixed(2)).join(', ')+'%)'); }
+  ok(m.first.every(v=>v!=null && v>0 && v<20) && m.row0!=null && Math.abs(m.infl[0]-run('state.inflation'))<1e-12,'plan: nominal returns are sensible and inflation per year recorded ('+m.first.map(v=>v.toFixed(2)).join(', ')+'%)'); }
 run(`mcStateAtRun=mcPlanKey(); mcLoadTrial(${tr})`);
 { const m=run(`(()=>{ const pr=lastProjection, S=marketSeries(pr); const vals=S.at[S.keys[0]].filter(v=>v!=null); return {n:vals.length, spread:Math.max(...vals)-Math.min(...vals), sameAsPlan:(()=>{ const P=marketSeries(mcTrialView.planProj); return JSON.stringify(P.at[P.keys[0]])===JSON.stringify(S.at[S.keys[0]]); })(), yaxis:[charts.market.options.scales.y.min,charts.market.options.scales.y.max], dsn:charts.market.data.datasets.length}; })()`);
   ok(m.n>=3 && m.spread>5 && !m.sameAsPlan,'trial: returns move year to year ('+m.spread.toFixed(1)+' pts range) and differ from the plan');
