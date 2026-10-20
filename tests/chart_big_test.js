@@ -68,6 +68,14 @@ ok(!o.income.s,'file: a block overlapping an earlier block loses its size');
 ok(run(`(()=>{ const p=normalizeChartPos(${bad},3); return chartOccupancy(p,3).size===CHART_KEYS.reduce((a,k)=>a+footprintCells(p[k],3).length,0); })()`),'file: normalised layout has no overlap');
 ok(run(`CHART_KEYS.every(k=>normalizeChartPos({},3)[k].s===undefined)`),'an older file with no s loads unchanged');
 
+// save → file → load keeps the enlarged chart (hydrateState's merge would otherwise drop `s`)
+fresh(); run(`placeBigChart('expense',0,0); compactChartRows(); 0`);
+const saved=run(`JSON.stringify(state)`);
+const back=JSON.parse(run(`JSON.stringify(hydrateState(JSON.parse(${JSON.stringify(saved)})).ui.chartPos)`));
+ok(back.expense.s===2&&back.expense.r===0&&back.expense.c===0,'save and reload keeps the enlarged chart');
+run(`state=defaultState(); state.ui.gridCols=3; state.ui.chartPos=defaultChartPos(3); state.ui.chartPosAlt=defaultChartPos(2); state.ui.chartPosAlt.income.s=2; 0`);
+ok(run(`hydrateState(JSON.parse(JSON.stringify(state))).ui.chartPosAlt.income.s`)===2,'the other layout\'s dormant enlarged chart is kept on reload too');
+
 // fresh-start compaction counts the block's second row
 fresh(); run(`placeBigChart('expense',0,0)`);
 run(`CHART_KEYS.forEach(k=>{chartAvail[k]=true;}); chartAvail.ira=false; chartAvail.ltcg=false;`);

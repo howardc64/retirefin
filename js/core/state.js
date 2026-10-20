@@ -433,6 +433,8 @@ function hydrateState(loaded){
     delete p.odiv; delete p.qdiv;
   });
   if(!out.ui) out.ui={};
+  // merge() keeps only the keys the defaults have ({r,c}), so an enlarged chart's size flag (s:2, see normalizeChartPos) is copied back from the loaded file here.
+  ['chartPos','chartPosAlt'].forEach(n=>{ const lp=loaded&&loaded.ui&&loaded.ui[n], dp=out.ui[n]; if(lp&&dp) CHART_KEYS.forEach(k=>{ if(lp[k]&&lp[k].s===2&&dp[k]) dp[k]={...dp[k],s:2}; }); });
   out.ui.incomeOrder=normalizeIncomeOrder(out.ui.incomeOrder);
   out.ui.hidePerson=(out.ui.hidePerson===0||out.ui.hidePerson===1)?out.ui.hidePerson:null;   // married: which person's Income & Assets column is collapsed (null = both shown)
   out.ui.gridCols=(out.ui.gridCols===3?3:2);
