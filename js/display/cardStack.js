@@ -2,20 +2,22 @@
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / CARD STACK — the two cards under the chart grid (Stress tests and Monte Carlo) sit in <div id="cardStack"> and can be dragged by their title bar
 // to swap places: drop above or below the middle of the other card (anywhere on the page) to put the dragged card before or after it. Default order: Stress tests above Monte Carlo.
-// The order is a display preference, kept in its own localStorage key (not in the plan file), and Reset to defaults puts it back.
+// The order is a display preference kept in `state.ui.cardOrder` (saved with the plan like the cards' own settings, state.ui.stressCfg / mcCfg), and Reset to defaults puts it back.
 // Native HTML5 drag and drop, like the chart panels (chartPanels.js). Loaded after mcPanel.js and stressPanel.js.
 // ═══════════════════════════════════════════════════════════════
-const CARD_ORDER_KEY='retirementPlannerCardOrder_v1';
 const CARD_ORDER_DEFAULT=['stressPanel','mcPanel'];
 let _cardDrag=null;
 
 function cardOrderLoad(){
-  try{ const s=JSON.parse(localStorage.getItem(CARD_ORDER_KEY)||'null'); if(Array.isArray(s)&&s.length===CARD_ORDER_DEFAULT.length&&CARD_ORDER_DEFAULT.every(id=>s.includes(id))) return s; }catch(e){}
+  const s=(typeof state!=='undefined'&&state&&state.ui)?state.ui.cardOrder:null;
+  if(Array.isArray(s)&&s.length===CARD_ORDER_DEFAULT.length&&CARD_ORDER_DEFAULT.every(id=>s.includes(id))) return s;
   return CARD_ORDER_DEFAULT.slice();
 }
 function cardOrderSave(){
-  const host=document.getElementById('cardStack'); if(!host) return;
-  try{ localStorage.setItem(CARD_ORDER_KEY,JSON.stringify([...host.children].map(c=>c.id))); }catch(e){}
+  const host=document.getElementById('cardStack'); if(!host||typeof state==='undefined'||!state) return;
+  if(!state.ui) state.ui={};
+  state.ui.cardOrder=[...host.children].map(c=>c.id).filter(id=>CARD_ORDER_DEFAULT.includes(id));
+  if(typeof saveDebounced==='function') saveDebounced();
 }
 function cardOrderApply(order){
   const host=document.getElementById('cardStack'); if(!host) return;
@@ -29,7 +31,9 @@ function cardStackDecorate(){
     const t=h.querySelector('.panel-title'); if(t&&!t.querySelector('.cp-grip')) t.insertAdjacentHTML('afterbegin','<span class="cp-grip" aria-hidden="true">\u283F</span>');
   });
 }
-function cardStackReset(){ try{ localStorage.removeItem(CARD_ORDER_KEY); }catch(e){} cardOrderApply(CARD_ORDER_DEFAULT); }
+function cardStackReset(){ if(typeof state!=='undefined'&&state&&state.ui) state.ui.cardOrder=null; cardOrderApply(CARD_ORDER_DEFAULT); }
+// After a plan was loaded / reset / switched (renderAll in app.js): the order that plan holds.
+function cardStackRestore(){ cardOrderApply(cardOrderLoad()); cardStackDecorate(); }
 
 // Drag and drop is tracked on the whole document while a card is being dragged, so the drop does not have to land exactly on the other card: the dragged card goes before the
 // other one when the pointer is above its middle and after it when below (anywhere on the page). Near the top or bottom edge of the window the page scrolls.

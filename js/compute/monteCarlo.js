@@ -259,11 +259,33 @@ function mcMeasure(proj, info){
 // Run ONE trial. `mutate(s)` (optional) changes the cloned state first — used for what-if sweeps on the same random paths.
 // `capture` (optional object) is filled with what a replay needs: the full projection, the trial's own copy of the plan (its drawn lifespans / care / inheritance),
 // the inflation path and the draws. Same seed + trial index = the same trial, so a failed trial is replayed rather than stored (see mcReplayTrial).
-function mcRunTrial(cfg, trial, mutate, capture){
+// `stress` (optional, the Stress test card's "run with Monte Carlo"): {scen, start, share} from compute/stressTest.js. INSIDE the scenario's years the stress test is in full control of returns and
+// inflation, exactly as in the plain stress test (stRun): its stock return (equityShare % of every non-property asset; the rest, and property, keep the plan's own rate) and its inflation (the
+// scenario's own, or the plan's constant rate when the scenario defines none) REPLACE the random ones. Before and after those years the trial's random returns and inflation apply as set on the
+// Monte Carlo card, and everything else (lifespans, care, inheritance) stays random. With every random part off the trial equals stRun(scen, start) exactly.
+// Inflation path of a stress trial: the scenario's years carry the scenario's inflation (or the plan's constant rate), every other year the trial's own (`infl`, null = the plan's constant rate).
+function mcStressInflation(st, infl, mean, n){
+  const S=st.scen, L=S.eq.length;
+  const pi=new Float64Array(n), cpi=new Float64Array(n+1); cpi[0]=1;
+  for(let k=0;k<n;k++){ const j=k-st.start; pi[k]=(j>=0&&j<L)?(S.infl&&j<S.infl.length?S.infl[j]:mean):(infl?infl.pi[k]:mean); cpi[k+1]=cpi[k]*(1+pi[k]); }
+  return {pi,cpi};
+}
+function mcRunTrial(cfg, trial, mutate, capture, stress){
   const nYears=70, path=mcPath(cfg,trial,nYears), info={pass:[0,0],ltcYears:[0,0],inh:{n:0,shift:null,orig:0,now:0}};
   return withTempState(s=>{ if(mutate) mutate(s); mcApply(s,cfg,path,info); }, ()=>{
-    const mean=state.inflation, infl=(cfg.inflation&&cfg.inflation.enabled)?mcInflation(path,mean):null;
-    MC_HOOK=(cfg.returns.enabled||infl)?((g,key,k,ch)=>{
+    const mean=state.inflation; let infl=(cfg.inflation&&cfg.inflation.enabled)?mcInflation(path,mean):null;
+    if(stress) infl=mcStressInflation(stress,infl,mean,nYears+2);
+    const sShare=stress?Math.max(0,Math.min(1,(Number(stress.share)||0)/100)):0;
+    MC_HOOK=(cfg.returns.enabled||infl||stress)?((g,key,k,ch)=>{
+      if(stress){   // inside the scenario's years the stress test's own returns and inflation apply, with nothing random (same arithmetic as stHook in compute/stressTest.js)
+        const j=k-stress.start;
+        if(j>=0&&j<stress.scen.eq.length){
+          const pi=infl.pi[k], nominalFixed=!!ch&&(ch.mode==='fixed'||ch.mode==='custom');
+          const planNom=nominalFixed?(1+g)*(1+mean)-1:(1+g)*(1+pi)-1;      // the nominal rate the plan means: fixed / custom are nominal, inflation ± x follows the year's inflation
+          const nom=(key.charCodeAt(0)===114&&key.charCodeAt(1)===101)?planNom:sShare*stress.scen.eq[j]+(1-sShare)*planNom;   // 're:…' (property) keeps the plan's own rate
+          return (1+nom)/(1+pi)-1;
+        }
+      }
       // a nominal-fixed rate ('fixed' / 'custom') is worth more or less in today's $ when the year's inflation differs from the plan's
       if(infl&&ch&&(ch.mode==='fixed'||ch.mode==='custom')) g=(1+g)*(1+mean)/(1+infl.pi[k])-1;
       return cfg.returns.enabled?(1+g)*mcFactor(path,key,k)-1:g;

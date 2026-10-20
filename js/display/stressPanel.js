@@ -2,20 +2,38 @@
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / STRESS TEST PANEL — one card under the Monte Carlo card: choose the scenarios, press Run, read a table (does the money last, when
 // does it run out, how far the invested assets fall) (every scenario can also be loaded into the chart grid with the D button of the Stress test card, which shows the detail).
-// Deterministic and instant (a handful of projections), so unlike the Monte Carlo card it has no progress bar. Reads `state` only through
-// compute/stressTest.js. Settings live in their own localStorage key (not in `state`), like the Monte Carlo card's.
+// Deterministic and instant (a handful of projections), so "Run stress tests" has no progress bar. "Run stress tests + Monte Carlo" then repeats every market scenario with the Monte Carlo
+// card's trials and settings (compute/monteCarlo.js mcRunTrial's `stress` argument: inside the scenario's years its returns and inflation, the plan's own rate where it sets none, replace the random ones) in small chunks, with progress and Cancel. Reads `state` only through
+// compute/stressTest.js. The card's settings (every scenario choice, the start, the share hit, the late-life medical shock, and its Hide box) are part of the plan: they live in `state.ui.stressCfg`, so they are saved to file / autosave, restored on load and put back to the defaults by Reset.
 // ═══════════════════════════════════════════════════════════════
-const ST_STORE_KEY='retirementPlannerStress_v1';
-let stCfg=null, stResults=null, stStateAtRun=null;
+let stCfg=null, stResults=null, stStateAtRun=null, stMcRun=null;
 const stEl=id=>document.getElementById(id);
 const stMoney=v=>v==null||!isFinite(v)?'–':(Math.abs(v)>=1e6?'$'+(v/1e6).toFixed(2)+'M':'$'+Math.round(v/1000)+'k');
 
+// The card's settings live in `state.ui.stressCfg` (null = the defaults below): saved with the plan file / autosave, restored on load, back to the defaults on Reset.
+function stDefaultCfg(){ const d=JSON.parse(JSON.stringify(ST_DEFAULTS)); d.hidden=true; return d; }   // the card starts collapsed; a saved choice still wins
 function stLoadCfg(){
-  const d=JSON.parse(JSON.stringify(ST_DEFAULTS)); d.hidden=true;   // starts collapsed; a saved choice still wins
-  try{ const s=JSON.parse(localStorage.getItem(ST_STORE_KEY)||'null'); if(s) for(const k in d){ if(s[k]!==undefined) d[k]=(d[k]&&typeof d[k]==='object')?Object.assign(d[k],s[k]):s[k]; } }catch(e){}
+  const d=stDefaultCfg(), s=(typeof state!=='undefined'&&state&&state.ui)?state.ui.stressCfg:null;
+  if(s&&typeof s==='object') for(const k in d){ if(s[k]!==undefined) d[k]=(d[k]&&typeof d[k]==='object')?Object.assign(d[k],s[k]):s[k]; }
   return d;
 }
-function stSaveCfg(){ try{ localStorage.setItem(ST_STORE_KEY,JSON.stringify(stCfg)); }catch(e){} }
+function stSaveCfg(){
+  if(typeof state==='undefined'||!state||!stCfg) return;
+  if(!state.ui) state.ui={};
+  if(cfgSig(state.ui.stressCfg)===cfgSig(stCfg)) return;
+  state.ui.stressCfg=JSON.parse(JSON.stringify(stCfg));
+  if(typeof saveDebounced==='function') saveDebounced();
+}
+// Any edit inside the card is kept in the plan right away (not only when Run is pressed).
+function stSyncCfg(){ if(!stCfg||!stEl('stStartMode')) return; try{ stFormCfg(stCfg); }catch(e){ return; } stSaveCfg(); }
+// Called by renderAll() (app.js) after a plan was loaded, reset or switched: show the settings the plan holds. Rebuilds the card only when they differ from what is on screen
+// (so an unrelated redraw keeps the results table); a rebuild drops the old results, which belonged to the other plan's settings.
+function stRestore(){
+  if(!stEl('stressPanel')) return;
+  const want=stLoadCfg();
+  if(stCfg&&stEl('stBody')&&cfgSig(want)===cfgSig(stCfg)) return;
+  stResetCard(false); buildStressPanel();
+}
 
 function buildStressPanel(){
   const host=stEl('stressPanel'); if(!host) return;
@@ -38,9 +56,10 @@ function buildStressPanel(){
         '<label class="mc-f">Whose age<select id="stMedWho"></select></label>'+num('stMedAge','From age',stCfg.med.age,50,110,1)+num('stMedYears','For (years)',stCfg.med.years,1,15,1)+num('stMedCost','Cost per year ($, today\'s)',stCfg.med.cost,0,2000000,10000)+
         chk('stMedOrd','Also compare four withdrawal orders',stCfg.med.orders)+'<div class="mc-src">An extra itemized medical cost on top of any Long Term Care card, paid from the accounts in the plan\'s withdrawal order. Shows what it forces you to sell, the capital gains and tax it triggers, and how that changes with the order. Independent of the market scenarios above; tick only this one to run it alone.</div>')+
     '</div>'+
-    '<div class="mc-row mc-run"><button type="button" class="btn btn-primary" id="stRunBtn">Run stress tests</button><span id="stNote" class="mc-prog"></span></div>'+
-    '<div id="stStale" class="mc-stale" style="display:none">The plan or settings changed since this run. Run again to refresh.</div>'+
-    '<div id="stOut" style="display:none"><div id="stSummary"></div><div class="mc-note" id="stCaveats"></div></div></div>';
+    '<div class="mc-row mc-run"><button type="button" class="btn btn-primary" id="stRunBtn">Run stress tests</button><button type="button" class="btn btn-primary" id="stRunMcBtn">Run stress tests + Monte Carlo</button><button type="button" class="btn" id="stCancelBtn" style="display:none">Cancel</button><span id="stNote" class="mc-prog"></span></div>'+
+    '<p class="mc-note">The second button also repeats every market scenario with the Monte Carlo card\'s trials and settings: random lifespans, Long Term Care, inheritance, returns and inflation, as ticked there. Where they collide, the stress test wins: during the scenario\'s years its returns and its inflation (the plan\'s own rate where the scenario sets none) replace the random returns and inflation, exactly as in the table above; before and after those years the random ones apply. This gives the other random inputs (lifespans, care, inheritance) the stress pattern of returns and inflation to work against. Every row uses the same random draws, so the difference between rows is the scenario\'s. The late-life medical shock is not part of the Monte Carlo run.</p>'+
+    '<div id="stStale" class="mc-stale" style="display:none">The plan or settings (the Monte Carlo card\'s too, if it was part of the run) changed since this run. Run again to refresh.</div>'+
+    '<div id="stOut" style="display:none"><div id="stSummary"></div><div id="stMc"></div><div class="mc-note" id="stCaveats"></div></div></div>';
   const applyHide=()=>{ host.classList.toggle('mc-collapsed',stEl('stHide').checked); };
   stEl('stHide').addEventListener('change',()=>{ stCfg.hidden=stEl('stHide').checked; stSaveCfg(); applyHide(); }); applyHide();
   stEl('stStartMode').value=stCfg.start.mode; stSyncMedWho(stCfg.med.person);
@@ -48,8 +67,10 @@ function buildStressPanel(){
   stEl('stStartMode').addEventListener('change',syncMode); syncMode();
   ['stLost','stStag','stY66','stMed'].forEach(id=>{ const el=stEl(id), sync=()=>stEl(id+'Grp').classList.toggle('mc-off',!el.checked); el.addEventListener('change',sync); sync(); });
   if(typeof cardStackDecorate==='function') cardStackDecorate();   // draggable title bar (display/cardStack.js)
-  stEl('stRunBtn').onclick=stStart;
+  stEl('stRunBtn').onclick=()=>stStart(false); stEl('stRunMcBtn').onclick=()=>stStart(true); stEl('stCancelBtn').onclick=()=>{ if(stMcRun) stMcRun.cancel=true; };
   host.addEventListener('input',()=>{ if(stResults) stMarkStale(); });
+  if(!host._stSyncHooked){ host._stSyncHooked=true; ['input','change'].forEach(ev=>host.addEventListener(ev,stSyncCfg)); }   // keep every edit in state.ui.stressCfg
+  const mp=document.getElementById('mcPanel'); if(mp&&!mp._stHooked){ mp._stHooked=true; mp.addEventListener('input',()=>{ if(stResults&&stResults.mc) stMarkStale(); }); }   // the Monte Carlo card's settings are part of a combined run
 }
 
 // "Whose age" choices carry the names entered on the plan (Person 1 / Person 2 only when no name is entered); a single filer has just the one. Called when the card is built and after every
@@ -64,14 +85,49 @@ function stSyncMedWho(want){
 function stReadCfg(){ stFormCfg(stCfg); stSaveCfg(); return stCfg; }
 // what a run depends on: the plan (without its display-only `ui` block) and the card's scenario settings (not its Hide state)
 const stKey=c=>JSON.stringify(Object.assign({},state,{ui:null}))+'|'+JSON.stringify(Object.assign({},c,{hidden:undefined}));
+// a combined run also depends on the Monte Carlo card's settings (read from its form, like the card's own Run button does)
+const stMcKey=()=>{ try{ return '|MC'+JSON.stringify(Object.assign({},mcReadCfg(),{hidden:undefined})); }catch(e){ return '|MC'; } };
 
-function stStart(){
+function stStart(withMc){
+  if(stMcRun) return;
   const cfg=JSON.parse(JSON.stringify(stReadCfg()));
   if(!(cfg.lost.enabled||cfg.stag.enabled||cfg.y1966.enabled||cfg.med.enabled)){ stEl('stNote').textContent='Tick at least one scenario.'; return; }
+  if(withMc===true&&!(cfg.lost.enabled||cfg.stag.enabled||cfg.y1966.enabled)){ stEl('stNote').textContent='Tick at least one market scenario (Lost Decade, Stagflation or 1966 retiree) for the Monte Carlo part.'; return; }
   stEl('stNote').textContent='';
   stResults=Object.assign(stRunAll(cfg),{cfg, planKey:JSON.stringify(Object.assign({},state,{ui:null}))}); stStateAtRun=stKey(stCfg);
   stEl('stStale').style.display='none';
   stRender();
+  if(withMc===true) stStartMc(cfg);
+}
+
+// "+ Monte Carlo": the Monte Carlo card's trials for "no stress" and for every market scenario, on the same random draws. Chunked (~40 ms of work, then yield) so the page stays responsive.
+function stStartMc(cfg){
+  const R=stResults;
+  if(!R.startCovered){ stEl('stNote').textContent='The shock starts beyond the end of the projection, so the Monte Carlo part would equal the plain Monte Carlo run.'; return; }
+  const mc=JSON.parse(JSON.stringify(mcReadCfg()));
+  const jobs=[{id:'none', label:'Monte Carlo alone (no stress test)', stress:null, res:[]}].concat(stScenarios(cfg).map(sc=>({id:sc.id, label:(R.results.find(r=>r.id===sc.id)||sc).label, stress:{scen:sc,start:R.start,share:cfg.equityShare}, res:[]})));
+  const run={cancel:false, discard:false}, total=jobs.length*mc.trials, t0=Date.now(), planKey=R.planKey; let ji=0, done=0;
+  stMcRun=run; stStateAtRun=stKey(stCfg)+stMcKey();
+  ['stRunBtn','stRunMcBtn'].forEach(id=>{ stEl(id).disabled=true; }); stEl('stCancelBtn').style.display='';
+  const end=ok=>{
+    stMcRun=null; ['stRunBtn','stRunMcBtn'].forEach(id=>{ stEl(id).disabled=false; }); stEl('stCancelBtn').style.display='none';
+    if(run.discard) return;
+    if(!ok){ stEl('stNote').textContent='Cancelled after '+done+' of '+total+' trials; the stress test table above is complete, the Monte Carlo part was dropped.'; return; }
+    stEl('stNote').textContent=total+' trials in '+((Date.now()-t0)/1000).toFixed(1)+' s';
+    if(stResults&&stResults.planKey===planKey){ stResults.mc={cfg:mc, rows:jobs.map(j=>({id:j.id,label:j.label,stress:!!j.stress,stressDef:j.stress,res:j.res,S:mcSummarize(j.res)}))}; stMcRender(); stMarkStale(); }
+  };
+  (function chunk(){
+    if(run.discard) return end(false);
+    if(run.cancel) return end(false);
+    const tEnd=Date.now()+40;
+    while(Date.now()<tEnd){
+      while(ji<jobs.length&&jobs[ji].res.length>=mc.trials) ji++;
+      if(ji>=jobs.length) break;
+      const j=jobs[ji]; j.res.push(mcRunTrial(mc,j.res.length,null,null,j.stress)); done++;
+    }
+    if(done<total){ stEl('stNote').textContent=done+' / '+total+' trials ('+jobs[Math.min(ji,jobs.length-1)].label+')'; setTimeout(chunk,0); }
+    else end(true);
+  })();
 }
 
 // Called by the D button (mcPanel.js): make sure there are stress results for the plan as it is now (runs them with the card's current settings if not).
@@ -102,22 +158,24 @@ function stRender(){
       '<table class="mc-tbl mc-ftbl st-tbl"><tr><th>Scenario</th><th>Without guardrails</th><th>With guardrails</th><th>First cut</th><th>Invested balance that tripped it</th><th>Deepest cut</th><th>Years with a cut</th><th>Spending given up (today\'s $, total)</th></tr>'+gr+'</table>';
   }
   if(R.med) stEl('stSummary').innerHTML+=stMedHtml(R.med,cfg);
+  stMcRender();
   stEl('stCaveats').innerHTML='The <b>D &middot; Stress Test</b> button of the Stress test card (top of the charts) cycles through these scenarios in the charts. '+'Data: S&amp;P 500 total return (Damodaran, NYU Stern) and CPI-U December-to-December change (BLS). Social Security COLA, living expenses and the tax brackets are assumed to track inflation, so a higher price level hurts through the assets (nominal returns below inflation) and through anything fixed in nominal dollars: a pension without a COLA, un-indexed tax thresholds, cost basis. '+
     'Lifespans, Long Term Care and the rest of the plan are as entered; compare with the Monte Carlo card for likelihood.';
 }
 
 // A different plan was loaded (or Reset to defaults): drop the old results. `settings` also restores the card's own defaults.
 function stResetCard(settings){
+  if(stMcRun) stMcRun.discard=true;
   stResults=null; stStateAtRun=null;
-  if(settings){ try{ localStorage.removeItem(ST_STORE_KEY); }catch(e){} buildStressPanel(); if(typeof cardStackReset==='function') cardStackReset(); return; }
+  if(settings){ if(typeof state!=='undefined'&&state&&state.ui) state.ui.stressCfg=null; buildStressPanel(); if(typeof cardStackReset==='function') cardStackReset(); return; }
   ['stOut','stStale'].forEach(id=>{ const e=stEl(id); if(e) e.style.display='none'; });
-  ['stSummary','stCaveats'].forEach(id=>{ const e=stEl(id); if(e) e.innerHTML=''; });
+  ['stSummary','stMc','stCaveats'].forEach(id=>{ const e=stEl(id); if(e) e.innerHTML=''; });
 }
 // Called from recompute() (app.js) and on any edit inside the card: flag results that no longer match the plan or the settings.
 function stPersonName(i){ const n=state.filingStatus==='married'?2:1, k=(i===1&&n>1)?1:0, p=(state.people||[])[k]; return String(displayPersonName(p,k)).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function stMarkStale(){ stSyncMedWho();
   const el=stEl('stStale'); if(!el||!stResults) return;
-  let cur=stStateAtRun; try{ cur=stKey(stFormCfg(JSON.parse(JSON.stringify(stCfg)))); }catch(e){}
+  let cur=stStateAtRun; try{ cur=stKey(stFormCfg(JSON.parse(JSON.stringify(stCfg))))+(stResults.mc?stMcKey():''); }catch(e){}
   el.style.display=(cur!==stStateAtRun)?'':'none';
 }
 // the form's current values as a settings object (what stReadCfg would produce), without touching stCfg or storage
@@ -132,6 +190,22 @@ function stFormCfg(c){
   return c;
 }
 document.addEventListener('DOMContentLoaded',buildStressPanel);
+
+// The combined run's table: per scenario the Monte Carlo success rate, when the money runs out in the trials that ran short, and the spread of final assets.
+function stMcRender(){
+  const el=stEl('stMc'); if(!el) return;
+  const M=stResults&&stResults.mc; if(!M){ el.innerHTML=''; return; }
+  const age=v=>v==null?'–':Math.round(v), base=M.rows[0].S, c=M.cfg;
+  const parts=[c.returns.enabled&&'random returns'+(c.returns.panic&&c.returns.panic.enabled?' with panic':''), c.mortality.enabled&&'random lifespans', c.ltc.enabled&&'random Long Term Care', c.inheritance.enabled&&'random inheritance', c.inflation.enabled&&'random inflation'].filter(Boolean);
+  const tr=M.rows.map((r,ri)=>{ const S=r.S, d=(S.successRate-base.successRate)*100;
+    return '<tr'+(r.stress?'':' class="st-plan"')+'><td><b>'+r.label+'</b></td><td><b>'+(S.successRate*100).toFixed(1)+'%</b> <small>('+(S.N-S.failCount)+' of '+S.N+')</small></td>'+
+      '<td>'+(r.stress?(d>=0?'+':'−')+Math.abs(d).toFixed(1)+' pts':'–')+'</td><td>'+(S.failCount?age(S.medianFailAge):'–')+'</td>'+
+      '<td>'+stMoney(S.estate.p10)+' · '+stMoney(S.estate.p50)+' · '+stMoney(S.estate.p90)+'</td>'+
+      '<td>'+(r.stress?'<button type="button" class="btn st-show" onclick="mcSmRow(\'E\','+ri+')"'+(S.failCount<S.N?'':' disabled')+' title="Load a trial of this scenario that stayed funded into the charts (the E button of the Stress test card)">Success</button><button type="button" class="btn st-show" onclick="mcSmRow(\'F\','+ri+')"'+(S.failCount?'':' disabled')+' title="Load a trial of this scenario that ran short of money into the charts (the F button of the Stress test card)">Failure</button>':'–')+'</td></tr>'; }).join('');
+  el.innerHTML='<h4 class="mc-h">With Monte Carlo <small>'+c.trials+' trials per row, seed '+c.seed+', the Monte Carlo card\'s settings'+(parts.length?': '+parts.join(', '):' (every random part is off, so the rows repeat the stress tests above)')+'</small></h4>'+
+    '<p class="mc-note">Inside each scenario\'s years its returns and its inflation replace the random ones (a scenario that sets no inflation of its own, such as the Lost Decade without "actual inflation", uses the plan\'s rate there); before and after those years, and for lifespans, care and inheritance, everything stays random as set on the Monte Carlo card. A scenario can raise the success rate when its fixed returns replace the random bad ones inside its window, so read it together with the final assets. Results are in today\'s $.</p>'+
+    '<table class="mc-tbl mc-ftbl st-tbl"><tr><th>Scenario</th><th>Trials funded to the end</th><th>vs Monte Carlo alone</th><th>Median age the money runs out <small>(trials that ran short)</small></th><th>Assets in the last projected year <small>10th pct · median · 90th pct</small></th><th>In the charts</th></tr>'+tr+'</table>';
+}
 
 // Late-life medical shock (stress card): what the extra cost forces the household to sell, the gains and tax that follow, and how the withdrawal order changes it.
 function stMedHtml(M,cfg){

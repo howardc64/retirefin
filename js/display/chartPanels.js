@@ -5,8 +5,12 @@
 //   • Rescale button per panel (chartHelpers.js rescaleChart: refits that chart only).
 //   • Drag a panel by its title bar to any cell: a free cell moves it there (the vacated cell stays blank), an occupied cell swaps the two. Holding the pointer on the gap between two rows
 //     for a moment opens a blank row there to drop into; moving away without dropping closes it again.
+//     Starting fresh (Reset, Start fresh, first visit) closes every row that holds no chart on screen (compactUnusedChartRows).
 //     Positions are state.ui.chartPos[key] = {r,c}, saved with the plan like every other `state.ui` setting. Each grid size keeps its own arrangement
 //     (state.ui.chartPos for the grid on screen, state.ui.chartPosAlt for the other one); toggleGridCols() swaps them.
+//   • ⤢ Enlarge (3×N only): a chart can take a 2×2 block of cells (state.ui.chartPos[key].s = 2, anchored at its top-left cell, column 0 or 1) so an important chart is shown 4× as big with its
+//     companion charts in the remaining column beside it. Charts that were in the block's other cells move to the nearest free cell. ⤡ Shrink puts it back. The flag is kept per layout
+//     (dormant in 2×N: the chart is one cell there) and is saved with the plan.
 //   • A row of Same-scale buttons above the grid: each click sets a group of charts to one Y scale once (chartHelpers.js SCALE_LINK_GROUPS). Scales are saved in state.ui.chartYMax.
 // The panels are built once (the Chart.js instances hold their <canvas>); moving a panel only changes its grid row/column.
 // ═══════════════════════════════════════════════════════════════
@@ -47,6 +51,45 @@ function setChartAvailable(key, on){
 
 // ── Grid size (2×N / 3×N) ──
 function chartCols(){ return (state&&state.ui&&state.ui.gridCols===3)?3:2; }
+// Enlarged charts: pos[k].s===2 is a 2×2 block, honoured in the 3-column grid only.
+function chartSpan(p,cols){ return (cols===3&&p&&p.s===2)?2:1; }
+function footprintCells(p,cols){ const n=chartSpan(p,cols), a=[]; for(let dr=0;dr<n;dr++) for(let dc=0;dc<n;dc++) a.push([p.r+dr,p.c+dc]); return a; }
+// Map 'r,c' → chart key for every cell a chart covers (charts in `except` left out).
+function chartOccupancy(pos,cols,except){
+  const m=new Map(); CHART_KEYS.forEach(k=>{ if(except&&except.includes(k)) return; footprintCells(pos[k],cols).forEach(([r,c])=>m.set(r+','+c,k)); });
+  return m;
+}
+// Put the charts in `keys` (single-cell) into free cells: first the `prefer` cells ('r,c' strings), then the first free cell row-major from row `fromRow`.
+function relocateCharts(pos,cols,keys,prefer,fromRow){
+  const occ=chartOccupancy(pos,cols,keys);
+  keys.forEach(k=>{
+    let cell=(prefer||[]).find(x=>!occ.has(x));
+    if(!cell){
+      for(let r=fromRow||0;!cell;r++) for(let c=0;c<cols;c++) if(!occ.has(r+','+c)){ cell=r+','+c; break; }
+    }
+    const [r,c]=cell.split(',').map(Number); pos[k]={r,c}; occ.set(cell,k);
+  });
+}
+// Make `key` a 2×2 block anchored at (r,c) (column clamped to 0..1). Charts in the block's cells move out; returns false (nothing changed) if that would displace another enlarged chart.
+function placeBigChart(key,r,c){
+  const pos=state.ui.chartPos, cols=3; c=Math.min(Math.max(c,0),cols-2);
+  const old=pos[key], oldCells=old?footprintCells(old,cols).map(x=>x.join(',')):[];
+  const fresh={r,c,s:2}, block=new Set(footprintCells(fresh,cols).map(x=>x.join(',')));
+  const displaced=CHART_KEYS.filter(k=>k!==key&&footprintCells(pos[k],cols).some(x=>block.has(x.join(','))));
+  if(displaced.some(k=>pos[k].s===2)) return false;
+  pos[key]=fresh;
+  relocateCharts(pos,cols,displaced,oldCells.filter(x=>!block.has(x)),r);
+  return true;
+}
+function toggleChartBig(key){
+  if(chartCols()!==3||!state.ui||!state.ui.chartPos) return;
+  const pos=state.ui.chartPos, p=pos[key]; if(!p) return;
+  if(p.s===2) pos[key]={r:p.r,c:p.c};
+  else if(!placeBigChart(key,p.r,p.c)){ alert('That block overlaps another enlarged chart. Shrink that one first, or move this chart.'); return; }
+  compactChartRows(); layoutChartGrid(); syncGridButton();
+  if(typeof resizeAllCharts==='function') resizeAllCharts();
+  saveDebounced();
+}
 // Two states only. Each size keeps its own arrangement: the one on screen is state.ui.chartPos, the other waits in state.ui.chartPosAlt.
 function toggleGridCols(){
   if(!state.ui) state.ui={};
@@ -63,6 +106,11 @@ function syncGridButton(){
   b.textContent='Grid: '+cur+'\u00d7N';
   b.title='Charts are in a '+cur+'-column grid. Click to switch to '+next+' columns (each size remembers its own arrangement).';
   b.setAttribute('aria-label',b.title);
+  document.body.classList.toggle('grid-3',cur===3);
+  document.querySelectorAll('.big-btn').forEach(x=>{
+    const k=x.closest('.chart-panel').dataset.key, big=chartSpan(state.ui.chartPos&&state.ui.chartPos[k],cur)===2;
+    x.textContent=big?'\u2937 Shrink':'\u2922 Enlarge'; x.title=big?'Back to a single cell':'Show this chart 4\u00d7 as big (2\u00d72 cells); the charts beside it stay in the remaining column';
+  });
 }
 
 // ── Build ──
@@ -79,7 +127,7 @@ function gridRowExtent(grid,rr){
   let top=Infinity, bottom=-Infinity;
   grid.querySelectorAll('.chart-cell,.chart-panel').forEach(el=>{
     let r; if(el.classList.contains('chart-cell')) r=+el.dataset.r;
-    else { if(el.classList.contains('no-data')) return; const p=state.ui.chartPos[el.dataset.key]; r=p?p.r:-1; }
+    else { if(el.classList.contains('no-data')) return; const p=state.ui.chartPos[el.dataset.key]; if(p&&chartSpan(p,chartCols())>1) return; r=p?p.r:-1; }   // an enlarged panel spans two rows: its neighbours' cells give the row extents
     if(r!==rr) return;
     const b=el.getBoundingClientRect(); top=Math.min(top,b.top); bottom=Math.max(bottom,b.bottom);
   });
@@ -87,11 +135,13 @@ function gridRowExtent(grid,rr){
 }
 // Index of the row a new blank row would be inserted before when the pointer is on a boundary (gap) at height y, else null.
 function rowBoundaryAt(grid,y){
-  const pos=state.ui.chartPos; let maxR=-1; CHART_KEYS.forEach(k=>{ if(chartAvail[k]) maxR=Math.max(maxR,pos[k].r); });
+  const pos=state.ui.chartPos, cols=chartCols(); let maxR=-1; CHART_KEYS.forEach(k=>{ if(chartAvail[k]) maxR=Math.max(maxR,pos[k].r+chartSpan(pos[k],cols)-1); });
   const SLOP=5;
+  const splitsBig=rr=>CHART_KEYS.some(k=>chartAvail[k]&&chartSpan(pos[k],cols)>1&&pos[k].r+1===rr);   // no blank row inside an enlarged chart
   let prev=null;
   for(let rr=0;rr<=maxR;rr++){
     const e=gridRowExtent(grid,rr); if(!e) continue;
+    if(splitsBig(rr)){ prev=e; continue; }
     if(prev===null){ if(y>=e.top-30 && y<=e.top+SLOP) return rr; }
     else if(y>=prev.bottom-SLOP && y<=e.top+SLOP && y>prev.bottom-SLOP-1) return rr;
     prev=e;
@@ -113,7 +163,7 @@ function dragRowHover(y){
 function openRowInsert(at){
   const pos=state.ui.chartPos, pre={};
   CHART_KEYS.forEach(k=>{ pre[k]={...pos[k]}; });
-  CHART_KEYS.forEach(k=>{ if(pos[k].r>=at) pos[k]={r:pos[k].r+1,c:pos[k].c}; });
+  CHART_KEYS.forEach(k=>{ if(pos[k].r>=at) pos[k]={...pos[k],r:pos[k].r+1}; });
   _pendingInsert={at,pre};
   layoutChartGrid();
 }
@@ -125,10 +175,37 @@ function cancelRowInsert(){
 }
 // Close any row that no chart (shown or not) sits in, so a chart moved out of a row does not leave an empty row behind.
 function compactChartRows(){
-  const pos=state.ui.chartPos, used=[...new Set(CHART_KEYS.map(k=>pos[k].r))].sort((a,b)=>a-b);
+  const pos=state.ui.chartPos, cols=chartCols(), usedSet=new Set();
+  CHART_KEYS.forEach(k=>footprintCells(pos[k],cols).forEach(x=>usedSet.add(x[0])));   // an enlarged chart uses its second row too
+  const used=[...usedSet].sort((a,b)=>a-b);
   if(used.every((r,i)=>r===i)) return;
   const map=new Map(used.map((r,i)=>[r,i]));
-  CHART_KEYS.forEach(k=>{ pos[k]={r:map.get(pos[k].r),c:pos[k].c}; });
+  CHART_KEYS.forEach(k=>{ pos[k]={...pos[k],r:map.get(pos[k].r)}; });
+}
+// Starting fresh (first visit, Start fresh, Reset to defaults): the default layout has cells for every chart, but a chart with nothing to draw (no IDGT portfolio, no pre-tax IRA, no
+// property to sell …) has no panel on screen, so a row that holds only such charts would be an empty gap. Those rows are closed: every row that holds at least one chart on screen
+// keeps its place (a Hidden panel still counts, it stays as a title bar) and the rows below move up. A chart without a panel keeps a free cell of its own (never on top of a chart that is
+// shown), so it still has a place to appear when it gets data. Needs the chart builders to have run (chartAvail is known only after the first draw).
+function compactPosToAvailable(pos, cols){
+  const avail=CHART_KEYS.filter(k=>chartAvail[k]);
+  const usedSet=new Set(); avail.forEach(k=>footprintCells(pos[k],cols).forEach(x=>usedSet.add(x[0])));
+  const used=[...usedSet].sort((a,b)=>a-b);
+  if(used.every((r,i)=>r===i)) return pos;   // no empty row: nothing to close
+  const out={}, taken=new Set(), cell=(r,c)=>r+','+c;
+  avail.forEach(k=>{ const r=used.indexOf(pos[k].r); out[k]={...pos[k],r}; footprintCells(out[k],cols).forEach(x=>taken.add(cell(x[0],x[1]))); });
+  CHART_KEYS.filter(k=>!chartAvail[k]).forEach(k=>{
+    let r=used.filter(u=>u<pos[k].r).length, c=pos[k].c;
+    while(taken.has(cell(r,c))){ if(++c>=cols){ c=0; r++; } }
+    out[k]={r,c}; taken.add(cell(r,c));
+  });
+  return out;
+}
+function compactUnusedChartRows(){
+  if(!state||!state.ui||!state.ui.chartPos) return;
+  const cur=chartCols(), other=otherGridCols(cur);
+  state.ui.chartPos=compactPosToAvailable(normalizeChartPos(state.ui.chartPos,cur),cur);
+  state.ui.chartPosAlt=compactPosToAvailable(normalizeChartPos(state.ui.chartPosAlt||defaultChartPos(other),other),other);
+  layoutChartGrid();
 }
 function dragScrollTarget(grid){
   const col=grid.closest('.chart-col');
@@ -158,7 +235,7 @@ function buildChartPanels(){
          <div class="cp-title"><span class="cp-grip" aria-hidden="true">⠿</span>${def.title}</div>
          <label class="hide-cb"><input type="checkbox" data-chart-hide="${def.key}" autocomplete="off" onchange="onChartHide('${def.key}',this.checked)">Hide</label>
        </div>
-       <div class="cp-tools"><button type="button" class="rescale-btn" onclick="rescaleChart('${def.key}')">↕ Rescale</button>${def.tools||''}</div>
+       <div class="cp-tools"><button type="button" class="rescale-btn" onclick="rescaleChart('${def.key}')">↕ Rescale</button><button type="button" class="rescale-btn big-btn" onclick="toggleChartBig('${def.key}')">\u2922 Enlarge</button>${def.tools||''}</div>
        <div class="cp-body">${def.body||''}<canvas id="${def.key}Chart"></canvas></div>`;
     grid.appendChild(el);
   });
@@ -197,10 +274,18 @@ function buildChartPanels(){
 }
 // Move a chart to cell (r,c): a free cell just takes it; a cell held by another chart swaps the two.
 function moveChartTo(key,r,c){
-  const pos=state.ui.chartPos, from=pos[key]; if(!from||(from.r===r&&from.c===c)) return;
-  const other=CHART_KEYS.find(k=>k!==key&&pos[k].r===r&&pos[k].c===c);
-  if(other) pos[other]={r:from.r,c:from.c};
-  pos[key]={r,c};
+  const pos=state.ui.chartPos, from=pos[key], cols=chartCols(); if(!from) return;
+  if(chartSpan(from,cols)>1){   // an enlarged chart: its block is anchored at (r,c) (column clamped); charts in the block move to the cells it vacated, or the nearest free ones
+    c=Math.min(c,cols-2);
+    if(from.r===r&&from.c===c) return;
+    if(!placeBigChart(key,r,c)) return;   // would displace another enlarged chart: refused
+  } else {
+    if(from.r===r&&from.c===c) return;
+    const other=chartOccupancy(pos,cols,[key]).get(r+','+c);
+    if(other&&chartSpan(pos[other],cols)>1) return;   // a single chart cannot swap with an enlarged one (move the enlarged chart instead)
+    if(other) pos[other]={r:from.r,c:from.c};
+    pos[key]={r,c};
+  }
   compactChartRows();
   layoutChartGrid(); saveDebounced();
 }
@@ -213,13 +298,15 @@ function layoutChartGrid(){
   const pos=state.ui.chartPos;
   const cols=chartCols();
   grid.style.setProperty('--cols',cols);
-  let maxR=-1; CHART_KEYS.forEach(k=>{ if(chartAvail[k]) maxR=Math.max(maxR,pos[k].r); });
+  let maxR=-1; CHART_KEYS.forEach(k=>{ if(chartAvail[k]) maxR=Math.max(maxR,pos[k].r+chartSpan(pos[k],cols)-1); });
   const rows=maxR+2;
   const occupied=new Set();
   CHART_KEYS.forEach(k=>{
     const el=grid.querySelector('.chart-panel[data-key="'+k+'"]'); if(!el) return;
-    el.style.gridRow=(pos[k].r+1); el.style.gridColumn=(pos[k].c+1);
-    if(chartAvail[k]) occupied.add(pos[k].r+','+pos[k].c);
+    const n=chartSpan(pos[k],cols);
+    el.style.setProperty('--gr',(pos[k].r+1)+' / span '+n); el.style.setProperty('--gc',(pos[k].c+1)+' / span '+n);   // CSS variables, so the narrow-window rule can still put every panel in one column
+    el.classList.toggle('is-big',n>1);
+    if(chartAvail[k]) footprintCells(pos[k],cols).forEach(x=>occupied.add(x[0]+','+x[1]));
   });
   grid.querySelectorAll('.chart-cell').forEach(n=>n.remove());
   for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){

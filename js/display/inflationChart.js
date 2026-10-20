@@ -25,7 +25,7 @@ function buildInflationChart(){
     {label:'Plan inflation rate', data:planLine, borderColor:'#6b7280', backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[6,4],
       pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0, fill:false, spanGaps:false, yAxisID:'y'}
   ];
-  if(trialLine) datasets.push({label:(tv&&tv.view==='D'?'Stress test inflation rate':'Monte Carlo trial inflation rate'), data:trialLine, borderColor:'#b45309', backgroundColor:'transparent', borderWidth:THIN_W,
+  if(trialLine) datasets.push({label:(tv&&tv.view==='D'?'Stress test inflation rate':(tv&&(tv.view==='E'||tv.view==='F')?'Stress + Monte Carlo trial inflation rate':'Monte Carlo trial inflation rate')), data:trialLine, borderColor:'#b45309', backgroundColor:'transparent', borderWidth:THIN_W,
       pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.15, fill:false, spanGaps:false, yAxisID:'y'});
 
   const tip={

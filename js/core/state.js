@@ -190,6 +190,8 @@ function defaultPerson(idx){
 //   ui.chartPos[key]    — {r,c}, the panel's grid row and column in the grid that is on screen (0-based; `gridCols` columns). The user can drag a panel to any free or
 //                         occupied cell; cells nobody occupies stay blank. Defaults below, one per layout.
 //   ui.chartPosAlt[key] — the same, for the OTHER layout, kept so toggling 2×N ↔ 3×N brings back the arrangement that layout had.
+//   ui.stressCfg / ui.mcCfg — the Stress test card's and the Monte Carlo card's settings (every choice and number in the card, and its Hide box); null = the card's defaults. Saved, restored on load and reset like the rest of `state.ui` (display/stressPanel.js, display/mcPanel.js).
+//   ui.cardOrder        — the order of those two cards under the chart grid, ['stressPanel','mcPanel'] or the reverse (null = the default order; display/cardStack.js).
 //   ui.chartYMax[key]   — each chart's Y-axis maximum (null = fit automatically on the next draw). Saved and restored with the plan; the Same-scale buttons and each chart's
 //                         Rescale button change it (see chartHelpers.js).
 // Keys are the keys of the `charts` registry (display/chartHelpers.js).
@@ -223,9 +225,19 @@ function normalizeChartPos(p, cols){
   if(p&&Object.keys(pd).every(k=>p[k]&&p[k].r===pd[k][0]&&p[k].c===pd[k][1])){ p=Object.assign({},p); Object.keys(pd).forEach(k=>{ p[k]={...CHART_DEFAULT_POS_BY_COLS[cols][k]}; }); }
   if(p&&p.inflation&&(LEGACY_INFLATION_CELLS[cols]||[]).some(([r,c])=>p.inflation.r===r&&p.inflation.c===c)){ p=Object.assign({},p); delete p.inflation; }
   const out={}, taken=new Set(), cell=(r,c)=>r+','+c, bad=[];
+  const valid=v=>v && Number.isInteger(Number(v.r)) && Number.isInteger(Number(v.c)) && Number(v.r)>=0 && Number(v.r)<200 && Number(v.c)>=0 && Number(v.c)<cols;
+  // Enlarged charts (s:2 = a 2×2 block, 3×N only) claim their four cells first. The anchor column is clamped so the block fits (c ≤ 1); a block that overlaps another
+  // enlarged one is dropped back to normal size. In 2×N the flag is kept (dormant, one cell) so toggling back to 3×N restores the big chart.
+  if(cols===3) CHART_KEYS.forEach(k=>{
+    const v=p&&p[k]; if(!valid(v)||v.s!==2) return;
+    const r=+v.r, c=Math.min(+v.c,1), cells=[[r,c],[r,c+1],[r+1,c],[r+1,c+1]].map(x=>cell(x[0],x[1]));
+    if(cells.some(x=>taken.has(x))) return;
+    cells.forEach(x=>taken.add(x)); out[k]={r,c,s:2};
+  });
   CHART_KEYS.forEach(k=>{
-    const v=p&&p[k], r=Number(v&&v.r), c=Number(v&&v.c);
-    if(v && Number.isInteger(r) && Number.isInteger(c) && r>=0 && r<200 && c>=0 && c<cols && !taken.has(cell(r,c))){ out[k]={r,c}; taken.add(cell(r,c)); }
+    if(out[k]) return;   // already placed as a block
+    const keepBig=cols!==3&&p&&p[k]&&p[k].s===2; const v=p&&p[k], r=Number(v&&v.r), c=Number(v&&v.c);
+    if(valid(v) && !taken.has(cell(r,c))){ out[k]=keepBig?{r,c,s:2}:{r,c}; taken.add(cell(r,c)); }
     else bad.push(k);
   });
   const dflt=CHART_DEFAULT_POS_BY_COLS[cols];
@@ -267,7 +279,7 @@ function defaultState(){
     guardrail:{enabled:false, discPct:30, iwrMode:'initial', targetWR:4, band:20, cutPct:10, prosperity:false, raisePct:10, sunsetYears:15, excludeLtc:false},   // Spending guardrails (Expenses panel): off by default. discPct = % of living expenses that can be cut (discretionary); the rest is essential and never cut. Each year the withdrawal rate (portfolio-funded spending / invested balance at the start of the year) is compared with the initial rate (iwrMode 'initial' = the first year without wages, 'target' = targetWR %). Above IWR×(1+band%) the discretionary spending of the NEXT year is cut by cutPct%; with prosperity on, below IWR×(1−band%) it is raised by raisePct% (never above the plan's amount). No change in the last sunsetYears years. excludeLtc: leave the Long Term Care cost out of the rate (see projection.js)
     stateTax:{enabled:false, state:'CA'},   // State income tax (Tax & Optimizations panel): 'CA' or 'WA'; off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), chartHidden:defaultChartHidden(), gridCols:GRID_COLS_DEFAULT, chartPos:defaultChartPos(GRID_COLS_DEFAULT), chartPosAlt:defaultChartPos(otherGridCols(GRID_COLS_DEFAULT)), chartYMax:Object.fromEntries(CHART_KEYS.map(k=>[k,null])), assumpHide:{...ASSUMP_HIDE_DEFAULT}, hidePerson:null}   // display-only, but saved/restored/reset with the plan (see above)
+    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), chartHidden:defaultChartHidden(), gridCols:GRID_COLS_DEFAULT, chartPos:defaultChartPos(GRID_COLS_DEFAULT), chartPosAlt:defaultChartPos(otherGridCols(GRID_COLS_DEFAULT)), chartYMax:Object.fromEntries(CHART_KEYS.map(k=>[k,null])), stressCfg:null, mcCfg:null, cardOrder:null, assumpHide:{...ASSUMP_HIDE_DEFAULT}, hidePerson:null}   // display-only, but saved/restored/reset with the plan (see above)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
@@ -458,7 +470,7 @@ function flashMsg(text){
   m.textContent=text;
   setTimeout(()=>{ if(m.textContent===text) m.textContent=''; },3000);
 }
-// Reset to defaults starts every income-source and asset card collapsed (Hide checked), enabled or not. This is applied ONLY to a
+// Reset to defaults (and a first visit with nothing saved) starts every income-source and asset card AND every chart panel collapsed (Hide checked), enabled or not. This is applied ONLY to a
 // fresh default state (Reset) — never to a loaded file or an autosave, whose own saved `hidden` values (per card and, in
 // `state.ui`, per chart panel) are restored exactly as saved.
 function applyDefaultHiddenFromEnabled(s){
@@ -467,6 +479,7 @@ function applyDefaultHiddenFromEnabled(s){
     ['rentals','annuities','brokerage','realEstate'].forEach(key=>(p[key]||[]).forEach(x=>{ x.hidden=true; }));
     if(p.inheritance) p.inheritance.hidden=true;
   });
+  if(s.ui) s.ui.chartHidden=defaultChartHidden(true);   // starting fresh: every chart panel is collapsed to its title bar too
   return s;
 }
 function resetState(){
@@ -477,6 +490,7 @@ function resetState(){
   setSaveTarget(null);   // the default plan must not silently overwrite the file that was loaded
   if(typeof scnReset==='function') scnReset();   // back to the single scenario A
   renderAll();
+  if(typeof compactUnusedChartRows==='function') compactUnusedChartRows();   // close the chart rows that hold nothing on screen (display/chartPanels.js)
   autosave();
   flashMsg('Reset to defaults.');
 }
@@ -561,8 +575,8 @@ async function saveToFile(){
 // loading the saved data").
 function applyLoadedFileText(text){
   const parsed=JSON.parse(text); // throws on malformed JSON — caller decides how to report it
-  if(typeof stResetCard==='function') stResetCard(false);   // Stress test results belong to the old plan (display/stressPanel.js); its settings are kept
-  if(typeof mcResetCard==='function') mcResetCard(false);   // Monte Carlo results / loaded trial belong to the old plan (display/mcPanel.js); its settings are kept
+  if(typeof stResetCard==='function') stResetCard(true);   // Stress test results belong to the old plan, and its settings go back to the defaults, collapsed (display/stressPanel.js)
+  if(typeof mcResetCard==='function') mcResetCard(true);   // Monte Carlo results / loaded trial belong to the old plan; its settings go back to the defaults, collapsed (display/mcPanel.js)
   destroyCharts();             // discard every visual/data closure from the old plan
   state=defaultState();        // reset before restoring, per spec
   state=hydrateState(parsed);  // then apply the restored file on top of that clean default (its Hide flags are kept as saved)

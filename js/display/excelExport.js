@@ -401,7 +401,7 @@ function xlsxRealGrowthFormula(modeCell,valCell,change,inflation){
 // Read-only: it only reads proj.rates / proj.inflRate (recorded by computeProjection) and the trial view; never writes into `state`.
 function xlsxTrialContext(){
   if(typeof mcShowingTrial!=='function'||!mcShowingTrial()||typeof mcTrialView==='undefined'||!mcTrialView) return null;
-  return {n:mcTrialView.trial+1, view:mcTrialView.view, state:mcTrialView.state, label:mcTrialView.view==='D'?'STRESS TEST "'+(mcTrialView.d&&mcTrialView.d.label||'')+'"':'MONTE CARLO TRIAL #'+(mcTrialView.trial+1)};
+  return {n:mcTrialView.trial+1, view:mcTrialView.view, state:mcTrialView.state, label:mcTrialView.view==='D'?'STRESS TEST "'+(mcTrialView.d&&mcTrialView.d.label||'')+'"':((mcTrialView.view==='E'||mcTrialView.view==='F')?'STRESS TEST "'+(mcTrialView.sm&&mcTrialView.sm.label||'')+'" + MONTE CARLO TRIAL #'+(mcTrialView.trial+1):'MONTE CARLO TRIAL #'+(mcTrialView.trial+1))};
 }
 // Builds the "MC trial" sheet. Returns null when the projection carries no recorded path (then the export stays as for a plan).
 function xlsxTrialSheet(proj,trial,inAddr){
@@ -436,7 +436,7 @@ function xlsxTrialSheet(proj,trial,inAddr){
   const Fval=(a,k)=>{ const r=rateAt(a,k), b=baseAt(a.change,k); return (r==null||!(1+b>0))?1:(1+r)/(1+b); };   // no recorded rate that year: the plan's own rate
   const gval=(a,k)=>{ const r=rateAt(a,k); return r==null?baseAt(a.change,k):r; };
   const sh=xlsxSheet();
-  xlsxPut(sh,0,0,xlsxTxt(`${trial.view==='D'?'Stress test':'Monte Carlo trial #'+trial.n} (${trial.view==='D'?'view D':(trial.view==='C'?'a successful run':'trial view B')}): this ${trial.view==='D'?'scenario\'s':'trial\'s random'} path. Edit an inflation rate or a shock factor and the Projection and account sheets recalculate. A shock factor of 1 = the plan's own return that year.`));
+  xlsxPut(sh,0,0,xlsxTxt(`${trial.view==='D'?'Stress test':'Monte Carlo trial #'+trial.n} (${trial.view==='D'?'view D':(trial.view==='C'?'a successful run':(trial.view==='E'||trial.view==='F'?'view '+trial.view+', a Monte Carlo trial under a stress test':'trial view B'))}): this ${trial.view==='D'?'scenario\'s':'trial\'s random'} path. Edit an inflation rate or a shock factor and the Projection and account sheets recalculate. A shock factor of 1 = the plan's own return that year.`));
   xlsxPut(sh,1,0,xlsxTxt('Columns labelled "trial input" are the trial\'s draws. Real growth = (1 + the plan\'s real rate from Inputs) × shock factor − 1; a nominal fixed / custom rate is re-priced by the year\'s inflation.'));
   const cols=[
     {key:'year',head:'Year',kind:'f',fmt:XLSX_YEAR,v:r=>THIS_YEAR+r.k,f:(X,idx)=>idx===0?'BaseYear':`${X('year',-1)}+1`},

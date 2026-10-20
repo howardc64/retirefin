@@ -44,6 +44,8 @@ function iiLabel(c){
     return iiClean(c.closest('label')?.textContent);
   }
   if(c.tagName==='BUTTON') return iiClean(c.textContent);
+  const w=c.closest('label.mc-f');   // Stress test / Monte Carlo cards: the control sits inside its own caption label
+  if(w) return iiClean([...w.childNodes].filter(x=>x.nodeType===3).map(x=>x.textContent).join(' '));
   for(let n=c.parentElement; n && !n.matches(II_ROOTS); n=n.parentElement){
     const cap=[...n.children].find(ch=>ch.matches('label, .sl') && !ch.contains(c));
     if(cap) return iiClean(cap.textContent);

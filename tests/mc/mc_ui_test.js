@@ -222,18 +222,60 @@ ok(run(`(()=>{ REC_RATES=false; const pr=computeProjection(); REC_RATES=true; re
   ok(run(`!!ciDescribe('market',{label:'x'},0)&&!!ciDescribe('inflation',{label:'Plan inflation rate'},0)`),'Chart Element descriptions exist for both new charts'); }
 run(`mcTrialExit()`);
 ok(run(`CHART_PANELS.some(p=>p.key==='inflation') && CHART_KEYS.includes('inflation') && defaultChartHidden().inflation===true`),'inflation panel is registered and hidden by default');
-// Loading another file / Reset to defaults clears the Monte Carlo card (results, trial view, running run); only Reset puts its settings back
+// Loading another file / Reset to defaults clears the Monte Carlo card (results, trial view, running run) and puts its settings back to the defaults, collapsed
 { const seed=()=>run(`(()=>{ const cfg=JSON.parse(JSON.stringify(MC_DEFAULTS)); cfg.ltc.prob=0.9; cfg.returns.volEquity=24; const res=[]; for(let t=0;t<120;t++) res.push(mcRunTrial(cfg,t));
     mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcPlanKey(); mcLoadTrial(mcResults.R.list[0].trial); })()`);
   seed(); ok(run(`!!mcResults && !!mcTrialView`),'(setup) results and a trial are loaded');
   run(`buildMcPanel(); mcCfg.returns.volEquity=21; mcSaveCfg()`);
   run(`applyLoadedFileText(JSON.stringify(__plan))`);
   ok(run(`mcResults===null && mcTrialView===null && mcStateAtRun===null`),'loading a file drops the Monte Carlo results and the loaded trial');
-  ok(document.getElementById('mcOut').style.display==='none' && document.getElementById('mcTrialBanner').hidden===true,'loading a file hides the results area and the trial banner');
-  ok(run(`mcCfg.returns.volEquity`)===21,'loading a file keeps the card\'s own settings (they are not part of a plan file)');
+  ok(document.getElementById('mcTrialBanner').hidden===true,'loading a file hides the trial banner (the card is rebuilt, so its results area starts hidden)');
+  ok(run(`mcCfg.returns.volEquity`)===16 && run(`mcCfg.hidden`)===true,'loading a file that holds no card settings puts the card\'s settings back to the defaults, collapsed');
   ok(run(`lastProjection!==null`)&&run(`lastProjection.rows.length`)>0,'charts are back on the plan after the load');
   seed(); run(`mcRun={cancel:false,done:3,results:[]}`);
   run(`resetState()`);
   ok(run(`mcResults===null && mcTrialView===null && mcRun===null`),'Reset to defaults drops results, the trial and a running run');
-  ok(run(`mcCfg.returns.volEquity`)===16 && run(`mcCfg.hidden`)===true && run(`localStorage.getItem(MC_STORE_KEY)`)===null,'Reset to defaults puts the card\'s settings back to the defaults, collapsed'); }
+  ok(run(`mcCfg.returns.volEquity`)===16 && run(`mcCfg.hidden`)===true && run(`state.ui.mcCfg`)===null,'Reset to defaults puts the card\'s settings back to the defaults, collapsed'); }
+
+// ---- The Stress test and Monte Carlo cards' settings (and their order) are part of the plan: saved, restored, reset ----
+{ run(`state=hydrateState(__plan); renderAll();`);
+  // edit both cards through their forms' own code paths
+  run(`mcCfg.trials=250; mcCfg.hidden=false; mcCfg.returns.volEquity=22; mcCfg.ltc.prob=0.8; mcSaveCfg();
+       stCfg.hidden=false; stCfg.equityShare=60; stCfg.stag.years=7; stCfg.stag.inflEnd=9; stCfg.lost.actualInflation=true; stCfg.med.enabled=true; stCfg.med.cost=150000; stSaveCfg();
+       state.ui.cardOrder=['mcPanel','stressPanel'];`);
+  ok(run(`state.ui.mcCfg.trials`)===250 && run(`state.ui.mcCfg.returns.volEquity`)===22 && run(`state.ui.mcCfg.hidden`)===false,'Monte Carlo card settings are kept in state.ui.mcCfg');
+  ok(run(`state.ui.stressCfg.equityShare`)===60 && run(`state.ui.stressCfg.stag.inflEnd`)===9 && run(`state.ui.stressCfg.med.cost`)===150000,'Stress test card settings are kept in state.ui.stressCfg');
+  // the plan file round trip (what Save writes, what Load reads)
+  const text=run(`JSON.stringify(state)`);
+  run(`resetState()`);
+  ok(run(`mcCfg.trials`)!==250 && run(`stCfg.equityShare`)===100 && run(`mcCfg.hidden`)===true && run(`stCfg.hidden`)===true && run(`state.ui.stressCfg`)===null && run(`state.ui.cardOrder`)===null,'Reset puts both cards back to their defaults (collapsed, default order)');
+  run(`applyLoadedFileText(${JSON.stringify(text)})`);
+  ok(run(`mcCfg.trials`)===250 && run(`mcCfg.returns.volEquity`)===22 && run(`mcCfg.ltc.prob`)===0.8 && run(`mcCfg.hidden`)===false,'loading a plan file restores the Monte Carlo card settings');
+  ok(run(`stCfg.equityShare`)===60 && run(`stCfg.stag.years`)===7 && run(`stCfg.stag.inflEnd`)===9 && run(`stCfg.lost.actualInflation`)===true && run(`stCfg.med.enabled`)===true && run(`stCfg.med.cost`)===150000 && run(`stCfg.hidden`)===false,'loading a plan file restores the Stress test card settings');
+  ok(run(`JSON.stringify(state.ui.cardOrder)`)===JSON.stringify(['mcPanel','stressPanel']),'loading a plan file keeps the card order');
+  // an autosave reload (hydrateState of the saved state) keeps them too
+  run(`state=hydrateState(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')||JSON.parse(${JSON.stringify(text)}))`);
+  ok(run(`state.ui.mcCfg&&state.ui.mcCfg.trials`)===250 && run(`state.ui.stressCfg&&state.ui.stressCfg.med.cost`)===150000,'hydrateState keeps the card settings (an older file without them gets null = defaults)');
+  ok(run(`hydrateState(JSON.parse(JSON.stringify(Object.assign({},__plan,{ui:undefined})))).ui.mcCfg`)===null,'a plan file from before this setting loads with the card defaults');
+  // a redraw with unchanged settings keeps the results table
+  run(`stResults={planKey:'x'}; renderAll();`);
+  ok(run(`stResults!==null`),'a redraw with the same settings keeps the stress results');
+  run(`stResults=null; resetState()`);
+}
+
+// ---- Starting fresh closes the chart rows that hold nothing on screen ----
+{ run(`resetState()`);   // the default plan has no IDGT portfolio, no IRA ...: charts without a panel
+  const r=run(`(()=>{ const pos=state.ui.chartPos, avail=CHART_KEYS.filter(k=>chartAvail[k]), rows=[...new Set(avail.map(k=>pos[k].r))].sort((a,b)=>a-b);
+    const cells=CHART_KEYS.map(k=>pos[k].r+','+pos[k].c); const alt=state.ui.chartPosAlt, availAlt=[...new Set(avail.map(k=>alt[k].r))].sort((a,b)=>a-b);
+    return {unavail:CHART_KEYS.filter(k=>!chartAvail[k]), rows, contiguous:rows.every((x,i)=>x===i), dup:cells.length!==new Set(cells).size, altContiguous:availAlt.every((x,i)=>x===i),
+            altDup:CHART_KEYS.map(k=>alt[k].r+','+alt[k].c).length!==new Set(CHART_KEYS.map(k=>alt[k].r+','+alt[k].c)).size}; })()`);
+  ok(r.unavail.length>0,'(setup) some charts have no panel in the default plan: '+r.unavail.join(', '));
+  ok(r.contiguous,'after Reset every row up to the last holds a chart on screen (rows '+r.rows.join(',')+')');
+  ok(r.altContiguous,'the other grid size (2×N / 3×N) has no empty row either');
+  ok(!r.dup&&!r.altDup,'no two charts share a cell after closing the rows');
+  // a layout the user arranged is NOT touched by a redraw (only starting fresh compacts)
+  run(`state.ui.chartPos=defaultChartPos(chartCols()); renderAll();`);
+  ok(run(`state.ui.chartPos.tax.r`)===run(`defaultChartPos(chartCols()).tax.r`),'a redraw keeps a saved layout as it is (the empty row stays until a fresh start)');
+  run(`resetState()`);
+}
 console.log(fails?fails+' FAILED':'all passed'); process.exit(fails?1:0);

@@ -54,6 +54,9 @@ function renderCharts(){
 
 function renderAll(){
   restoreChartYMax();   // the chart scales saved with this plan (null = fit on the next draw)
+  if(typeof stRestore==='function') stRestore();   // the Stress test and Monte Carlo cards' settings and order saved with this plan (display/stressPanel.js, mcPanel.js, cardStack.js)
+  if(typeof mcRestore==='function') mcRestore();
+  if(typeof cardStackRestore==='function') cardStackRestore();
   renderPeopleSetup();
   renderPassingSliders();
   document.getElementById('inflationRate').value = Math.round(state.inflation*400)/4;
@@ -79,9 +82,11 @@ function renderAll(){
 
 window.addEventListener('DOMContentLoaded', async function(){
   await claimPlanSlot();   // which autosave slot this tab uses (core/state.js): two open apps never share one
-  if(!loadAutosave()){ state=defaultState(); }
+  const fresh=!loadAutosave();
+  if(fresh){ state=applyDefaultHiddenFromEnabled(defaultState()); }   // nothing saved (first visit, or Start fresh): same collapsed start as Reset to defaults
   scnRestore();      // the other scenarios, if any were saved (scenarios.js)
   renderAll();
+  if(fresh&&typeof compactUnusedChartRows==='function'){ compactUnusedChartRows(); saveDebounced(); }   // a fresh start closes the chart rows with nothing on screen (display/chartPanels.js)
   if(typeof initNoteClamp==='function') initNoteClamp();   // long help notes in the input cards: two lines + More (input/controls.js)
   if(typeof liveInit==='function') liveInit();   // live link between two open plans (input/liveLink.js)
 });

@@ -152,7 +152,7 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .scale-btn:hover{background:var(--border);}
 .scale-btn.grid-toggle{margin-left:6px;border-color:var(--teal);color:var(--teal-text);font-weight:500;}
 .chart-grid{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:var(--card-gap);align-items:start;}
-.chart-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 8px 8px;min-width:0;}
+.chart-panel{grid-row:var(--gr);grid-column:var(--gc);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 8px 8px;min-width:0;}
 .chart-panel.no-data{display:none;}
 .chart-panel.dragging{opacity:.4;}
 .chart-panel.drop-ok,.chart-cell.drop-ok{outline:2px dashed var(--teal);outline-offset:-2px;background:var(--teal-light);}
@@ -186,7 +186,14 @@ body.chart-dragging .chart-cell{border-color:var(--border-strong);}
 /* the spare row under the last chart is only there to drop into: it takes no room (and adds no gap above the cards below) until a chart is being dragged */
 .chart-cell.tail{display:none;}body.chart-dragging .chart-cell.tail{display:block;}
 .rescale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:10.5px;font-weight:500;padding:3px 10px;color:var(--text-muted);font-family:inherit;}
-@media (max-width:700px){ .chart-grid{grid-template-columns:1fr;} .chart-cell{display:none;} }
+/* Enlarge (3×N): a chart in a 2×2 block of cells. The body is a square as wide as the block and grows to fill the two rows; the canvas is positioned inside it so it never drives the row heights. */
+.big-btn{display:none;}
+body.grid-3 .big-btn{display:inline-block;}
+.chart-panel.is-big:not(.no-data){align-self:stretch;display:flex;flex-direction:column;}
+.chart-panel.is-big .cp-body{flex:1 1 auto;aspect-ratio:1/1;min-height:0;}
+.chart-panel.is-big .cp-body canvas{position:absolute;left:0;top:0;width:100%;height:100%;}
+.chart-panel.is-big.is-hidden{align-self:start;}
+@media (max-width:700px){ .chart-grid{grid-template-columns:1fr;} .chart-panel{grid-row:auto;grid-column:auto;} .chart-cell{display:none;} .big-btn{display:none!important;} .chart-panel.is-big .cp-body{aspect-ratio:auto;} .chart-panel.is-big .cp-body canvas{position:static;height:auto;} }
 
 /* ── Two-pane layout: input column(s) left, chart column right ── */
 .layout{display:grid;grid-template-columns:minmax(360px,0.95fr) minmax(460px,1.5fr);gap:30px;align-items:start;}
@@ -367,11 +374,14 @@ input[type=checkbox]:focus:not(:focus-visible){outline:none;}
 .field.inline > label{flex:1 1 auto;min-width:0;}
 .field.inline > input[type=number]{flex:0 0 128px;width:128px;max-width:128px;}
 .conv-sliders{display:flex;gap:12px;align-items:flex-start;margin-top:8px;}
-.item-note.clamp,.cn.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
-.item-note.clamp.open,.cn.clamp.open{display:block;-webkit-line-clamp:unset;}
+.item-note.clamp,.cn.clamp,.mc-note.clamp,.mc-src.clamp,.st-note.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
+.item-note.clamp.open,.cn.clamp.open,.mc-note.clamp.open,.mc-src.clamp.open,.st-note.clamp.open{display:block;-webkit-line-clamp:unset;}
 .note-more{grid-column:1/-1;justify-self:start;background:none;border:0;padding:0 0 2px;margin-top:-3px;font:inherit;font-size:10.5px;color:var(--teal-text);cursor:pointer;text-align:left;}
 .note-more:hover{text-decoration:underline;}
 .cn + .note-more{justify-self:center;}
+.mc-note.clamp + .note-more{display:block;margin:-9px 0 12px;}   /* Stress test / Monte Carlo cards: the toggle sits where the note's bottom margin was */
+.mc-row > .note-more{flex:0 0 100%;margin:-8px 0 0;}
+.st-note.clamp + .note-more{display:block;margin:0 0 2px;}
 @container card (max-width:330px){
   .item-body{grid-template-columns:minmax(0,1fr);}
 }
@@ -383,7 +393,7 @@ input[type=checkbox]:focus:not(:focus-visible){outline:none;}
 @container pcol (min-width:430px){
   .people-panes .person-col .setup-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr);}
 }
-body.printing-all .item-note.clamp,body.printing-all .cn.clamp{display:block;-webkit-line-clamp:unset;}
+body.printing-all .item-note.clamp,body.printing-all .cn.clamp,body.printing-all .mc-note.clamp,body.printing-all .mc-src.clamp,body.printing-all .st-note.clamp{display:block;-webkit-line-clamp:unset;}
 body.printing-all .note-more{display:none;}
 
 /* ── Numbers are right-justified: every number input, so digits line up down a card; fields sharing a row put their inputs on one line ── */
@@ -409,7 +419,7 @@ input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
 .mc-grp{border:1px solid var(--border);border-radius:10px;padding:8px 14px 12px;margin:0;min-width:0}
 .mc-grp legend{font-size:12px;font-weight:600;color:var(--text);padding:0 6px}.mc-grp legend small{font-weight:400;color:var(--text-faint)}
 .mc-grp legend label{display:flex;align-items:center;gap:6px;cursor:pointer}
-.mc-grp .mc-row{margin:0}.mc-grp.mc-off .mc-row{opacity:.4;pointer-events:none}
+.mc-grp .mc-row{margin:0}.mc-grp.mc-off .mc-row{opacity:.4}   /* stays hoverable so the input tooltips still work on a switched-off group */
 .mc-run{padding-top:2px;margin-bottom:6px}.mc-run .btn{height:32px}
 .mc-f input[type=number]{width:96px}
 .mc-h{font-size:13px;font-weight:600;margin:18px 0 8px;color:var(--text)}.mc-h small{font-weight:400;color:var(--text-faint);margin-left:6px}
@@ -439,7 +449,7 @@ input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
 /* A/B flip in the trial banner */
 .mc-ab{display:inline-flex;border:1px solid #b45309;border-radius:8px;overflow:hidden}
 .mc-ab-btn{border:0;background:transparent;color:var(--text);font:inherit;font-size:11px;padding:3px 10px;cursor:pointer}
-.mc-ab-btn.on{background:#b45309;color:#fff}.mc-ab-btn.c.on{background:#0f6e56}.mc-ab-btn.d.on{background:#7c3aed}.mc-ab-btn:disabled{opacity:.4;cursor:default}.mc-ab-btn:first-child.on{background:#3B6FA0}.mc-ab{border-color:var(--border-strong)}
+.mc-ab-btn.on{background:#b45309;color:#fff}.mc-ab-btn.c.on{background:#0f6e56}.mc-ab-btn.d.on{background:#7c3aed}.mc-ab-btn.e.on{background:#0e7490}.mc-ab-btn.f.on{background:#be185d}.mc-ab-btn:disabled{opacity:.4;cursor:default}.mc-ab-btn:first-child.on{background:#3B6FA0}.mc-ab{border-color:var(--border-strong)}
 .chart-grid.trial-view-c .chart-panel{outline:2px solid rgba(15,110,86,.45);outline-offset:-1px}
 .chart-grid.trial-view-a .chart-panel{outline:2px solid rgba(59,111,160,.45);outline-offset:-1px}
 
@@ -452,6 +462,8 @@ input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
 .st-tbl tr.st-plan td{color:var(--text-faint)}.st-ok{color:var(--teal);font-weight:600}.st-bad{color:var(--red);font-weight:600}
 
 .chart-grid.trial-view-d .chart-panel{outline:2px solid rgba(124,58,237,.45);outline-offset:-1px}
+.chart-grid.trial-view-e .chart-panel{outline:2px solid rgba(14,116,144,.5);outline-offset:-1px}
+.chart-grid.trial-view-f .chart-panel{outline:2px solid rgba(190,24,93,.45);outline-offset:-1px}
 .mc-tb-title{font-weight:600;font-size:11px;color:var(--text);white-space:nowrap}
 .mc-trial-banner .mc-tb-top{flex-wrap:wrap}
 .st-tbl .st-show{padding:1px 8px;font-size:11px;margin-left:6px}

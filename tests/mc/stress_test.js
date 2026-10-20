@@ -52,4 +52,21 @@ const modes=J(run(ctx,`(()=>{const c=JSON.parse(JSON.stringify(ST_DEFAULTS)); co
 ok(modes[0]===0&&modes[2]===7,'start modes now / custom = '+modes[0]+' / '+modes[2]+' (retire = '+modes[1]+')');
 // 8. reproducible and state untouched
 const before=run(ctx,'JSON.stringify(state)'); run(ctx,'stRunAll(JSON.parse(JSON.stringify(ST_DEFAULTS)))'); ok(run(ctx,'JSON.stringify(state)')===before&&run(ctx,'MC_HOOK===null&&MC_INFL===null&&REC_RATES===true'),'plan state and engine hooks restored after a run');
+// 9. "Run stress tests + Monte Carlo": mcRunTrial's `stress` argument. Where they collide the stress test wins, everything else stays random.
+const offCfg=`(()=>{ const c=JSON.parse(JSON.stringify(MC_DEFAULTS)); c.returns.enabled=false; c.mortality.enabled=false; c.ltc.enabled=false; c.inflation.enabled=false; c.inheritance.enabled=false; return c; })()`;
+const eqOff=J(run(ctx,`(()=>{ const c=${offCfg}, sc=stScenarios(JSON.parse(JSON.stringify(ST_DEFAULTS))).find(x=>x.id==='y1966'), cfg=JSON.parse(JSON.stringify(ST_DEFAULTS)); const start=stStartRow(cfg,stRun(null,0,cfg));
+  const a=mcRunTrial(c,3,null,null,{scen:sc,start,share:100}), b=stRun(sc,start,cfg), m=mcMeasure(b,{pass:[0,0],ltcYears:[0,0]}); return {n:a.n,nb:m.n,d:Math.max(...Array.from(a.fin).map((v,i)=>Math.abs(v-m.fin[i])))}; })()`));
+ok(eqOff.n===eqOff.nb&&eqOff.d<1e-6,'every random part off: stress + Monte Carlo trial == the stress test (max diff '+eqOff.d.toExponential(1)+')');
+const win=J(run(ctx,`(()=>{ const c=${offCfg}; c.returns.enabled=true; const sc={id:'x',eq:[-0.2,-0.1,0.05,0.1,0.0],infl:null};
+  const f=(seed,st)=>{ c.seed=seed; return Array.from(mcRunTrial(c,1,null,null,st).fin); };
+  const A=f(11,{scen:sc,start:0,share:100}), B=f(99,{scen:sc,start:0,share:100}), C=f(11,null), D=f(99,null);
+  return {inWin:Math.max(...[0,1,2,3,4].map(k=>Math.abs(A[k]-B[k]))), after:Math.abs(A[9]-B[9]), noStressDiffer:Math.abs(C[2]-D[2])}; })()`));
+ok(win.inWin<1e-6,'inside the scenario years the random returns are replaced (two seeds agree, diff '+win.inWin.toExponential(1)+')');
+ok(win.after>1&&win.noStressDiffer>1,'after the window, and with no stress, the random returns still differ by seed');
+const rate=J(run(ctx,`(()=>{ const c=JSON.parse(JSON.stringify(MC_DEFAULTS)); c.trials=60; const cfg=JSON.parse(JSON.stringify(ST_DEFAULTS)); const R=stRunAll(cfg), sc=stScenarios(cfg).find(x=>x.id==='y1966');
+  const go=st=>{ const r=[]; for(let t=0;t<c.trials;t++) r.push(mcRunTrial(c,t,null,null,st)); const S=mcSummarize(r); return {sr:S.successRate,med:S.estate.p50}; };
+  const none=go(null), bad=go({scen:sc,start:R.start,share:100}); return {none,bad,hook:MC_HOOK===null&&MC_INFL===null&&REC_RATES===true}; })()`));
+// (the success RATE can rise: the scenario's fixed returns replace the random bad tail inside its window; the median final assets are the reliable signal)
+ok(rate.bad.med<rate.none.med&&rate.hook,'the 1966 retiree lowers the median final assets of the Monte Carlo trials: '+Math.round(rate.none.med/1000)+'k -> '+Math.round(rate.bad.med/1000)+'k (success '+(rate.none.sr*100).toFixed(1)+'% -> '+(rate.bad.sr*100).toFixed(1)+'%), hooks reset');
+
 console.log(fails?('\n'+fails+' FAILED'):'\nall passed'); process.exit(fails?1:0);

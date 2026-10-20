@@ -286,6 +286,8 @@ Moving a chart:
 - Which charts are hidden, which grid size is on and where each chart sits is saved with the plan.
 - In the default layout (2 and 3 columns) **Inflation rate** and **Market return %** sit in the row directly above **Cumulative household SS** and **Social Security tax**. A saved layout that still has the old default takes the new order; one where you moved any of those four charts is kept.
 
+**Enlarge (3×N only).** The **⤢ Enlarge** button in a chart's tool row makes that chart 4× as big (2×2 cells); **⤡ Shrink** puts it back. The charts that were in the way move to free cells, and the ones beside it stay in the remaining column, so a key chart can be read large with companions next to it. Drag it by its title bar like any chart. In 2×N it is a normal chart again, and returns when you go back to 3×N. The setting is saved with the plan.
+
 ### Marks that appear on every age chart
 
 - **Purple triangle** just below the age axis: the year an inherited asset arrives in your plan. While a Monte Carlo trial is loaded it follows that trial's arrival year.

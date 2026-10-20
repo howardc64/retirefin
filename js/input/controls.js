@@ -182,20 +182,25 @@ function refreshPairBounds(){
 
 
 // Long grey help notes inside cards (.item-note / .cn, 170+ characters) show two lines and a More / Less toggle, so the cards stay compact; the full text is one click away
-// (and the Input Element hover helper still describes every control). One MutationObserver per input panel re-applies it after every re-render; it is idempotent.
+// (and the Input Element hover helper still describes every control). The Stress test and Monte Carlo cards use the same toggle for their .mc-note / .mc-src / .st-note texts, including the
+// ones filled in after a run. One MutationObserver per panel re-applies it after every re-render; it is idempotent and re-checks a note whose text changed.
+const NOTE_SEL='.item-note, .cn, .mc-note, .mc-src, .st-note';
 function clampNotes(root){
-  root.querySelectorAll('.item-note:not([data-clamp]), .cn:not([data-clamp])').forEach(n=>{
-    n.setAttribute('data-clamp','1');
-    if((n.textContent||'').trim().length<170) return;
-    n.classList.add('clamp');
-    const b=document.createElement('button');
-    b.type='button'; b.className='note-more'; b.textContent='More';
-    b.onclick=e=>{ e.stopPropagation(); const open=n.classList.toggle('open'); b.textContent=open?'Less':'More'; };
-    n.after(b);
+  root.querySelectorAll(NOTE_SEL).forEach(n=>{
+    const long=(n.textContent||'').trim().length>=170, b=n._moreBtn;
+    if(long && !b){
+      n.classList.add('clamp');
+      const nb=document.createElement('button');
+      nb.type='button'; nb.className='note-more'; nb.textContent='More';
+      nb.onclick=e=>{ e.stopPropagation(); const open=n.classList.toggle('open'); nb.textContent=open?'Less':'More'; };
+      n.after(nb); n._moreBtn=nb;
+    } else if(!long && b){
+      b.remove(); n._moreBtn=null; n.classList.remove('clamp','open');
+    }
   });
 }
 function initNoteClamp(){
-  const targets=['perPersonIncome','assumpGeneral','assumpExpenses','assumpTax'].map(id=>document.getElementById(id)).filter(Boolean);
+  const targets=['perPersonIncome','assumpGeneral','assumpExpenses','assumpTax','stressPanel','mcPanel'].map(id=>document.getElementById(id)).filter(Boolean);
   let raf=0;
   const run=()=>{ raf=0; targets.forEach(clampNotes); };
   const mo=new MutationObserver(()=>{ if(!raf) raf=requestAnimationFrame(run); });
