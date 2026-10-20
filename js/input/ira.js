@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 function buildIraCard(pid, p, married){
   const idx=+pid.split('.')[1], ab=personAgeBounds(idx);
-  const rmdAge=rmdAgeForBirthYear(p.birthYear);
+  const rmdAge=rmdAgeForBirthYear(p.birthYear, p.birthMonth);
   return `<div class="item">
       ${cardHeader('Pre-tax IRA / 401(k)', pid+'.ira.enabled', p.ira.enabled, pid+'.ira.hidden', !!p.ira.hidden)}
       <div class="item-body ${p.ira.hidden?'':'open'}">
@@ -25,7 +25,7 @@ function buildIraCard(pid, p, married){
           ${convToRothHtml(pid+'.ira', p.ira)}</div>
         <div class="field full"><label>Withdraw start</label>
           <select onchange="onAgeRangeMode('${pid}.ira','convStartMode',this.value)">
-            <option value="rmd" ${(p.ira.convStartMode||'rmd')==='rmd'?'selected':''}>RMD start (age ${Math.round(resolveAgeRange(p.ira.ar,p)[0])})</option>
+            <option value="rmd" ${(p.ira.convStartMode||'rmd')==='rmd'?'selected':''}>RMD start (age ${+resolveAgeRange(p.ira.ar,p)[0].toFixed(1)})</option>
             <option value="now" ${p.ira.convStartMode==='now'?'selected':''}>Now</option>
             <option value="custom" ${p.ira.convStartMode==='custom'?'selected':''}>Custom age</option>
             <option value="bracket" ${p.ira.convStartMode==='bracket'?'selected':''}>When tax bracket is below x%</option>

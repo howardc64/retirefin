@@ -63,6 +63,8 @@ against the pre-refactor code showed identical output, so it also represents the
 `tests/mc/xlsx_trial_test.js` checks the Excel export of a Monte Carlo trial (the MC trial sheet, the deflator and account-sheet growth formulas, the trial's own Inputs) and that a plan still exports with constant-rate formulas. It needs only Node.
 For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`), open it once in LibreOffice (or Excel) so it recalculates, and compare each formula cell with the value the app cached: there should be no differences.
 
+`tests/unit/rmd_niit_test.js` (RMD start age, NIIT on rentals and property sales) and `tests/unit/ca_credit_phaseout_test.js` (California exemption-credit phase-out) need only Node: `node tests/unit/<file>`.
+
 `tests/mc/niit_withdraw_test.js` checks Portfolio withdraw's Accept NIIT checkbox (`PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/niit_withdraw_test.js`).
 
 `tests/mc/aum_ira_test.js` checks the AUM box on the pre-tax IRA, Roth IRA and inherited IRA cards (fee = rate × start-of-year balance, additive with portfolios, fixed-$ mode, fee off, save/load, older saves): `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/aum_ira_test.js`.
@@ -73,3 +75,4 @@ For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`)
 
 `tests/mc/guardrail_test.js`, `guardrail_ui_test.js`, `panic_test.js`, `medshock_test.js`, `medshock_ui_test.js` and `xlsx_guardrail_test.js` cover the spending guardrails (ARCHITECTURE.md §4.6a), systemic panic (§10.6), the late-life medical shock (§4.6b, §11.7) and their Excel export (§6.11); run each as `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/<name>.js` (the `_ui_` ones need no plan arguments beyond `PLAN`). `tests/xlsx_e2e/` recalculates the exported workbook in LibreOffice and compares every formula cell (read its README first: LibreOffice must be set to always recalculate, or the check proves nothing).
 
+`tests/chat/` tests the chat's scenario tools (ARCHITECTURE.md §12): `node tests/chat/spec_test.js` and `node tests/chat/tools_test.js` need only Node; `node tests/chat/e2e_browser.js` drives the real app in Chromium against a scripted Gemini / Anthropic API (install `playwright-core` and `chart.js@4.4.1` in `tests/chat/`, set `CHROMIUM` if Chromium is not at the default path).

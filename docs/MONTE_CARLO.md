@@ -50,6 +50,8 @@ The card itself was exercised with a stub page and Chart.js, not a real browser.
 Loading a trial computes both projections: A = the plan as entered, B = the trial. `lastProjection` follows the A / B switch (`mcTrialShown()`), `mcFitBoth()` fits every chart's Y scale to the larger of the two, and `mcCaptureGhosts()` keeps A's lines so they can be drawn dashed behind B. Rescale on a chart refits it to what is showing (the flip then moves that chart's axis too). The two projections' age axes start at the same age but can end at different ages (the IRA stretch years follow each one's passing ages), so the asset chart may have a few more or fewer points on one side.
 
 ## C: successful runs (added)
+"Any trial #" can name a trial that stayed funded: `mcLoadTrial` sends it to C (Success), never to B (Failure), and starts the A/B/C/D view with B empty (its button stays disabled until a failed trial is loaded).
+
 The banner's switch has a third button, **C · Success**. `mcOkTrials()` lists the trials that stayed funded (`failK<0`, in trial order); `mcCPress()` / key **C** shows the next one (`mcLoadSuccess` replays it like any trial), **Shift+C** the previous, wrapping around. The view keeps two records, `mcTrialView.b` (the loaded trial) and `mcTrialView.c`; the fields of whichever is shown (`proj`, `state`, `cap`, `trial`, `pos`, `cause`) are also copied onto the view (`mcUseTrial`), so every chart and overlay that reads `mcTrialView.state` / `.cap` keeps working. `mcFitBoth` fits the scales to A, B and C together.
 
 ## Market return chart (added)

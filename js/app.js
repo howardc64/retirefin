@@ -15,6 +15,7 @@ function recompute(){
   renderScenarioCard();   // Scenario card (scenarios.js): refreshed after every edit while it is open
   if(typeof stMarkStale==='function') stMarkStale();   // Stress test card (display/stressPanel.js): same
   if(typeof mcMarkStale==='function') mcMarkStale();   // Monte Carlo card (display/mcPanel.js): flag results that no longer match the plan
+  if(typeof chatMarkStale==='function') chatMarkStale();   // chat chart cards (display/chatCharts.js): badge cards whose plan has since been edited
   if(!inTrial && typeof liveAfterRecompute==='function') liveAfterRecompute();   // live link (input/liveLink.js): publish this plan's inheritance snapshot when it changed
 }
 const recomputeDebounced = debounce(recompute, 80);

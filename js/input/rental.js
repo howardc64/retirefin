@@ -27,6 +27,12 @@ function buildRentalCard(pid, p){
               <div class="field"><label>Annual depreciation (today's $) · non-cash</label>
                 <input type="number" class="money" min="0" step="500" value="${r.depreciation||0}" oninput="onNumberInput('${rp}.depreciation', this.value)"></div>
               <div class="field full"><div class="item-note">The taxable amount is net of depreciation (Schedule E). Depreciation is cash to the household but untaxed; it is a fixed dollar amount (straight-line), so it shrinks in today's $, and follows this rental's age range.</div></div>
+              <div class="field full"><label>Net investment income tax (3.8%)</label>
+                <select onchange="onFieldInput('${rp}.niitStatus', this.value)">
+                  <option value="passive" ${r.niitStatus!=='business'?'selected':''}>Passive rental — net income is investment income</option>
+                  <option value="business" ${r.niitStatus==='business'?'selected':''}>Active trade or business — excluded</option>
+                </select>
+                <div class="item-note">Most rentals are passive, so the taxable amount above counts toward NIIT once MAGI passes the threshold. Choose <em>Active trade or business</em> only if you materially participate in a rental that is a business (for example a real estate professional, or a rental with substantial services).</div></div>
               ${renderAgeRangeRow(rp+'.ar', r.ar, [{value:'now',label:'Now'},{value:'custom',label:'Custom age'}], [{value:'custom',label:'Custom age'},{value:'passing',label:'Passing'}])}
               ${renderChangeRow(rp+'.change', r.change, 0)}
               ${married?`<div class="field full"><label style="${lbl}"><input type="checkbox" ${r.bene?'checked':''} onchange="onBeneToggle('${rp}.bene', this.checked)"> Joint owned with spouse</label></div>`:''}

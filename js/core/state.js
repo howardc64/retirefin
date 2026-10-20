@@ -120,9 +120,11 @@ function defaultBrokeragePortfolio(balance, n){
 // surviving spouse if jointly owned; otherwise the property leaves the plan, like a brokerage portfolio).
 function defaultRealEstate(n){
   // exempt: gain excluded from tax per living owner when sold, today's $ (e.g. the $250,000 home-sale exclusion); a jointly owned property counts both owners while both live.
+  // niitStatus: how a sale's taxable gain is treated for the 3.8% Net Investment Income Tax. 'investment' (default) = investment / personal-use property, the gain above `exempt` is net
+  // investment income; 'business' = used in a trade or business the owner materially participates in (not a passive activity), so the gain is not net investment income.
   // sellMode: when the property is sold ('never' default | 'ltc' = the year the last person starts LTC | 'passing' = the year of the last passing | 'age' = the owner reaches `sellAge`);
   // sellTo: id of the brokerage portfolio that receives the value and cost basis ('' = automatic: the owner's first non-IDGT portfolio, then the spouse's).
-  return {id:uid(), enabled:true, hidden:false, name:'', balance:0, basis:null, exempt:0, growth:defaultChange('inflation',0), bene:false, sellMode:'never', sellAge:80, sellTo:'', inh:null, startYear:null};   // inh/startYear: as on a brokerage portfolio (Inheritance card)
+  return {id:uid(), enabled:true, hidden:false, name:'', balance:0, basis:null, exempt:0, niitStatus:'investment', growth:defaultChange('inflation',0), bene:false, sellMode:'never', sellAge:80, sellTo:'', inh:null, startYear:null};   // inh/startYear: as on a brokerage portfolio (Inheritance card)
 }
 function reBasisEntered(r){ return !!r && r.basis!=null && r.basis!=='' && Number.isFinite(Number(r.basis)); }
 // Annuity (per person, any number): `value` = current account value (today's $), `premium` = cost basis / premium paid ($, blank = value,
@@ -140,9 +142,11 @@ function defaultAnnuity(n){
 }
 // One rental property: `amount` = TAXABLE (net, after depreciation) rental income, today's $; `depreciation` = annual non-cash
 // depreciation, today's $ (added to household cash income but untaxed — see projection). Own age range / annual change / survivor flag.
+// `niitStatus`: 'passive' (default) = a passive rental, so its net income is net investment income (3.8% NIIT); 'business' = a rental that is a trade or business the
+// owner materially participates in (e.g. a real estate professional, or substantial services), which is excluded from NII. Saves without it behave as 'passive'.
 // Older saves held a single `person.rental`; hydrateState turns it into the first entry of `rentals`.
 function defaultRental(n){
-  return Object.assign(defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0), {id:uid(), enabled:true, hidden:false, name:'', depreciation:0});
+  return Object.assign(defaultAgeRangedItem(0,'inflation',0,'now',0,'passing',0), {id:uid(), enabled:true, hidden:false, name:'', depreciation:0, niitStatus:'passive'});
 }
 // Inherited IRA (Inheritance card, js/input/inheritance.js): a pre-tax ('ira') or Roth ('roth') IRA inherited from another plan. `balance` = value when it
 // arrives (today's $), `startYear` = calendar year it arrives (the last passing in the source plan), `growth` = annual change. It is always empty by the end of the

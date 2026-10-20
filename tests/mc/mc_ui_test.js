@@ -90,6 +90,19 @@ run(`state.living-=500`);
 // step through failed trials, exit
 run(`mcLoadTrial(${tr}); mcTrialStep(1)`); ok(run(`mcTrialView.trial`)===run(`mcResults.R.list[1].trial`),'next-failed-trial button steps through the failed list');
 run(`mcTrialExit()`); ok(run(`mcTrialView===null`)&&banner.hidden===true,'Back to plan clears the view');
+// "Any trial #" naming a trial that stayed funded must load it as a Monte Carlo SUCCESS (C), never as a failure (B)
+const okTr=run(`mcOkTrials()[0]`);
+ok(okTr!==undefined,'the run has at least one successful trial');
+run(`mcLoadTrial(${okTr})`);
+ok(run(`!!mcTrialView && mcTrialView.view==='C' && mcTrialView.cur==='C' && mcTrialView.trial===${okTr} && mcTrialView.b===null`),'a successful trial loads as C (Success), and B is not set');
+ok(/Monte Carlo success <b>#/.test(banner.innerHTML) && !/failure <b>#/.test(banner.innerHTML) && /stays funded/.test(banner.innerHTML),'banner says "success" and "stays funded", not "failure"');
+ok(run(`lastProjection===mcTrialView.proj && lastProjection!==mcTrialView.planProj`),'charts show the replayed successful trial');
+run(`mcTrialExit()`);
+run(`mcLoadTrial(${tr})`);
+ok(run(`mcTrialView.view==='B' && mcTrialView.cur==='B' && mcTrialView.b.trial===${tr}`),'a failed trial still loads as B (Failure)');
+run(`mcLoadTrial(${okTr})`);
+ok(run(`mcTrialView.view==='C' && mcTrialView.b.trial===${tr} && mcTrialView.c.trial===${okTr}`),'loading a success after a failure keeps B and switches to C');
+run(`mcTrialExit()`);
 
 // inheritance arrivals
 run(`(()=>{ const p=state.people[0]; const b=defaultBrokeragePortfolio(250000); b.inh={file:'donor.json',key:'pf1',base:null}; b.startYear=THIS_YEAR+6; p.brokerage.push(b); recompute(); })()`);

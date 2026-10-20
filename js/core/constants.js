@@ -70,7 +70,14 @@ const STATE_TAX_OPTIONS=[['CA','California'],['WA','Washington']];
 const CA_ORD_SGL=[{lim:11456,r:.01},{lim:27157,r:.02},{lim:42861,r:.04},{lim:59498,r:.06},{lim:75197,r:.08},{lim:384109,r:.093},{lim:460927,r:.103},{lim:768213,r:.113},{lim:Infinity,r:.123}];
 const CA_ORD_MFJ=CA_ORD_SGL.map(b=>({lim:b.lim*2,r:b.r}));
 const CA_STD_SGL=5900, CA_STD_MFJ=11800;
-const CA_PERSONAL_CREDIT=158, CA_SENIOR_CREDIT=158;   // per person; the senior credit is for age 65+ (the income phase-out of these credits is not modeled)
+const CA_PERSONAL_CREDIT=158, CA_SENIOR_CREDIT=158;   // per person; the senior credit is for age 65+
+// Phase-out of the exemption credits (Form 540 line 32, "AGI Limitation Worksheet"): when FEDERAL AGI is over the threshold for the filing status, every personal and every
+// senior credit is reduced by $6 for each $2,500 (or part of $2,500) of the excess, never below zero. A married couple's $12 is two credits at $6 each, so it is the same per-person rule.
+// The thresholds are indexed with the other California amounts (held flat in today's $); the $2,500 step and the $6 reduction are fixed in statute, so like the $1M surcharge
+// threshold they shrink with the deflator f. FTB's official figures: 2024 $244,857 / $489,719, 2025 $252,203 / $504,411. FTB has not yet published the 2026 thresholds (Tax News October
+// 2026: "complete 2026 tax rates and exemption amounts ... late December"), so these are the 2025 figures × 1.034 (the 2026 CCPI rate), the rule that reproduces 2025 from 2024
+// and every 2026 amount in that newsletter. Replace with FTB's published numbers when they appear.
+const CA_CREDIT_PHASEOUT_SGL=260778, CA_CREDIT_PHASEOUT_MFJ=521561, CA_CREDIT_PHASEOUT_BAND=2500, CA_CREDIT_PHASEOUT_STEP=6;
 const CA_MH_THRESH=1000000, CA_MH_RATE=0.01;
 // Washington: no income tax, but a capital-gains excise tax on long-term gains from stocks, bonds and similar assets (not real estate, not
 // retirement accounts): 7% on the gain above an annual deduction ($278,000 for 2025, indexed, one deduction per married couple), and 9.9% on the

@@ -5,8 +5,11 @@
 // computed projection, to the Anthropic Messages API straight from the
 // browser (no backend), and streams the answer back. Providers: Anthropic Claude or Google Gemini (free tier available).
 //
-// Read-only with respect to the plan: it never writes `state`, never
-// changes a chart, and adds nothing to the saved plan file. The API key
+// Scenario tools (display/chatTools.js, display/chatCharts.js, compute/scenarioSpec.js): the model can call run_scenarios / sweep / show_chart /
+// get_rows. Each call is run by the app's own projection engine on a private copy of the plan and drawn as chart cards under the reply; the model
+// never computes or draws a number. Gemini function calling is the first-class path (free tier); Anthropic tool use is wired the same way.
+//
+// Read-only with respect to the plan: it never writes `state` (a scenario reaches the plan only when the user clicks a button on a card), and adds nothing to the saved plan file. The API key
 // and chat settings live in the browser's own storage under their own
 // keys (below) — never in `state`, so they cannot end up in a saved file
 // or autosave. Chat history is in memory only.
@@ -15,22 +18,14 @@
 // expenses) to the chosen provider's API. Names and birth years are NOT sent unless
 // "Send names" is ticked (the model sees "Person 1/2" and current ages).
 // ═══════════════════════════════════════════════════════════════
-const CHAT_MAX_TOKENS = 2000;           // Anthropic reply cap
+const CHAT_MAX_TOKENS = 4000;           // Anthropic reply cap (a tool call's JSON must not be cut off)
 const CHAT_MAX_TOKENS_GEMINI = 8192;    // Gemini counts its "thinking" tokens against this cap, so it needs more room
-const CHAT_MAX_HISTORY = 20;            // most recent messages kept per request
+const CHAT_MAX_HISTORY = 30;            // most recent messages kept per request (whole turns only: a tool call is never split from its result)
+const CHAT_MAX_TOOL_ROUNDS = 4;         // model → tools → model … per question; the last round is asked for a plain answer
 // Providers. `models` are suggestions only — the Model box accepts any id, because vendors rename/retire models often.
 // Gemini: only Flash / Flash-Lite models have a free tier (Pro models are paid). Free-tier prompts can be used by Google
 // to improve its products; the paid tier's are not (see `privacy`, shown in the panel).
 const CHAT_PROVIDERS = {
-  anthropic:{
-    label:'Anthropic Claude (paid API key)',
-    url:'https://api.anthropic.com/v1/messages', version:'2023-06-01',
-    keyLabel:'Anthropic API key', keyPlaceholder:'sk-ant-…', keyHint:'Create a key at console.anthropic.com.',
-    defaultModel:'claude-sonnet-5-5',
-    models:[{id:'claude-sonnet-5-5',label:'Claude Sonnet 5.5 (default)'},{id:'claude-opus-5-5',label:'Claude Opus 5.5 (deeper, slower)'},{id:'claude-haiku-4-5-20251001',label:'Claude Haiku 4.5 (fastest)'}],
-    sentTo:'Anthropic’s API',
-    privacy:''
-  },
   gemini:{
     label:'Google Gemini (free tier available)',
     url:'https://generativelanguage.googleapis.com/v1beta/models/', 
@@ -39,6 +34,15 @@ const CHAT_PROVIDERS = {
     models:[{id:'gemini-3-flash-preview',label:'Gemini 3 Flash (preview)'},{id:'gemini-3.1-flash-lite',label:'Gemini 3.1 Flash-Lite (lightest)'},{id:'gemini-3.8-flash',label:'Gemini 3.8 Flash'},{id:'gemini-2.5-flash',label:'Gemini 2.5 Flash'}],
     sentTo:'Google’s Gemini API',
     privacy:'On Google’s free tier, prompts and replies may be used to improve Google’s products; paid-tier usage is not. Treat free-tier use as sharing this plan data with Google.'
+  },
+  anthropic:{
+    label:'Anthropic Claude (paid API key)',
+    url:'https://api.anthropic.com/v1/messages', version:'2023-06-01',
+    keyLabel:'Anthropic API key', keyPlaceholder:'sk-ant-…', keyHint:'Create a key at console.anthropic.com.',
+    defaultModel:'claude-sonnet-5-5',
+    models:[{id:'claude-sonnet-5-5',label:'Claude Sonnet 5.5 (default)'},{id:'claude-opus-5-5',label:'Claude Opus 5.5 (deeper, slower)'},{id:'claude-haiku-4-5-20251001',label:'Claude Haiku 4.5 (fastest)'}],
+    sentTo:'Anthropic’s API',
+    privacy:''
   }
 };
 const CHAT_PREFS_KEY = 'retirementPlannerChat_v1';   // {provider, models:{anthropic,gemini}, includeNames, remember}
@@ -49,14 +53,14 @@ const CHAT_KEY_KEYS  = {                             // one storage key per prov
 
 let chatMessages = [];      // [{role:'user'|'assistant', content:string}] — in memory only
 let chatAbort = null;       // AbortController while a reply is streaming
-let chatProviderShown = 'anthropic';   // which provider the Settings fields currently show
+let chatProviderShown = 'gemini';   // which provider the Settings fields currently show
 
 // ── Settings storage (never part of `state`) ──
 function chatLoadPrefs(){
   let p={}; try{ p=JSON.parse(localStorage.getItem(CHAT_PREFS_KEY)||'{}')||{}; }catch(e){}
   const models={}; Object.keys(CHAT_PROVIDERS).forEach(k=>{ models[k]=(p.models&&p.models[k])||CHAT_PROVIDERS[k].defaultModel; });
   if(!(p.models) && p.model) models.anthropic=p.model;      // prefs saved before Gemini support
-  return {provider:CHAT_PROVIDERS[p.provider]?p.provider:'anthropic', models, includeNames:!!p.includeNames, remember:!!p.remember};
+  return {provider:CHAT_PROVIDERS[p.provider]?p.provider:'gemini', models, includeNames:!!p.includeNames, remember:!!p.remember, wide:!!p.wide};
 }
 function chatSavePrefs(p){ try{ localStorage.setItem(CHAT_PREFS_KEY, JSON.stringify(p)); }catch(e){} }
 function chatGetKey(prov){
@@ -155,11 +159,19 @@ function buildChatSystemPrompt(includeNames){
 `How to answer:`,
 `- Ground every answer in the snapshot. Quote specific years, ages and dollar amounts from it. If something is not in the snapshot, say so instead of guessing.`,
 `- Explain and interpret the app's results (what drives a tax spike, when expenses go unfunded, how balances evolve); do not silently recompute taxes from scratch. If you do a back-of-envelope calculation, label it as such.`,
-`- When the user asks "what if", say which input in the app to change and what you would expect to move — you cannot change the plan yourself.`,
+`- You never change the user's plan. A "what if" is answered by running the scenario tools (below) on a copy of the plan; the app shows the results as charts in the chat.`,
 `- Be concise and plain-spoken. Short paragraphs or a short list; a small table only when comparing years. No long preambles.`,
 `- You are not a financial, tax or legal advisor. Mention that briefly only when the user asks for a recommendation or a decision, and lay out the trade-offs rather than a confident directive.`,
 ``,
 `Model facts worth knowing: everything is in today's dollars; filing status switches to single the year after a spouse passes; income sources marked to continue to the spouse do so after a passing; household expenses (living costs, IRMAA, AUM fee, income tax) are paid from income first, then dividends of portfolios flagged "Pay expenses", then asset sales (which realize capital gains); Roth conversions and RMDs come from the pre-tax IRA; the projection ends at each person's planned passing age.`+(includeNames?'':` People are labeled Person 1 / Person 2 (names are withheld).`),
+``,
+`Scenario tools (run_scenarios, sweep, show_chart, get_rows):`,
+`- For any what-if, comparison or "which age is best" question, call a tool instead of describing what to change. The app runs your levers through the planner's own projection engine on a copy of the plan and draws the charts; the user's saved plan is never changed.`,
+`- Quote only numbers that are in the plan snapshot or in tool results. Never compute projections yourself, and never invent a chart: ask for one with the charts argument or show_chart.`,
+`- Put all scenarios to compare into ONE run_scenarios call (up to 6), and use sweep for "try every value of X". Normally one tool call is enough; do not call tools repeatedly.`,
+`- Every lever comes back applied, ignored (with a reason) or noEffect. If one is ignored or has no effect, tell the user plainly; never present unchanged numbers as a finding. Market-stress levers are simulations and cannot be saved as a Scenario.`,
+`- If the request is ambiguous (which person? from what age?), choose a sensible default, say in one line what you assumed, and run it. People are numbered 1 and 2 as in the snapshot.`,
+`- After the results, answer in a few short sentences: what changed, why, and one caveat. The headline-numbers table and the charts are already on screen, so do not repeat every figure. Dollar amounts from tools are in today's dollars.`,
 ``,
 `----- PLAN SNAPSHOT -----`,
 buildChatSnapshot(includeNames)
@@ -228,7 +240,7 @@ function chatLoadFields(prov){
   chatEl('chatModelList').innerHTML=P.models.map(m=>`<option value="${escAttr(m.id)}">${escHtml(m.label)}</option>`).join('');
   chatEl('chatNames').checked=prefs.includeNames;
   chatEl('chatRemember').checked=prefs.remember;
-  chatEl('chatPrivacy').firstChild.textContent='Each message sends your plan (ages, balances, income, tax and expense figures) to '+P.sentTo+'. '+(P.privacy?P.privacy+' ':'')+'The key stays in this browser and is never written to a saved plan file. ';
+  chatEl('chatPrivacy').firstChild.textContent='Each message sends your plan (ages, balances, income, tax and expense figures) to '+P.sentTo+', and so do the results of any scenarios the model runs (headline numbers and a few sampled years). '+(P.privacy?P.privacy+' ':'')+'The key stays in this browser and is never written to a saved plan file. ';
   chatRefreshPreview();
 }
 function onChatSettingsChange(){ chatSaveFields(); chatRefreshPreview(); }
@@ -241,44 +253,109 @@ function onChatProviderChange(){
 }
 function chatRefreshPreview(){
   const pre=chatEl('chatPreview'); if(!pre || !pre.parentElement.open) return;
-  try{ pre.textContent=buildChatSystemPrompt(chatEl('chatNames').checked); }catch(e){ pre.textContent='Could not build the snapshot: '+e.message; }
+  try{
+    pre.textContent=buildChatSystemPrompt(chatEl('chatNames').checked)+'\n\n----- SCENARIO TOOLS (function declarations sent with every request) -----\n'+JSON.stringify(chatToolDeclList(),null,1);
+  }catch(e){ pre.textContent='Could not build the snapshot: '+e.message; }
 }
+// Wide mode: the panel grows so chart cards have room. Saved with the chat settings (browser only).
+function chatApplyWide(on){ const p=chatEl('chatPanel'); if(p) p.classList.toggle('wide',!!on); const b=chatEl('chatWide'); if(b) b.setAttribute('aria-pressed',on?'true':'false'); }
+function toggleChatWide(){ const p=chatEl('chatPanel'); if(!p) return; const on=!p.classList.contains('wide'); chatApplyWide(on); const prefs=chatLoadPrefs(); prefs.wide=on; chatSavePrefs(prefs); }
 function chatForgetKey(){ chatEl('chatKey').value=''; chatSetKey(chatProviderShown,'',false); chatShowStatus('API key removed from this browser.'); }
 function clearChat(){
   if(chatAbort){ chatAbort.abort(); }
   chatMessages=[]; const box=chatEl('chatMessages'); if(box) box.textContent=''; chatShowStatus('');
-  chatAddBubble('assistant','Ask me anything about this plan — for example: why does tax jump in a particular year, when do expenses stop being fully funded, or what changes if Social Security starts later.');
+  if(typeof chatCardsClear==='function') chatCardsClear();   // destroy the chart cards (display/chatCharts.js) and forget the finished runs (display/chatTools.js)
+  if(typeof chatClearRuns==='function') chatClearRuns();
+  chatAddBubble('assistant','Ask me anything about this plan — for example: why does tax jump in a particular year, or when do expenses stop being fully funded. I can also run what-ifs and chart them: “What if Person 1 claims Social Security at 70?”, “Compare converting $40k and $80k a year to Roth”, or “Show claim ages 62 to 70”. Your saved plan is never changed.');
 }
 function onChatKeydown(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); } }
 function stopChat(){ if(chatAbort) chatAbort.abort(); }
 
+// ── Messages ──
+// chatMessages (in memory only), in a provider-neutral shape; chatBuildRequest maps it to each provider:
+//   {role:'user', content}
+//   {role:'assistant', content, calls?:[{id, name, args, part?, nativeId?}]}   `part` = Gemini's own functionCall part, kept verbatim (Gemini 3 needs its thoughtSignature back)
+//   {role:'tool', results:[{id, name, response, isError, nativeId?}]}          answers the calls of the assistant message before it
+let chatCallSeq=0;
+const CHAT_DUMMY_SIGNATURE='skip_thought_signature_validator';   // Gemini's documented value for a function call the model did not produce itself (e.g. history from another provider)
+function chatToolDeclList(){ return (typeof chatToolDecls==='function')?chatToolDecls():[]; }
+
+// Long tool results from earlier questions are shrunk before they are re-sent (the model can still call get_rows / show_chart with the run ids).
+function chatCompactResponse(resp){
+  try{
+    if(JSON.stringify(resp).length<2500) return resp;
+    const o={note:'earlier result shortened; run ids stay valid for show_chart and get_rows'};
+    if(resp.yourPlan&&resp.yourPlan.kpis) o.yourPlan=resp.yourPlan.kpis; else if(resp.yourPlan) o.yourPlan=resp.yourPlan;
+    if(resp.scenarios) o.scenarios=resp.scenarios.map(s=>({runId:s.runId,label:s.label,kpis:s.kpis,levers:(s.levers||[]).map(l=>l.what+' ['+l.status+']')}));
+    if(resp.results) o.results=resp.results.map(r=>({runId:r.runId,value:r.value,kpis:r.kpis}));
+    return o;
+  }catch(e){ return resp; }
+}
+// The most recent whole turns (a turn starts at a user message and includes its tool calls and results), at most CHAT_MAX_HISTORY messages,
+// always ending with the current turn. A tool call is never separated from its result, which both APIs would reject.
+function chatHistoryForRequest(){
+  const starts=[]; chatMessages.forEach((m,i)=>{ if(m.role==='user') starts.push(i); });
+  let f=0; while(starts.length-f>1 && chatMessages.length-starts[f]>CHAT_MAX_HISTORY) f++;
+  const from=starts.length?starts[f]:0, lastStart=starts.length?starts[starts.length-1]:0;
+  return chatMessages.slice(from).map((m,i)=>(m.role==='tool'&&from+i<lastStart)?Object.assign({},m,{results:m.results.map(r=>Object.assign({},r,{response:chatCompactResponse(r.response)}))}):m);
+}
+function chatGeminiContents(h){
+  return h.map(m=>{
+    if(m.role==='user') return {role:'user',parts:[{text:m.content}]};
+    if(m.role==='assistant'){
+      const parts=[]; if(m.content) parts.push({text:m.content});
+      (m.calls||[]).forEach(c=>parts.push(c.part||{functionCall:{name:c.name,args:(c.args&&!c.args.__error)?c.args:{}},thoughtSignature:CHAT_DUMMY_SIGNATURE}));
+      return {role:'model',parts};
+    }
+    return {role:'user',parts:m.results.map(r=>({functionResponse:Object.assign({name:r.name,response:r.response},r.nativeId?{id:r.id}:{})}))};
+  });
+}
+function chatAnthropicMessages(h){
+  return h.map(m=>{
+    if(m.role==='user') return {role:'user',content:m.content};
+    if(m.role==='assistant'){
+      if(!(m.calls&&m.calls.length)) return {role:'assistant',content:m.content};
+      const blocks=[]; if(m.content) blocks.push({type:'text',text:m.content});
+      m.calls.forEach(c=>blocks.push({type:'tool_use',id:c.id,name:c.name,input:(c.args&&!c.args.__error)?c.args:{}}));
+      return {role:'assistant',content:blocks};
+    }
+    return {role:'user',content:m.results.map(r=>({type:'tool_result',tool_use_id:r.id,content:JSON.stringify(r.response),is_error:!!r.isError}))};
+  });
+}
+
 // ── Provider request / response shapes ──
-// Returns {url, headers, body} for one streamed chat turn.
-function chatBuildRequest(prov, model, key, systemText, history){
+// Returns {url, headers, body} for one streamed chat turn. allowTools=false asks for a plain answer (the tool-round limit was reached).
+function chatBuildRequest(prov, model, key, systemText, history, allowTools){
+  const decls=chatToolDeclList();
   if(prov==='gemini'){
+    const body={
+      systemInstruction:{parts:[{text:systemText}]},
+      contents:chatGeminiContents(history),
+      generationConfig:{maxOutputTokens:CHAT_MAX_TOKENS_GEMINI}
+    };
+    if(decls.length){ body.tools=[{functionDeclarations:decls.map(d=>({name:d.name,description:d.description,parameters:d.parameters}))}]; body.toolConfig={functionCallingConfig:{mode:allowTools?'AUTO':'NONE'}}; }
     return {
       url: CHAT_PROVIDERS.gemini.url+encodeURIComponent(model.replace(/^models\//,''))+':streamGenerateContent?alt=sse',
       headers:{'content-type':'application/json','x-goog-api-key':key},
-      body:{
-        systemInstruction:{parts:[{text:systemText}]},
-        contents:history.map(m=>({role:m.role==='assistant'?'model':'user', parts:[{text:m.content}]})),
-        generationConfig:{maxOutputTokens:CHAT_MAX_TOKENS_GEMINI}
-      }
+      body
     };
   }
+  const body={
+    model, max_tokens:CHAT_MAX_TOKENS, stream:true,
+    // Rebuilt on every send so answers always reflect the inputs and charts as they are right now.
+    system:[{type:'text', text:systemText, cache_control:{type:'ephemeral'}}],
+    messages:chatAnthropicMessages(history)
+  };
+  if(decls.length){ body.tools=decls.map(d=>({name:d.name,description:d.description,input_schema:d.parameters})); body.tool_choice={type:allowTools?'auto':'none'}; }
   return {
     url: CHAT_PROVIDERS.anthropic.url,
     headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':CHAT_PROVIDERS.anthropic.version,'anthropic-dangerous-direct-browser-access':'true'},
-    body:{
-      model, max_tokens:CHAT_MAX_TOKENS, stream:true,
-      // Rebuilt on every send so answers always reflect the inputs and charts as they are right now.
-      system:[{type:'text', text:systemText, cache_control:{type:'ephemeral'}}],
-      messages:history
-    }
+    body
   };
 }
-// One parsed SSE event → {text, stop, error}. stop is normalised: 'length' (hit the token cap), 'blocked:<why>', or 'end'.
-function chatParseEvent(prov, j){
+// One parsed SSE event → {text, calls, stop, error}. stop is normalised: 'length' (hit the token cap), 'blocked:<why>', or 'end'.
+// `st` is per-request parser state: Anthropic streams a tool call's JSON in pieces, Gemini sends each function call whole.
+function chatParseEvent(prov, j, st){
   if(prov==='gemini'){
     const out={};
     if(j.error) out.error=j.error.message||'The API reported an error.';
@@ -288,20 +365,32 @@ function chatParseEvent(prov, j){
       const parts=(c.content&&c.content.parts)||[];
       const t=parts.filter(p=>p && p.text && !p.thought).map(p=>p.text).join('');
       if(t) out.text=t;
+      const fc=parts.filter(p=>p && p.functionCall);
+      if(fc.length) out.calls=fc.map(p=>({id:p.functionCall.id||('call_'+(++chatCallSeq)), nativeId:!!p.functionCall.id, name:p.functionCall.name, args:p.functionCall.args||{}, part:p}));
       if(c.finishReason){ out.stop = c.finishReason==='MAX_TOKENS'?'length' : (c.finishReason==='STOP'?'end':'blocked:'+c.finishReason); }
     }
     return out;
   }
-  if(j.type==='content_block_delta' && j.delta && j.delta.type==='text_delta') return {text:j.delta.text};
+  if(j.type==='content_block_start' && j.content_block && j.content_block.type==='tool_use'){ st.blocks[j.index]={id:j.content_block.id,name:j.content_block.name,json:''}; return {}; }
+  if(j.type==='content_block_delta' && j.delta){
+    if(j.delta.type==='text_delta') return {text:j.delta.text};
+    if(j.delta.type==='input_json_delta' && st.blocks[j.index]) st.blocks[j.index].json+=j.delta.partial_json||'';
+    return {};
+  }
+  if(j.type==='content_block_stop' && st.blocks[j.index]){
+    const b=st.blocks[j.index]; delete st.blocks[j.index];
+    let args; try{ args=b.json?JSON.parse(b.json):{}; }catch(e){ args={__error:e.message}; }   // a cut-off call is answered with an error the model can fix
+    return {calls:[{id:b.id,name:b.name,args}]};
+  }
   if(j.type==='message_delta' && j.delta && j.delta.stop_reason) return {stop:j.delta.stop_reason==='max_tokens'?'length':'end'};
   if(j.type==='error') return {error:(j.error&&j.error.message)||'The API reported an error.'};
   return {};
 }
 
-// Reads a streamed (SSE) response, calling onText for each text delta; returns the normalised stop reason.
+// Reads a streamed (SSE) response, calling onText for each text delta; returns {stop, calls}.
 async function chatReadStream(res, prov, onText){
-  const reader=res.body.getReader(), dec=new TextDecoder();
-  let buf='', stop=null;
+  const reader=res.body.getReader(), dec=new TextDecoder(), st={blocks:{}};
+  let buf='', stop=null; const calls=[];
   for(;;){
     const {done,value}=await reader.read(); if(done) break;
     buf=(buf+dec.decode(value,{stream:true})).replace(/\r\n/g,'\n');   // Gemini separates events with CRLF
@@ -310,19 +399,14 @@ async function chatReadStream(res, prov, onText){
       const evt=buf.slice(0,i); buf=buf.slice(i+2);
       const line=evt.split('\n').find(l=>l.startsWith('data:')); if(!line) continue;
       let j; try{ j=JSON.parse(line.slice(5).trim()); }catch(e){ continue; }
-      const e=chatParseEvent(prov,j);
+      const e=chatParseEvent(prov,j,st);
       if(e.error) throw new Error(e.error);
       if(e.text) onText(e.text);
+      if(e.calls) e.calls.forEach(c=>calls.push(c));
       if(e.stop) stop=e.stop;
     }
   }
-  return stop;
-}
-// The most recent turns, always starting with a user message (both APIs require that).
-function chatHistoryForRequest(){
-  const h=chatMessages.slice(-CHAT_MAX_HISTORY);
-  while(h.length && h[0].role!=='user') h.shift();
-  return h;
+  return {stop,calls};
 }
 function chatFriendlyError(status, message, prov){
   const m=message||'';
@@ -333,6 +417,48 @@ function chatFriendlyError(status, message, prov){
   if(status===529||status>=500) return 'The API is busy or unavailable right now — try again shortly.';
   return m||('Request failed (HTTP '+status+').');
 }
+// "Please retry in 12.3s" (Gemini free tier) → 12.3, else null.
+function chatRetrySeconds(message){ const r=/retry in ([\d.]+)\s*s/i.exec(message||''); return r?parseFloat(r[1]):null; }
+function chatSleep(ms,signal){
+  return new Promise((resolve,reject)=>{
+    if(signal.aborted) return reject(Object.assign(new Error('aborted'),{name:'AbortError'}));
+    const t=setTimeout(resolve,ms); signal.addEventListener('abort',()=>{ clearTimeout(t); reject(Object.assign(new Error('aborted'),{name:'AbortError'})); },{once:true});
+  });
+}
+
+// One request/response round. Streams text into `bubble` (and into box.reply). A free-tier rate limit that clears within 30 s is waited out once.
+// → {stop, calls}
+async function chatStreamRound(prov, model, key, prefs, allowTools, ctrl, bubble, box){
+  const rq=chatBuildRequest(prov, model, key, buildChatSystemPrompt(prefs.includeNames), chatHistoryForRequest(), allowTools);
+  let waited=false;
+  for(;;){
+    const res=await fetch(rq.url,{method:'POST', signal:ctrl.signal, headers:rq.headers, body:JSON.stringify(rq.body)});
+    if(res.ok){
+      return chatReadStream(res, prov, t=>{
+        box.reply+=t; bubble.classList.remove('chat-pending'); bubble.innerHTML=chatMarkdown(box.reply);
+        const m=chatEl('chatMessages'); m.scrollTop=m.scrollHeight;
+      });
+    }
+    let msg=''; try{ const j=await res.json(); msg=(j&&j.error&&j.error.message)||''; }catch(e){}
+    const wait=res.status===429?chatRetrySeconds(msg):null;
+    if(wait!=null && wait<=30 && !waited){ waited=true; chatShowStatus('Rate limit: retrying in '+Math.ceil(wait)+' s…'); await chatSleep(Math.ceil(wait*1000)+500,ctrl.signal); chatShowStatus(''); continue; }
+    throw Object.assign(new Error(chatFriendlyError(res.status,msg,prov)),{handled:true});
+  }
+}
+
+// A one-line note in the transcript for each tool call, so the user can see what ran.
+function chatToolNote(c){
+  const a=c.args||{};
+  if(c.name==='run_scenarios'){ const n=Array.isArray(a.scenarios)?a.scenarios.length:0; return 'Ran '+n+' scenario'+(n===1?'':'s')+(n?': '+a.scenarios.map(s=>s&&s.label?s.label:'?').slice(0,6).join(' · '):''); }
+  if(c.name==='sweep') return 'Swept '+(a.param||'a parameter')+' of '+((a.template&&a.template.lever)||'a lever')+' over '+(Array.isArray(a.values)?a.values.length:0)+' values';
+  if(c.name==='show_chart') return 'Drew chart: '+(a.chart||'?');
+  if(c.name==='get_rows') return 'Read yearly rows: '+(Array.isArray(a.fields)?a.fields.join(', '):'?');
+  return 'Tool: '+c.name;
+}
+function chatAddToolNote(text,isError){
+  const box=chatEl('chatMessages'); if(!box) return;
+  const d=document.createElement('div'); d.className='chat-tool'+(isError?' chat-tool-err':''); d.textContent='▸ '+text; box.appendChild(d); box.scrollTop=box.scrollHeight;
+}
 
 async function sendChat(){
   if(chatAbort) return;
@@ -340,39 +466,62 @@ async function sendChat(){
   const prefs=chatSaveFields(), prov=prefs.provider, model=prefs.models[prov], key=chatGetKey(prov);
   if(!key){ toggleChatSettings(true); chatShowStatus('Paste your '+CHAT_PROVIDERS[prov].keyLabel+' in ⚙ Settings first.',true); return; }
 
-  inp.value=''; chatShowStatus('');
+  inp.value=''; chatShowStatus(''); toggleChatSettings(false);   // the key is in place: give the transcript the room
+  const turnStart=chatMessages.length;
   chatMessages.push({role:'user',content:text}); chatAddBubble('user',text);
-  const bubble=chatAddBubble('assistant','…'); bubble.classList.add('chat-pending');
   const ctrl=new AbortController(); chatAbort=ctrl; chatSetBusy(true);
-  let reply='', stop=null;
+  let toolsRan=false, rounds=0, bubble=null, box={reply:''};
   try{
-    const rq=chatBuildRequest(prov, model, key, buildChatSystemPrompt(prefs.includeNames), chatHistoryForRequest());
-    const res=await fetch(rq.url,{method:'POST', signal:ctrl.signal, headers:rq.headers, body:JSON.stringify(rq.body)});
-    if(!res.ok){
-      let msg=''; try{ const j=await res.json(); msg=(j&&j.error&&j.error.message)||''; }catch(e){}
-      throw Object.assign(new Error(chatFriendlyError(res.status,msg,prov)),{handled:true});
+    for(;;){
+      const allowTools=rounds<CHAT_MAX_TOOL_ROUNDS && chatToolDeclList().length>0;
+      box={reply:''}; bubble=chatAddBubble('assistant','…'); bubble.classList.add('chat-pending');
+      const {stop,calls}=await chatStreamRound(prov, model, key, prefs, allowTools, ctrl, bubble, box);
+      const reply=box.reply;
+      if(!calls.length){
+        if(!reply){
+          const why=(stop&&stop.startsWith('blocked:'))?('The reply was blocked by the provider ('+stop.slice(8)+'). Try rephrasing.'):'The model returned an empty reply.';
+          throw Object.assign(new Error(why),{handled:true});
+        }
+        if(stop==='length') chatShowStatus('Reply was cut off at the length limit — ask it to continue.');
+        chatMessages.push({role:'assistant',content:reply});
+        break;
+      }
+      // Tool round: run every call on a private copy of the plan, show the cards, and give the results back to the model.
+      if(!reply) bubble.remove(); else bubble.classList.remove('chat-pending');
+      chatShowStatus('Running scenarios…');
+      await new Promise(r=>setTimeout(r,30));     // let the status paint before the (synchronous) engine runs
+      if(ctrl.signal.aborted) throw Object.assign(new Error('aborted'),{name:'AbortError'});
+      const results=[], cards=[];
+      calls.forEach(c=>{
+        const r=chatExecTool(c.name,c.args);
+        results.push({id:c.id,nativeId:c.nativeId,name:c.name,response:r.response,isError:!!r.isError});
+        chatAddToolNote(r.isError?(chatToolNote(c)+' — rejected: '+((r.response&&r.response.error)||'error')):chatToolNote(c),!!r.isError);
+        (r.cards||[]).forEach(x=>cards.push(x));
+      });
+      chatMessages.push({role:'assistant',content:reply,calls});     // pushed together, after the run, so the pair is never split
+      chatMessages.push({role:'tool',results});
+      toolsRan=true; rounds++; bubble=null; box={reply:''};
+      chatRenderCards(cards,chatEl('chatMessages'));
+      chatShowStatus('');
     }
-    stop=await chatReadStream(res, prov, t=>{
-      reply+=t; bubble.classList.remove('chat-pending'); bubble.innerHTML=chatMarkdown(reply);
-      const box=chatEl('chatMessages'); box.scrollTop=box.scrollHeight;
-    });
-    if(!reply){
-      const why=(stop&&stop.startsWith('blocked:'))?('The reply was blocked by the provider ('+stop.slice(8)+'). Try rephrasing.'):'The model returned an empty reply.';
-      throw Object.assign(new Error(why),{handled:true});
-    }
-    if(stop==='length') chatShowStatus('Reply was cut off at the length limit — ask it to continue.');
-    chatMessages.push({role:'assistant',content:reply});
   }catch(err){
-    if(err && err.name==='AbortError'){
-      if(reply){ chatMessages.push({role:'assistant',content:reply}); chatShowStatus('Stopped.'); }
-      else { bubble.remove(); chatMessages.pop(); chatShowStatus('Stopped.'); }
+    const aborted=err && err.name==='AbortError', partial=box.reply;
+    if(toolsRan){
+      // Earlier rounds finished and their cards are on screen: keep them, and close the turn with a plain assistant message so roles keep alternating.
+      if(bubble && !partial) bubble.remove();
+      const why=aborted?'Stopped.':((err&&err.handled)?err.message:('Could not reach the API: '+(err&&err.message?err.message:err)));
+      chatMessages.push({role:'assistant',content:partial||('(No answer: '+why+')')});
+      chatShowStatus(aborted?'Stopped. The results above are still valid.':why+' The results above are still valid; ask again to continue.',!aborted);
+    }else if(aborted){
+      if(partial){ chatMessages.push({role:'assistant',content:partial}); chatShowStatus('Stopped.'); }
+      else { if(bubble) bubble.remove(); chatMessages.length=turnStart; chatShowStatus('Stopped.'); }
     }else{
-      bubble.remove(); chatMessages.pop();            // drop the failed turn so it can be resent
+      if(bubble) bubble.remove(); chatMessages.length=turnStart;      // drop the failed turn so it can be resent
       inp.value=text;
       chatShowStatus((err&&err.handled)?err.message:('Could not reach the API: '+(err&&err.message?err.message:err)+' (network, CORS or an ad/privacy blocker?)'),true);
     }
   }finally{
-    chatAbort=null; chatSetBusy(false); bubble.classList.remove('chat-pending');
+    chatAbort=null; chatSetBusy(false); if(bubble) bubble.classList.remove('chat-pending');
     if(chatEl('chatPanel').classList.contains('open')) inp.focus();
   }
 }
@@ -382,6 +531,7 @@ function initChat(){
   chatEl('chatProvider').innerHTML=Object.keys(CHAT_PROVIDERS).map(k=>`<option value="${k}">${escHtml(CHAT_PROVIDERS[k].label)}</option>`).join('');
   chatEl('chatPreviewWrap').addEventListener('toggle',chatRefreshPreview);
   chatLoadFields(chatLoadPrefs().provider);
+  chatApplyWide(chatLoadPrefs().wide);
   clearChat();
 }
 window.addEventListener('DOMContentLoaded', initChat);

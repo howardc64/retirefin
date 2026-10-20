@@ -243,12 +243,14 @@ function mcUseTrial(v,which){ const t=which==='C'?v.c:(which==='D'?v.d:v.b); if(
 // C: successful trials (the ones that stayed funded), in trial order. Each C click shows the next one.
 function mcOkTrials(){ if(!mcResults) return []; if(!mcResults._ok) mcResults._ok=mcResults.results.reduce((a,r,i)=>{ if(r.failK<0) a.push(i); return a; },[]); return mcResults._ok; }
 function mcLoadSuccess(trial){
-  const v=mcTrialView; if(!v||!mcResults||mcRun||!mcReplayOk()) return;
-  const cap=mcReplayTrial(mcResults.cfg,trial);
-  v.c={trial, proj:cap.proj, state:cap.state, cap, pos:-1, cause:null, okPos:mcOkTrials().indexOf(trial)};
-  mcUseTrial(v,'C'); v.view='C';
+  if(!mcResults||mcRun||!mcReplayOk()) return;
+  const cap=mcReplayTrial(mcResults.cfg,trial), old=mcTrialView;
+  const t={trial, proj:cap.proj, state:cap.state, cap, pos:-1, cause:null, okPos:mcOkTrials().indexOf(trial)};
+  if(old){ old.c=t; mcUseTrial(old,'C'); old.view='C'; }
+  else mcTrialView=Object.assign({planProj:computeProjection(), key:mcPlanKey(), view:'C', cur:'C', b:null, c:t, d:null}, t);   // first thing loaded is a success (e.g. "Any trial #"): start the A/B/C/D view with C on
   mcFitBoth(); mcCaptureGhosts();
-  lastProjection=v.proj; renderCharts(); mcShowBanner();
+  lastProjection=mcTrialView.proj; renderCharts(); mcShowBanner();
+  const bn=mcEl('mcTrialBanner'); if(bn&&bn.scrollIntoView&&!old) bn.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function mcCStep(d){   // next / previous successful trial (wraps around)
   const ok=mcOkTrials(); if(!mcTrialView||!ok.length) return;
@@ -277,6 +279,9 @@ function mcDStep(d){ const v=mcTrialView, n=mcDList().length||3; mcLoadStress(v&
 function mcDPress(){ const v=mcTrialView; if(!v||v.view==='D'||!v.d) mcDStep(1); else mcAbSet('D'); }
 function mcLoadTrial(trial){
   if(!mcResults||mcRun) return;
+  // A trial that stayed funded is a Monte Carlo SUCCESS (C), not a failure (B): "Any trial #" can name either kind, and B is the failure view.
+  const res=mcResults.results&&mcResults.results[trial];
+  if(res&&res.failK<0){ mcLoadSuccess(trial); return; }
   if(!mcReplayOk()) return;
   const cap=mcReplayTrial(mcResults.cfg,trial), L=mcResults.R.list||[], pos=L.findIndex(f=>f.trial===trial);
   const planProj=(mcTrialView&&mcTrialView.planProj)||computeProjection();   // A: the plan as entered (the plan cannot have changed while a trial is loaded)

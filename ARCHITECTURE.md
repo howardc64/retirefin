@@ -126,13 +126,13 @@ docs/           MONTE_CARLO.md  (what the Monte Carlo add-on changed, how it wor
 js/
   core/         constants.js  helpers.js  markdown.js  state.js
   compute/      socialSecurityCalc.js  rmd.js  tax.js  dates.js  ageRange.js
-                projection.js  whatIf.js  donorTraj.js  monteCarlo.js  stressTest.js
+                projection.js  whatIf.js  donorTraj.js  monteCarlo.js  stressTest.js  scenarioSpec.js
   input/        controls.js  household.js  assumptions.js  loadMenu.js
                 wage.js  socialSecurity.js  pension.js  rental.js
                 brokerage.js  realEstate.js  ira.js  roth.js  inheritance.js  liveLink.js  incomeForms.js
   display/      chartHelpers.js  chartPanels.js  chartInfo.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  iraLtcgChart.js  inhIncomeChart.js  inflationChart.js  marketChart.js  footer.js  print.js
-                formulasPage.js  mdPage.js  excelExport.js  scenarios.js  userNotes.js  chat.js  mcPanel.js  stressPanel.js  cardStack.js
+                formulasPage.js  mdPage.js  excelExport.js  scenarios.js  userNotes.js  chatTools.js  chatCharts.js  chat.js  mcPanel.js  stressPanel.js  cardStack.js
   app.js
 misc/      Usage.md            (how to use the app; rendered to HTML by the Usage button, §6.10)
            Note4User.md        (user-facing tips; rendered to HTML by the Tips button, §6.10)
@@ -322,7 +322,8 @@ Nothing in this part touches the DOM. Every function here is a pure function of 
 | Export | Rule |
 |---|---|
 | `rmdDivisor(age)` | IRS Uniform Lifetime Table lookup for age ≥ 72; below 72, a linear approximation for voluntary early withdrawals |
-| `rmdAgeForBirthYear(y)` | 72 / 73 / 75 depending on birth year (current-law RMD start age) |
+| `rmdAgeForBirthYear(y, m)` | 70.5 (born before Jul 1 1949) / 72 (Jul 1949–1950) / 73 (1951–1959) / 75 (1960+); `m` = birth month |
+| `rmdFirstDistribution(y, m)` | `{age, year, firstDeadline:{year,month:4,day:1}}`: the year the RMD age is reached and the April 1 deadline for the first RMD |
 
 ### 4.3 `tax.js`
 | Export | Rule |
@@ -347,7 +348,7 @@ Total Tax there, not folded into any of these functions.
 ### 4.5 `ageRange.js`
 | Export | Rule |
 |---|---|
-| `resolveAgeRange(ar, person)` | `startMode`: `'now'`→current age, `'rmd'`→`rmdAgeForBirthYear`, `'custom'`→`startVal`. `endMode`: `'passing'`→that person's passing age, `'custom'`→`endVal`. Returns `[startAge, endAge]` |
+| `resolveAgeRange(ar, person)` | `startMode`: `'now'`→current age, `'rmd'`→`rmdAgeForBirthYear(birthYear, birthMonth)`, `'custom'`→`startVal`. `endMode`: `'passing'`→that person's passing age, `'custom'`→`endVal`. Returns `[startAge, endAge]` |
 
 ### 4.6 `projection.js`
 **Purpose:** the core year-by-year model. `computeProjection()` takes no arguments (reads `state`
@@ -1042,15 +1043,16 @@ explanation and the two workarounds instead of failing silently. The file also l
 A floating **💬 Ask about this plan** button (bottom-right, markup `#chatDock` in `index.html`, hidden in print) opens a
 chat panel. Each message goes straight from the browser to the chosen provider's API (`fetch`, streamed — there is no
 backend) together with a system prompt that holds a **text snapshot of the current plan**, so the model can discuss the
-user's own numbers. Read-only: it reads `state` and `lastProjection` (§7.1), never writes `state` or any chart, and
-nothing from it is added to the saved plan file.
+user's own numbers. It reads `state` and `lastProjection` (§7.1) and never writes `state` or the main charts; nothing from it
+is added to the saved plan file. The model can also **run what-ifs**: it calls scenario tools (§12), the app runs them on a private
+copy of the plan and draws the results as cards under the reply. A scenario reaches the plan only when the user clicks a button on a card.
 
 **Providers** (`CHAT_PROVIDERS`): **Anthropic Claude** (`x-api-key` + `anthropic-dangerous-direct-browser-access`, paid key)
 and **Google Gemini** (`streamGenerateContent?alt=sse` on `generativelanguage.googleapis.com`, `x-goog-api-key` header —
 never in the URL; the free AI Studio tier covers Flash / Flash-Lite models only, roughly 10–15 requests/min). The Model box
 is free text with per-provider suggestions (`models`), because vendors rename and retire model ids often (e.g. Gemini
 `-preview` ids) — when a provider returns "model not found", type the current id. Adding a provider = an entry in
-`CHAT_PROVIDERS` + a branch in `chatBuildRequest` and `chatParseEvent`.
+`CHAT_PROVIDERS` + a branch in `chatBuildRequest` and `chatParseEvent`. **Gemini is the default provider** (first in the list); both providers support the scenario tools.
 
 | Export | Contract |
 |---|---|
@@ -1266,7 +1268,7 @@ stateDiagram-v2
   D --> C: C key
   note right of A: editing the plan or starting<br/>a new run also ends the trial view
 ```
-- `mcLoadTrial(trial)` / `mcLoadSuccess(trial)` call `mcReplayTrial(cfg, i)` (same seed and trial number give the same draws; nothing is stored) and keep it in `mcTrialView = {planProj, key, view, cur, b, c, …}`: `planProj` = A (the plan as entered), `b` = the failed trial loaded from the study row, `c` = the successful run of the C button. `view` is `'A' | 'B' | 'C'`; `cur` is whichever of B / C was shown last. The fields of the shown trial (`trial, proj, state, cap, pos, cause`) are also copied onto the view (`mcUseTrial`), so code that reads `mcTrialView.state` / `.cap` works for both.
+- `mcLoadTrial(trial)` / `mcLoadSuccess(trial)` call `mcReplayTrial(cfg, i)` (same seed and trial number give the same draws; nothing is stored) and keep it in `mcTrialView = {planProj, key, view, cur, b, c, …}`: `planProj` = A (the plan as entered), `b` = the failed trial loaded from the study row, `c` = the successful run of the C button. `view` is `'A' | 'B' | 'C'`; `cur` is whichever of B / C was shown last. `mcLoadTrial` is the single entry for "load trial #n": a trial that failed becomes B, a trial that stayed funded (`results[n].failK<0`) is handed to `mcLoadSuccess` and becomes C (a view that does not exist yet is created with `b:null`). The fields of the shown trial (`trial, proj, state, cap, pos, cause`) are also copied onto the view (`mcUseTrial`), so code that reads `mcTrialView.state` / `.cap` works for both.
 - `recompute()` (`app.js`): if a trial is loaded and `mcTrialStillValid()` is false (the plan was edited) it calls `mcTrialClear()`; otherwise `lastProjection = mcTrialShown()` (A → `planProj`, else the trial's `proj`). A new run, editing the plan or **Back to plan** (`mcTrialExit`) ends the view.
 - `mcFitBoth()` fits every chart's Y scale to the largest of A, B and C (a dry pass: `window.dryPass`); `mcCaptureGhosts()` keeps A's lines for the `abGhost` plugin; `chartHelpers.js` never saves a trial's scales into the plan. Rescale refits one chart to what is showing.
 - `mcOkTrials()` lists the successful trials (`failK<0`, trial order); `mcCPress()` / key **C** → next, **Shift+C** → previous (`mcCStep`, wraps); key **B** (`mcAbToggle`) flips A and the last of B / C. `mcTrialStep(±1)` (◀ ▶) steps through failed trials while B is on and through successful runs while C is on (greyed out when none).
@@ -1385,3 +1387,39 @@ sequenceDiagram
   end
   ST-->>UI: summary and orders table (best estate starred)
 ```
+
+## 12. Chat scenario tools (add-on)
+
+The chat can answer "what if" questions with numbers and charts instead of advice. Principle: **the model describes, the engine computes, the display draws.**
+The model never writes raw state paths, numbers or code; it picks named *levers*, the app runs them through `computeProjection()` on a private clone of the
+plan (`withTempState`, §4), and the cards show only engine output.
+
+```
+question → model → tool call (levers) → scenarioSpec.js validates + runs on a copy → compact result back to the model
+                                       └→ chatTools.js makes card descriptors → chatCharts.js draws them under the reply
+                                          (Save as Scenario / Open in main charts: user click only → scnAddFromState, scenarios.js)
+```
+
+### 12.1 `compute/scenarioSpec.js` (no DOM; loaded after `stressTest.js`)
+| Export | Contract |
+|---|---|
+| `SPEC_LEVERS` | The catalog: `ssClaimAge, living, inflation, returns, passingAge, stopWorking, pension, rothConversion, ltc, medShock, guardrail, portfolioSales, stateTax, marketStress`. Each has `params` (type, min, max, description), `req`, optional `check`, a `label` and an `apply(s, args)` that sets **every dependent field together** (a fixed conversion also sets `convMode:'fixed'`, `convToRoth`, and switches the Roth IRA on) and returns `applied` or `ignored` + reason. The catalog drives the tool schema, validation, the changes list and the tests. There is **no conversion end age** in the engine, so `rothConversion.endAge` is rejected as an unknown parameter. |
+| `specValidateLevers(levers)` | → `{errors, levers}`; numeric strings are coerced; unknown lever / unknown parameter / missing / out-of-range each give a message the model can act on. |
+| `specRunBatch(scenarios)` / `specSweep(template, param, values)` | Runs your plan as entered (`base`) plus up to 6 scenarios (a sweep: 2 to 12 values, run in chunks). Every applied lever is then checked: if the scenario's results equal the base the lever becomes `noEffect`; with several levers each is re-run alone (`specFingerprint`). **Never writes `state`; MC hooks are restored.** |
+| `specBuildState(levers)` | The live plan with levers applied, as a plain plan object (for Save / Open). A `marketStress` lever is a hook (`stHook`), not state, so it is reported in `market` and not saved. |
+| `specKpis`, `SPEC_KPIS` | Headline numbers: assets at the end, lifetime federal tax, peak IRMAA, conversions, lifetime SS, unfunded total / years / first age, lowest assets. |
+| `specChartData(chart, runs, opts)`, `specSweepChartData` | Chart data only (`SPEC_CHARTS`: assets, annualTax, cumulativeTax, unfundedExpenses, magi, irmaa, socialSecurityCumulative, incomeBySource, outcomes). |
+| `specModelSummary`, `specRowsCsv`, `specToolSchemas` | What goes back to the model (KPIs, lever statuses, assets and tax sampled every 5 years), drill-down CSV (whitelisted fields, 40 rows) and the four tool declarations (plain JSON-schema subset that both Gemini and Anthropic accept). |
+| `specPlanKey()` | Fingerprint of the plan (`state` without `ui`); cards and runs compare it to flag "plan edited since". |
+
+### 12.2 `display/chatTools.js`
+`chatExecTool(name, args)` → `{isError, response, cards}` for `run_scenarios`, `sweep`, `show_chart`, `get_rows`. Keeps finished runs in memory (`chatRuns`, ids `base`, `r1`, `r2` …; never saved). Every failure is returned to the model as `{error}` so it can correct itself. `run_scenarios` draws the summary card plus `charts` (default assets and annualTax) in the same call, so a normal question needs only two API requests (important on the Gemini free tier). A sweep template has no value for the swept parameter, so it is validated per value, not alone.
+
+### 12.3 `display/chatCharts.js`
+Cards: **summary** (headline-numbers table with deltas, "Changes vs your plan" list with applied / ignored / no-effect, and the buttons) and **chart** (Chart.js line / area / bar / sweep, ⤢ enlarge, PNG). Cards keep their own data; `chatMarkStale()` (called from `recompute()`) badges cards whose plan was edited since. The app's overlay plugins are switched off per chart (`CHAT_NO_OVERLAYS`). Buttons: **Open in main charts** and **Save as Scenario** rebuild the plan from the lever list on the plan *as it is now* (after a confirm if it changed) and call `scnAddFromState()` in `scenarios.js`; **Copy spec** copies the levers as JSON. Market-stress runs cannot be saved.
+
+### 12.4 `display/chat.js` additions
+Provider-neutral history (`user`, `assistant` + `calls`, `tool` + `results`) mapped by `chatGeminiContents` / `chatAnthropicMessages`; Gemini's own `functionCall` part is kept verbatim (Gemini 3 needs its `thoughtSignature` back; a call from another provider gets Google's documented dummy signature). `chatParseEvent` assembles Anthropic's streamed `input_json_delta` pieces; a cut-off call becomes an error result. `chatHistoryForRequest` trims by whole turns (a call is never split from its result) and shortens old tool results. The loop in `sendChat` allows `CHAT_MAX_TOOL_ROUNDS` (4) rounds, then asks for a plain answer; a Gemini 429 whose message says "retry in N s" (N ≤ 30) is waited out once. A failure after tools ran keeps the cards and closes the turn with a plain assistant message so roles alternate. **Wide** toggle (⇔) widens the panel; Settings collapse once a question is sent.
+
+### 12.5 Tests
+`node tests/chat/spec_test.js` (engine layer, both samples: base equals `computeProjection()`, live state deep-equal after runs, every lever changes results or is flagged, validation, sweep, chart data), `node tests/chat/tools_test.js` (dispatcher), and `node tests/chat/e2e_browser.js` (real Chromium with a scripted Gemini and Anthropic API; needs `playwright-core` and `chart.js` installed in `tests/chat/`).

@@ -76,8 +76,16 @@ ok(cell(mc,ccol+'6').f===`${ccol}5*(1+${pcol}5)`,'price level is a formula: prio
 // account sheets compound with the yearly rates, not $B$2
 const ir=b.sheets.find(s=>/Pre-tax IRA/.test(s.name)), gcol=colOf(ir,'g'), balc=colOf(ir,'bal');
 ok(!!gcol,'IRA sheet has a "Real growth this year" column');
-const balFs=Object.keys(ir.ws).filter(a=>a[0]!=='!'&&a.startsWith(balc)&&/^\D+\d+$/.test(a)&&cell(ir,a).f).map(a=>cell(ir,a).f);
-ok(balFs.length>5&&balFs.every(f=>!/\$B\$2/.test(f)&&f.includes(gcol)),'IRA balance chain is live and reads the yearly growth ('+balFs.length+' formulas)');
+// Two regions, two rules. DESIGN DECISION (audit F-03): the main horizon follows the trial's yearly growth; the heirs' stretch years (after the household's last
+// passing) compound at the PLAN's constant rate, because the engine does the same (projection.js: stretch balance = last balance x (1 + plan rate)^n, no market-shock hook).
+const hcol=colOf(ir,'heirs'), rowOf=a=>+a.replace(/\D/g,'');
+const balAddrs=Object.keys(ir.ws).filter(a=>a[0]!=='!'&&a.startsWith(balc)&&/^\D+\d+$/.test(a)&&cell(ir,a).f);
+const isHeirs=a=>(cell(ir,hcol+rowOf(a))||{}).v==='Yes';
+const mainFs=balAddrs.filter(a=>!isHeirs(a)).map(a=>cell(ir,a).f), heirFs=balAddrs.filter(isHeirs);
+ok(mainFs.length>5&&mainFs.every(f=>!/\$B\$2/.test(f)&&f.includes(gcol)),'IRA balance chain over the main horizon is live and reads the yearly growth ('+mainFs.length+' formulas)');
+ok(heirFs.length>0&&heirFs.every(a=>cell(ir,a).f===balc+(rowOf(a)-1)+'*(1+$B$2)'),'heirs\' stretch years compound the prior balance at the plan rate $B$2, by design ('+heirFs.length+' formulas)');
+const planRate=cell(ir,'B2').v;
+ok(heirFs.every(a=>Math.abs(cell(ir,a).v-cell(ir,balc+(rowOf(a)-1)).v*(1+planRate))<=1),'cached stretch balances equal prior x (1 + plan rate), the same figures the app shows');
 ok(/^'MC trial'!\$/.test(cell(ir,gcol+ir._t.firstRow).f),'the yearly growth cell links to the MC trial sheet: '+cell(ir,gcol+ir._t.firstRow).f);
 const gm=colOf(mc,'g0'), fm=colOf(mc,'F0');
 ok(cell(mc,gm+'5').f.includes(fm+'5')&&cell(mc,gm+'5').f.includes('Inputs!'),'MC growth = (1 + plan rate from Inputs) × shock factor − 1: '+cell(mc,gm+'5').f);

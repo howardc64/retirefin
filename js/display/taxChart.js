@@ -75,7 +75,7 @@ function buildTaxChart(){
     {label:'LTCG 0% tax', data:alignedL[0], borderColor:VZ_TAX.ltcg0, backgroundColor:VZ_TAX.ltcg0+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
     {label:'LTCG 15% tax', data:alignedL[1], borderColor:VZ_TAX.ltcg15, backgroundColor:VZ_TAX.ltcg15+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
     {label:'LTCG 20% tax', data:alignedL[2], borderColor:VZ_TAX.ltcg20, backgroundColor:VZ_TAX.ltcg20+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'NIIT (3.8% on QDIV/LTCG + NIIT)', data:alignedNiit, borderColor:VZ_TAX.niit, backgroundColor:VZ_TAX.niit+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
+    {label:'NIIT (3.8% on net investment income)', data:alignedNiit, borderColor:VZ_TAX.niit, backgroundColor:VZ_TAX.niit+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
     {label:'Foreign tax credit', data:alignedFtc, borderColor:VZ_TAX.ftc, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'tax', order:2},
     // §9.4: rate lines are overlaid "on top of other graph objects (but below tooltip)" — a lower
     // Chart.js `order` value draws on top of higher ones, so these get order:1/0 vs. order:2 above.
@@ -142,7 +142,7 @@ function buildTaxChart(){
         if(r.foreignTaxCredit>0) lines.push(mrow('Foreign tax credit', '('+fmt(r.foreignTaxCredit)+')/yr'));
         if(r.niit>0){
           lines.push(mrow('Net investment income (NII)', fmt(r.niiIncome)+'/yr'));
-          lines.push(mrow('NIIT (3.8% + on QDIV/LTCG)', fmt(r.niit)+'/yr'));
+          lines.push(mrow('NIIT (3.8% on net investment income)', fmt(r.niit)+'/yr'));
         }
       }
       return lines;

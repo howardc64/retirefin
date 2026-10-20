@@ -131,13 +131,14 @@
 </main>
 <footer id="assumptionsFooter"></footer>
 
-<!-- ═══ CHAT: ask an LLM about this plan (display/chat.js). Read-only; key + settings live outside `state`. ═══ -->
+<!-- ═══ CHAT: ask an LLM about this plan, and run what-ifs (display/chat.js, chatTools.js, chatCharts.js). Never changes the plan; key + settings live outside `state`. ═══ -->
 <div id="chatDock">
   <button type="button" id="chatToggle" class="chat-fab" onclick="toggleChat()" aria-expanded="false" aria-controls="chatPanel">💬 Ask about this plan</button>
   <div id="chatPanel" class="chat-panel" role="dialog" aria-label="Ask about this plan">
     <div class="chat-head">
       <strong>Ask about this plan</strong>
       <span class="chat-head-btns">
+        <button type="button" id="chatWide" class="chat-icon" onclick="toggleChatWide()" title="Wide: more room for charts" aria-label="Wide panel" aria-pressed="false">⇔</button>
         <button type="button" class="chat-icon" onclick="toggleChatSettings()" title="Settings" aria-label="Settings">⚙</button>
         <button type="button" class="chat-icon" onclick="clearChat()" title="Clear conversation" aria-label="Clear conversation">🗑</button>
         <button type="button" class="chat-icon" onclick="toggleChat(false)" title="Close" aria-label="Close">✕</button>
@@ -161,7 +162,7 @@
     <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
     <div id="chatStatus" class="chat-status"></div>
     <div class="chat-input-row">
-      <textarea id="chatInput" rows="2" placeholder="Ask about your income, taxes, expenses or assets…" onkeydown="onChatKeydown(event)"></textarea>
+      <textarea id="chatInput" rows="2" placeholder="Ask about your plan, or a what-if…" onkeydown="onChatKeydown(event)"></textarea>
       <button type="button" id="chatSend" class="btn btn-primary" onclick="sendChat()">Send</button>
       <button type="button" id="chatStop" class="btn" style="display:none" onclick="stopChat()">Stop</button>
     </div>
@@ -197,6 +198,7 @@
 <script src="js/compute/donorTraj.js"></script>
 <script src="js/compute/monteCarlo.js"></script>
 <script src="js/compute/stressTest.js"></script>
+<script src="js/compute/scenarioSpec.js"></script>
 
 <!-- input -->
 <script src="js/input/controls.js"></script>
@@ -240,6 +242,8 @@
 <script src="js/display/scenarios.js"></script>
 <script src="js/display/userNotes.js"></script>
 <script src="js/display/print.js"></script>
+<script src="js/display/chatTools.js"></script>
+<script src="js/display/chatCharts.js"></script>
 <script src="js/display/chat.js"></script>
 <script src="js/display/mcPanel.js"></script>
 <script src="js/display/stressPanel.js"></script>

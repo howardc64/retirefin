@@ -41,6 +41,11 @@ function buildRealEstateCard(pid, i, p, married){
               <div class="field align-end"><label>Value (today's $)</label><input type="number" class="money" min="0" step="5000" value="${r.balance||0}" oninput="onNumberInput('${rp}.balance', this.value)"></div>
               <div class="field align-end"><label>Cost basis (today's $) · optional</label><input type="number" class="money" min="0" step="5000" placeholder="Blank = no gain" value="${reBasisEntered(r)?r.basis:''}" oninput="onRealEstateBasis('${pid}',${ri},this.value)"></div>
               <div class="field full"><label>Exemption per owner (today's $) · optional</label><input type="number" class="money" min="0" step="5000" placeholder="0" value="${Number(r.exempt)||''}" oninput="onNumberInput('${rp}.exempt', this.value)"></div>
+              <div class="field full"><label>Gain and the 3.8% net investment income tax</label>
+                <select onchange="onFieldInput('${rp}.niitStatus', this.value)">
+                  <option value="investment" ${r.niitStatus!=='business'?'selected':''}>Investment / personal property — taxable gain is investment income</option>
+                  <option value="business" ${r.niitStatus==='business'?'selected':''}>Used in an active trade or business — excluded</option>
+                </select></div>
               ${renderChangeRow(rp+'.growth', r.growth, 0)}
               ${married?`<div class="field full"><label style="${lbl}"><input type="checkbox" style="flex:0 0 auto" ${r.bene?'checked':''} onchange="onBeneToggle('${rp}.bene', this.checked)"> Joint owned with spouse</label></div>`:''}
               ${reSellFields(pid, rp, ri, r)}

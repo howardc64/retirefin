@@ -71,9 +71,7 @@
 
 ## How to use AI
 
-* **Built-in chatbot** The “ask about this plan” chatbot is quite limited in value because
-  * web application runs completely on your computer and do not have a build-in chatbot by default
-  * this chatbot has to be granted an access API key to LLMs. Tested with google’s free gemini free tier (Gemini flash 3 on 10/4/26 from https://aistudio.google.com/) and it can only answer some simple requests and are often wrong.
+* **Built-in chatbot** The “ask about this plan” chatbot has some basic capabilities. See Usage.
 * **Export data to use with frontier chatbots** Export PDF and excel data of your plan and given it to frontier chatbots like chatgpt, claude, grok to ask for review generate quite interesting results and offer more things to consider.
-* **Provide the app and save file** Providing a link to the html app and your plan’s save file is perhaps most powerful. Chatgpt copied the entire app and understand all of the retirement plan logic in the app.
+* **Provide the app and save file** Providing a link to the html app and your plan’s save file is perhaps most powerful. Highly capable free tier LLM can understand the entire app and saved file retirement plan settings to answer wide variety of questions.
 

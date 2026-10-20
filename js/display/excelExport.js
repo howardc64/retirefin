@@ -202,6 +202,10 @@ function xlsxTaxSheet(){
     scalar('California standard deduction, single','CA_Std_SGL',CA_STD_SGL,XLSX_MONEY);
     scalar('California personal exemption credit, per living person','CA_Cred',CA_PERSONAL_CREDIT,XLSX_MONEY);
     scalar('California senior (65+) exemption credit, per living person','CA_SrCred',CA_SENIOR_CREDIT,XLSX_MONEY);
+    scalar('California exemption-credit phase-out starts at federal AGI, single','CA_PhSgl',CA_CREDIT_PHASEOUT_SGL,XLSX_MONEY,'FTB 2025 figure × 1.034 (2026 not yet published); indexed, so flat in today\'s $');
+    scalar('California exemption-credit phase-out starts at federal AGI, married (MFJ)','CA_PhMfj',CA_CREDIT_PHASEOUT_MFJ,XLSX_MONEY,'FTB 2025 figure × 1.034 (2026 not yet published); indexed, so flat in today\'s $');
+    scalar('California exemption-credit phase-out: each step of federal AGI','CA_PhBand',CA_CREDIT_PHASEOUT_BAND,XLSX_MONEY,'Not indexed: deflated to today\'s $ in the projection');
+    scalar('California exemption-credit phase-out: reduction of each credit per step','CA_PhStep',CA_CREDIT_PHASEOUT_STEP,XLSX_MONEY,'Not indexed: deflated to today\'s $ in the projection');
     scalar('California Mental Health Services surcharge starts at taxable income','CA_MH_Thr',CA_MH_THRESH,XLSX_MONEY,'Not indexed: deflated to today\'s $ in the projection');
     scalar('California Mental Health Services surcharge rate','CA_MH_Rate',CA_MH_RATE,XLSX_PCT);
   } else if(selSt==='WA'){
@@ -668,6 +672,8 @@ function xlsxMainColumns(proj,acctSheets,T){
   V('annPass','Annuity passing benefit to heirs (year the contract ends)',r=>sumAnnuityPassing(r,'amount'));
   V('annPassT','  passing benefit: taxable',r=>sumAnnuityPassing(r,'taxable'));
   V('annPassF','  passing benefit: tax-exempt',r=>sumAnnuityPassing(r,'taxFree'));
+  V('rentNII','Rental income that is net investment income (passive rentals; excludes rentals classed as an active trade or business)',r=>v(r.rentalNII));
+  V('reNIIx','Property-sale gain that is not net investment income (property used in an active trade or business)',r=>v(r.reNiitExcl));
   V('annNII','Annuity taxable payout that is net investment income (non-qualified annuities)',r=>{ let s=0; (r.annuitiesByPerson||[]).forEach(l=>l.forEach(e=>{ if(e.nonQual) s+=(e.taxable||0); })); return s; });
   per('rentalByPerson','Rental','rent');
   F('rentT','Rental total (taxable)',r=>r.rental,X=>sumF(X,'rent'));
@@ -775,7 +781,7 @@ function xlsxMainColumns(proj,acctSheets,T){
   F('margQ','  of which: ordinary income pushing qualified income into a higher tier',r=>pct(r.marginalQual),
     X=>`MAX(0,(${qualTaxFml(X,X('mTI'),X('mQT'))}-${X('qualTax')})/MargBump)`,XLSX_PCT);
   F('margO','  of which: ordinary brackets (incl. SS torpedo and senior-deduction phase-out)',r=>pct(r.marginalOrd),X=>`${X('marg')}-${X('margQ')}`,XLSX_PCT);
-  F('nii','Net investment income (NII)',r=>r.niiIncome,X=>`${X('odivNQ')}+${X('qdiv')}+${X('ltcg')}+${X('annNII')}`);
+  F('nii','Net investment income (NII)',r=>r.niiIncome,X=>`${X('odivNQ')}+${X('qdiv')}+MAX(0,${X('ltcg')}-${X('reNIIx')})+${X('annNII')}+${X('rentNII')}`);
   F('niit','NIIT (3.8%)',r=>r.niit,X=>{
     const th=`IF(AND(FutNIIT_On="Yes",${X('year')}>=FutNIIT_Start),IF(${M(X)},FutNIIT_MFJ,FutNIIT_SGL),IF(${M(X)},NIIT_MFJ,NIIT_SGL)*${X('f')})`;
     return `NIIT_Rate*MIN(MAX(0,${X('nii')}),MAX(0,${X('agi')}-${th}))`; });
@@ -795,9 +801,12 @@ function xlsxMainColumns(proj,acctSheets,T){
       const t=[]; for(let i=0;i<n;i++) t.push(`(${X('age_'+i)}<Pass_${i+1})`); return t.join('+'); },XLSX_COUNT);
     const caTIv=r=>{ const a=Math.max(0,r.agi-r.taxableSS); return Math.max(0,a-Math.max(r.filing==='married'?CA_STD_MFJ:CA_STD_SGL, Math.max(0,(r.expLtc||0)-0.075*a))); };
     F('caTI','California taxable income = (AGI − taxable SS) − larger of state standard deduction and medical itemized deduction (LTC cost above 7.5% of that income)',caTIv,X=>{ const a=`MAX(0,${X('agi')}-${X('tss')})`; return `MAX(0,${a}-MAX(IF(${M(X)},CA_Std_MFJ,CA_Std_SGL),MAX(0,${X('expLtc')}-0.075*${a})))`; });
+    F('caRed','California exemption-credit phase-out: amount taken off EACH personal and senior credit = $6 × (federal AGI over the threshold ÷ $2,500, rounded up), all × the deflator',
+      r=>caCreditReduction(r.agi, r.filing==='married', T?T.deflVal(r.k):Math.pow(1+inf,-r.k)),
+      X=>`MAX(0,ROUNDUP(MAX(0,${X('agi')}-IF(${M(X)},CA_PhMfj,CA_PhSgl))/(CA_PhBand*${X('f')})-0.000000001,0))*CA_PhStep*${X('f')}`);
     F('stateTax','California income tax (not part of TT; paid as a household expense)',r=>v(r.stateTax),X=>{
       const t=X('caTI'), f=X('f');
-      const ca=`MAX(0,IF(${M(X)},SUMPRODUCT((${t}>CA_MFJ_Lo)*(${t}-CA_MFJ_Lo)*CA_MFJ_dR),SUMPRODUCT((${t}>CA_SGL_Lo)*(${t}-CA_SGL_Lo)*CA_SGL_dR))+CA_MH_Rate*MAX(0,${t}-CA_MH_Thr*${f})-CA_Cred*${X('stN')}-CA_SrCred*${X('enr')})`;
+      const ca=`MAX(0,IF(${M(X)},SUMPRODUCT((${t}>CA_MFJ_Lo)*(${t}-CA_MFJ_Lo)*CA_MFJ_dR),SUMPRODUCT((${t}>CA_SGL_Lo)*(${t}-CA_SGL_Lo)*CA_SGL_dR))+CA_MH_Rate*MAX(0,${t}-CA_MH_Thr*${f})-MAX(0,CA_Cred-${X('caRed')})*${X('stN')}-MAX(0,CA_SrCred-${X('caRed')})*${X('enr')})`;
       return `IF(State_On="Yes",${ca},0)`; });
   } else if(selState==='WA'){
     F('waGain','Washington taxable capital gain = portfolio LTCG (gross − property-sale gain − SCGL used) − deduction',

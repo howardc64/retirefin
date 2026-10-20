@@ -87,6 +87,17 @@ function scnCreate(){
   scnActive=id; state=copy;
   renderAll(); autosave();
 }
+// Add a scenario that was built elsewhere (the chat's chart cards, display/chatCharts.js). `plan` is a plan object (a changed copy of the live plan);
+// it is hydrated like a loaded file and joins the set under the next free letter. show=true also switches to it, so the full chart grid shows it.
+// Called only from a user's click; returns {id} or {error}.
+function scnAddFromState(plan,name,show){
+  const id=scnNextId();
+  if(!id) return {error:'Up to '+SCN_MAX+' scenarios are supported.'};
+  const added=scnHydrate(scnCopy(plan)); added.ui=state.ui;
+  scnSnaps[id]=added; scnOrder.push(id); scnNames[id]=String(name||'').slice(0,60);
+  if(show) scnSwitch(id); else { autosave(); renderScenarioCard(); }
+  return {id};
+}
 // Delete the scenario on screen (one at a time); the first remaining scenario takes its place on screen.
 function scnDelete(){
   if(scnOrder.length<2) return;

@@ -6954,7 +6954,7 @@
         null
        ],
        "fill": true,
-       "label": "NIIT (3.8% on QDIV/LTCG + NIIT)",
+       "label": "NIIT (3.8% on net investment income)",
        "order": 2,
        "pointRadius": 0,
        "spanGaps": false,
@@ -8052,7 +8052,7 @@
         null
        ],
        "fill": true,
-       "label": "NIIT (3.8% on QDIV/LTCG + NIIT)",
+       "label": "NIIT (3.8% on net investment income)",
        "order": 2,
        "pointRadius": 0,
        "spanGaps": false,
@@ -11611,7 +11611,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 13500,
+   "niiIncome": 31500,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -11702,6 +11702,7 @@
    "qualIncome": 9450,
    "qualTax": 1417.5,
    "qualTaxable": 9450,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -11718,6 +11719,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     257281.553398
@@ -11899,7 +11901,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 14633.444345,
+   "niiIncome": 32633.444345,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -11990,6 +11992,7 @@
    "qualIncome": 10243.411041,
    "qualTax": 1536.511656,
    "qualTaxable": 10243.411041,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -12006,6 +12009,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     264775.190876
@@ -12187,7 +12191,7 @@
    "marginalOrd": 0.2332,
    "marginalQual": 0,
    "marginalRate": 0.2332,
-   "niiIncome": 15799.571317,
+   "niiIncome": 33799.571317,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -12278,6 +12282,7 @@
    "qualIncome": 11059.699922,
    "qualTax": 1658.954988,
    "qualTaxable": 11059.699922,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -12294,6 +12299,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     272487.089639
@@ -12475,7 +12481,7 @@
    "marginalOrd": 0.1,
    "marginalQual": 0,
    "marginalRate": 0.1,
-   "niiIncome": 20689.144816,
+   "niiIncome": 38689.144816,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -12566,6 +12572,7 @@
    "qualIncome": 15584.278325,
    "qualTax": 0,
    "qualTaxable": 15584.278325,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -12582,6 +12589,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     280423.606813
@@ -12763,7 +12771,7 @@
    "marginalOrd": 0.222,
    "marginalQual": 0,
    "marginalRate": 0.222,
-   "niiIncome": 16744.561136,
+   "niiIncome": 34744.561136,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -12854,6 +12862,7 @@
    "qualIncome": 11721.192795,
    "qualTax": 0,
    "qualTaxable": 11721.192795,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -12870,6 +12879,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     288591.284681
@@ -13051,7 +13061,7 @@
    "marginalOrd": 0.139866,
    "marginalQual": 0,
    "marginalRate": 0.139866,
-   "niiIncome": 17206.306995,
+   "niiIncome": 35206.306995,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -13142,6 +13152,7 @@
    "qualIncome": 12044.414897,
    "qualTax": 0,
    "qualTaxable": 12044.414897,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -13158,6 +13169,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     296996.85608
@@ -13339,7 +13351,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0,
    "marginalRate": 0.12,
-   "niiIncome": 17678.026598,
+   "niiIncome": 35678.026598,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -13430,6 +13442,7 @@
    "qualIncome": 12374.618618,
    "qualTax": 0,
    "qualTaxable": 12374.618618,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -13446,6 +13459,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     305647.249946
@@ -13627,7 +13641,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0,
    "marginalRate": 0.12,
-   "niiIncome": 18162.096646,
+   "niiIncome": 36162.096646,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -13718,6 +13732,7 @@
    "qualIncome": 12713.467652,
    "qualTax": 0,
    "qualTaxable": 12713.467652,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -13734,6 +13749,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     314549.597032
@@ -13915,7 +13931,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0,
    "marginalRate": 0.12,
-   "niiIncome": 18658.861052,
+   "niiIncome": 36658.861052,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -14006,6 +14022,7 @@
    "qualIncome": 13061.202737,
    "qualTax": 0,
    "qualTaxable": 13061.202737,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -14022,6 +14039,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     323711.235781
@@ -14203,7 +14221,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0,
    "marginalRate": 0.12,
-   "niiIncome": 19168.642549,
+   "niiIncome": 37168.642549,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -14294,6 +14312,7 @@
    "qualIncome": 13418.049784,
    "qualTax": 0,
    "qualTaxable": 13418.049784,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -14310,6 +14329,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     333139.718376
@@ -14491,7 +14511,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0,
    "marginalRate": 0.12,
-   "niiIncome": 19691.771695,
+   "niiIncome": 37691.771695,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -14582,6 +14602,7 @@
    "qualIncome": 13784.240187,
    "qualTax": 0,
    "qualTaxable": 13784.240187,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -14598,6 +14619,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     342842.81697
@@ -14779,7 +14801,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0,
    "marginalRate": 0.12,
-   "niiIncome": 20228.587054,
+   "niiIncome": 38228.587054,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -14870,6 +14892,7 @@
    "qualIncome": 14160.010938,
    "qualTax": 0,
    "qualTaxable": 14160.010938,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -14886,6 +14909,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     352828.530085
@@ -15067,7 +15091,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 20779.435368,
+   "niiIncome": 38779.435368,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -15158,6 +15182,7 @@
    "qualIncome": 14545.604758,
    "qualTax": 2181.840714,
    "qualTaxable": 14545.604758,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -15174,6 +15199,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     363105.089214
@@ -15355,7 +15381,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 21978.386676,
+   "niiIncome": 39978.386676,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -15446,6 +15472,7 @@
    "qualIncome": 15384.870673,
    "qualTax": 2307.730601,
    "qualTaxable": 15384.870673,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -15462,6 +15489,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     373680.965599
@@ -15643,7 +15671,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 23231.817141,
+   "niiIncome": 41231.817141,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -15734,6 +15762,7 @@
    "qualIncome": 16262.271998,
    "qualTax": 2439.3408,
    "qualTaxable": 16262.271998,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -15750,6 +15779,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     384564.877218
@@ -15931,7 +15961,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 24539.135447,
+   "niiIncome": 42539.135447,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -16022,6 +16052,7 @@
    "qualIncome": 17177.394813,
    "qualTax": 2576.609222,
    "qualTaxable": 17177.394813,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -16038,6 +16069,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     395765.795972
@@ -16219,7 +16251,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 25905.190912,
+   "niiIncome": 43905.190912,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -16310,6 +16342,7 @@
    "qualIncome": 18133.633639,
    "qualTax": 2720.045046,
    "qualTaxable": 18133.633639,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -16326,6 +16359,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     407292.955078
@@ -16507,7 +16541,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 27332.295274,
+   "niiIncome": 45332.295274,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -16598,6 +16632,7 @@
    "qualIncome": 19132.606692,
    "qualTax": 2869.891004,
    "qualTaxable": 19132.606692,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -16614,6 +16649,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     419155.856682
@@ -16795,7 +16831,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 28822.829748,
+   "niiIncome": 46822.829748,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -16886,6 +16922,7 @@
    "qualIncome": 20175.980823,
    "qualTax": 3026.397124,
    "qualTaxable": 20175.980823,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -16902,6 +16939,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     431364.279692
@@ -17083,7 +17121,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 30375.663178,
+   "niiIncome": 48375.663178,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -17174,6 +17212,7 @@
    "qualIncome": 21262.964224,
    "qualTax": 3189.444634,
    "qualTaxable": 21262.964224,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -17190,6 +17229,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     443928.287839
@@ -17371,7 +17411,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 31996.682949,
+   "niiIncome": 49996.682949,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -17462,6 +17502,7 @@
    "qualIncome": 22397.678064,
    "qualTax": 3359.65171,
    "qualTaxable": 22397.678064,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -17478,6 +17519,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     456858.23797
@@ -17659,7 +17701,7 @@
    "marginalOrd": 0.22,
    "marginalQual": 0,
    "marginalRate": 0.22,
-   "niiIncome": 33684.376139,
+   "niiIncome": 51684.376139,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -17750,6 +17792,7 @@
    "qualIncome": 23579.063298,
    "qualTax": 3536.859495,
    "qualTaxable": 23579.063298,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -17766,6 +17809,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     470164.788591
@@ -17947,7 +17991,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0.15,
    "marginalRate": 0.27,
-   "niiIncome": 32773.069191,
+   "niiIncome": 50773.069191,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -18035,6 +18079,7 @@
    "qualIncome": 29228.545583,
    "qualTax": 2065.960379,
    "qualTaxable": 29228.545583,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -18051,6 +18096,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     483858.908647
@@ -18232,7 +18278,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0.15,
    "marginalRate": 0.27,
-   "niiIncome": 33251.038872,
+   "niiIncome": 51251.038872,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -18320,6 +18366,7 @@
    "qualIncome": 29757.401734,
    "qualTax": 2137.655831,
    "qualTaxable": 29757.401734,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -18336,6 +18383,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     497951.886568
@@ -18517,7 +18565,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0.15,
    "marginalRate": 0.27,
-   "niiIncome": 33706.315961,
+   "niiIncome": 51706.315961,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -18605,6 +18653,7 @@
    "qualIncome": 30265.836606,
    "qualTax": 2205.947394,
    "qualTaxable": 30265.836606,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -18621,6 +18670,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     512455.339575
@@ -18802,7 +18852,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0.15,
    "marginalRate": 0.27,
-   "niiIncome": 34139.859183,
+   "niiIncome": 52139.859183,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -18890,6 +18940,7 @@
    "qualIncome": 30754.880598,
    "qualTax": 2270.978878,
    "qualTaxable": 30754.880598,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -18906,6 +18957,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     527381.223252
@@ -19087,7 +19139,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0.15,
    "marginalRate": 0.27,
-   "niiIncome": 34552.595959,
+   "niiIncome": 52552.595959,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -19175,6 +19227,7 @@
    "qualIncome": 31225.536184,
    "qualTax": 2332.889394,
    "qualTaxable": 31225.536184,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -19191,6 +19244,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     542741.841405
@@ -19372,7 +19426,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0.15,
    "marginalRate": 0.27,
-   "niiIncome": 34945.420659,
+   "niiIncome": 52945.420659,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -19460,6 +19514,7 @@
    "qualIncome": 31678.77629,
    "qualTax": 2391.813099,
    "qualTaxable": 31678.77629,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -19476,6 +19531,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     558549.856203
@@ -19657,7 +19713,7 @@
    "marginalOrd": 0.12,
    "marginalQual": 0.15,
    "marginalRate": 0.27,
-   "niiIncome": 35319.194964,
+   "niiIncome": 53319.194964,
    "niit": 0,
    "noConvItemized": null,
    "noConvOrdTI": null,
@@ -19745,6 +19801,7 @@
    "qualIncome": 32115.544762,
    "qualTax": 2447.879245,
    "qualTaxable": 32115.544762,
+   "reNiitExcl": 0,
    "reSaleGain": 0,
    "reSaleTax": 0,
    "realEstateByPerson": [
@@ -19761,6 +19818,7 @@
     0,
     0
    ],
+   "rentalNII": 18000,
    "rothBalByPerson": [
     0,
     574818.298617
@@ -25286,7 +25344,7 @@
         null
        ],
        "fill": true,
-       "label": "NIIT (3.8% on QDIV/LTCG + NIIT)",
+       "label": "NIIT (3.8% on net investment income)",
        "order": 2,
        "pointRadius": 0,
        "spanGaps": false,
@@ -25922,7 +25980,7 @@
         null
        ],
        "fill": true,
-       "label": "NIIT (3.8% on QDIV/LTCG + NIIT)",
+       "label": "NIIT (3.8% on net investment income)",
        "order": 2,
        "pointRadius": 0,
        "spanGaps": false,

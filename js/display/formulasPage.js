@@ -141,7 +141,7 @@ function buildFormulasHtml(){
 <li><a href="#g-exp">Expenses and how they are funded</a><ul><li><a href="#f-ltc">Long-term care (LTC) expense</a></li><li><a href="#f-med">Late-life medical shock</a></li><li><a href="#f-grd">Spending guardrails</a></li><li><a href="#f-wf">Household expense funding waterfall</a></li><li><a href="#f-order">Expense shortfall withdrawal order</a></li><li><a href="#f-last">Pre-tax IRA and Roth IRA as last resorts</a></li><li><a href="#f-pw">Portfolio withdraw</a></li><li><a href="#f-reinv">Reinvest excess income</a></li><li><a href="#f-aum">AUM fee</a></li></ul></li>
 <li><a href="#g-pf">Brokerage portfolios</a><ul><li><a href="#f-bal">Annual balance change</a></li><li><a href="#f-div">Dividends</a></li><li><a href="#f-tex">Tax-exempt income</a></li><li><a href="#f-b0">Starting cost basis</a></li><li><a href="#f-broll">Cost basis roll-forward, today's-dollar conversion and step-up at death</a></li><li><a href="#f-ltcg">Realized long-term capital gains (LTCG)</a></li><li><a href="#f-circ">Tax ↔ LTCG circularity</a></li><li><a href="#f-swap">Asset / basis swap</a></li><li><a href="#f-adisp">Asset Value chart withdraw cost (display only)</a></li></ul></li>
 <li><a href="#g-re">Real estate</a><ul><li><a href="#f-re">Real estate</a></li></ul></li>
-<li><a href="#g-mc">Monte Carlo simulation and chart rates</a><ul><li><a href="#f-mkt">Market return and inflation charts</a></li><li><a href="#f-mc">Monte Carlo trials</a></li><li><a href="#f-panic">Systemic panic (correlation convergence)</a></li></ul></li></ul></li>
+<li><a href="#g-mc">Monte Carlo simulation and chart rates</a><ul><li><a href="#f-mkt">Market return and inflation charts</a></li><li><a href="#f-mc">Monte Carlo trials</a></li><li><a href="#f-panic">Systemic panic (correlation convergence)</a></li></ul></li><li><a href="#g-chat">Chat what-if scenarios</a><ul><li><a href="#f-chatrun">How a scenario is run</a></li><li><a href="#f-chatlev">How the levers change the plan</a></li><li><a href="#f-chatkpi">Headline numbers</a></li></ul></li></ul></li>
 </ul></nav>
 
 <h2 id="glossary">Glossary <a class="fp-top" href="#toc">↑ contents</a></h2>
@@ -250,7 +250,7 @@ ${fpWhere('Depreciation uses the same age range, enable switch and survivor rule
 <h2 id="g-ret">Retirement accounts (IRA, Roth IRA, inheritance) <a class="fp-top" href="#toc">↑ contents</a></h2>
 <h3 id="f-rmd">Required minimum distributions (RMD) <a class="fp-top" href="#toc">↑</a></h3>
 ${fpEq(`RMD = ${fpFr('prior-year IRA balance','Uniform Lifetime Table divisor for the owner\'s age that year')}`)}
-<p>RMDs are required starting at age 72, 73, or 75 depending on birth year under current law; an earlier voluntary withdrawal uses the same table with an approximated divisor. After an IRA owner passes, if the IRA is marked <em>Inherited by spouse</em>, the surviving spouse inherits the IRA and continues taking RMDs against their own age.</p>
+<p>RMDs are required starting at age 70½ (born before July 1, 1949), 72 (July 1, 1949 – 1950), 73 (1951 – 1959) or 75 (1960 or later) under current law; an earlier voluntary withdrawal uses the same table with an approximated divisor. After an IRA owner passes, if the IRA is marked <em>Inherited by spouse</em>, the surviving spouse inherits the IRA and continues taking RMDs against their own age.</p>
 <h3 id="f-iraw">Pre-tax IRA annual withdraw and Roth conversion <a class="fp-top" href="#toc">↑</a></h3>
 <p><strong>Pre-tax IRA annual withdraw</strong>: a separate, real withdrawal on top of the RMD — a flat today's-dollar amount each year the pre-tax IRA still has a balance, taxed exactly like the RMD as ordinary income. With <em>Withdraw is Roth conversion</em> ticked (the default) it is moved into the linked Roth IRA (a Roth conversion) and is not spendable; unticked, it is an ordinary withdrawal that becomes household cash income (it pays expenses first, and any excess is reinvested) and needs no Roth IRA. It starts at the later of the owner's current age and the <em>Withdraw start</em> — by default the <em>RMD start</em>, meaning the pre-tax IRA's own Start age (the RMD age unless that Start is changed), or Now, or a custom age. Three trigger starts are also available: <em>When tax bracket is below x%</em> (the household\'s taxable ordinary income, computed with no conversion, is at or below where the chosen bracket starts), <em>When itemized deductions &gt; a value</em> (the itemized deduction — the LTC cost above 7.5% of AGI — computed with no conversion exceeds the value entered, in today\'s $), and <em>When LTC starts</em> (the first LTC start age is reached; needs Long Term Care enabled). A trigger is tested each year until it is met; the withdraw then starts that year and continues every later year. As a Roth conversion it needs the Roth IRA card to be enabled; either way it stops when the owner passes. The slider runs from $0 to the pre-tax IRA's starting balance and starts at $0 (no withdraw).</p>
 ${fpEq(
@@ -332,9 +332,10 @@ ${fpEq(`FTC = portfolio balance × foreign asset % × foreign tax credit %`)}
 <h3 id="f-niit">Net investment income tax (NIIT) <a class="fp-top" href="#toc">↑</a></h3>
 <p><strong>Net Investment Income Tax (NIIT).</strong> 3.8% of the lesser of net investment income or MAGI (~AGI) over the threshold above — calculated on the pre-credit ordinary + qualified tax basis, since the foreign tax credit doesn't offset NIIT:</p>
 ${fpEq(
-  `NII = (ODIV − QDIV) + QDIV + LTCG<sub>net of SCGL</sub> + taxable payouts of non-qualified annuities`,
+  `NII = (ODIV − QDIV) + QDIV + LTCG<sub>net of SCGL</sub> + taxable payouts of non-qualified annuities + net rental income (passive rentals)`,
   `NIIT = 3.8% × min( NII,&ensp;max(0, MAGI − threshold) )`
 )}
+<p>LTCG includes the taxable gain on a property sold that year (after its home-sale exclusion), except a property marked <em>used in an active trade or business</em>. Net rental income counts unless that rental is marked <em>active trade or business</em>; the entered rental amount is already net of depreciation and expenses, and rental losses are not modeled.</p>
 
 <p>Putting it together:</p>
 ${fpEq(
@@ -351,9 +352,9 @@ ${fpEq(
   `Med = max( 0,&ensp;LTC − 7.5% × AGI<sub>CA</sub> )`,
   `TI<sub>CA</sub> = max( 0,&ensp;AGI<sub>CA</sub> − max( Std, Med ) )`,
   `Bracket tax = &Sigma;<sub><em>k</em></sub> <em>r</em><sub><em>k</em></sub> × max( 0,&ensp;min( TI<sub>CA</sub>, <em>L</em><sub><em>k</em></sub> ) − <em>L</em><sub><em>k</em>−1</sub> )`,
-  `Tax<sub>CA</sub> = max( 0,&ensp;Bracket tax &ensp;+&ensp; 1% × max( 0, TI<sub>CA</sub> − $1,000,000 × <em>f</em> ) &ensp;−&ensp; ${fmt(CA_PERSONAL_CREDIT)} × <em>N</em> &ensp;−&ensp; ${fmt(CA_SENIOR_CREDIT)} × <em>N</em><sub>65+</sub> )`
+  `Tax<sub>CA</sub> = max( 0,&ensp;Bracket tax &ensp;+&ensp; 1% × max( 0, TI<sub>CA</sub> − $1,000,000 × <em>f</em> ) &ensp;−&ensp; max( 0, ${fmt(CA_PERSONAL_CREDIT)} − <em>R</em> ) × <em>N</em> &ensp;−&ensp; max( 0, ${fmt(CA_SENIOR_CREDIT)} − <em>R</em> ) × <em>N</em><sub>65+</sub> )`
 )}
-${fpWhere('AGI<sub>CA</sub> is federal AGI less the taxable Social Security. Med is the medical itemized deduction, which here is the Long Term Care cost (LTC) above 7.5% of AGI<sub>CA</sub>; the larger of Med and the standard deduction (Std) is used. <em>r</em><sub><em>k</em></sub> and <em>L</em><sub><em>k</em></sub> are the rate and the upper limit of California bracket <em>k</em> in the table below (<em>L</em><sub>0</sub> = 0). The 1% term is the Mental Health Services surcharge; <em>f</em> = (1 + inflation)<sup>−years</sup> holds its un-indexed $1,000,000 threshold in today\'s dollars. <em>N</em> is the number of people alive that year and <em>N</em><sub>65+</sub> the number of them aged 65 or older (the $158 personal and senior exemption credits, 2026; their income phase-out is not modeled).')}
+${fpWhere('AGI<sub>CA</sub> is federal AGI less the taxable Social Security. Med is the medical itemized deduction, which here is the Long Term Care cost (LTC) above 7.5% of AGI<sub>CA</sub>; the larger of Med and the standard deduction (Std) is used. <em>r</em><sub><em>k</em></sub> and <em>L</em><sub><em>k</em></sub> are the rate and the upper limit of California bracket <em>k</em> in the table below (<em>L</em><sub>0</sub> = 0). The 1% term is the Mental Health Services surcharge; <em>f</em> = (1 + inflation)<sup>−years</sup> holds its un-indexed $1,000,000 threshold in today\'s dollars. <em>N</em> is the number of people alive that year and <em>N</em><sub>65+</sub> the number of them aged 65 or older (the $158 personal and senior exemption credits, 2026). <em>R</em> = $6 × <em>f</em> × ⌈(federal AGI − ${fmt(CA_CREDIT_PHASEOUT_SGL)}) ÷ ($2,500 × <em>f</em>)⌉ is the phase-out taken off each credit, and zero at or below the threshold (${fmt(CA_CREDIT_PHASEOUT_MFJ)} if married); federal AGI, not AGI<sub>CA</sub>, sets it. The thresholds are FTB\'s 2025 figures raised by the 2026 inflation rate (FTB publishes the official 2026 ones in late December); the $2,500 step and $6 are fixed in statute, so they shrink with <em>f</em>.')}
 <p>California brackets, tax year 2026 (Single; Married limits are exactly double). Standard deduction $5,900 single / $11,800 married (FTB, 2026 indexing):</p>
 ${fpBracketTable(CA_ORD_SGL, true)}
 <p><em>Washington</em> has no income tax, only a capital-gains excise tax on realized long-term gains from portfolio sales (real estate and retirement accounts are exempt):</p>
@@ -659,6 +660,37 @@ ${fpEq(
   `M<sub>k</sub> = e<sup>σ² ÷ 2</sup> × [ u × ( Φ( t − σ√ρ<sub>panic</sub> ) + 1 − Φ( t − σ√ρ ) ) + ( 1 − u ) ]`
 )}
 ${fpWhere('Φ is the standard normal distribution function and u = ( 1 − Φ(t) )<sup>min( k, H − 1 )</sup> the chance that no earlier year of the window was a panic year. With the option off, M = e<sup>σ² ÷ 2</sup> and the factor is the one above.')}
+
+<h2 id="g-chat">Chat what-if scenarios <a class="fp-top" href="#toc">↑ contents</a></h2>
+<h3 id="f-chatrun">How a scenario is run <a class="fp-top" href="#toc">↑</a></h3>
+<p>The chat model never calculates. It names <em>levers</em> (for example "Person 1 claims Social Security at 70"); the app applies them to a private copy of your plan and runs the same projection as the main charts. Your plan as entered is run alongside for comparison, and your inputs are not touched. A lever is shown as <strong>ignored</strong> when it cannot apply (for example the person already collects Social Security, or has no pre-tax IRA to convert) and as <strong>no effect</strong> when it applied but none of the following changed against your plan, in any year: total tax, total expenses, Social Security, IRA distributions, Roth conversions, MAGI, unfunded expenses, dividends, realized gains, investable assets, real estate. With several levers in one scenario each lever is also tested alone.</p>
+<h3 id="f-chatlev">How the levers change the plan <a class="fp-top" href="#toc">↑</a></h3>
+<p>Each lever sets every field the planner needs together, so it cannot be silently ignored. The arithmetic ones:</p>
+${fpEq(
+  `living<sub>new</sub> = living × ( 1 + p ÷ 100 ) &ensp;(a percent change p)`,
+  `growth<sub>new</sub> = growth + Δ &ensp;(returns lever, Δ in percentage points)`
+)}
+${fpWhere('The returns lever adds Δ to each enabled asset\'s growth setting: "inflation" becomes "inflation + Δ", "inflation ± x" becomes "inflation ± ( x + Δ )", "custom" x % becomes ( x + Δ ) %, and a flat setting becomes Δ %. All assets are shifted unless the lever names a type.')}
+<p><strong>Roth conversion lever.</strong> A fixed amount sets the IRA's mode to fixed and the amount in today's dollars a year, turns the Roth IRA on if the conversion needs it, and, if given, sets the start age; bracket mode sets the ordinary-bracket and IRMAA limits (snapped to the stops the card offers). There is no end age: conversions continue while the IRA has a balance.</p>
+<p><strong>Market stress lever.</strong> The planner works in today's dollars, so a nominal return r in a year with inflation π enters as the real rate, and a share s of each asset (not real estate) takes the stress path while the rest keeps the plan's own nominal rate:</p>
+${fpEq(
+  `real return = ${fpFr('1 + nominal','1 + π')} − 1`,
+  `nominal = s × r<sub>stress</sub> + ( 1 − s ) × nominal<sub>plan</sub>`
+)}
+${fpWhere('The path starts in the first year without wages (or now). Lost Decade is the actual S&amp;P 500 total return 2000 to 2009, 1966 retiree is 1966 to 1981 with actual CPI, stagflation is flat nominal stocks with inflation rising linearly, and custom is the list of yearly returns you give.')}
+<h3 id="f-chatkpi">Headline numbers <a class="fp-top" href="#toc">↑</a></h3>
+<p>All amounts are in today's dollars; a difference is scenario minus your plan.</p>
+<table><thead><tr><th>Number</th><th>Definition (year k = 1 … last projected year)</th></tr></thead><tbody>
+<tr><td>Assets at the end</td><td>Investable assets in the last year (portfolios, IDGT, pre-tax IRA, Roth IRA and inherited IRAs, positive balances) plus real estate, after tax counting exempt gains</td></tr>
+<tr><td>Lifetime federal income tax</td><td>Σ TT<sub>k</sub>, the federal income tax including NIIT; state tax and the IRMAA surcharge are not included</td></tr>
+<tr><td>Federal tax + IRMAA per year (chart)</td><td>TT<sub>k</sub> + IRMAA surcharge<sub>k</sub>; the cumulative chart is the running sum</td></tr>
+<tr><td>Highest IRMAA surcharge</td><td>The largest yearly IRMAA surcharge</td></tr>
+<tr><td>Moved by IRA withdraws and conversions</td><td>Σ Roth conversions and annual IRA withdraws<sub>k</sub> (not RMDs)</td></tr>
+<tr><td>Lifetime Social Security</td><td>Σ household Social Security<sub>k</sub> (before tax)</td></tr>
+<tr><td>Expenses left unfunded</td><td>Σ of the expenses no source could pay; <em>years</em> counts years above $1; <em>first age</em> is the first such year</td></tr>
+<tr><td>Lowest total assets</td><td>The minimum over k of investable assets plus real estate, and the age it occurs</td></tr>
+</tbody></table>
+<p class="fp-src">Ages in these charts are the older person's age, as in the main charts.</p>
 
 <hr style="margin:32px 0;border:none;border-top:1px solid #ddd;">
 <p class="fp-src">This page is a snapshot — it does not update if you keep changing inputs in the main app tab. Close and reopen it (via the Formulas button) any time you want a fresh copy.</p>

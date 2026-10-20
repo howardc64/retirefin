@@ -43,7 +43,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 - **Monte Carlo simulation**: re-runs the plan with random returns, lifespans, care, inflation and inheritance, then lets you load any single trial into the charts.
 - **Inheritance** from another plan file, and **two plans linked live** (parent in one tab, heir in another).
 - **Drag to reorder** the income cards (spouses move together); the order is saved with the plan.
-- **Save / load** plans, **Export Excel**, a **Formulas** reference and an optional **chat** to ask about your plan.
+- **Save / load** plans, **Export Excel**, a **Formulas** reference and an optional **chat** to ask about your plan and run what-ifs that are charted for you.
 
 ## Household and planning panels
 
@@ -620,9 +620,37 @@ The **Stress tests** card (under the Monte Carlo card, collapsed until you untic
 - **Show in charts / D button**: load a scenario into every chart (see the Stress test card under Study one trial); the Inflation rate and Market return % charts then show the scenario's inflation and returns.
 - **Results**: for the plan and each scenario, whether the money lasts (or the age it runs out), the unpaid expenses, invested assets at the end of the shock and as a % of the plan, the lowest invested assets after the start, and the assets in the last projected year; the card has no chart of its own, because the D button / *Show in charts* loads each scenario into the real charts. Everything is in today's $. Press **Run stress tests** again after changing the plan or the settings (a red note tells you when a result is out of date).
 
+## Ask about this plan
 
+The chat box answers questions about your plan and can **run what-ifs and chart them**. Open it with the **💬 Ask about this plan** button at the bottom right.
 
-The chat box answers questions about your plan using a text snapshot of your inputs and results.
-
-- It needs your own API key.
+**Setup**
+- It needs your own API key. **Google Gemini** is the default and has a free tier: get a key at aistudio.google.com/apikey, paste it in ⚙ Settings and ask. Anthropic Claude (paid key) also works.
 - The key is kept only in your browser and is never saved in a plan file.
+- Each message sends a text snapshot of your inputs and results to the provider, and so do the results of any scenarios it runs. Names are withheld unless you tick *Send names*. *Preview exactly what is sent* in ⚙ Settings shows the text and the tool list.
+- The **⇔** button widens the panel for charts; ⚙ Settings closes itself once you send a question.
+
+**What to ask**
+- Questions about your results: why tax jumps in a year, when expenses stop being fully funded.
+- What-ifs: "What if Person 1 claims Social Security at 70?", "Compare converting $40k and $80k a year to Roth", "What if returns are 2 points lower and living costs rise 15%?", "Show claim ages 62 to 70", "What if a Lost-Decade crash starts the year I retire?".
+- Ask for the comparison in one message: up to 6 scenarios run together, each against your plan as entered.
+
+**What you get back**
+- A **results card**: headline numbers for your plan and each scenario (assets at the end, lifetime federal tax, highest IRMAA surcharge, amounts moved by IRA withdraws and conversions, unfunded expenses and more), with the difference from your plan in green (better) or red (worse). Only rows that differ are shown.
+- **Changes vs your plan**: every change the model made, each marked ✓ applied, ⚠ *Ignored* (with the reason, for example "Person 1 already claims at 70") or ⚠ *No effect* (applied, but your results did not change). **Check this list first**: it is how you see whether the model understood your question the way you meant it.
+- **Charts** under the reply (total assets and yearly tax by default; the model can also draw cumulative tax, unfunded expenses, MAGI, IRMAA, cumulative Social Security, income by source and outcome bars). Your plan is the dashed grey line. **⤢** enlarges a chart; **PNG** downloads it.
+- Every number comes from the app's own projection engine, run on a copy of your plan, so it equals what the main charts show if you typed the same changes into the inputs. The model does not calculate or draw anything itself.
+
+**Your plan is never changed by the chat.** The results card has buttons, and only a click changes anything:
+- **Open in main charts**: adds the scenario to the 🆎 Scenario set and switches to it, so all the charts show it.
+- **Save as Scenario**: adds it to the set without switching.
+- **Copy spec**: copies the list of changes as JSON.
+- A card is a snapshot. If you edit the plan afterwards, it shows **plan edited since**; Open and Save then ask before rebuilding the scenario from your plan as it is now.
+
+**What the model can change in a scenario**: Social Security claim age, living expenses, inflation, investment returns, passing age, the age someone stops working, a pension, the annual IRA withdraw / Roth conversion (fixed or bracket mode, start age), long-term care, the late-life medical shock, spending guardrails, portfolio sales, state tax, and a market stress path (Lost Decade, stagflation, 1966, or your own yearly returns). It can also *sweep* one value, for example every claim age from 62 to 70, on one chart.
+
+**Limits to know**
+- A **market stress** run is a simulation overlay, not a saved input, so it cannot be saved as a Scenario.
+- Conversions have no end age in the planner (they run until the IRA is empty), so a request such as "until 75" is reported as not possible.
+- A question runs at most 4 rounds of tools; the free Gemini tier allows roughly 10 to 15 requests a minute, and a short limit is waited out automatically.
+- It is not financial, tax or legal advice. Dollar amounts are in today's dollars. See *Formulas → Chat what-if scenarios* for how each number is defined.

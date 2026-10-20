@@ -10,6 +10,8 @@ soffice --headless --convert-to xlsx --outdir /tmp/rc /tmp/x.xlsx
 python3 tests/xlsx_e2e/compare_recalc.py /tmp/x.xlsx /tmp/rc/x.xlsx          # needs openpyxl
 ```
 
+To check the export of a Monte Carlo trial, put `MC_TRIAL=fail` (the first failed trial of a stressed 120-trial run, shown as B) or `MC_TRIAL=ok` (the first successful one, shown as C) in front of the `node` command.
+
 **Make LibreOffice really recalculate.** By default `--convert-to` keeps the cached values of an .xlsx and recalculates nothing, so the comparison passes whatever the formulas say (a planted wrong value went unnoticed). Set *Recalculation on file load* to *Always* once: add to `~/.config/libreoffice/4/user/registrymodifications.xcu`
 
 ```

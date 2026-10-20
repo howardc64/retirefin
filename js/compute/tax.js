@@ -118,8 +118,16 @@ function computeNIIT(nii, magi, filing, f=1, futureTax, year){
 //   p.filing, p.nAlive, p.nSenior — filing status, living people, living people aged 65+
 //   p.f                 — 1/(1+inflation)^k: the un-indexed statutory $1,000,000 thresholds are deflated by it
 // California: tax on (AGI − taxable SS − deduction) from the California brackets, where the deduction is the larger of the state standard deduction and the
-// medical itemized deduction (p.expLtc, the Long Term Care cost, above 7.5% of California AGI = AGI − taxable SS; California follows the federal medical-expense rule), + 1% over $1M, − personal and senior credits.
+// medical itemized deduction (p.expLtc, the Long Term Care cost, above 7.5% of California AGI = AGI − taxable SS; California follows the federal medical-expense rule), + 1% over $1M, − personal and senior credits (each reduced when federal AGI is above the threshold, see caCreditReduction).
 // Washington: 7% / 9.9% capital-gains excise tax on portfolio LTCG above the deduction.
+// California exemption-credit phase-out: the amount taken off EACH personal and senior credit, in today's $ (see CA_CREDIT_PHASEOUT_* in constants.js).
+//   fedAgi = federal AGI (Form 540 line 13, not California AGI); f = the deflator that shrinks the un-indexed $2,500 step and $6 reduction.
+function caCreditReduction(fedAgi, married, f){
+  const excess=fedAgi-(married?CA_CREDIT_PHASEOUT_MFJ:CA_CREDIT_PHASEOUT_SGL);
+  if(!(excess>0)) return 0;
+  const steps=Math.ceil(excess/(CA_CREDIT_PHASEOUT_BAND*f)-1e-9);   // "or part of": any remainder counts as a whole step (1e-9 keeps an exact multiple from rounding up)
+  return Math.max(0,steps)*CA_CREDIT_PHASEOUT_STEP*f;
+}
 function computeStateTax(code, p){
   if(code==='CA'){
     const married=p.filing==='married';
@@ -128,7 +136,8 @@ function computeStateTax(code, p){
     const ti=Math.max(0, caAgi-Math.max(married?CA_STD_MFJ:CA_STD_SGL, medItemized));
     let tax=calcOrdTax(ti, married?CA_ORD_MFJ:CA_ORD_SGL);
     tax+=CA_MH_RATE*Math.max(0, ti-CA_MH_THRESH*p.f);
-    tax-=CA_PERSONAL_CREDIT*p.nAlive+CA_SENIOR_CREDIT*p.nSenior;
+    const red=caCreditReduction(p.agi, married, p.f);   // phase-out of the exemption credits, per credit
+    tax-=Math.max(0,CA_PERSONAL_CREDIT-red)*p.nAlive+Math.max(0,CA_SENIOR_CREDIT-red)*p.nSenior;
     return Math.max(0,tax);
   }
   if(code==='WA'){
