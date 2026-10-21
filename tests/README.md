@@ -78,3 +78,10 @@ For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`)
 `tests/mc/guardrail_test.js`, `guardrail_ui_test.js`, `panic_test.js`, `medshock_test.js`, `medshock_ui_test.js` and `xlsx_guardrail_test.js` cover the spending guardrails (ARCHITECTURE.md §4.6a), systemic panic (§10.6), the late-life medical shock (§4.6b, §11.7) and their Excel export (§6.11); run each as `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/<name>.js` (the `_ui_` ones need no plan arguments beyond `PLAN`). `tests/xlsx_e2e/` recalculates the exported workbook in LibreOffice and compares every formula cell (read its README first: LibreOffice must be set to always recalculate, or the check proves nothing).
 
 `tests/chat/` tests the chat's scenario tools (ARCHITECTURE.md §12): `node tests/chat/spec_test.js` and `node tests/chat/tools_test.js` need only Node; `node tests/chat/e2e_browser.js` drives the real app in Chromium against a scripted Gemini / Anthropic API (install `playwright-core` and `chart.js@4.4.1` in `tests/chat/`, set `CHROMIUM` if Chromium is not at the default path).
+
+## Market scenarios / tool API
+
+```
+node tests/market/market_test.js      # path model, dense resolution, tool API, MCP shapes (both sample plans)
+node tests/market/market_ui_test.js   # chat tool -> effect -> D view -> Stress card (stub DOM, real scripts)
+```

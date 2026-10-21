@@ -925,5 +925,5 @@ function exportToExcel(){
   const wb=XLSX.utils.book_new();
   built.sheets.forEach(s=>XLSX.utils.book_append_sheet(wb,s.ws,s.name));
   wb.Workbook={Names:built.names, CalcPr:{fullCalcOnLoad:true}};
-  XLSX.writeFile(wb,(typeof mcShowingTrial==='function'&&mcShowingTrial())?(mcTrialView.view==='D'?'retirement-plan-stress-test.xlsx':'retirement-plan-mc-trial-'+(mcTrialView.trial+1)+'.xlsx'):'retirement-plan.xlsx');
+  XLSX.writeFile(wb,(typeof mcShowingTrial==='function'&&mcShowingTrial())?(mcTrialView.view==='D'?'retirement-plan-stress-test.xlsx':(mcTrialView.view==='E'||mcTrialView.view==='F'?'retirement-plan-stress-mc-trial-':'retirement-plan-mc-trial-')+(mcTrialView.trial+1)+'.xlsx'):'retirement-plan.xlsx');
 }

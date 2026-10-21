@@ -191,6 +191,7 @@ function defaultPerson(idx){
 //                         occupied cell; cells nobody occupies stay blank. Defaults below, one per layout.
 //   ui.chartPosAlt[key] — the same, for the OTHER layout, kept so toggling 2×N ↔ 3×N brings back the arrangement that layout had.
 //   ui.stressCfg / ui.mcCfg — the Stress test card's and the Monte Carlo card's settings (every choice and number in the card, and its Hide box); null = the card's defaults. Saved, restored on load and reset like the rest of `state.ui` (display/stressPanel.js, display/mcPanel.js).
+//   ui.marketPaths      — the plan's saved market scenarios: full-horizon yearly stock returns and inflation (MarketPath, compute/marketScenario.js). Plan-independent, so they are carried across plan scenarios A/B/C like the rest of `ui`; written only by a user click (a chat card's "Add to Stress test card", compute/scenarioApi.js), sanitized on load.
 //   ui.cardOrder        — the order of those two cards under the chart grid, ['stressPanel','mcPanel'] or the reverse (null = the default order; display/cardStack.js).
 //   ui.chartYMax[key]   — each chart's Y-axis maximum (null = fit automatically on the next draw). Saved and restored with the plan; the Same-scale buttons and each chart's
 //                         Rescale button change it (see chartHelpers.js).
@@ -279,7 +280,7 @@ function defaultState(){
     guardrail:{enabled:false, discPct:30, iwrMode:'initial', targetWR:4, band:20, cutPct:10, prosperity:false, raisePct:10, sunsetYears:15, excludeLtc:false},   // Spending guardrails (Expenses panel): off by default. discPct = % of living expenses that can be cut (discretionary); the rest is essential and never cut. Each year the withdrawal rate (portfolio-funded spending / invested balance at the start of the year) is compared with the initial rate (iwrMode 'initial' = the first year without wages, 'target' = targetWR %). Above IWR×(1+band%) the discretionary spending of the NEXT year is cut by cutPct%; with prosperity on, below IWR×(1−band%) it is raised by raisePct% (never above the plan's amount). No change in the last sunsetYears years. excludeLtc: leave the Long Term Care cost out of the rate (see projection.js)
     stateTax:{enabled:false, state:'CA'},   // State income tax (Tax & Optimizations panel): 'CA' or 'WA'; off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
     futureTax:{enabled:false, niitStartYear:THIS_YEAR+10, niitSingle:NIIT_THRESH_SGL, niitMarried:NIIT_THRESH_MFJ},
-    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), chartHidden:defaultChartHidden(), gridCols:GRID_COLS_DEFAULT, chartPos:defaultChartPos(GRID_COLS_DEFAULT), chartPosAlt:defaultChartPos(otherGridCols(GRID_COLS_DEFAULT)), chartYMax:Object.fromEntries(CHART_KEYS.map(k=>[k,null])), stressCfg:null, mcCfg:null, cardOrder:null, assumpHide:{...ASSUMP_HIDE_DEFAULT}, hidePerson:null}   // display-only, but saved/restored/reset with the plan (see above)
+    ui:{globalNotes:'', incomeOrder:INCOME_CARD_KEYS.slice(), chartHidden:defaultChartHidden(), gridCols:GRID_COLS_DEFAULT, chartPos:defaultChartPos(GRID_COLS_DEFAULT), chartPosAlt:defaultChartPos(otherGridCols(GRID_COLS_DEFAULT)), chartYMax:Object.fromEntries(CHART_KEYS.map(k=>[k,null])), stressCfg:null, mcCfg:null, marketPaths:[], cardOrder:null, assumpHide:{...ASSUMP_HIDE_DEFAULT}, hidePerson:null}   // display-only, but saved/restored/reset with the plan (see above)
   };
 }
 // Saves written before Hide was persisted: a card with no `hidden` flag gets what the app used to show for it (collapsed
@@ -331,6 +332,8 @@ function hydrateState(loaded){
   }
   fillLegacyHide(loaded);
   const out=merge(loaded, base);
+  // Saved market scenarios (ui.marketPaths): keep only well-formed ones (compute/marketScenario.js msValidate); a file edited by hand or written by another tool cannot smuggle in a bad vector.
+  if(typeof msSanitizeList==='function'&&out.ui) out.ui=Object.assign({},out.ui,{marketPaths:msSanitizeList(out.ui.marketPaths)});
   // Saves from before the Expenses / Tax & Optimizations features became cards: their per-feature Hide flags are the defaults (all hidden); General keeps its own Hide.
   if(loaded && !(loaded.ui && loaded.ui.assumpHide && loaded.ui.assumpHide.general!==undefined)) out.ui={...out.ui, assumpHide:{...ASSUMP_HIDE_DEFAULT, general:false}};
   // Saves from before the 2×N / 3×N toggle had a fixed 3-column layout: keep that layout (and the arrangement they saved) rather than re-flowing it into 2 columns.

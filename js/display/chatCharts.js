@@ -172,9 +172,25 @@ function chatOpenScenario(run,show){
   if(show&&typeof toggleChat==='function') toggleChat(false);
 }
 
+// A market scenario defined in the chat (compute/scenarioApi.js define_market_scenario): what the model asked for, as the engine read it, and three user-only actions.
+// Show in main charts = the D view (a replay on a copy; the plan is not changed). Add to Stress test card = msSave into state.ui.marketPaths (saved with the plan).
+function chatRenderMarketCard(desc,box){
+  const p=desc.path, d=desc.describe, el=chatCardShell('Market scenario: '+p.label,'cc-market-card'), body=el.querySelector('.cc-body');
+  const inf=d.inflation&&d.inflation.peakPct!=null?'inflation averages '+d.inflation.avgPct+'%, peaks at '+d.inflation.peakPct+'%':'the plan\'s own inflation';
+  const rows=p.returns.slice(0,12).map((r,j)=>'<tr><td>'+(j+1)+'</td><td>'+(Math.round(r*1000)/10)+'%</td><td>'+(p.inflation?Math.round(p.inflation[j]*1000)/10+'%':'plan')+'</td></tr>').join('');
+  body.innerHTML='<p class="cc-market">'+ccEsc(d.years)+' yearly values starting '+ccEsc(d.startsAt)+'; stocks '+ccEsc(d.compoundedReturnPct)+'% compounded (worst year '+ccEsc(d.worstYearPct)+'%); '+ccEsc(inf)+'; '+ccEsc(d.equityShare)+'% of each portfolio / IRA takes the stock return.'+
+    (d.afterTheList?' After the list: '+ccEsc(JSON.stringify(d.afterTheList))+'.':'')+'</p><details><summary>Year by year (nominal)</summary><table class="cc-kpi"><thead><tr><th>#</th><th>Stocks</th><th>Inflation</th></tr></thead><tbody>'+rows+(p.returns.length>12?'<tr><td colspan="3">… '+(p.returns.length-12)+' more</td></tr>':'')+'</tbody></table></details>';
+  const bar=document.createElement('div'); bar.className='cc-acts';
+  bar.appendChild(chatBtn('Show in main charts','Replay this path in all the charts (the B view); your plan is not changed. Back to plan returns.',()=>{ const ok=typeof mcLoadMarketPath==='function'&&mcLoadMarketPath(p.id); chatShowStatus(ok?'Showing this scenario in the main charts (D view). Use Back to plan to return.':'Could not show it in the charts.',!ok); if(ok&&typeof toggleChat==='function') toggleChat(false); }));
+  bar.appendChild(chatBtn('Add to Stress test card','Save this path in your plan (it appears in the Stress test card and is saved with the plan file)',()=>{ try{ stAddPath(p); chatShowStatus('Saved in the plan. It is now a row of the Stress test card.'); }catch(e){ chatShowStatus(String(e.message||e),true); } }));
+  bar.appendChild(chatBtn('Copy JSON','Copy the scenario as JSON (the same form the app saves and the tools accept)',()=>{ const t=JSON.stringify(p,null,2); if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>chatShowStatus('Scenario copied.'),()=>window.prompt('Copy the scenario:',t)); else window.prompt('Copy the scenario:',t); }));
+  body.appendChild(bar); box.appendChild(el);
+  const card={el,chart:null,data:{title:'market'},planKey:specPlanKey(),badge:el.querySelector('.cc-badge')}; chatCards.push(card); return card;
+}
+
 // ── public ──
 function chatRenderCards(cards,box){
-  (cards||[]).forEach(c=>{ try{ if(c.type==='summary') chatRenderSummaryCard(c,box); else if(c.type==='chart') chatRenderChartCard(c,box); }catch(e){ console.error('chat card',e); } });
+  (cards||[]).forEach(c=>{ try{ if(c.type==='summary') chatRenderSummaryCard(c,box); else if(c.type==='chart') chatRenderChartCard(c,box); else if(c.type==='market') chatRenderMarketCard(c,box); }catch(e){ console.error('chat card',e); } });
   if(box) box.scrollTop=box.scrollHeight;
 }
 function chatCardsClear(){ chatCloseZoom(); chatCards.forEach(c=>{ try{ c.chart&&c.chart.destroy(); }catch(e){} }); chatCards=[]; }

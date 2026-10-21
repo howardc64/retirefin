@@ -121,13 +121,14 @@ css/
 tests/
   check.js  snapshot.js  compare.js  baseline.json  README.md   (Node regression harness; not loaded by the app)
   chart_big_test.js   (enlarged-chart layout model: footprint, displacement, row compaction, 2×N round trip, save/load)
+  market/       market_test.js  market_ui_test.js   (market path model, tool API, MCP shapes; chat tool → D view → Stress card, §13)
   mc/           mc_harness.js  mc_test.js  mc_inherit_test.js  mc_replay_test.js  mc_ui_test.js  mc_runplan.js  mc_sweep.js  mc_infl_cmp.js  stress_test.js  stress_mc_test.js  guardrail_test.js  guardrail_ui_test.js  panic_test.js  medshock_test.js  medshock_ui_test.js  xlsx_trial_test.js  xlsx_guardrail_test.js   (Monte Carlo tests, §10; stress tests, §11; guardrails §4.6a; panic §10.6; medical shock §4.6b)
   xlsx_e2e/     write_workbook.js  compare_recalc.py  README.md   (Excel export recalculated in LibreOffice, §6.11)
 docs/           MONTE_CARLO.md  (what the Monte Carlo add-on changed, how it works, how to test it)  + design spec and slide decks
 js/
   core/         constants.js  helpers.js  markdown.js  state.js
   compute/      socialSecurityCalc.js  rmd.js  tax.js  dates.js  ageRange.js
-                projection.js  whatIf.js  donorTraj.js  monteCarlo.js  stressTest.js  scenarioSpec.js
+                projection.js  whatIf.js  donorTraj.js  monteCarlo.js  stressTest.js  marketScenario.js  scenarioSpec.js  scenarioApi.js
   input/        controls.js  household.js  assumptions.js  loadMenu.js
                 wage.js  socialSecurity.js  pension.js  rental.js
                 brokerage.js  realEstate.js  ira.js  roth.js  inheritance.js  liveLink.js  incomeForms.js
@@ -197,6 +198,7 @@ state = {
     gridCols: 2 | 3                      // the chart grid's column count, set by the **Grid: 2×N / 3×N** toggle right of the Same-scale buttons (§6.1a). Default 3 (`GRID_COLS_DEFAULT`). Older saves with no `gridCols` load as 3, keeping the fixed 3-column layout they were saved with
     chartPos: { <chart key>: {r, c, s?} }   // `s:2` (optional, 3×N only) = the chart is enlarged to a 2×2 block anchored at (r, c), column ≤ 1 (§6.1a); `hydrateState` copies it back after `merge()` (which keeps only the default keys). Each panel's grid row / column in the grid that is ON SCREEN (0-based, `gridCols` columns), moved by dragging its title bar; empty cells stay blank. Defaults per grid size in `CHART_DEFAULT_POS_BY_COLS`; an invalid / duplicate / missing position is repaired to the first free cell on load (`normalizeChartPos(p, cols)`)
     chartPosAlt: { <chart key>: {r, c, s?} }   // the same, for the OTHER grid size, so toggling 2×N ↔ 3×N brings back the arrangement that size had (`toggleGridCols` swaps `chartPos` and `chartPosAlt`)
+    marketPaths: MarketPath[]   // saved market scenarios: full-horizon yearly stock returns and inflation (§13); plan-independent, carried across plan scenarios, written only by a user click, sanitized on load by `msSanitizeList`
     stressCfg: object | null, mcCfg: object | null   // the Stress test / Monte Carlo cards' settings and Hide boxes (null = defaults); cardOrder: ['stressPanel','mcPanel'] | reverse | null
     chartYMax: { [chartKey]: number | null }   // each chart's locked Y-axis maximum (null = fit on the next draw), saved/restored with the plan. Written by `captureChartYMax()` after every render, read by `restoreChartYMax()` in `renderAll()`. The **Same scale** buttons (§6.1) and each **Rescale** button change it
   }
@@ -1135,7 +1137,7 @@ flowchart LR
 - **Script load order** (dependency-driven — a file may only use a name defined by a file *earlier* in
   this list):
   `core/constants → core/helpers → core/markdown → compute/socialSecurityCalc → compute/rmd → compute/tax →
-  core/state → compute/dates → compute/ageRange → compute/projection → compute/whatIf → compute/donorTraj → compute/monteCarlo → compute/stressTest →
+  core/state → compute/dates → compute/ageRange → compute/projection → compute/whatIf → compute/donorTraj → compute/monteCarlo → compute/stressTest → compute/marketScenario → compute/scenarioSpec → compute/scenarioApi →
   input/controls → input/household → input/assumptions → input/wage → input/socialSecurity →
   input/pension → input/rental → input/brokerage → input/ira → input/roth → input/incomeForms →
   input/loadMenu →
@@ -1258,6 +1260,7 @@ stateDiagram-v2
   state "C  Monte Carlo success" as C
   state "D  Stress test" as D
   [*] --> A
+  note right of A: Internal view ids; the buttons show other letters (see MC_LET)
   A --> B: load a failed trial
   A --> C: C key, load a success
   A --> D: D key or D button
@@ -1276,7 +1279,7 @@ stateDiagram-v2
 - `mcLoadTrial(trial)` / `mcLoadSuccess(trial)` call `mcReplayTrial(cfg, i)` (same seed and trial number give the same draws; nothing is stored) and keep it in `mcTrialView = {planProj, key, view, cur, b, c, …}`: `planProj` = A (the plan as entered), `b` = the failed trial loaded from the study row, `c` = the successful run of the C button. `view` is `'A' | 'B' | 'C'`; `cur` is whichever of B / C was shown last. `mcLoadTrial` is the single entry for "load trial #n": a trial that failed becomes B, a trial that stayed funded (`results[n].failK<0`) is handed to `mcLoadSuccess` and becomes C (a view that does not exist yet is created with `b:null`). The fields of the shown trial (`trial, proj, state, cap, pos, cause`) are also copied onto the view (`mcUseTrial`), so code that reads `mcTrialView.state` / `.cap` works for both.
 - `recompute()` (`app.js`): if a trial is loaded and `mcTrialStillValid()` is false (the plan was edited) it calls `mcTrialClear()`; otherwise `lastProjection = mcTrialShown()` (A → `planProj`, else the trial's `proj`). A new run, editing the plan or **Back to plan** (`mcTrialExit`) ends the view.
 - `mcFitBoth()` fits every chart's Y scale to the largest of A, B and C (a dry pass: `window.dryPass`); `mcCaptureGhosts()` keeps A's lines for the `abGhost` plugin; `chartHelpers.js` never saves a trial's scales into the plan. Rescale refits one chart to what is showing.
-- `mcOkTrials()` lists the successful trials (`failK<0`, trial order); `mcCPress()` / key **C** → next, **Shift+C** → previous (`mcCStep`, wraps); key **B** (`mcAbToggle`) flips A and the last of B / C. `mcTrialStep(±1)` (◀ ▶) steps through failed trials while B is on and through successful runs while C is on (greyed out when none).
+- `mcOkTrials()` lists the successful trials (`failK<0`, trial order); `mcCPress()` / key **C** → next, **Shift+C** → previous (`mcCStep`, wraps); key **F** shows it (user-facing letters; internal id `C`). The button letters are remapped in `mcPanel.js` (`MC_LET` internal→shown, `MC_KEY` shown→internal): **A** Plan, **B** stress test (internal `D`), **C** stress + MC failure (`F`), **D** stress + MC success (`E`), **E** MC failure (`B`), **F** MC success (`C`). Internal ids, `mcTrialView.view/cur`, saved code and tests keep the old ids. Keys follow the shown letters (A = plan, `mcBPress` / `mcBStep` for E). `mcTrialStep(±1)` (◀ ▶) steps through failed trials while B is on and through successful runs while C is on (greyed out when none).
 - The banner (`mcShowBanner`, `#mcTrialBanner`, inside `.chart-sticky`) is one layout for B and C: row 1 is the A · Plan / B · Failure #N / C · Success switch, ◀ ▶ and Back to plan; below it is a message block that always has room for two lines, including how many other failed trials share this one's main cause. It stays at the top of the chart column.
 - **D (stress tests).** `mcTrialView` also holds `d` (`{trial:-1, proj, state, cap, idx, id, label}`) next to `b` / `c`; `mcUseTrial(v,'D')` copies its fields onto the view like B / C, and `cur` is `'B'|'C'|'D'`. `mcLoadStress(idx)` (D click, ◀ ▶ while D is on, the table's *Show in charts*) calls `stEnsureFresh()` (runs the stress tests when there are no results for the plan as it is now) then `stReplay(cfg, id)` (compute/stressTest.js: the scenario's projection with rates recorded, a private copy of the plan, the scenario's inflation path as `cap.infl`, `cap.meanInfl`, `cap.scen`, `cap.start`, `cap.measure`) and loads it as view `D`. It works without Monte Carlo results (B / C are then disabled). `mcDList()` = `stResults.results`; `mcDStep(±1)` wraps; key **D** / **Shift+D**. `mcViewProjs(v)` lists A plus every loaded view for `mcFitBoth` and the Market return chart's scale. Button labels: **A · Plan, B · Monte Carlo Failure, C · Monte Carlo Success, D · Stress Test**; the card's name is *Stress test card*. The Excel export of D is named `retirement-plan-stress-test.xlsx` (`xlsxTrialContext().label`).
 
@@ -1428,3 +1431,74 @@ Provider-neutral history (`user`, `assistant` + `calls`, `tool` + `results`) map
 
 ### 12.5 Tests
 `node tests/chat/spec_test.js` (engine layer, both samples: base equals `computeProjection()`, live state deep-equal after runs, every lever changes results or is flagged, validation, sweep, chart data), `node tests/chat/tools_test.js` (dispatcher), and `node tests/chat/e2e_browser.js` (real Chromium with a scripted Gemini and Anthropic API; needs `playwright-core` and `chart.js` installed in `tests/chat/`).
+
+
+## 13. Market scenarios and the tool API (add-on)
+
+One data model for "what if the market and inflation did *this*, year by year", one hook for the engine, and one transport-neutral tool surface. The chat uses it today; an MCP server, or any other host, can drive the same functions tomorrow without touching the engine or the display.
+
+```mermaid
+flowchart LR
+  subgraph HOSTS["hosts (transports)"]
+    chat["in-page chat<br/>display/chat.js"]
+    mcp["MCP server (future)<br/>tools/list, tools/call, resources"]
+  end
+  subgraph API["compute/scenarioApi.js (no DOM)"]
+    reg["apiRegister / apiList / apiCall<br/>apiToMcpResult, apiResources"]
+    tools["run_scenarios, sweep, show_chart, get_rows<br/>define_market_scenario, list_market_scenarios,<br/>run_market_scenarios, show_market_scenario_in_charts"]
+  end
+  subgraph MS["compute/marketScenario.js (no DOM)"]
+    val["msValidate"] --> res["msResolve: dense per-row vectors"] --> hook["msHook + msInflation"]
+  end
+  eng["withEngineHooks (projection.js)<br/>computeProjection()"]
+  chat --> reg
+  mcp -.-> reg
+  reg --> tools --> val
+  hook --> eng
+  stress["stressTest.js"] --> MS
+  spec["scenarioSpec.js<br/>marketStress lever"] --> MS
+  tools -->|"cards, effects"| chat
+  chat -->|"showMarketPath"| dview["mcLoadMarketPath: D view"]
+```
+
+### 13.1 `compute/marketScenario.js` — the MarketPath
+```js
+MarketPath = { schema:1, id, label, note, source:'builtin'|'chat'|'user'|'mcp',
+  from:{ mode:'retire'|'now'|'year', year? },          // where returns[0] lands
+  returns:[ nominal stock return per year, fraction ],   // 1..60 values
+  inflation:[ nominal inflation per year ] | null,        // same length, or null = the plan's own rate
+  tail:{ returnPct, inflationPct },                       // every LATER year to the end of the plan (null = the plan's own rate)
+  equityShare: 0..100 }                                   // % of each non-property asset that takes the return
+```
+| Export | Contract |
+|---|---|
+| `msValidate(raw, opts)` | → `{errors, path}`. Takes the stored form **or** the friendly form a model or API client sends (`returnsPct`, `inflationPct`, `startsAt`, `startYear`, `afterReturnPct`, `afterInflationPct`; percent). Every problem is a sentence the caller can act on. |
+| `msResolve(path, ctx)` | **Full-horizon vectors for the whole projection** (`MS_ROWS` = 120 rows): `eq[k]` (NaN = the plan's own rate), `pi[k]` (the path's inflation, the tail's, or the plan's), price level `cpi[k]`, `start`, `window`. This is the only place that decides which year gets which value. |
+| `msHook(res)` / `msInflation(res)` | The engine hook (`MC_HOOK`, `gk()` in projection.js) and inflation object (`MC_INFL`). Same arithmetic the stress tests always used: a nominal return `r` in a year of inflation `π` enters as the real rate `(1+r)/(1+π)−1`; `fixed` / `custom` growth are nominal, `inflation ± x` keeps its real rate; property is never hit. |
+| `msRun(path, {record})` | The plan under a path (or as entered with `null`) on a private clone. → `{proj, m, res, start}`. |
+| `msFromWindow`, `msToStress` | Adapters from / to the older window form `{eq, infl}` + start row used by `stRun` and `mcRunTrial`'s `stress` argument. |
+| registry: `msGet`, `msList`, `msSessionAdd`, `msSave`, `msRemove`, `msSanitizeList` | **Session** paths (a model's or MCP client's definitions) live in memory (`msSession`). **Saved** paths live in `state.ui.marketPaths`; `msSave` is called only by a user click (a card button). `hydrateState` drops malformed or out-of-range saved paths. |
+
+`withEngineHooks(hook, infl, record, fn)` (projection.js) is the one way to run the engine under an overlay; it always restores `MC_HOOK`, `MC_INFL` and `REC_RATES`. `stRun`, `msRun` and the `marketStress` lever use it. The Monte Carlo trial runner still sets its own hooks (it combines random draws with the overlay, §10); it accepts a stress overlay built from a path with `msToStress`.
+
+### 13.2 `compute/scenarioApi.js` — the tool registry (MCP-shaped)
+| Export | Contract |
+|---|---|
+| `apiRegister({name, description, inputSchema, handler(args, host)})` | A handler returns `{isError, response, cards?, effects?}`: `response` is the compact JSON the model sees; `cards` are display descriptors for a host that can draw them; `effects` are requests to change what is on screen (`{type:'showMarketPath', id}`). A headless host ignores cards and effects it does not support. |
+| `apiList('neutral' \| 'mcp')` | Declarations: `{name, description, parameters}` for the chat providers, `{name, description, inputSchema}` exactly as an MCP `tools/list` entry. |
+| `apiCall(name, args, host)` / `apiToMcpResult(r)` | Never throws (a failure is `{isError:true, response:{error}}`); the second turns a result into an MCP `tools/call` result. `host.source` (`'chat'`, `'mcp'`) is stamped on every scenario a call defines. |
+| `apiResources()` / `apiReadResource(uri)` | Read-only context: `planner://plan/summary`, `planner://market-scenarios`, `planner://levers`. |
+
+Tools: the four lever tools (`run_scenarios`, `sweep`, `show_chart`, `get_rows`, moved here from `display/chatTools.js` unchanged in behaviour) and four market tools. **`define_market_scenario`** takes `returnsPct` (one nominal stock return per year), optional `inflationPct`, `startsAt` / `startYear`, `afterReturnPct` / `afterInflationPct` (carry a long-run rate to the end of the plan), `equityShare` and `showInCharts`; it validates, keeps the scenario in memory, runs it against the plan as entered, and returns the KPIs, the first years *as placed on the plan* (so the model can check it was read correctly) and, with `showInCharts`, a `showMarketPath` effect. `list_market_scenarios`, `run_market_scenarios` (presets `lost`, `stag`, `y1966`, saved and session ids) and `show_market_scenario_in_charts` complete the set.
+**Rules:** nothing a handler does writes `state`; every run is on a private clone; the run store (`apiRuns`) is memory only. A model can *ask* to show a scenario; the screen change is applied by the host (`chatApplyEffects` in `display/chatTools.js` → `mcLoadMarketPath`), and the plan is never changed (the D view is a replay with **Back to plan**). Saving into the plan is a user click only.
+
+### 13.3 Display
+- **D view generalised.** `mcDList()` = the Stress card's results, then every other known market scenario (saved, or defined in the chat). `mcLoadMarketPath(id)` / `mcShowD(id, idx, label)` (mcPanel.js) replay any of them through `stReplay` with no stress-test run needed; the D key and ◀ ▶ step through the list. The Market return and Inflation charts show the scenario's yearly values (recorded rates, `cap.infl`).
+- **Chat card `market`** (`chatRenderMarketCard`, chatCharts.js): what was asked, as the engine read it, with **Show in main charts**, **Add to Stress test card** (`stAddPath` → `msSave`) and **Copy JSON**.
+- **Stress test card:** a *Saved market scenarios* group (`cfg.custom.enabled`, default on) lists `state.ui.marketPaths` with Remove; each saved path is a row of the table (`stPathScenario`), placed by its own `from` and `equityShare` (`stPlace`), and a row of the combined Monte Carlo run with its own start and share.
+
+### 13.4 Adding an MCP server (not built)
+A server needs no engine or display changes: load `marketScenario.js`, `scenarioSpec.js`, `scenarioApi.js` (and their dependencies) in a Node `vm` as `tests/chat/harness.js` does, answer `tools/list` with `apiList('mcp')`, `tools/call` with `apiToMcpResult(apiCall(name, args, {source:'mcp'}))`, `resources/read` with `apiReadResource`. To push a scenario to a live page, add a transport that calls `msSessionAdd` and then the `showMarketPath` effect. Not done: authentication, a transport, persistence of session scenarios, and splitting the A–F trial-view buttons in `mcPanel.js` into per-module registrations (the D list is the first step: it is no longer tied to the Stress card's results).
+
+### 13.5 Tests
+`node tests/market/market_test.js` (validation, dense full-horizon resolution and tail, row-for-row parity with the stress-test arithmetic, hooks restored, every tool, MCP shapes, saving, hydrate sanitising, the `marketStress` lever) and `node tests/market/market_ui_test.js` (chat tool → effect → D view → banner; chat cards; Add to Stress test card; the table's Show in charts).

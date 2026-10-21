@@ -279,19 +279,41 @@ function mcCStep(d){   // next / previous successful trial (wraps around)
 function mcCPress(){ const v=mcTrialView; if(!v) return; if(v.view==='C'||!v.c) mcCStep(1); else mcAbSet('C'); }
 // D: stress tests (display/stressPanel.js). The list is the card's scenarios in table order; each D click shows the next one (key D; Shift+D goes back; wraps).
 // Pressing D with no stress results for this plan runs the stress tests with the card's current settings first.
-function mcDList(){ return (typeof stResults!=='undefined'&&stResults)?stResults.results:[]; }
+// The D list: the stress card's results (table order), then every other market scenario the app knows (saved in the plan, or defined in the chat), so a scenario a model or the user defined
+// can be shown and stepped to without running the card. Each entry {id,label}; the card's results come first so the table's "Show in charts" indexes stay valid.
+function mcDList(){
+  const out=[], seen={};
+  ((typeof stResults!=='undefined'&&stResults)?stResults.results:[]).forEach(r=>{ out.push(r); seen[r.id]=1; });
+  if(typeof msList==='function') msList().forEach(p=>{ if(!seen[p.id]){ out.push({id:p.id,label:p.label,path:true}); seen[p.id]=1; } });
+  return out;
+}
 function mcLoadStress(idx){
   if(typeof stEnsureFresh!=='function'||mcRun) return;
-  stEnsureFresh(); const L=mcDList(); if(!L.length) return;
+  stEnsureFresh();   // run the stress tests with the card's settings when there are no results for the plan as it is now
+  const L=mcDList(); if(!L.length) return;
   idx=((idx%L.length)+L.length)%L.length;
-  const rp=stReplay(stResults.cfg,L[idx].id); if(!rp) return;
-  const t={trial:-1, proj:rp.proj, state:rp.state, cap:rp, pos:-1, cause:null, idx, id:L[idx].id, label:L[idx].label};
+  mcShowD(L[idx].id, idx, L[idx].label);
+}
+// Load one market scenario (by id) as the D view: a replay on a private copy of the plan, with its yearly returns and inflation in the Market return / Inflation charts.
+// Works with no stress-test run: a path is placed by its own `from`, the presets by the Stress card's settings. → true when shown
+function mcLoadMarketPath(id){
+  if(typeof mcRun!=='undefined'&&mcRun) return false;
+  const L=mcDList(); let idx=L.findIndex(x=>x.id===id);
+  if(idx<0){ const p=apiPathById(id); if(!p) return false; msSessionAdd(p); idx=mcDList().findIndex(x=>x.id===id); }
+  const e=mcDList()[idx]; return mcShowD(e.id, idx, e.label);
+}
+function mcShowD(id, idx, label){
+  const cfg=(typeof stResults!=='undefined'&&stResults)?stResults.cfg:stDefaultCfg();
+  const known=stScenarios(cfg).some(s=>s.id===id), p=known?null:apiPathById(id);
+  const rp=stReplay(cfg,id,p?[stPathScenario(p)]:[]); if(!rp) return false;
+  const t={trial:-1, proj:rp.proj, state:rp.state, cap:rp, pos:-1, cause:null, idx, id, label};
   const old=mcTrialView, planProj=(old&&old.planProj)||computeProjection();
   if(old){ old.d=t; mcUseTrial(old,'D'); old.view='D'; }
   else mcTrialView=Object.assign({planProj, key:mcPlanKey(), view:'D', cur:'D', b:null, c:null, d:t}, t);
   mcFitBoth(); mcCaptureGhosts();
   lastProjection=mcTrialView.proj; renderCharts(); mcShowBanner();
   const bn=mcEl('mcTrialBanner'); if(bn&&bn.scrollIntoView&&!old) bn.scrollIntoView({behavior:'smooth',block:'start'});
+  return true;
 }
 function mcDStep(d){ const v=mcTrialView, n=mcDList().length||3; mcLoadStress(v&&v.d?v.d.idx+d:(d>0?0:n-1)); }
 function mcDPress(){ const v=mcTrialView; if(!v||v.view==='D'||!v.d) mcDStep(1); else mcAbSet('D'); }
@@ -356,23 +378,32 @@ function mcAbSet(view){
   v.view=view; lastProjection=mcTrialShown(); renderCharts(); mcShowBanner(true);
 }
 function mcAbToggle(){ if(mcTrialView) mcAbSet(mcTrialView.view==='A'?(mcTrialView.cur||'B'):'A'); }   // B key: plan <-> the trial last shown (B or C)
+// The buttons' letters are not the internal view ids (B = failure, C = success, D = stress test, E / F = stress + MC success / failure, which tests and saved code still use).
+// Shown to the user: A Plan, B Stress test, C Stress + MC failure, D Stress + MC success, E Monte Carlo failure, F Monte Carlo success.
+const MC_LET={A:'A',D:'B',F:'C',E:'D',B:'E',C:'F'}, MC_KEY={A:'A',B:'D',C:'F',D:'E',E:'B',F:'C'};   // internal view id -> shown letter, and back (the keyboard)
+function mcBStep(d){   // Monte Carlo failures (internal view B): the next / previous failed trial
+  const L=mcResults&&mcResults.R.list||[]; if(!mcTrialView||!L.length) return;
+  const bp=mcTrialView.b?mcTrialView.b.pos:mcTrialView.pos, i=bp<0?(d>0?0:L.length-1):Math.max(0,Math.min(L.length-1,bp+d));
+  mcLoadTrial(L[i].trial);
+}
+function mcBPress(){ const v=mcTrialView; if(!v) return; if(v.view==='B'||!v.b) mcBStep(1); else mcAbSet('B'); }
 document.addEventListener('keydown',e=>{
-  if(!mcTrialView||e.ctrlKey||e.metaKey||e.altKey||!/^[bBcCdDeEfF]$/.test(e.key)) return;
+  if(!mcTrialView||e.ctrlKey||e.metaKey||e.altKey||!/^[aAbBcCdDeEfF]$/.test(e.key)) return;
   const t=e.target, tag=t&&t.tagName; if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable)) return;
   e.preventDefault();
-  if(e.key==='d'||e.key==='D'){ if(e.shiftKey) mcDStep(-1); else mcDPress(); }
-  else if(e.key==='e'||e.key==='E'||e.key==='f'||e.key==='F'){ const k=e.key.toUpperCase(); if(e.shiftKey) mcSmStep(k,-1); else mcSmPress(k); }
-  else if(e.key==='b'||e.key==='B') mcAbToggle();
-  else if(e.shiftKey&&mcTrialView.view==='C') mcCStep(-1);   // Shift+C: previous successful run
+  const k=MC_KEY[e.key.toUpperCase()];   // the internal view the pressed letter stands for
+  if(k==='A') mcAbSet('A');
+  else if(k==='D'){ if(e.shiftKey) mcDStep(-1); else mcDPress(); }
+  else if(k==='E'||k==='F'){ if(e.shiftKey) mcSmStep(k,-1); else mcSmPress(k); }
+  else if(k==='B'){ if(e.shiftKey) mcBStep(-1); else mcBPress(); }
+  else if(e.shiftKey&&mcTrialView.view==='C') mcCStep(-1);   // Shift+F: previous successful Monte Carlo run
   else mcCPress();
 });
 function mcTrialStep(d){   // previous / next trial of the kind on screen: a failed trial while B is on, a successful run while C is on, a stress test while D is on
   if(mcTrialView&&mcTrialView.cur==='D'){ mcDStep(d); return; }
   if(mcTrialView&&(mcTrialView.cur==='E'||mcTrialView.cur==='F')){ mcSmStep(mcTrialView.cur,d); return; }
   if(mcTrialView&&mcTrialView.cur==='C'){ mcCStep(d); return; }
-  const L=mcResults&&mcResults.R.list||[]; if(!mcTrialView||!L.length) return;
-  const bp=mcTrialView.b?mcTrialView.b.pos:mcTrialView.pos, i=bp<0?(d>0?0:L.length-1):Math.max(0,Math.min(L.length-1,bp+d));
-  mcLoadTrial(L[i].trial);
+  mcBStep(d);
 }
 function mcShowBanner(keep){
   const v=mcTrialView, b=mcEl('mcTrialBanner'); if(!v||!b) return;
@@ -383,11 +414,11 @@ function mcShowBanner(keep){
   const verdict=m.failK>=0?'<b>money runs out at age '+Math.round(m.failAge)+'</b>'+(v.cause?' ('+v.cause+')':''):'<b>stays funded</b> to the end';
   if(isD){
     const rp=v.cap, sc=rp.scen, st=mcDList().length;
-    head='Stress test <b>'+v.d.label+'</b> ('+(v.d.idx+1)+' of '+st+'): '+verdict+'. D is a replay, not your plan; the dashed grey lines are A.';
+    head='Stress test <b>'+v.d.label+'</b> ('+(v.d.idx+1)+' of '+st+'): '+verdict+'. '+MC_LET.D+' is a replay, not your plan; the dashed grey lines are A.';
     draws.push('shock starts at age '+(rp.proj.rows[0].age0+rp.start).toFixed(0)+' · '+sc.eq.length+' years · stock return '+Math.round((sc.eq.reduce((a,x)=>a*(1+x),1)-1)*100)+'% compounded'+(sc.infl?' · inflation '+Math.round(sc.infl[0]*1000)/10+'% to '+Math.round(Math.max.apply(null,sc.infl)*1000)/10+'% peak':' · plan\'s inflation'));
   } else if(isSm){
     const sc=v.cap.scen, inf=v.cap.info, sm=v.sm;
-    head='Stress + Monte Carlo '+(v.cur==='E'?'success':'failure')+' <b>#'+(v.trial+1)+'</b> under <b>'+sm.label+'</b> ('+(sm.pos+1)+' of '+sm.n+'): '+verdict+'. '+v.cur+' is a replay, not your plan; the dashed grey lines are A.';
+    head='Stress + Monte Carlo '+(v.cur==='E'?'success':'failure')+' <b>#'+(v.trial+1)+'</b> under <b>'+sm.label+'</b> ('+(sm.pos+1)+' of '+sm.n+'): '+verdict+'. '+MC_LET[v.cur]+' is a replay, not your plan; the dashed grey lines are A.';
     draws.push('shock starts at age '+(v.proj.rows[0].age0+v.cap.start).toFixed(0)+' · '+sc.eq.length+' years · stock return '+Math.round((sc.eq.reduce((a,x)=>a*(1+x),1)-1)*100)+'% compounded'+(sc.infl?' · inflation '+Math.round(sc.infl[0]*1000)/10+'% to '+Math.round(Math.max.apply(null,sc.infl)*1000)/10+'% peak':''));
     if(cfg.mortality.enabled) draws.push('passes at '+inf.pass.slice(0,n).join(' / '));
     if(cfg.ltc.enabled) draws.push('care '+inf.ltcYears.slice(0,n).map(y=>y>0?y.toFixed(1)+' yr':'none').join(' / '));
@@ -402,17 +433,17 @@ function mcShowBanner(keep){
     if(cfg.inheritance.enabled&&m.inhN>0) draws.push('inheritance '+(m.inhShift===0?'on time':Math.abs(m.inhShift)+' yr '+(m.inhShift>0?'late':'early'))+', '+Math.round(m.inhRatio*100)+'% of planned');
     if(v.pos>=0){ const me=L[v.pos], same=L.filter(f=>f.cause===me.cause).length-1;
       similar=same>0?' <span title="Failed trials whose main cause is the same as this one ('+me.causeShort+')">'+same+' other failed trial'+(same>1?'s':'')+' share this cause ('+Math.round((same+1)/L.length*100)+'% of failures).</span>':' No other failed trial shares this cause.'; }
-    head='Monte Carlo '+(v.cur==='C'?'success':'failure')+' <b>#'+(v.trial+1)+'</b> of '+mcResults.S.N+': '+verdict+'. '+v.cur+' is a replay, not your plan; the dashed grey lines are A.'+similar;
+    head='Monte Carlo '+(v.cur==='C'?'success':'failure')+' <b>#'+(v.trial+1)+'</b> of '+mcResults.S.N+': '+verdict+'. '+MC_LET[v.cur]+' is a replay, not your plan; the dashed grey lines are A.'+similar;
   }
   const on=x=>v.view===x?' on':'';
-  const stepC=v.cur==='C', stepD=isD, stepN=isSm?mcSmList(v.cur).length:(stepD?(mcDList().length||3):(stepC?mcOkTrials().length:L.length)), stepWhat=isSm?(v.cur==='E'?'stress + Monte Carlo success (E)':'stress + Monte Carlo failure (F)'):(stepD?'stress test (D)':(stepC?'Monte Carlo success (C)':'Monte Carlo failure (B)'));   // ◀ ▶ step through whichever kind is on screen
-  b.innerHTML='<div class="mc-tb-top"><span class="mc-tb-title">Stress test card</span><span class="mc-ab" title="Flip the charts between the plan (A), a Monte Carlo failure you loaded (B), a Monte Carlo success (C), a stress test (D), and a Monte Carlo trial played under a stress test that stayed funded (E) or ran short (F). Keys: B flips plan / trial, C shows the next Monte Carlo success (Shift+C the previous), D shows the next stress test (Shift+D the previous), E / F the next stress + Monte Carlo success / failure (Shift goes back)">'+
+  const stepC=v.cur==='C', stepD=isD, stepN=isSm?mcSmList(v.cur).length:(stepD?(mcDList().length||3):(stepC?mcOkTrials().length:L.length)), stepWhat=isSm?(v.cur==='E'?'stress + Monte Carlo success (D)':'stress + Monte Carlo failure (C)'):(stepD?'stress test (B)':(stepC?'Monte Carlo success (F)':'Monte Carlo failure (E)'));   // ◀ ▶ step through whichever kind is on screen
+  b.innerHTML='<div class="mc-tb-top"><span class="mc-tb-title">Stress test card</span><span class="mc-ab" title="Flip the charts between the plan (A), a stress test (B), a Monte Carlo trial played under a stress test that ran short (C) or stayed funded (D), a Monte Carlo failure (E) and a Monte Carlo success (F). Keys: A the plan; B the next stress test (Shift+B the previous); C / D the next stress + Monte Carlo failure / success; E / F the next Monte Carlo failure / success (Shift goes back)">'+
     '<button type="button" class="mc-ab-btn'+on('A')+'" onclick="mcAbSet(\'A\')">A &middot; Plan</button>'+
-    '<button type="button" class="mc-ab-btn'+on('B')+'" onclick="mcAbSet(\'B\')"'+(v.b?'':' disabled')+' title="The Monte Carlo failure you loaded from the Monte Carlo card (Study one trial)">B &middot; Monte Carlo Failure</button>'+
-    '<button type="button" class="mc-ab-btn c'+on('C')+'" onclick="mcCPress()"'+(mcOkTrials().length?'':' disabled')+' title="A Monte Carlo trial that stayed funded to the end. Click again for the next one (key: C; Shift+C goes back)">C &middot; Monte Carlo Success</button>'+
-    '<button type="button" class="mc-ab-btn d'+on('D')+'" onclick="mcDPress()" title="The stress tests of the Stress tests card. Click again for the next one (key: D; Shift+D goes back)">D &middot; Stress Test</button>'+
-    '<button type="button" class="mc-ab-btn e'+on('E')+'" onclick="mcSmPress(\'E\')"'+(mcSmList('E').length?'':' disabled')+' title="A Monte Carlo trial played under a stress test that stayed funded to the end. Needs a run of Run stress tests + Monte Carlo. Click again for the next one (key: E; Shift+E goes back)">E &middot; Stress + Monte Carlo Success</button>'+
-    '<button type="button" class="mc-ab-btn f'+on('F')+'" onclick="mcSmPress(\'F\')"'+(mcSmList('F').length?'':' disabled')+' title="A Monte Carlo trial played under a stress test that ran out of money. Needs a run of Run stress tests + Monte Carlo. Click again for the next one (key: F; Shift+F goes back)">F &middot; Stress + Monte Carlo Failure</button></span>'+
+    '<button type="button" class="mc-ab-btn d'+on('D')+'" onclick="mcDPress()" title="The stress tests of the Stress tests card. Click again for the next one (key: B; Shift+B goes back)">B &middot; Stress Test</button>'+
+    '<button type="button" class="mc-ab-btn f'+on('F')+'" onclick="mcSmPress(\'F\')"'+(mcSmList('F').length?'':' disabled')+' title="A Monte Carlo trial played under a stress test that ran out of money. Needs a run of Run stress tests + Monte Carlo. Click again for the next one (key: C; Shift+C goes back)">C &middot; Stress + Monte Carlo Failure</button>'+
+    '<button type="button" class="mc-ab-btn e'+on('E')+'" onclick="mcSmPress(\'E\')"'+(mcSmList('E').length?'':' disabled')+' title="A Monte Carlo trial played under a stress test that stayed funded to the end. Needs a run of Run stress tests + Monte Carlo. Click again for the next one (key: D; Shift+D goes back)">D &middot; Stress + Monte Carlo Success</button>'+
+    '<button type="button" class="mc-ab-btn'+on('B')+'" onclick="mcBPress()"'+(v.b||L.length?'':' disabled')+' title="A Monte Carlo failure (loaded from the Monte Carlo card, Study one trial). Click again for the next one (key: E; Shift+E goes back)">E &middot; Monte Carlo Failure</button>'+
+    '<button type="button" class="mc-ab-btn c'+on('C')+'" onclick="mcCPress()"'+(mcOkTrials().length?'':' disabled')+' title="A Monte Carlo trial that stayed funded to the end. Click again for the next one (key: F; Shift+F goes back)">F &middot; Monte Carlo Success</button></span>'+
     '<span class="mc-tb-sp"></span>'+
     '<button type="button" class="btn" onclick="mcTrialStep(-1)" title="Previous '+stepWhat+'"'+(stepN?'':' disabled')+'>&#9664;</button><button type="button" class="btn" onclick="mcTrialStep(1)" title="Next '+stepWhat+'"'+(stepN?'':' disabled')+'>&#9654;</button>'+
     '<button type="button" class="btn btn-primary" onclick="mcTrialExit()">Back to plan</button></div>'+

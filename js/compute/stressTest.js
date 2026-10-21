@@ -33,6 +33,7 @@ const ST_DEFAULTS={
   lost:{enabled:true, actualInflation:false},                        // 2000–2009 actual returns; inflation stays the plan's unless actualInflation
   stag:{enabled:true, years:10, eqReturn:0, inflStart:6, inflEnd:11},// synthetic: flat nominal equities, inflation ramping inflStart → inflEnd (linear over `years`)
   y1966:{enabled:true},                                              // 1966–1981 actual returns and CPI
+  custom:{enabled:true},                                             // the plan's saved market paths (state.ui.marketPaths, compute/marketScenario.js): each is its own row, placed by its own `from`
   med:{enabled:false, person:0, age:80, years:3, cost:100000, orders:true}   // late-life medical shock (stMedRun): `cost` a year (today's $) for `years` years from `age` of person `person`; orders = also compare withdrawal orders
 };
 
@@ -56,7 +57,16 @@ function stScenarios(cfg){
     out.push({id:'y1966', label:'1966 retiree (actual '+H.from+'–'+(H.from+H.eq.length-1)+')', eq:pct(H.eq), infl:pct(H.cpi),
       note:'Actual S&P 500 total returns and CPI, '+H.eq.length+' years: nominal stocks roughly tripled while prices more than tripled, with the 1973–74 crash and double-digit inflation inside it.'});
   }
+  if(cfg.custom&&cfg.custom.enabled&&typeof msSaved==='function') msSaved().forEach(p=>out.push(stPathScenario(p)));
   return out;
+}
+// A market path in the stress card's scenario shape: {id,label,note,eq,infl} plus `path` (placed by its own `from`, with its own share and tail).
+function stPathScenario(p){ const d=msDescribe(p); return {id:p.id, label:p.label, eq:p.returns.slice(), infl:p.inflation?p.inflation.slice():null, path:p,
+  note:(p.note?p.note+' ':'')+d.years+' yearly values from '+d.startsAt+'; stocks '+d.compoundedReturnPct+'% compounded'+(d.inflation&&d.inflation.peakPct!=null?', inflation peaks at '+d.inflation.peakPct+'%':', plan\'s inflation')+'.'}; }
+// Where a scenario starts (row) and the share of each asset it hits: a path carries its own, the built-in scenarios use the card's.
+function stPlace(sc, start, cfg, baseProj){
+  if(sc.path) return {start:msStartRow(sc.path,{retireRow:stRetireRow(baseProj||stRun(null,0,cfg))}), share:(Number(sc.path.equityShare)||0)/100};
+  return {start, share:Math.max(0,Math.min(1,(Number(cfg.equityShare)||0)/100))};
 }
 
 // First row in which the household has stopped earning wages ("Day 1 of retirement"); 0 if the plan has no wages at all.
@@ -93,45 +103,46 @@ function stHook(scen, start, mean, infl, share){
 // Run the plan under one scenario (or, with scen=null, as entered). Returns the engine's projection plus a short summary.
 // `record` (a replay shown in the charts) also records each asset's yearly rate for the Market return chart; batch runs skip it.
 function stRun(scen, start, cfg, record){
-  const nRows=80;
   return withTempState(()=>{}, ()=>{
+    let hook=null, infl=null;
     if(scen){
-      const mean=state.inflation, infl=stInflation(scen,start,mean,nRows), share=Math.max(0,Math.min(1,(Number(cfg.equityShare)||0)/100));
-      MC_HOOK=stHook(scen,start,mean,infl,share); MC_INFL=infl;
+      const share=Math.max(0,Math.min(1,(Number(cfg.equityShare)||0)/100));
+      const res=scen.path?msResolve(scen.path,{startRow:start,mean:state.inflation}):msFromWindow(scen,start,share,state.inflation);   // full-horizon vectors (compute/marketScenario.js)
+      hook=msHook(res); infl=msInflation(res);
     }
-    REC_RATES=!!record;
-    try{ return computeProjection(); }
-    finally{ MC_HOOK=null; MC_INFL=null; REC_RATES=true; }
+    return withEngineHooks(hook,infl,record,()=>computeProjection());
   });
 }
 
 // One scenario in full, for the chart grid (the card's D button): {proj, state (a private copy of the plan), cap-like fields, measure, scen, start}.
-function stReplay(cfg, id){
-  const baseProj=stRun(null,0,cfg), start=stStartRow(cfg,baseProj), scen=stScenarios(cfg).find(s=>s.id===id);
+function stReplay(cfg, id, extra){
+  const baseProj=stRun(null,0,cfg), scen=stScenarios(cfg).concat(extra||[]).find(s=>s.id===id);
   if(!scen) return null;
+  const pl=stPlace(scen,stStartRow(cfg,baseProj),cfg,baseProj), start=pl.start;
   const proj=stRun(scen,start,cfg,true), measure=mcMeasure(proj,{pass:[0,0],ltcYears:[0,0]});
-  return {proj, state:JSON.parse(JSON.stringify(state)), infl:scen.infl?stInflation(scen,start,state.inflation,80):null, meanInfl:state.inflation, scen, start, measure, info:{pass:[0,0],ltcYears:[0,0],inh:{n:0,shift:null,orig:0,now:0}}};
+  return {proj, state:JSON.parse(JSON.stringify(state)), infl:(scen.infl||scen.path)?stInflation(scen,start,state.inflation,80):null, meanInfl:state.inflation, scen, start, measure, info:{pass:[0,0],ltcYears:[0,0],inh:{n:0,shift:null,orig:0,now:0}}};
 }
 
 // All scenarios against the plan as entered. Returns {start, startAge, base, results:[{id,label,note,m,...}]}.
 function stRunAll(cfg){
   const baseProj=stRun(null,0,cfg), start=stStartRow(cfg,baseProj), base=mcMeasure(baseProj,{pass:[0,0],ltcYears:[0,0]});
-  const results=stScenarios(cfg).map(sc=>{
-    const proj=stRun(sc,start,cfg), m=mcMeasure(proj,{pass:[0,0],ltcYears:[0,0]});
-    const end=Math.min(start+sc.eq.length-1, m.n-1, base.n-1);                      // last row of the shock
-    const atEnd=start<=end?m.fin[end]:null, planAtEnd=start<=end?base.fin[end]:null;
-    let low=Infinity, lowK=-1; for(let k=Math.min(start,m.n-1);k<m.n;k++) if(m.fin[k]<low){ low=m.fin[k]; lowK=k; }
+  const results=stScenarios(cfg).map(sc0=>{
+    const sc=sc0, pl=stPlace(sc,start,cfg,baseProj), st=pl.start;
+    const proj=stRun(sc,st,cfg), m=mcMeasure(proj,{pass:[0,0],ltcYears:[0,0]});
+    const end=Math.min(st+sc.eq.length-1, m.n-1, base.n-1);                      // last row of the shock
+    const atEnd=st<=end?m.fin[end]:null, planAtEnd=st<=end?base.fin[end]:null;
+    let low=Infinity, lowK=-1; for(let k=Math.min(st,m.n-1);k<m.n;k++) if(m.fin[k]<low){ low=m.fin[k]; lowK=k; }
     let gapYears=0; proj.rows.forEach(r=>{ if(r.expUnfunded>1) gapYears++; });
     // Spending guardrails (state.guardrail on): when the first cut fires and at what portfolio value, how deep the cuts go, and what the same scenario does with no guardrail.
     let guard=null;
     if(m.guard){
-      const g=m.guard, off=withTempState(s=>{ s.guardrail.enabled=false; }, ()=>mcMeasure(stRun(sc,start,cfg),{pass:[0,0],ltcYears:[0,0]}));
+      const g=m.guard, off=withTempState(s=>{ s.guardrail.enabled=false; }, ()=>mcMeasure(stRun(sc,st,cfg),{pass:[0,0],ltcYears:[0,0]}));
       guard={firstCutAge:g.firstCutAge, firstCutBal:g.firstCutBal, minMult:g.minMult, cutYears:g.cutYears, cutTotal:g.cutTotal,
-             tripwire:(()=>{ const r=proj.rows[g.firstCutK>=0?g.firstCutK:Math.min(start,proj.rows.length-1)]; return r&&r.guard?r.guard.tripwire:null; })(),
+             tripwire:(()=>{ const r=proj.rows[g.firstCutK>=0?g.firstCutK:Math.min(st,proj.rows.length-1)]; return r&&r.guard?r.guard.tripwire:null; })(),
              off:{failAge:off.failAge, shortfall:off.shortfall, estate:off.estateFin+off.estateRe}};
     }
-    return {id:sc.id, label:sc.label, note:sc.note, years:sc.eq.length, m, atEnd, planAtEnd, low:isFinite(low)?low:null, lowAge:lowK>=0?m.age0+lowK:null, gapYears,
-            estate:m.estateFin+m.estateRe, covered:start<m.n, guard};
+    return {id:sc.id, label:sc.label, note:sc.note, years:sc.eq.length, start:st, share:pl.share*100, custom:!!sc.path, m, atEnd, planAtEnd, low:isFinite(low)?low:null, lowAge:lowK>=0?m.age0+lowK:null, gapYears,
+            estate:m.estateFin+m.estateRe, covered:st<m.n, guard};
   });
   return {start, startAge:baseProj.rows[0].age0+start, startCovered:start<baseProj.rows.length, base, baseEstate:base.estateFin+base.estateRe, results, med:stMedRun(cfg)};
 }
@@ -194,4 +205,4 @@ function stMedRun(cfg){
   return out;
 }
 
-if(typeof module!=='undefined') module.exports={ST_HIST,ST_DEFAULTS,stScenarios,stRetireRow,stStartRow,stInflation,stHook,stRun,stReplay,stRunAll,stMedRun};
+if(typeof module!=='undefined') module.exports={ST_HIST,ST_DEFAULTS,stScenarios,stPathScenario,stPlace,stRetireRow,stStartRow,stInflation,stHook,stRun,stReplay,stRunAll,stMedRun};

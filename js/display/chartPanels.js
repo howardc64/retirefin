@@ -53,6 +53,7 @@ function setChartAvailable(key, on){
 function chartCols(){ return (state&&state.ui&&state.ui.gridCols===3)?3:2; }
 // Enlarged charts: pos[k].s===2 is a 2×2 block, honoured in the 3-column grid only.
 function chartSpan(p,cols){ return (cols===3&&p&&p.s===2)?2:1; }
+function chartIsBig(key){ return !!(state&&state.ui&&state.ui.chartPos&&state.ui.chartPos[key]&&chartSpan(state.ui.chartPos[key],chartCols())>1); }
 function footprintCells(p,cols){ const n=chartSpan(p,cols), a=[]; for(let dr=0;dr<n;dr++) for(let dc=0;dc<n;dc++) a.push([p.r+dr,p.c+dc]); return a; }
 // Map 'r,c' → chart key for every cell a chart covers (charts in `except` left out).
 function chartOccupancy(pos,cols,except){

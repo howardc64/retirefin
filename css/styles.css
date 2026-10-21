@@ -401,10 +401,10 @@ input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
 .item-body > .field:not(.full){justify-content:flex-end;}
 
 /* ── Monte Carlo card (display/mcPanel.js) ── */
-.mc-note{font-size:12px;color:var(--text-faint);line-height:1.5;margin:0 0 12px}
+.mc-note{font-size:12px;color:var(--text-faint);line-height:1.5;margin:0 0 8px}
 .mc-row{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end;margin-bottom:12px}
 .mc-f{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em}
-.mc-f input[type=number]{width:110px;font-size:13px;padding:5px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface2);color:var(--text);font-family:inherit}
+.mc-f input[type=number]{width:96px;font-size:13px;padding:5px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface2);color:var(--text);font-family:inherit}
 .mc-chk{flex-direction:row;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text)}
 .mc-prog{font-size:12px;color:var(--text-faint)}
 .mc-stale{font-size:12px;color:var(--red);margin:6px 0}
@@ -415,13 +415,12 @@ input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
 .mc-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:10px}
 .mc-cwrap{position:relative;height:300px}
 
-.mc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:14px}
-.mc-grp{border:1px solid var(--border);border-radius:10px;padding:8px 14px 12px;margin:0;min-width:0}
+.mc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:10px}   /* as many group columns as fit */
+.mc-grp{border:1px solid var(--border);border-radius:10px;padding:4px 12px 9px;margin:0;min-width:0}
 .mc-grp legend{font-size:12px;font-weight:600;color:var(--text);padding:0 6px}.mc-grp legend small{font-weight:400;color:var(--text-faint)}
 .mc-grp legend label{display:flex;align-items:center;gap:6px;cursor:pointer}
 .mc-grp .mc-row{margin:0}.mc-grp.mc-off .mc-row{opacity:.4}   /* stays hoverable so the input tooltips still work on a switched-off group */
-.mc-run{padding-top:2px;margin-bottom:6px}.mc-run .btn{height:32px}
-.mc-f input[type=number]{width:96px}
+.mc-run{padding-top:2px;margin-bottom:4px;align-items:center}.mc-run .btn{height:32px}
 .mc-h{font-size:13px;font-weight:600;margin:18px 0 8px;color:var(--text)}.mc-h small{font-weight:400;color:var(--text-faint);margin-left:6px}
 .mc-sub{font-size:12px;font-weight:600;margin:12px 0 6px}.mc-sub small{font-weight:400;color:var(--text-faint)}
 .mc-bar{display:grid;grid-template-columns:minmax(200px,1.3fr) 2fr 70px;gap:10px;align-items:center;font-size:12px;margin:5px 0}
@@ -545,11 +544,8 @@ body.printing-all .person-col.col-hidden .pcol-tab,body.printing-all .pcol-hide{
 @media print{.chat-zoom{display:none !important;}}
 .cc-kpis th{text-transform:none;letter-spacing:0;}
 
-/* ── Compact Monte Carlo / Stress test input cards ──
-   Inside each group a field is one line: label on the left, input on the right (was label above input, one field per ~70px). The groups sit in as many columns as fit,
-   so the two cards take far less height. Checkboxes and notes keep their own full-width lines. */
-.mc-grid{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:10px;}
-.mc-grp{padding:4px 12px 9px;}
+/* Compact input cards (Monte Carlo, Stress tests): inside a group a field is one line, label left and box right; checkboxes and notes keep their own lines.
+   Trials / Seed sit beside their boxes on the Run button's line. */
 .mc-grp .mc-row{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:5px;}
 .mc-grp .mc-f:not(.mc-chk){flex-direction:row;align-items:center;justify-content:space-between;gap:10px;}
 .mc-grp .mc-f:not(.mc-chk) input[type=number]{width:76px;flex:0 0 auto;padding:3px 7px;}
@@ -557,7 +553,4 @@ body.printing-all .person-col.col-hidden .pcol-tab,body.printing-all .pcol-hide{
 .mc-grp .mc-chk{align-items:flex-start;line-height:1.3;}
 .mc-grp .mc-chk small{display:block;color:var(--text-faint);}
 .mc-grp .mc-src{font-size:11px;line-height:1.4;}
-.mc-note{margin-bottom:8px;}
-.mc-run{margin-bottom:4px;}
-.mc-run{align-items:center;}
-.mc-run .mc-f{flex-direction:row;align-items:center;gap:8px;}   /* Trials / Seed: label beside the box, on the button's line */
+.mc-run .mc-f{flex-direction:row;align-items:center;gap:8px;}

@@ -32,6 +32,12 @@ function gk(g,key,k,ch){ const v=MC_HOOK?MC_HOOK(g,key,k,ch):g; if(GROWTH_REC){ 
 // cpiAt/infAt replace every `(1+inflation)^k` and per-year `/(1+inflation)` in the engine, so fixed-dollar items (no-COLA pension, un-indexed
 // thresholds, cost basis, depreciation, fixed AUM fee, home-sale exemption) follow the random price level. With MC_INFL=null they equal the old constant-rate formulas.
 let MC_INFL=null;
+// withEngineHooks(hook, infl, record, fn): the ONE way to run computeProjection() under a market / inflation overlay. Sets MC_HOOK / MC_INFL / REC_RATES, runs fn(), and always puts them
+// back (MC_HOOK and MC_INFL to null, REC_RATES to true), so a stress test, a Monte Carlo trial, a chat scenario or an outside (MCP) client can never leave a hook behind.
+function withEngineHooks(hook, infl, record, fn){
+  MC_HOOK=hook||null; MC_INFL=infl||null; REC_RATES=!!record;
+  try{ return fn(); } finally{ MC_HOOK=null; MC_INFL=null; REC_RATES=true; }
+}
 function cpiAt(k,inflation){ return MC_INFL?MC_INFL.cpi[k]:Math.pow(1+inflation,k); }
 function infAt(k,inflation){ return MC_INFL?MC_INFL.pi[k]:inflation; }
 // Today's-$ multiplier of an amount after k years for a Change spec; nominal-fixed modes ('fixed', 'custom') follow the actual price level.

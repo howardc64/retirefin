@@ -275,7 +275,7 @@ The four charts are the same size, in a 2 × 2 grid.
 | Control | What it does |
 |---|---|
 | **Grid** button (right of the Same scale buttons) | Switches between a **2×N** and a **3×N** grid; each size remembers its own arrangement. |
-| **Hide** box on a panel | Hides the chart; a hidden panel keeps its place as a title bar. Annual expenses, Annual income, Total tax, Asset value, IDGT value, IRA, LTCG, Inflation rate and Market return % start hidden; the others, including Inheritance asset income, start shown. |
+| **Hide** box on a panel | Hides the chart; a hidden panel keeps its place as a title bar. On a fresh start (first visit, *Start fresh*, *Reset to defaults*) every chart starts hidden and rows that hold nothing are closed; a loaded file or autosave keeps its own Hide boxes. |
 | **↕ Rescale** | Refits only that chart's vertical scale. |
 | **Title bar drag** | Moves the chart (see below). |
 
@@ -595,21 +595,23 @@ Load any trial into the chart grid: **Earliest failure**, **Median failure**, **
 
 The **Stress test card** stays at the top of the chart column, above the scale buttons, so you can scroll through the charts and keep stepping:
 
-- **A · Plan / B · Monte Carlo Failure / C · Monte Carlo Success / D · Stress Test**: flip the charts between the plan as entered (A), the Monte Carlo failure you loaded (B), a Monte Carlo success (C, a trial that stayed funded to the end) and a stress test (D). While B, C or D is on, the plan's lines stay behind as thin dashed grey lines, and every chart's scale is fitted to the largest of the loaded views so only the data moves. The message under the buttons names the failure / success number or the stress test.
-- **D** cycles through the scenarios of the Stress tests card (Lost Decade, Stagflation, 1966 retiree, whichever are ticked), one per click, wrapping around. If the stress tests have not been run for this plan yet, D runs them with the card's current settings first. The **Show in charts** button next to a scenario in the Stress tests table loads that one directly. B and C stay greyed out until you have loaded a Monte Carlo trial.
-- Keys: **B** flips the plan and whichever of B / C / D was shown last; **C** shows the next Monte Carlo success, **Shift+C** the previous one; **D** shows the next stress test, **Shift+D** the previous one (the lists wrap).
-- **◀ ▶** step through Monte Carlo failures while B is on, Monte Carlo successes while C is on and stress tests while D is on.
+- **A · Plan / B · Stress Test / C · Stress + Monte Carlo Failure / D · Stress + Monte Carlo Success / E · Monte Carlo Failure / F · Monte Carlo Success**: flip the charts between the plan as entered (A), a stress test (B), a Monte Carlo trial replayed under a stress test that ran out of money (C) or stayed funded (D), the Monte Carlo failure you loaded (E) and a Monte Carlo success (F, a trial that stayed funded to the end). While any of B–F is on, the plan's lines stay behind as thin dashed grey lines, and every chart's scale is fitted to the largest of the loaded views so only the data moves. The message under the buttons names the trial number or the stress test.
+- **B** cycles through the scenarios of the Stress tests card (Lost Decade, Stagflation, 1966 retiree, whichever are ticked, plus saved market paths), one per click, wrapping around. If the stress tests have not been run for this plan yet, B runs them with the card's current settings first. The **Show in charts** button next to a scenario in the Stress tests table loads that one directly.
+- **C / D** need a run of *Run stress tests + Monte Carlo* (see Stress tests): they replay a trial of that combined run under its scenario. Each click steps to the next trial across all scenarios. The combined table has Failure / Success buttons per scenario that open the first such trial.
+- **E / F** step through Monte Carlo failures and successes. E stays greyed out until a Monte Carlo run exists or a trial is loaded; F until a run has a trial that stayed funded.
+- Keys: **A** shows the plan; **B** the next stress test; **C** / **D** the next stress + Monte Carlo failure / success; **E** / **F** the next Monte Carlo failure / success. **Shift** with any of them goes back (the lists wrap).
+- **◀ ▶** step through whichever kind is on screen (B–F).
 - **Back to plan** returns the charts to the plan. Starting a new run or editing the plan also ends the trial view.
 - The message under the buttons has room for two lines and says what failed and how many other failed trials share the main cause.
 - The Inflation rate and Market return % charts show the trial's drawn inflation and returns.
 
 Trial views are display only; nothing is saved with the plan.
 
-**Loading and resetting.** Loading another plan (a file or a sample) clears the card's results, any loaded trial and a run in progress, because they belonged to the old plan. The card's own settings (volatility, trials, seed and so on) are kept, since they are not part of a plan file. **Reset to defaults** clears the results too and also puts those settings back to their defaults (card collapsed).
+**Loading and resetting.** Loading another plan (a file or a sample) clears the card's results, any loaded trial and a run in progress, because they belonged to the old plan. The card's settings (volatility, trials, seed and so on) are saved with the plan, so loading a different file puts the Stress tests and Monte Carlo cards back to their defaults (settings, results, collapsed) and a saved plan brings its own settings back. **Reset to defaults** does the same.
 
 ## Stress tests
 
-The **Stress tests** and **Monte Carlo** cards sit under the charts, Stress tests first. Drag a card by its title bar (the ⠿ grip) and drop it anywhere above or below the other one: above its middle puts the dragged card first, below puts it last. The order is remembered in the browser (not in the plan file) and **Reset to defaults** puts it back.
+The **Stress tests** and **Monte Carlo** cards sit under the charts, Stress tests first. Drag a card by its title bar (the ⠿ grip) and drop it anywhere above or below the other one: above its middle puts the dragged card first, below puts it last. The order, every setting of both cards and their Hide boxes are saved with the plan, and **Reset to defaults** puts them back.
 
 The **Stress tests** card (under the Monte Carlo card, collapsed until you untick Hide) forces a fixed bad stretch onto your plan and shows whether the money lasts. Unlike Monte Carlo these are single, repeatable scenarios; your passing ages, Social Security, Long Term Care and taxes stay as entered.
 
@@ -617,9 +619,11 @@ The **Stress tests** card (under the Monte Carlo card, collapsed until you untic
 - **Lost Decade**: the actual 2000–2009 S&P 500 returns. Tick *Also use that decade's actual inflation* to add that decade's CPI.
 - **Stagflation**: flat stock returns (default 0% a year) for 10 years while inflation ramps from 6% to 11%. All four numbers are editable.
 - **1966 retiree**: actual 1966–1981 stock returns and inflation, the classic worst starting date for a retiree.
+- **Run stress tests + Monte Carlo**: a second button repeats every ticked market scenario with the Monte Carlo card's trials, seed and settings, beside a "Monte Carlo alone" row on the same random draws. Inside a scenario's years its stock returns (and its inflation, where it defines one) replace the random ones; before and after, for property, and for lifespans, Long Term Care and inheritance the random draws still apply. The table shows the funded share, the difference from Monte Carlo alone, the median age the money runs out and the 10th / median / 90th percentile of final assets. It has a progress bar and **Cancel** (a cancelled run keeps the stress table). A scenario can raise the success rate, since its fixed returns replace the random bad tail inside its window. The late-life medical shock is not part of this run.
+- **Market scenarios (yearly paths)**: a path is a list of yearly stock returns (and optionally inflation) starting at retirement, now or a calendar year, with an optional long-run return and inflation for the years after, and an equity share. Saved paths are listed in the card and each runs as a row; the B view can replay any of them. Paths are saved with the plan.
 - **Late-life medical shock** (liquidity and tax test, separate from the market scenarios and can be run alone): pick whose age, the starting age, the number of years and the yearly cost. It shows the plan with and without the shock: which accounts paid (dividends, asset sales, IRA, Roth, property), the **capital gains it realizes** against the unrealized gain you started with, the itemized deduction it creates, the highest AGI, the extra income tax in the shock years and two years after, the IRMAA effect and the estate. *Also compare four withdrawal orders* repeats it with your own order (or the built-in one), IRA first, Roth first and taxable → Roth → IRA, and stars the best final estate. The shock in this card does not change your plan; the Expenses card does.
 - **With Spending guardrails on**, every scenario above runs with them, and a second table shows each scenario with and without the guardrails, the age and invested balance of the first cut (the tripwire), the deepest cut and the spending given up.
-- **Show in charts / D button**: load a scenario into every chart (see the Stress test card under Study one trial); the Inflation rate and Market return % charts then show the scenario's inflation and returns.
+- **Show in charts / B button**: load a scenario into every chart (see the Stress test card under Study one trial); the Inflation rate and Market return % charts then show the scenario's inflation and returns.
 - **Results**: for the plan and each scenario, whether the money lasts (or the age it runs out), the unpaid expenses, invested assets at the end of the shock and as a % of the plan, the lowest invested assets after the start, and the assets in the last projected year; the card has no chart of its own, because the D button / *Show in charts* loads each scenario into the real charts. Everything is in today's $. Press **Run stress tests** again after changing the plan or the settings (a red note tells you when a result is out of date).
 
 ## Ask about this plan
@@ -647,6 +651,7 @@ The chat box answers questions about your plan and can **run what-ifs and chart 
 - **Open in main charts**: adds the scenario to the 🆎 Scenario set and switches to it, so all the charts show it.
 - **Save as Scenario**: adds it to the set without switching.
 - **Copy spec**: copies the list of changes as JSON.
+- **Market scenarios**: ask the chat to define a year-by-year market path (for example a 1973–74 style crash). It is run against your plan and its card has **Show in main charts**, **Add to Stress test card** and **Copy JSON**. Saved paths are written only when you click.
 - A card is a snapshot. If you edit the plan afterwards, it shows **plan edited since**; Open and Save then ask before rebuilding the scenario from your plan as it is now.
 
 **What the model can change in a scenario**: Social Security claim age, living expenses, inflation, investment returns, passing age, the age someone stops working, a pension, the annual IRA withdraw / Roth conversion (fixed or bracket mode, start age), long-term care, the late-life medical shock, spending guardrails, portfolio sales, state tax, and a market stress path (Lost Decade, stagflation, 1966, or your own yearly returns). It can also *sweep* one value, for example every claim age from 62 to 70, on one chart.

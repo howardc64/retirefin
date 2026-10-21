@@ -359,9 +359,7 @@ function upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, create
 // Re-fit every chart after a hidden section is shown again (a canvas measured at display:none has no size).
 function resizeAllCharts(){
   // An enlarged panel (2×2 cells, chartPanels.js) fills its block: its chart stops holding a square aspect and takes the box's size (css/styles.css .is-big)
-  Object.keys(charts).forEach(k=>{ const ch=charts[k]; if(!ch||!ch.options) return;
-    const big=typeof chartSpan==='function'&&typeof chartCols==='function'&&typeof state!=='undefined'&&state&&state.ui&&state.ui.chartPos&&state.ui.chartPos[k]&&chartSpan(state.ui.chartPos[k],chartCols())>1;
-    ch.options.maintainAspectRatio=!big; });
+  Object.keys(charts).forEach(k=>{ const ch=charts[k]; if(ch&&ch.options) ch.options.maintainAspectRatio=!chartIsBig(k); });
   allCharts().forEach(ch=>{ try{ ch.resize(); }catch(e){} });
 }
 

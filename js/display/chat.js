@@ -165,11 +165,12 @@ function buildChatSystemPrompt(includeNames){
 ``,
 `Model facts worth knowing: everything is in today's dollars; filing status switches to single the year after a spouse passes; income sources marked to continue to the spouse do so after a passing; household expenses (living costs, IRMAA, AUM fee, income tax) are paid from income first, then dividends of portfolios flagged "Pay expenses", then asset sales (which realize capital gains); Roth conversions and RMDs come from the pre-tax IRA; the projection ends at each person's planned passing age.`+(includeNames?'':` People are labeled Person 1 / Person 2 (names are withheld).`),
 ``,
-`Scenario tools (run_scenarios, sweep, show_chart, get_rows):`,
+`Scenario tools (run_scenarios, sweep, show_chart, get_rows, define_market_scenario, list_market_scenarios, run_market_scenarios, show_market_scenario_in_charts):`,
 `- For any what-if, comparison or "which age is best" question, call a tool instead of describing what to change. The app runs your levers through the planner's own projection engine on a copy of the plan and draws the charts; the user's saved plan is never changed.`,
 `- Quote only numbers that are in the plan snapshot or in tool results. Never compute projections yourself, and never invent a chart: ask for one with the charts argument or show_chart.`,
 `- Put all scenarios to compare into ONE run_scenarios call (up to 6), and use sweep for "try every value of X". Normally one tool call is enough; do not call tools repeatedly.`,
 `- Every lever comes back applied, ignored (with a reason) or noEffect. If one is ignored or has no effect, tell the user plainly; never present unchanged numbers as a finding. Market-stress levers are simulations and cannot be saved as a Scenario.`,
+`- Market and inflation paths: when the user describes how the market or inflation should behave year by year (\"two bad years then recovery\", \"inflation at 8% for five years\"), call define_market_scenario with one nominal stock return per year (returnsPct, percent) and optionally one inflation value per year; use afterReturnPct / afterInflationPct to carry a long-run rate to the end of the plan. Set showInCharts true when they ask to SEE it on the main charts (it is a replay, their plan is never changed). list_market_scenarios and run_market_scenarios reuse the presets and earlier paths.`,
 `- If the request is ambiguous (which person? from what age?), choose a sensible default, say in one line what you assumed, and run it. People are numbered 1 and 2 as in the snapshot.`,
 `- After the results, answer in a few short sentences: what changed, why, and one caveat. The headline-numbers table and the charts are already on screen, so do not repeat every figure. Dollar amounts from tools are in today's dollars.`,
 ``,
@@ -491,9 +492,9 @@ async function sendChat(){
       chatShowStatus('Running scenarios…');
       await new Promise(r=>setTimeout(r,30));     // let the status paint before the (synchronous) engine runs
       if(ctrl.signal.aborted) throw Object.assign(new Error('aborted'),{name:'AbortError'});
-      const results=[], cards=[];
+      const results=[], cards=[], chatExecEffects=[];
       calls.forEach(c=>{
-        const r=chatExecTool(c.name,c.args);
+        const r=chatExecTool(c.name,c.args); chatExecEffects.push(r.isError?[]:(r.effects||[]));
         results.push({id:c.id,nativeId:c.nativeId,name:c.name,response:r.response,isError:!!r.isError});
         chatAddToolNote(r.isError?(chatToolNote(c)+' — rejected: '+((r.response&&r.response.error)||'error')):chatToolNote(c),!!r.isError);
         (r.cards||[]).forEach(x=>cards.push(x));
@@ -502,6 +503,7 @@ async function sendChat(){
       chatMessages.push({role:'tool',results});
       toolsRan=true; rounds++; bubble=null; box={reply:''};
       chatRenderCards(cards,chatEl('chatMessages'));
+      const fx=[]; results.forEach((x,i)=>{ (chatExecEffects[i]||[]).forEach(e=>fx.push(e)); }); chatApplyEffects(fx).forEach(n=>chatAddToolNote(n,false));   // what the tools asked to show on the main charts
       chatShowStatus('');
     }
   }catch(err){

@@ -1,7 +1,7 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
 // COMPUTE / SCENARIO SPEC — the vocabulary an LLM chat uses to ask for "what-if" runs, and the runner that answers them.
-// No DOM, never writes the live `state`. Loaded after stressTest.js (uses withTempState, computeProjection, mcMeasure and the stress-test hook).
+// No DOM, never writes the live `state`. Loaded after stressTest.js and marketScenario.js (uses withTempState, computeProjection, mcMeasure and the stress-test hook).
 //
 // A scenario is {id, label, levers:[{lever:'ssClaimAge', person:1, age:70}, …]}. The model never writes raw state paths: it picks named
 // levers from SPEC_LEVERS, each of which validates its own parameters and sets every dependent field together (e.g. a fixed Roth
@@ -187,17 +187,17 @@ const SPEC_LEVERS={
     apply(s,a){ s.stateTax.enabled=a.enabled!==false; if(a.state) s.stateTax.state=a.state; return specOk(); }
   },
   marketStress:{
-    desc:'Replace the plan\'s constant returns with a market stress path starting on the first year without wages (or now): lostDecade (actual 2000-2009), stagflation (flat stocks, rising inflation), y1966 (actual 1966-1981), or custom (your own yearly returns). This is a simulation overlay, not a saved input, so it cannot be saved as a Scenario.',
-    params:{kind:{type:'string',desc:'lostDecade, stagflation, y1966 or custom'}, startsAt:{type:'string',desc:'retirement (default) or now'}, equityShare:{type:'number',min:0,max:100,desc:'% of each asset that takes the stress return (default 100)'},
-            returnsPct:{type:'numberArray',desc:'custom: nominal equity return per year, percent, e.g. [-20,-10,5]'}, inflationPct:{type:'numberArray',desc:'custom: inflation per year, percent (optional)'},
+    desc:'Replace the plan\'s constant returns with a market stress path starting on the first year without wages (or now, or a calendar year): lostDecade (actual 2000-2009), stagflation (flat stocks, rising inflation), y1966 (actual 1966-1981), or custom (your own yearly returns and inflation, optionally continued to the end of the plan). This is a simulation overlay, not a saved input, so it cannot be saved as a Scenario. (define_market_scenario does the same for a custom path and can also show it on the main charts.)',
+    params:{kind:{type:'string',desc:'lostDecade, stagflation, y1966 or custom'}, startsAt:{type:'string',desc:'retirement (default), now or year (with startYear)'}, startYear:{type:'integer',min:2000,max:2200,desc:'calendar year of the first value (custom)'}, equityShare:{type:'number',min:0,max:100,desc:'% of each asset that takes the stress return (default 100)'},
+            returnsPct:{type:'numberArray',desc:'custom: nominal equity return per year, percent, e.g. [-20,-10,5]'}, inflationPct:{type:'numberArray',desc:'custom: inflation per year, percent (optional, same length as returnsPct)'},
+            afterReturnPct:{type:'number',min:-95,max:200,desc:'custom: nominal equity return for every year after the list, to the end of the plan'}, afterInflationPct:{type:'number',min:-10,max:100,desc:'custom: inflation for every year after the list'},
             actualInflation:{type:'boolean',desc:'lostDecade: use actual CPI instead of the plan\'s inflation'}, years:{type:'integer',min:1,max:30,desc:'stagflation: length in years (default 10)'},
             eqReturnPct:{type:'number',min:-20,max:20,desc:'stagflation: nominal equity return per year (default 0)'}, inflStartPct:{type:'number',min:0,max:20,desc:'stagflation: starting inflation (default 6)'}, inflEndPct:{type:'number',min:0,max:20,desc:'stagflation: ending inflation (default 11)'}},
     req:['kind'],
     check:a=>{ if(!['lostDecade','stagflation','y1966','custom'].includes(a.kind)) return 'kind must be lostDecade, stagflation, y1966 or custom';
-      if(a.startsAt!=null&&!['retirement','now'].includes(a.startsAt)) return 'startsAt must be retirement or now';
-      if(a.kind==='custom'&&!(Array.isArray(a.returnsPct)&&a.returnsPct.length>=1&&a.returnsPct.length<=40)) return 'kind custom needs returnsPct with 1 to 40 values';
-      if(a.inflationPct!=null&&(!Array.isArray(a.inflationPct)||a.inflationPct.length!==(a.returnsPct||[]).length)) return 'inflationPct must have the same length as returnsPct'; return null; },
-    label:a=>({lostDecade:'Lost Decade (2000-2009 returns)',stagflation:'Stagflation',y1966:'1966 retiree (1966-1981)',custom:'Custom market path'}[a.kind]||'Market stress')+((a.startsAt==='now')?' starting now':' starting at retirement'),
+      if(a.startsAt!=null&&!['retirement','now','year'].includes(a.startsAt)) return 'startsAt must be retirement, now or year';
+      if(a.kind==='custom'){ const v=msValidate(a); if(v.errors.length) return v.errors[0]; } return null; },
+    label:a=>({lostDecade:'Lost Decade (2000-2009 returns)',stagflation:'Stagflation',y1966:'1966 retiree (1966-1981)',custom:'Custom market path'}[a.kind]||'Market stress')+((a.startsAt==='now')?' starting now':(a.startsAt==='year'||a.startYear!=null)?' starting in '+a.startYear:' starting at retirement'),
     apply(s,a){ return {status:'applied',note:'',market:a}; }
   }
 };
@@ -286,27 +286,28 @@ function specFingerprint(proj,m){
 
 // ── running ─────────────────────────────────────────────────────
 // One scenario on a private clone of the live plan. `sc.levers` must already be validated. → run object (proj and measure kept in memory).
+// The MarketPath a marketStress lever stands for (compute/marketScenario.js): a custom one is validated as typed; the presets are the Stress card's scenarios placed at the chosen start.
+function specMarketPath(mk){
+  if(mk.kind==='custom') return msValidate(Object.assign({label:'Custom path',source:'chat'},mk)).path;
+  const cfg=specClone(ST_DEFAULTS); cfg.custom={enabled:false};
+  cfg.lost={enabled:mk.kind==='lostDecade',actualInflation:!!mk.actualInflation}; cfg.y1966={enabled:mk.kind==='y1966'};
+  cfg.stag=Object.assign({},cfg.stag,{enabled:mk.kind==='stagflation'});
+  if(mk.years!=null) cfg.stag.years=mk.years; if(mk.eqReturnPct!=null) cfg.stag.eqReturn=mk.eqReturnPct; if(mk.inflStartPct!=null) cfg.stag.inflStart=mk.inflStartPct; if(mk.inflEndPct!=null) cfg.stag.inflEnd=mk.inflEndPct;
+  const sc=stScenarios(cfg)[0];
+  return msValidate({id:sc.id,label:sc.label,returns:sc.eq,inflation:sc.infl,startsAt:mk.startsAt==='now'?'now':'retirement',equityShare:mk.equityShare!=null?mk.equityShare:100}).path;
+}
 function specRunScenario(sc){
   let applied={notes:[],market:null};
   return withTempState(s=>{ applied=specApplyLevers(s,sc.levers||[]); }, ()=>{
-    let marketInfo=null;
-    try{
-      if(applied.market){
-        const mk=applied.market, cfg=specClone(ST_DEFAULTS);
-        cfg.equityShare=mk.equityShare!=null?mk.equityShare:100; cfg.start={mode:mk.startsAt==='now'?'now':'retire',years:0};
-        cfg.lost={enabled:mk.kind==='lostDecade',actualInflation:!!mk.actualInflation}; cfg.y1966={enabled:mk.kind==='y1966'};
-        cfg.stag=Object.assign({},cfg.stag,{enabled:mk.kind==='stagflation'});
-        if(mk.years!=null) cfg.stag.years=mk.years; if(mk.eqReturnPct!=null) cfg.stag.eqReturn=mk.eqReturnPct; if(mk.inflStartPct!=null) cfg.stag.inflStart=mk.inflStartPct; if(mk.inflEndPct!=null) cfg.stag.inflEnd=mk.inflEndPct;
-        const scen=mk.kind==='custom'?{id:'custom',label:'Custom path',eq:mk.returnsPct.map(v=>v/100),infl:mk.inflationPct?mk.inflationPct.map(v=>v/100):null}:stScenarios(cfg)[0];
-        REC_RATES=false; const pre=computeProjection(); REC_RATES=true;
-        const start=stStartRow(cfg,pre), mean=state.inflation, infl=stInflation(scen,start,mean,80), share=Math.max(0,Math.min(1,cfg.equityShare/100));
-        MC_HOOK=stHook(scen,start,mean,infl,share); MC_INFL=infl;
-        marketInfo={label:scen.label||mk.kind, startRow:start, startAge:pre.rows.length?Math.round(pre.rows[0].age0+start):null, years:scen.eq.length};
-      }
-      REC_RATES=false;
-      const proj=computeProjection(), m=mcMeasure(proj,{pass:[0,0],ltcYears:[0,0]});
-      return {proj,m,notes:applied.notes,market:marketInfo};
-    } finally{ MC_HOOK=null; MC_INFL=null; REC_RATES=true; }
+    let hook=null, infl=null, marketInfo=null;
+    if(applied.market){
+      const path=specMarketPath(applied.market), res=msResolve(path,{retireRow:path.from.mode==='retire'?msRetireRow():0,mean:state.inflation});
+      hook=msHook(res); infl=msInflation(res);
+      marketInfo={label:path.label||applied.market.kind, startRow:res.start, years:path.returns.length};
+    }
+    const proj=withEngineHooks(hook,infl,false,()=>computeProjection()), m=mcMeasure(proj,{pass:[0,0],ltcYears:[0,0]});
+    if(marketInfo) marketInfo.startAge=proj.rows.length?Math.round(proj.rows[0].age0+marketInfo.startRow):null;
+    return {proj,m,notes:applied.notes,market:marketInfo};
   });
 }
 

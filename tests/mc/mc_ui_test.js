@@ -158,19 +158,19 @@ run(`mcAbToggle()`); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.d
     mcCPress(); out.v1=mcTrialView.view; out.t1=mcTrialView.trial; out.ok1=mcResults.results[mcTrialView.trial].failK<0; out.shown1=mcTrialShown()===mcTrialView.c.proj; out.cur1=mcTrialView.cur;
     mcCPress(); out.v2=mcTrialView.view; out.t2=mcTrialView.trial; out.ok2=mcResults.results[mcTrialView.trial].failK<0;
     mcCStep(-1); out.back=mcTrialView.trial;
-    out.state=mcTrialView.state===mcTrialView.c.state; out.btn=/class="mc-ab-btn c on"[^>]*>C &middot; Monte Carlo Success/.test(mcEl('mcTrialBanner').innerHTML);
+    out.state=mcTrialView.state===mcTrialView.c.state; out.btn=/class="mc-ab-btn c on"[^>]*>F &middot; Monte Carlo Success/.test(mcEl('mcTrialBanner').innerHTML);
     mcAbToggle(); out.toA=mcTrialView.view; mcAbToggle(); out.backToC=mcTrialView.view;
     mcAbSet('B'); out.b=mcTrialView.trial===b0&&mcTrialView.b.trial===b0&&mcTrialView.view==='B'; out.shownB=mcTrialShown()===mcTrialView.b.proj;
     mcCPress(); out.fromB=mcTrialView.view+':'+(mcTrialView.trial===mcTrialView.c.trial);   // from B the C button returns to the chosen run, not the next one
     out.okN=mcOkTrials().length; mcAbSet('B'); return out; })()`);
   ok(c.v1==='C'&&c.ok1&&c.shown1&&c.cur1==='C'&&c.v2==='C'&&c.ok2&&c.t2!==c.t1&&c.back===c.t1,'C button shows a successful run and each press moves to the next one ('+c.t1+' → '+c.t2+', Shift+C back to '+c.back+')');
-  ok(c.state&&c.btn&&c.toA==='A'&&c.backToC==='C'&&c.b&&c.shownB&&c.fromB==='C:true','C: the trial\'s own state is on the view, the banner marks C, key B flips plan ↔ last trial, B keeps the loaded trial, C from B returns to the chosen run'); }
+  ok(c.state&&c.btn&&c.toA==='A'&&c.backToC==='C'&&c.b&&c.shownB&&c.fromB==='C:true','C: the trial\'s own state is on the view, the banner marks C, key A / the A button flips plan ↔ last trial, B keeps the loaded trial, C from B returns to the chosen run'); }
 { const q=run(`(()=>{ const out={}; mcAbSet('B'); const b0=mcTrialView.b.trial; mcAbSet('C'); const c0=mcTrialView.c.trial;
     mcTrialStep(1); out.cMoved=mcTrialView.view==='C'&&mcTrialView.c.trial!==c0&&mcResults.results[mcTrialView.c.trial].failK<0&&mcTrialView.b.trial===b0;
     mcAbSet('B'); const b1=mcTrialView.b.trial, c1=mcTrialView.c.trial; mcTrialStep(1);
     out.bMoved=mcTrialView.view==='B'&&mcTrialView.b.trial!==b1&&mcResults.results[mcTrialView.b.trial].failK>=0&&mcTrialView.c.trial===c1;
     const h=mcEl('mcTrialBanner').innerHTML; out.layout=h.indexOf('mc-tb-top')<h.indexOf('Back to plan')&&h.indexOf('Back to plan')<h.indexOf('mc-tb-msg');
-    out.title=h.includes('Previous Monte Carlo failure (B)'); mcAbSet('C'); out.titleC=mcEl('mcTrialBanner').innerHTML.includes('Previous Monte Carlo success (C)'); mcAbSet('B'); return out; })()`);
+    out.title=h.includes('Previous Monte Carlo failure (E)'); mcAbSet('C'); out.titleC=mcEl('mcTrialBanner').innerHTML.includes('Previous Monte Carlo success (F)'); mcAbSet('B'); return out; })()`);
   ok(q.cMoved&&q.bMoved,'◀ ▶ step successful runs while C is on and failed trials while B is on, each leaving the other unchanged');
   ok(q.layout&&q.title&&q.titleC,'banner layout is the same for B and C (switch + buttons on one row, message below); the ◀ ▶ titles name the kind'); }
 // ghost drawing: B draws, A does not

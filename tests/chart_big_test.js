@@ -16,13 +16,12 @@ load('display/chartPanels.js');
 const run=c=>vm.runInContext(c,ctx);
 let fails=0; const ok=(c,m)=>{ if(!c){ fails++; console.log('FAIL: '+m); } else console.log('ok:   '+m); };
 const fresh=()=>run(`state=defaultState(); state.ui.gridCols=3; state.ui.chartPos=defaultChartPos(3); state.ui.chartPosAlt=defaultChartPos(2); 0`);
-const cellsOf=()=>run(`JSON.stringify(Object.fromEntries([...chartOccupancy(state.ui.chartPos,chartCols())]))`);
 const noOverlap=()=>run(`(()=>{ const n=CHART_KEYS.reduce((a,k)=>a+footprintCells(state.ui.chartPos[k],chartCols()).length,0); return chartOccupancy(state.ui.chartPos,chartCols()).size===n; })()`);
 
 fresh();
 run(`toggleChartBig('income')`);   // income sits at (1,0): block (1..2, 0..1)
 ok(run(`state.ui.chartPos.income.s===2`),'Enlarge sets s:2');
-ok(run(`state.ui.chartPos.income.r`)>=0 && noOverlap(),'no two charts share a cell after enlarging');
+ok(noOverlap(),'no two charts share a cell after enlarging');
 ok(run(`['incomeOrd','ira'].every(k=>chartSpan(state.ui.chartPos[k],3)===1)`),'displaced charts stay single-cell');
 ok(run(`footprintCells(state.ui.chartPos.income,3).length`)===4,'the block covers 4 cells');
 const rowsOk=run(`(()=>{ const u=[...new Set(CHART_KEYS.flatMap(k=>footprintCells(state.ui.chartPos[k],3).map(x=>x[0])))].sort((a,b)=>a-b); return u.every((r,i)=>r===i); })()`);
@@ -32,7 +31,7 @@ run(`toggleChartBig('income')`);
 ok(run(`state.ui.chartPos.income.s===undefined`),'Shrink removes s');
 
 // anchor column clamps to 1 (a block must fit in 3 columns)
-fresh(); run(`state.ui.chartPos.incomeMagi.c`);
+fresh();
 run(`toggleChartBig('incomeMagi')`);   // MAGI at (0,2)
 ok(run(`state.ui.chartPos.incomeMagi.c`)===1 && run(`state.ui.chartPos.incomeMagi.s`)===2,'a chart in column 3 enlarges to columns 2–3');
 ok(noOverlap(),'no overlap after the clamp');

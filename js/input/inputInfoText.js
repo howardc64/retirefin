@@ -54,9 +54,9 @@ const II_FIELDS=[
   [/^Chart Element$/,'c','When checked, hovering a chart describes the chart element under the cursor instead of showing the usual values.'],
   [/^Input Element$/,'c','When checked, hovering an input describes it, and each choice in a drop-down menu shows its own description.'],
   [/^Popup Details$/,'c','Adds the line-by-line breakdown to the chart hover popups.'],
-  [/^Success$/,'','Loads a Monte Carlo trial of this scenario that stayed funded to the end into the chart grid (the E button of the Stress test card). Click E there for the next one. Your plan is not changed.'],
-  [/^Failure$/,'','Loads a Monte Carlo trial of this scenario that ran short of money into the chart grid (the F button of the Stress test card). Click F there for the next one. Your plan is not changed.'],
-  [/^Show in charts$/,'','Loads this stress test into the chart grid (the same as the D button of the Stress test card) so you can see its year-by-year detail. Your plan is not changed.'],
+  [/^Success$/,'','Loads a Monte Carlo trial of this scenario that stayed funded to the end into the chart grid (the D button of the Stress test card). Click D there for the next one. Your plan is not changed.'],
+  [/^Failure$/,'','Loads a Monte Carlo trial of this scenario that ran short of money into the chart grid (the C button of the Stress test card). Click C there for the next one. Your plan is not changed.'],
+  [/^Show in charts$/,'','Loads this stress test into the chart grid (the same as the B button of the Stress test card) so you can see its year-by-year detail. Your plan is not changed.'],
   [/^＋ Add/,'','Add another one of these to this person.'],
   [/^Remove/,'','Remove this one from the plan.'],
   [/Rescale$/,'','Refit this chart\'s vertical scale to the current data. Every chart that shares its scale (see the Same scale buttons above the charts) is refitted together.'],
@@ -228,6 +228,6 @@ const II_IDS={
   mcCancelBtn:'Stop the run now. The trials finished so far are shown as partial results.',
   mcTrialSel:'Pick one of the trials that ran short of money to load into the charts.',
   mcTrialSelGo:'Load the chosen failed trial into the charts (a copy; your plan is not changed).',
-  mcTrialNum:'The number of any trial, failed or not. A trial that stayed funded is loaded as C · Success.',
+  mcTrialNum:'The number of any trial, failed or not. A trial that stayed funded is loaded as F · Monte Carlo Success.',
   mcTrialNumGo:'Load this trial into the charts (a copy; your plan is not changed).'
 };
