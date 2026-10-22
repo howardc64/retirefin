@@ -62,7 +62,7 @@ for(const plan of ['Couple_Heir.json','Widow.json']){
   const mcp=J(ctx,'apiList("mcp")'); ok(mcp.length>=8&&mcp.every(t=>t.name&&t.description&&t.inputSchema&&t.inputSchema.type==='object'),'apiList("mcp") entries are MCP tools/list entries');
   ok(J(ctx,'apiList("neutral")').every(t=>t.parameters),'neutral declarations keep `parameters` for the chat providers');
   ctx.__x=null; const mres=J(ctx,'apiToMcpResult(apiCall("list_market_scenarios",{}))'); ok(mres.content[0].type==='text'&&JSON.parse(mres.content[0].text).scenarios&&mres.isError===false,'apiToMcpResult is an MCP tools/call result');
-  ok(J(ctx,'apiResources()').length===3&&J(ctx,'apiReadResource("planner://market-scenarios")').scenarios.length>=4&&J(ctx,'apiReadResource("planner://plan/summary")').kpis,'resources readable');
+  ok(J(ctx,'apiResources()').length===5&&J(ctx,'apiReadResource("planner://market-scenarios")').scenarios.length>=4&&J(ctx,'apiReadResource("planner://plan/summary")').kpis,'resources readable');
   r=call('define_market_scenario',{label:'from mcp',returnsPct:[-10]},{source:'mcp'}); ok(J(ctx,'msGet('+JSON.stringify(r.response.marketScenario.scenarioId)+')').source==='mcp','host source is stamped on the scenario');
 
   // 6. saving is a user action: msSave writes to ui.marketPaths, stress card picks it up with its own start

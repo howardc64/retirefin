@@ -84,4 +84,8 @@ For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`)
 ```
 node tests/market/market_test.js      # path model, dense resolution, tool API, MCP shapes (both sample plans)
 node tests/market/market_ui_test.js   # chat tool -> effect -> D view -> Stress card (stub DOM, real scripts)
+node tests/llm/runs_test.js           # run registry, analysis bundle, import, LLM read tools (Node only)
+node tests/llm/llm_ui_test.js         # the 🤖 LLM popup: export, import, proposals (stub DOM, real scripts)
+node tests/llm/jobs_test.js           # stress / Monte Carlo definition tools, background jobs, limits, host gating
+node tests/llm/mcp_test.js            # the MCP stdio server over a real pipe (needs Node only)
 ```

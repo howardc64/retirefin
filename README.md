@@ -16,13 +16,8 @@ A browser-based retirement income and tax planner for a single person or a marri
 - **Inheritance** from another plan file, and **two plans linked live** (parent in one tab, heir in another).
 - **Scenarios** to create, switch, compare and delete variants of a plan; **Notes** for the whole plan and per scenario.
 - **Save / Load** plan files (JSON), **Export to Excel** with live formulas for the main tax chain, and a **Formulas** page documenting every equation.
+- **🤖 LLM button**: download every scenario and result (user scenarios, what-ifs, stress tests, Monte Carlo) as one file for any external LLM, and review the scenarios an LLM proposes before anything touches your plan.
 - **Optional chat** that answers questions about your plan and runs what-ifs through the app's own projection engine (you supply your own Google Gemini or Anthropic API key).
-- 
-## TBD
-
-- **MCP** Build MCP interface for any LLM to use. Potentially greatly expand the possible queries and simulation scenarios.
-- **Chatbot defined scenarios** Probably can be made better
-- **Custom Charts** not sure can benefit as many charts already exist. Tax bracket, deduction, and various other lines might be difficult to define : sometimes these lines have dependency to other numbers (ie LTCG bracket line on qualified income graph only make sense after factoring ordinary income dependent calculation) If good solution is found, perhaps convert all charts to customized definitions.
 
 ## Getting started
 

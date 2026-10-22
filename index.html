@@ -23,6 +23,7 @@
     </div>
     <input type="file" id="importFile" accept="application/json" style="display:none">
     <button class="btn" id="scenarioBtn" onclick="toggleScenarioCard()" title="Create, switch between, compare and delete scenarios">🆎 Scenario</button>
+    <button class="btn" id="llmBtn" onclick="toggleLlmCard()" title="Export every scenario and result for an external LLM to analyse, and review the scenarios an LLM proposes">🤖 LLM</button>
     <button class="btn btn-danger" onclick="resetState()">Reset to defaults</button>
     <button class="btn" onclick="openFormulasPage()">Formulas</button>
     <button class="btn" onclick="openNotesPage()">Tips</button>
@@ -201,6 +202,8 @@
 <script src="js/compute/marketScenario.js"></script>
 <script src="js/compute/scenarioSpec.js"></script>
 <script src="js/compute/scenarioApi.js"></script>
+<script src="js/compute/runRegistry.js"></script>
+<script src="js/compute/runJobs.js"></script>
 
 <!-- input -->
 <script src="js/input/controls.js"></script>
@@ -247,6 +250,7 @@
 <script src="js/display/chatTools.js"></script>
 <script src="js/display/chatCharts.js"></script>
 <script src="js/display/chat.js"></script>
+<script src="js/display/llmPanel.js"></script>
 <script src="js/display/mcPanel.js"></script>
 <script src="js/display/stressPanel.js"></script>
 <script src="js/display/cardStack.js"></script>

@@ -4,7 +4,7 @@
 // No DOM, never writes the live plan. Loaded after scenarioSpec.js and marketScenario.js.
 //
 //   apiRegister({name, description, inputSchema, handler(args, host) → {isError, response, cards?, effects?}})
-//   apiList(fmt)            → the tool declarations ('neutral': {name, description, parameters}  — what chat.js maps to Gemini / Anthropic;
+//   apiList(fmt, host)      → the tool declarations (a tool with `hosts:[…]` is listed, and callable, only for those host sources) ('neutral': {name, description, parameters}  — what chat.js maps to Gemini / Anthropic;
 //                                                       'mcp':     {name, description, inputSchema} — exactly an MCP `tools/list` entry)
 //   apiCall(name, args, host) → the handler's result (never throws: a failure is {isError:true, response:{error}} so the model can correct itself)
 //   apiToMcpResult(result)  → {content:[{type:'text', text}], isError}   — exactly an MCP `tools/call` result
@@ -23,8 +23,8 @@ function apiRegister(def){
   if(!API_TOOLS[def.name]) API_ORDER.push(def.name);
   API_TOOLS[def.name]=def;
 }
-function apiList(fmt){
-  return API_ORDER.map(n=>{ const t=API_TOOLS[n], schema=typeof t.inputSchema==='function'?t.inputSchema():t.inputSchema;
+function apiList(fmt,host){
+  return API_ORDER.filter(n=>!API_TOOLS[n].hosts||(host&&API_TOOLS[n].hosts.includes(host))).map(n=>{ const t=API_TOOLS[n], schema=typeof t.inputSchema==='function'?t.inputSchema():t.inputSchema;
     const d=typeof t.description==='function'?t.description():t.description;
     return fmt==='mcp'?{name:t.name,description:d,inputSchema:schema}:{name:t.name,description:d,parameters:schema}; });
 }
@@ -33,6 +33,7 @@ function apiCall(name,args,host){
   args=args||{};
   if(args.__error) return apiErr('The tool arguments could not be read as JSON ('+args.__error+'). Send a complete, valid call.');
   const t=API_TOOLS[name]; if(!t) return apiErr('unknown tool "'+name+'". Available: '+API_ORDER.join(', '));
+  if(t.hosts&&!t.hosts.includes((host&&host.source)||'chat')) return apiErr('the tool "'+name+'" is not available to this host');   // e.g. Monte Carlo job tools are for the MCP server
   try{ const r=t.handler(args,host||{source:'chat'}); r.cards=r.cards||[]; r.effects=r.effects||[]; return r; }
   catch(e){ return apiErr(String(e&&e.message||e)); }
 }
@@ -191,9 +192,13 @@ apiRegister({name:'show_market_scenario_in_charts',
 function apiResources(){ return [
   {uri:'planner://plan/summary',name:'Plan summary',mimeType:'application/json',description:'Household, inflation, and headline results of the plan as entered'},
   {uri:'planner://market-scenarios',name:'Market scenarios',mimeType:'application/json',description:'Presets, saved and in-conversation market scenarios'},
+  {uri:'planner://runs',name:'Runs',mimeType:'application/json',description:'Every scenario result the app holds (plan, user scenarios, lever, market, stress, stress + Monte Carlo, Monte Carlo) with headline numbers'},
+  {uri:'planner://analysis/summary',name:'Analysis bundle (summary)',mimeType:'application/json',description:'The planner.analysis/1 bundle at summary detail: plan, every run, comparison, glossary, lever catalog'},
   {uri:'planner://levers',name:'Plan levers',mimeType:'application/json',description:'Every named what-if lever and its parameters'}]; }
 function apiReadResource(uri){
   if(uri==='planner://levers') return {levers:Object.keys(SPEC_LEVERS).map(n=>({name:n,description:SPEC_LEVERS[n].desc,params:Object.keys(SPEC_LEVERS[n].params)}))};
+  if(uri==='planner://runs') return {runs:rrListRuns()};
+  if(uri==='planner://analysis/summary') return rrBuildBundle({tier:'summary'});
   if(uri==='planner://market-scenarios') return apiCall('list_market_scenarios',{}).response;
   if(uri==='planner://plan/summary'){ const b=specRunScenario({levers:[]}); return {filingStatus:state.filingStatus,inflationPct:state.inflation*100,people:state.filingStatus==='married'?2:1,kpis:specKpis(b.proj,b.m)}; }
   throw new Error('unknown resource "'+uri+'"');

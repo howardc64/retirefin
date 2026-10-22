@@ -317,6 +317,20 @@ body.printing-all canvas.print-swapped{display:none !important;}
 .un-card{background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 10px 32px rgba(0,0,0,.3);width:min(640px,92vw);padding:14px}
 .un-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .un-card textarea{width:100%;min-height:50vh;box-sizing:border-box;font:14px/1.45 'DM Sans',sans-serif;padding:8px;resize:vertical;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:6px}
+.llm-card{width:min(640px,calc(100vw - 28px))}
+.llm-tabs{display:flex;gap:6px;margin-bottom:8px}.llm-tabs .btn.on{box-shadow:0 0 0 2px #0f6e56 inset}
+.llm-note{color:var(--text-muted);font-size:12px;margin:6px 0}
+.llm-runs{max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px 6px;margin:6px 0}
+.llm-run{display:flex;gap:8px;align-items:flex-start;padding:3px 0;cursor:pointer}.llm-sub{color:var(--text-muted);font-size:12px}
+.llm-badge{display:inline-block;font-size:11px;padding:0 6px;border-radius:8px;border:1px solid var(--border-strong);color:var(--text-muted)}.llm-badge.warn{color:#a32d2d;border-color:#a32d2d}
+.llm-opts{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0}.llm-opts select{font:inherit}
+.llm-acts{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.llm-file{cursor:pointer}
+.llm-pre{max-height:260px;overflow:auto;font-size:11px;background:var(--surface-2,rgba(0,0,0,.05));padding:6px;border-radius:6px;white-space:pre-wrap}
+.llm-card textarea{width:100%;box-sizing:border-box;font:12px/1.4 monospace;padding:6px;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:6px}
+.llm-prop{border:1px solid var(--border);border-radius:8px;padding:8px;margin:8px 0}.llm-why{font-style:italic;margin:3px 0}.llm-what,.llm-delta{font-size:12px;margin:3px 0}
+.llm-table{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0}.llm-table th,.llm-table td{text-align:left;padding:2px 6px;border-bottom:1px solid var(--border)}
+.llm-err{color:#a32d2d;margin:6px 0}.llm-ok{color:#0f6e56;margin:6px 0}
+#llmBtn.on{box-shadow:0 0 0 2px #0f6e56 inset}
 @media print{.scn-card,.un-overlay{display:none !important}}
 
 #saveBtn.saved{background:#0f6e56;border-color:#0f6e56;color:#fff}

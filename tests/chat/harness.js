@@ -7,6 +7,8 @@ function makeCtx(planFile){
   const ctx=mc.makeCtx();
   vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/scenarioSpec.js'),'utf8'),ctx,{filename:'compute/scenarioSpec.js'});
   vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/scenarioApi.js'),'utf8'),ctx,{filename:'compute/scenarioApi.js'});
+  vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/runRegistry.js'),'utf8'),ctx,{filename:'compute/runRegistry.js'});
+  vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/runJobs.js'),'utf8'),ctx,{filename:'compute/runJobs.js'});
   if(planFile) mc.loadPlan(ctx,JSON.parse(fs.readFileSync(path.join(ROOT,'Samples',planFile),'utf8')));
   return ctx;
 }

@@ -58,6 +58,7 @@ function stScenarios(cfg){
       note:'Actual S&P 500 total returns and CPI, '+H.eq.length+' years: nominal stocks roughly tripled while prices more than tripled, with the 1973–74 crash and double-digit inflation inside it.'});
   }
   if(cfg.custom&&cfg.custom.enabled&&typeof msSaved==='function') msSaved().forEach(p=>out.push(stPathScenario(p)));
+  if(Array.isArray(cfg.extraPaths)) cfg.extraPaths.forEach(p=>{ if(!out.some(s=>s.id===p.id)) out.push(stPathScenario(p)); });   // paths a tool asked for by id (compute/runJobs.js); the card never sets this
   return out;
 }
 // A market path in the stress card's scenario shape: {id,label,note,eq,infl} plus `path` (placed by its own `from`, with its own share and tail).

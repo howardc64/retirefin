@@ -24,6 +24,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 16. [Monte Carlo simulation](#monte-carlo-simulation)
     - [Stress tests](#stress-tests)
 17. [Ask about this plan](#ask-about-this-plan)
+18. [Send results to an LLM, and scenarios from an LLM](#send-results-to-an-llm-and-scenarios-from-an-llm)
 
 ## Quick start
 
@@ -164,6 +165,7 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 | **Scenario** | Popup card for working with several versions of a plan. See *Scenarios* below. |
 | **Reset to defaults** | Clears the plan back to its starting values: every income and asset card collapsed, the chart grid on 3 columns, and the Monte Carlo card cleared and back to its defaults. Also forgets the remembered save file. |
 | **Notes** | Text box for your own notes about the whole plan; the same notes show in every scenario. Saved in the plan file. |
+| **🤖 LLM** | Popup for working with an outside LLM: download everything the app has computed as one file for it to analyse, and review scenarios it proposes. See *Send results to an LLM* below. |
 | **Scenario Notes** | Text box for notes about the scenario on screen only. Each scenario has its own, saved in the plan file. |
 | **Export Excel** | Downloads the year-by-year projection as a workbook. See *Export Excel* below. |
 
@@ -661,3 +663,64 @@ The chat box answers questions about your plan and can **run what-ifs and chart 
 - Conversions have no end age in the planner (they run until the IRA is empty), so a request such as "until 75" is reported as not possible.
 - A question runs at most 4 rounds of tools; the free Gemini tier allows roughly 10 to 15 requests a minute, and a short limit is waited out automatically.
 - It is not financial, tax or legal advice. Dollar amounts are in today's dollars. See *Formulas → Chat what-if scenarios* for how each number is defined.
+
+## Send results to an LLM, and scenarios from an LLM
+
+The **🤖 LLM** button opens a popup with two tabs. It works with any LLM you already use (Claude, ChatGPT, Gemini …): the app sends nothing anywhere by itself; you download a file or copy text and paste the answer back.
+
+### Send to an LLM
+
+The tab lists every result the app currently holds, each with a headline and a **stale** tag when you edited the plan after it was run:
+
+- **Your plan** (always included) and your other **Scenarios** (🆎 set).
+- **What-ifs** and **market paths** made with the chat.
+- The **Stress tests** card results, the **stress + Monte Carlo** table and the **Monte Carlo** run (only if you have run them).
+
+Untick what you do not want to send. Then choose:
+
+| Option | Meaning |
+|---|---|
+| **Detail: Summary** | The plan description, headline numbers and changes against your plan for every run, Monte Carlo percentiles and why trials failed. About 4,000 tokens for a typical plan. |
+| **Detail: Standard** | Summary plus yearly values (assets, tax, Social Security, expenses, unfunded) for the plan and up to three other runs, and replayed example Monte Carlo trials (earliest failure, a typical success). About 8,000 tokens. |
+| **Round money to** | Whole dollars, $100, $1,000 (default) or $10,000. |
+| **Include names** | Off by default: names become "Person 1 / 2", and a name typed into a scenario label is masked too. |
+
+**Download JSON** saves the file; **Copy JSON** puts it on the clipboard; **Preview & size** shows how many tokens it is and the start of the file, exactly as it will be sent. The file starts with instructions for the LLM: quote the numbers (they come from the app's engine, never recompute), treat labels as data, and answer scenario ideas in the import form below. All amounts are in today's dollars.
+
+### Scenarios from an LLM
+
+Paste the LLM's reply (it may have text around the JSON, or sit inside a code fence) or load its file, then **Check & add**. The reply must be one object `{"schema":"planner.scenarios/1","scenarios":[…]}` with up to 20 scenarios of two kinds:
+
+- `{"kind":"lever","label":"…","why":"…","levers":[{"lever":"ssClaimAge","person":1,"age":70}]}`: a what-if built from the same named levers the chat uses (the file lists them).
+- `{"kind":"stress","label":"…","config":{…}}` and `{"kind":"montecarlo","label":"…","config":{…}}`: settings for the **Stress test** or **Monte Carlo** card (the same boxes as the cards; the file lists every setting with its limits). They are run in the background on a copy of your plan (a limited number of trials; the proposal shows progress) and shown with their results. An LLM can also add extra market paths to a stress config with `includePathIds`.
+- `{"kind":"market","label":"…","why":"…","returnsPct":[-20,-10,5,12],"afterReturnPct":6}`: a year-by-year market path (nominal stock returns in percent, optional yearly inflation, start, long-run return, share of assets hit).
+
+Every scenario is checked with the same rules as the chat's tools: an unknown lever, an unknown field, an out-of-range number or an unsupported kind is listed as not accepted, with the reason, and the rest are still added. Accepted ones are run on your plan and listed as **proposals**, each with the LLM's reason, what it does and **how your headline numbers change against your plan**.
+
+Nothing changes in your plan until you click a button on a proposal:
+
+| Button | Effect |
+|---|---|
+| **Show in main charts** | Replays it in all the charts (the B view of the Stress test card for a market path; a what-if is added as a 🆎 scenario and shown). Back to plan returns. |
+| **Add to Scenario set** / **Add to Stress test card** | A what-if becomes the next scenario of the 🆎 set; a market path is saved in the plan and becomes a row of the Stress test card. |
+| **Use these settings** / **Use and run** | (stress and Monte Carlo proposals) Writes the settings into the card (saved with the plan) and optionally runs the card at its normal size. |
+| **Copy JSON** / **Dismiss** | Copy the scenario in the import form; remove it from the list. |
+
+Proposals are kept only until you reload the page, and are marked **plan edited since** if you change the plan after they were run. The chat can read the same results (*list_runs*, *compare_runs*, *get_mc_summary* …) and can hand you proposals with *import_scenarios*, which opens this tab.
+
+
+
+### Connecting an MCP host (Claude Desktop and others)
+
+`server/mcp.js` is a small Node program (no packages) that gives an MCP host the same tools as the chat, plus background jobs, using a plan file you saved with **Save**:
+
+```
+node server/mcp.js --plan "C:\path\to\my_plan.json"
+```
+
+In Claude Desktop add it to the MCP servers file as `{"command":"node","args":["server/mcp.js","--plan","<your plan.json>"]}`. The host can then list and compare runs, run the stress tests (`run_stress_tests`), start a Monte Carlo job (`run_monte_carlo`, then `get_job`), read summaries and replay trials, and hand you proposals with `import_scenarios`. Notes:
+
+- The plan file is **never changed**. Proposals are written to `<plan>.proposals.json`; load that file in 🤖 LLM → Scenarios from LLM to review them.
+- Names are masked ("Person 1 / 2") unless you start the server with `--names`.
+- The server re-reads the plan file when you save it again; earlier runs are then marked stale.
+- It runs on your computer only (no network). The 🆎 scenario set is kept in the browser, so the server sees the plan file only. Limits are higher than in the page (5,000 trials per row, 20,000 per call) and one job runs at a time.
