@@ -3,7 +3,7 @@
 // DISPLAY / CHAT — "Ask about this plan" chat box. Sends the user's
 // question, plus a compact text snapshot of the current inputs and the
 // computed projection, to the Anthropic Messages API straight from the
-// browser (no backend), and streams the answer back. Providers: Anthropic Claude or Google Gemini (free tier available).
+// browser (no backend), and streams the answer back. Providers: Anthropic Claude, Google Gemini (free tier available), or any OpenAI-compatible server (OpenAI, OpenRouter, a local Ollama / LM Studio / llama.cpp server: base URL + key + model).
 //
 // Scenario tools (display/chatTools.js, display/chatCharts.js, compute/scenarioSpec.js): the model can call run_scenarios / sweep / show_chart /
 // get_rows. Each call is run by the app's own projection engine on a private copy of the plan and drawn as chart cards under the reply; the model
@@ -43,12 +43,36 @@ const CHAT_PROVIDERS = {
     models:[{id:'claude-sonnet-5-5',label:'Claude Sonnet 5.5 (default)'},{id:'claude-opus-5-5',label:'Claude Opus 5.5 (deeper, slower)'},{id:'claude-haiku-4-5-20251001',label:'Claude Haiku 4.5 (fastest)'}],
     sentTo:'Anthropic’s API',
     privacy:''
+  },
+  // Any server that speaks OpenAI's /chat/completions (design phase 3, §6.4): the base URL, key and model are the user's. The key is optional for a server on this computer.
+  openai:{
+    label:'OpenAI-compatible (OpenAI, OpenRouter, Ollama, LM Studio…)',
+    baseUrlEditable:true, defaultBaseUrl:'https://api.openai.com/v1',
+    keyLabel:'API key (leave empty for a server on this computer)', keyPlaceholder:'sk-…', keyOptional:true,
+    keyHint:'Set the base URL of the server (for example https://api.openai.com/v1, https://openrouter.ai/api/v1, or http://localhost:11434/v1 for Ollama). The browser talks to it directly, so the server must allow this page’s origin (CORS: for Ollama set OLLAMA_ORIGINS, for LM Studio turn on “Enable CORS”). The model must support tool calls for what-ifs to work.',
+    defaultModel:'gpt-4.1-mini',
+    models:[{id:'gpt-4.1-mini',label:'gpt-4.1-mini'},{id:'gpt-4.1',label:'gpt-4.1'},{id:'llama3.1',label:'llama3.1 (Ollama)'},{id:'qwen2.5',label:'qwen2.5 (Ollama)'}],
+    sentTo:prefs=>{ const ep=chatOpenAIEndpoint(prefs&&prefs.baseUrl); return ep.error?'the server whose address you enter above':(ep.local?'the server on this computer ('+ep.host+')':'the server at '+ep.host); },
+    privacy:'What the server does with prompts is up to that server’s operator; check its policy.'
   }
 };
-const CHAT_PREFS_KEY = 'retirementPlannerChat_v1';   // {provider, models:{anthropic,gemini}, includeNames, remember}
+const CHAT_PREFS_KEY = 'retirementPlannerChat_v1';   // {provider, models:{anthropic,gemini,openai}, baseUrl (openai), includeNames, remember}
+
+// OpenAI-compatible endpoint: '<base>/chat/completions'. A key is only ever sent over https, or over http to this computer. → {url, host, local} | {error}
+function chatOpenAIEndpoint(base){
+  const b=String(base==null||String(base).trim()===''?CHAT_PROVIDERS.openai.defaultBaseUrl:base).trim();
+  const m=/^(https?):\/\/([^\/?#@\s]+)(\/[^?#\s]*)?$/i.exec(b);
+  if(!m) return {error:'The base URL must look like https://host/v1 (no spaces, user name, query or #).'};
+  const scheme=m[1].toLowerCase(), hostport=m[2], host=hostport.replace(/:\d+$/,'').toLowerCase();
+  const local=/^(localhost|127(\.\d{1,3}){3}|\[::1\])$/.test(host);
+  if(scheme==='http'&&!local) return {error:'Plain http is only allowed for a server on this computer (localhost or 127.0.0.1); use https for a remote server.'};
+  let path=(m[3]||'').replace(/\/+$/,''); if(!/\/chat\/completions$/.test(path)) path+='/chat/completions';
+  return {url:scheme+'://'+hostport+path,host,local};
+}
 const CHAT_KEY_KEYS  = {                             // one storage key per provider (sessionStorage, or localStorage if "remember")
   anthropic:'retirementPlannerChatApiKey_v1',
-  gemini:'retirementPlannerChatGeminiKey_v1'
+  gemini:'retirementPlannerChatGeminiKey_v1',
+  openai:'retirementPlannerChatOpenAIKey_v1'
 };
 
 let chatMessages = [];      // [{role:'user'|'assistant', content:string}] — in memory only
@@ -60,7 +84,7 @@ function chatLoadPrefs(){
   let p={}; try{ p=JSON.parse(localStorage.getItem(CHAT_PREFS_KEY)||'{}')||{}; }catch(e){}
   const models={}; Object.keys(CHAT_PROVIDERS).forEach(k=>{ models[k]=(p.models&&p.models[k])||CHAT_PROVIDERS[k].defaultModel; });
   if(!(p.models) && p.model) models.anthropic=p.model;      // prefs saved before Gemini support
-  return {provider:CHAT_PROVIDERS[p.provider]?p.provider:'gemini', models, includeNames:!!p.includeNames, remember:!!p.remember, wide:!!p.wide};
+  return {provider:CHAT_PROVIDERS[p.provider]?p.provider:'gemini', models, baseUrl:typeof p.baseUrl==='string'?p.baseUrl.slice(0,300):'', includeNames:!!p.includeNames, remember:!!p.remember, wide:!!p.wide};
 }
 function chatSavePrefs(p){ try{ localStorage.setItem(CHAT_PREFS_KEY, JSON.stringify(p)); }catch(e){} }
 function chatGetKey(prov){
@@ -223,6 +247,7 @@ function chatSaveFields(){
   const prefs=chatLoadPrefs(), prov=chatProviderShown;
   prefs.provider=prov;
   prefs.models[prov]=chatEl('chatModel').value.trim()||CHAT_PROVIDERS[prov].defaultModel;
+  if(prov==='openai'&&chatEl('chatBaseUrl')) prefs.baseUrl=chatEl('chatBaseUrl').value.trim().slice(0,300);
   prefs.includeNames=chatEl('chatNames').checked;
   prefs.remember=chatEl('chatRemember').checked;
   chatSavePrefs(prefs);
@@ -238,11 +263,13 @@ function chatLoadFields(prov){
   chatEl('chatKey').placeholder=P.keyPlaceholder;
   chatEl('chatKey').value=chatGetKey(prov);
   chatEl('chatKeyHint').textContent=P.keyHint;
+  const bu=chatEl('chatBaseUrlRow'); if(bu) bu.style.display=P.baseUrlEditable?'':'none';
+  if(P.baseUrlEditable&&chatEl('chatBaseUrl')){ chatEl('chatBaseUrl').value=prefs.baseUrl||''; chatEl('chatBaseUrl').placeholder=P.defaultBaseUrl; }
   chatEl('chatModel').value=prefs.models[prov];
   chatEl('chatModelList').innerHTML=P.models.map(m=>`<option value="${escAttr(m.id)}">${escHtml(m.label)}</option>`).join('');
   chatEl('chatNames').checked=prefs.includeNames;
   chatEl('chatRemember').checked=prefs.remember;
-  chatEl('chatPrivacy').firstChild.textContent='Each message sends your plan (ages, balances, income, tax and expense figures) to '+P.sentTo+', and so do the results of any scenarios the model runs (headline numbers and a few sampled years). '+(P.privacy?P.privacy+' ':'')+'The key stays in this browser and is never written to a saved plan file. ';
+  chatEl('chatPrivacy').firstChild.textContent='Each message sends your plan (ages, balances, income, tax and expense figures) to '+(typeof P.sentTo==='function'?P.sentTo(prefs):P.sentTo)+', and so do the results of any scenarios the model runs (headline numbers and a few sampled years). '+(P.privacy?P.privacy+' ':'')+'The key stays in this browser and is never written to a saved plan file. ';
   chatRefreshPreview();
 }
 function onChatSettingsChange(){ chatSaveFields(); chatRefreshPreview(); }
@@ -325,10 +352,40 @@ function chatAnthropicMessages(h){
   });
 }
 
+const chatOpenAIId=id=>String(id==null?'call':id).slice(0,40);
+function chatOpenAIMessages(systemText,h){
+  const out=[{role:'system',content:systemText}];
+  h.forEach(m=>{
+    if(m.role==='user') out.push({role:'user',content:m.content});
+    else if(m.role==='assistant'){
+      if(!(m.calls&&m.calls.length)) out.push({role:'assistant',content:m.content});
+      else out.push({role:'assistant',content:m.content||null,tool_calls:m.calls.map(c=>({id:chatOpenAIId(c.id),type:'function',function:{name:c.name,arguments:JSON.stringify((c.args&&!c.args.__error)?c.args:{})}}))});
+    } else m.results.forEach(r=>out.push({role:'tool',tool_call_id:chatOpenAIId(r.id),content:JSON.stringify(r.response)}));
+  });
+  return out;
+}
+// Tool calls arrive in pieces ({index, id?, function:{name?, arguments?}}); st.tc collects them until the stream says it is finished.
+function chatOpenAIFlush(st){
+  const out=[]; Object.keys(st.tc||{}).sort((a,b)=>a-b).forEach(i=>{
+    const b=st.tc[i]; if(!b.name) return;
+    let args; if(b.obj) args=b.obj; else { try{ args=b.args?JSON.parse(b.args):{}; }catch(e){ args={__error:e.message}; } }   // a cut-off call is answered with an error the model can fix
+    out.push({id:chatOpenAIId(b.id||('call_'+(++chatCallSeq))),name:b.name,args});
+  });
+  st.tc={}; return out;
+}
+
 // ── Provider request / response shapes ──
 // Returns {url, headers, body} for one streamed chat turn. allowTools=false asks for a plain answer (the tool-round limit was reached).
-function chatBuildRequest(prov, model, key, systemText, history, allowTools){
+function chatBuildRequest(prov, model, key, systemText, history, allowTools, opts){
   const decls=chatToolDeclList();
+  if(prov==='openai'){
+    const ep=chatOpenAIEndpoint(opts&&opts.baseUrl); if(ep.error) throw Object.assign(new Error(ep.error),{handled:true});
+    // No max_tokens: newer OpenAI models reject it (they want max_completion_tokens) while older servers want it, so the server's own default applies.
+    const body={model, stream:true, messages:chatOpenAIMessages(systemText,history)};
+    if(decls.length){ body.tools=decls.map(d=>({type:'function',function:{name:d.name,description:d.description,parameters:d.parameters}})); body.tool_choice=allowTools?'auto':'none'; }
+    const headers={'content-type':'application/json'}; if(key) headers.authorization='Bearer '+key;
+    return {url:ep.url, headers, body};
+  }
   if(prov==='gemini'){
     const body={
       systemInstruction:{parts:[{text:systemText}]},
@@ -358,6 +415,24 @@ function chatBuildRequest(prov, model, key, systemText, history, allowTools){
 // One parsed SSE event → {text, calls, stop, error}. stop is normalised: 'length' (hit the token cap), 'blocked:<why>', or 'end'.
 // `st` is per-request parser state: Anthropic streams a tool call's JSON in pieces, Gemini sends each function call whole.
 function chatParseEvent(prov, j, st){
+  if(prov==='openai'){
+    const out={};
+    if(j.error){ out.error=typeof j.error==='string'?j.error:(j.error.message||'The API reported an error.'); return out; }
+    const c=j.choices&&j.choices[0]; if(!c) return out;
+    const d=c.delta||{};
+    if(typeof d.content==='string'&&d.content) out.text=d.content;
+    (Array.isArray(d.tool_calls)?d.tool_calls:[]).forEach(t=>{
+      if(!t||typeof t!=='object') return;
+      const i=t.index!=null?t.index:0, b=st.tc[i]||(st.tc[i]={id:null,name:'',args:'',obj:null}), f=t.function||{};
+      if(t.id&&!b.id) b.id=t.id; if(f.name&&!b.name) b.name=String(f.name);
+      if(typeof f.arguments==='string') b.args+=f.arguments; else if(f.arguments&&typeof f.arguments==='object') b.obj=f.arguments;
+    });
+    if(c.finish_reason){
+      const calls=chatOpenAIFlush(st); if(calls.length) out.calls=calls;
+      out.stop=c.finish_reason==='length'?'length':(c.finish_reason==='content_filter'?'blocked:content_filter':'end');
+    }
+    return out;
+  }
   if(prov==='gemini'){
     const out={};
     if(j.error) out.error=j.error.message||'The API reported an error.';
@@ -391,7 +466,7 @@ function chatParseEvent(prov, j, st){
 
 // Reads a streamed (SSE) response, calling onText for each text delta; returns {stop, calls}.
 async function chatReadStream(res, prov, onText){
-  const reader=res.body.getReader(), dec=new TextDecoder(), st={blocks:{}};
+  const reader=res.body.getReader(), dec=new TextDecoder(), st={blocks:{},tc:{}};
   let buf='', stop=null; const calls=[];
   for(;;){
     const {done,value}=await reader.read(); if(done) break;
@@ -408,6 +483,7 @@ async function chatReadStream(res, prov, onText){
       if(e.stop) stop=e.stop;
     }
   }
+  if(prov==='openai') chatOpenAIFlush(st).forEach(c=>calls.push(c));   // a server that ends the stream without a finish_reason
   return {stop,calls};
 }
 function chatFriendlyError(status, message, prov){
@@ -431,7 +507,7 @@ function chatSleep(ms,signal){
 // One request/response round. Streams text into `bubble` (and into box.reply). A free-tier rate limit that clears within 30 s is waited out once.
 // → {stop, calls}
 async function chatStreamRound(prov, model, key, prefs, allowTools, ctrl, bubble, box){
-  const rq=chatBuildRequest(prov, model, key, buildChatSystemPrompt(prefs.includeNames), chatHistoryForRequest(), allowTools);
+  const rq=chatBuildRequest(prov, model, key, buildChatSystemPrompt(prefs.includeNames), chatHistoryForRequest(), allowTools, {baseUrl:prefs.baseUrl});
   let waited=false;
   for(;;){
     const res=await fetch(rq.url,{method:'POST', signal:ctrl.signal, headers:rq.headers, body:JSON.stringify(rq.body)});
@@ -441,7 +517,7 @@ async function chatStreamRound(prov, model, key, prefs, allowTools, ctrl, bubble
         const m=chatEl('chatMessages'); m.scrollTop=m.scrollHeight;
       });
     }
-    let msg=''; try{ const j=await res.json(); msg=(j&&j.error&&j.error.message)||''; }catch(e){}
+    let msg=''; try{ const j=await res.json(); msg=(j&&j.error&&(typeof j.error==='string'?j.error:j.error.message))||''; }catch(e){}
     const wait=res.status===429?chatRetrySeconds(msg):null;
     if(wait!=null && wait<=30 && !waited){ waited=true; chatShowStatus('Rate limit: retrying in '+Math.ceil(wait)+' s…'); await chatSleep(Math.ceil(wait*1000)+500,ctrl.signal); chatShowStatus(''); continue; }
     throw Object.assign(new Error(chatFriendlyError(res.status,msg,prov)),{handled:true});
@@ -466,7 +542,10 @@ async function sendChat(){
   if(chatAbort) return;
   const inp=chatEl('chatInput'); const text=(inp.value||'').trim(); if(!text) return;
   const prefs=chatSaveFields(), prov=prefs.provider, model=prefs.models[prov], key=chatGetKey(prov);
-  if(!key){ toggleChatSettings(true); chatShowStatus('Paste your '+CHAT_PROVIDERS[prov].keyLabel+' in ⚙ Settings first.',true); return; }
+  if(prov==='openai'){
+    const ep=chatOpenAIEndpoint(prefs.baseUrl); if(ep.error){ toggleChatSettings(true); chatShowStatus(ep.error,true); return; }
+    if(!key&&!ep.local){ toggleChatSettings(true); chatShowStatus('Paste the server’s API key in ⚙ Settings first (only a server on this computer can be used without one).',true); return; }
+  } else if(!key){ toggleChatSettings(true); chatShowStatus('Paste your '+CHAT_PROVIDERS[prov].keyLabel+' in ⚙ Settings first.',true); return; }
 
   inp.value=''; chatShowStatus(''); toggleChatSettings(false);   // the key is in place: give the transcript the room
   const turnStart=chatMessages.length;

@@ -191,6 +191,7 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 - **One sheet per account:** portfolios, IRAs, **inherited IRAs** (withdraw and balance under the 10-year rule), annuities, and each **real estate** property (value, cost basis, and any sale's gain, exemption, tax and amount sent to the portfolio).
 - **A Monte Carlo trial exports as that trial.** With a trial loaded (B or a successful run C) the file is named `retirement-plan-mc-trial-N.xlsx`, **Inputs** shows the trial's drawn passing ages, Long Term Care and inheritance, and an extra **MC trial** sheet lists the trial's inflation for each year and every asset's market shock. The portfolio, property and IRA sheets compound with those yearly rates, and the tax thresholds follow the trial's price level, so the workbook stays live: edit an inflation rate or a shock factor (1 = the plan's own return) on the MC trial sheet, or a growth % on Inputs, and the formulas recalculate. As in a plan, the amounts the app solves (income, expense funding, Roth conversions) stay as values. With A (the plan) showing, the export is the plan.
 - **Guardrails and the medical shock.** **Inputs** lists their settings. With guardrails on, the **Projection by year** sheet gains *Guardrail* columns: the multiplier on discretionary spending, the spending the portfolios must fund and the start-of-year balance (values from the app), and the **withdrawal rate, cut line, tripwire and "above the cut line?"** as live formulas (change the band on Inputs and they follow; the cuts themselves are app values, as the rest of the solver's output). The medical shock has its own column and is inside *Long Term Care expense* and the itemized deduction.
+- **A market path from an LLM exports like a stress test.** If a path proposed by the chat, the 🤖 LLM panel or the live bridge is on screen in the charts (the B view), **Export Excel** writes that scenario (file `retirement-plan-stress-test.xlsx`, named after the path) with live formulas on the **MC trial** sheet, exactly as for the Stress test card. The workbook always comes from the plan and view on screen, never from a proposal that is only listed.
 - **State income tax** is exported for the selected state only (California's brackets, deduction and credits, or Washington's capital-gains tax). With state tax off, no state tables or columns are written.
 
 ### Hover helpers
@@ -633,7 +634,7 @@ The **Stress tests** card (under the Monte Carlo card, collapsed until you untic
 The chat box answers questions about your plan and can **run what-ifs and chart them**. Open it with the **💬 Ask about this plan** button at the bottom right.
 
 **Setup**
-- It needs your own API key. **Google Gemini** is the default and has a free tier: get a key at aistudio.google.com/apikey, paste it in ⚙ Settings and ask. Anthropic Claude (paid key) also works.
+- It needs your own API key. **Google Gemini** is the default and has a free tier: get a key at aistudio.google.com/apikey, paste it in ⚙ Settings and ask. Anthropic Claude (paid key) also works, and so does any **OpenAI-compatible** server (choose that provider, enter its base URL such as `https://api.openai.com/v1`, `https://openrouter.ai/api/v1` or `http://localhost:11434/v1` for Ollama, a model id and, unless the server is on this computer, a key). The server must allow this page's origin (CORS) and the model must support tool calls.
 - The key is kept only in your browser and is never saved in a plan file.
 - Each message sends a text snapshot of your inputs and results to the provider, and so do the results of any scenarios it runs. Names are withheld unless you tick *Send names*. *Preview exactly what is sent* in ⚙ Settings shows the text and the tool list.
 - The **⇔** button widens the panel for charts; ⚙ Settings closes itself once you send a question.
@@ -666,7 +667,7 @@ The chat box answers questions about your plan and can **run what-ifs and chart 
 
 ## Send results to an LLM, and scenarios from an LLM
 
-The **🤖 LLM** button opens a popup with two tabs. It works with any LLM you already use (Claude, ChatGPT, Gemini …): the app sends nothing anywhere by itself; you download a file or copy text and paste the answer back.
+The **🤖 LLM** button opens a popup with three tabs (send to an LLM, scenarios from an LLM, live bridge). It works with any LLM you already use (Claude, ChatGPT, Gemini …): the app sends nothing anywhere by itself; you download a file or copy text and paste the answer back.
 
 ### Send to an LLM
 
@@ -718,9 +719,45 @@ Proposals are kept only until you reload the page, and are marked **plan edited 
 node server/mcp.js --plan "C:\path\to\my_plan.json"
 ```
 
-In Claude Desktop add it to the MCP servers file as `{"command":"node","args":["server/mcp.js","--plan","<your plan.json>"]}`. The host can then list and compare runs, run the stress tests (`run_stress_tests`), start a Monte Carlo job (`run_monte_carlo`, then `get_job`), read summaries and replay trials, and hand you proposals with `import_scenarios`. Notes:
+In Claude Desktop add it to the MCP servers file as `{"command":"node","args":["server/mcp.js","--plan","<your plan.json>"]}`. On a Mac:
+
+1. Install Node 18 or newer (`node --version` in Terminal) and keep the app folder somewhere permanent, for example `~/planner`.
+2. In Claude Desktop choose **Settings → Developer → Edit Config**. This opens `~/Library/Application Support/Claude/claude_desktop_config.json`.
+3. Add the server with absolute paths (a leading `~` is not expanded):
+
+```
+{
+  "mcpServers": {
+    "retirement-planner": {
+      "command": "node",
+      "args": ["/Users/you/planner/server/mcp.js", "--plan", "/Users/you/Documents/my_plan.json"]
+    }
+  }
+}
+```
+
+4. Quit Claude Desktop completely (⌘Q) and reopen it. The server then appears under Settings → Developer; if it shows an error, open its log there. If `node` is not found, put the full path in `command` (the output of `which node`, for example `/opt/homebrew/bin/node`).
+
+ The host can then list and compare runs, run the stress tests (`run_stress_tests`), start a Monte Carlo job (`run_monte_carlo`, then `get_job`), read summaries and replay trials, and hand you proposals with `import_scenarios`. Notes:
 
 - The plan file is **never changed**. Proposals are written to `<plan>.proposals.json`; load that file in 🤖 LLM → Scenarios from LLM to review them.
 - Names are masked ("Person 1 / 2") unless you start the server with `--names`.
 - The server re-reads the plan file when you save it again; earlier runs are then marked stale.
-- It runs on your computer only (no network). The 🆎 scenario set is kept in the browser, so the server sees the plan file only. Limits are higher than in the page (5,000 trials per row, 20,000 per call) and one job runs at a time.
+- It runs on your computer only (no network). The 🆎 scenario set is kept in the browser, so the server sees the plan file only (unless you use the live bridge below). Limits are higher than in the page (5,000 trials per row, 20,000 per call) and one job runs at a time.
+
+
+### Live bridge: let the MCP host see the plan on your screen
+
+Start the server with `--bridge` instead of (or as well as) a plan file:
+
+```
+node server/mcp.js --bridge
+```
+
+It prints a port (8765 by default) and a pairing code. In the page open **🤖 LLM → Live bridge**, enter both and press **Connect**. Then:
+
+- The host works on **the plan as it is on screen**; it is sent again after each edit, and earlier results are marked stale. Disconnect stops it.
+- What is sent is your whole plan, the same content as Save (names and birth years included; the server still hides names from the LLM unless started with `--names`). The link never leaves this computer (127.0.0.1) and nothing is sent until you press Connect.
+- The host can ask the page to **show a market path in the charts** or to **put scenarios in your proposals list**. The first time it asks for each kind, the tab asks you: **Allow** (until you disconnect), **Allow once** or **Deny**. It can never change your plan.
+- The host can call `bridge_status` to see whether a page is connected; the pairing code is returned there unless you start with `--bridge-hide-code` (then read it from the server's log). A fixed code and port: `--bridge-port 8765 --bridge-token ABCD-EFGH-JKLM`.
+- An https page may be blocked from `ws://127.0.0.1` by the browser; open the app from a local file or `http://localhost` if Connect fails.

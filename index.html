@@ -152,6 +152,9 @@
       </label>
       <div id="chatKeyHint" class="chat-hint"></div>
       <label class="chat-check"><input type="checkbox" id="chatRemember" autocomplete="off" onchange="onChatSettingsChange()"> Remember the key on this device (otherwise it is forgotten when the tab closes)</label>
+      <label id="chatBaseUrlRow" style="display:none">Base URL of the server
+        <input type="text" id="chatBaseUrl" autocomplete="off" spellcheck="false" onchange="onChatSettingsChange()">
+      </label>
       <label>Model (pick a suggestion or type any model id)
         <input type="text" id="chatModel" list="chatModelList" autocomplete="off" spellcheck="false" onchange="onChatSettingsChange()">
         <datalist id="chatModelList"></datalist>
@@ -251,6 +254,7 @@
 <script src="js/display/chatCharts.js"></script>
 <script src="js/display/chat.js"></script>
 <script src="js/display/llmPanel.js"></script>
+<script src="js/display/llmBridge.js"></script>
 <script src="js/display/mcPanel.js"></script>
 <script src="js/display/stressPanel.js"></script>
 <script src="js/display/cardStack.js"></script>

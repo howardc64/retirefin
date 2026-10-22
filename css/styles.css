@@ -568,3 +568,5 @@ body.printing-all .person-col.col-hidden .pcol-tab,body.printing-all .pcol-hide{
 .mc-grp .mc-chk small{display:block;color:var(--text-faint);}
 .mc-grp .mc-src{font-size:11px;line-height:1.4;}
 .mc-run .mc-f{flex-direction:row;align-items:center;gap:8px;}
+.llm-opts input[type=text],.llm-opts input[type=password]{font:inherit;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text)}
+.llm-card code{font-size:11.5px}

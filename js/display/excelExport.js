@@ -10,6 +10,7 @@
 //     of them — totals, taxable SS, AGI, deductions, ordinary / qualified tax, NIIT, total tax, IRMAA, effective rate,
 //     expense totals, balances — is an Excel formula, so editing a value or a tax-table entry flows through.
 //   • One sheet per portfolio / annuity / IRA / Roth with roll-forward formulas.
+//   • What is on screen is what is exported: a plan, a Monte Carlo trial, a stress test, or a market path shown from the chat / 🤖 LLM panel / live bridge (the B view, exported as a stress test named after the path).
 // Read-only: never writes back into `state`. Uses the
 // SheetJS ("xlsx") library, loaded the same way Chart.js is (a
 // pinned CDN <script src> in index.html), so this file, like every

@@ -16,7 +16,7 @@ A browser-based retirement income and tax planner for a single person or a marri
 - **Inheritance** from another plan file, and **two plans linked live** (parent in one tab, heir in another).
 - **Scenarios** to create, switch, compare and delete variants of a plan; **Notes** for the whole plan and per scenario.
 - **Save / Load** plan files (JSON), **Export to Excel** with live formulas for the main tax chain, and a **Formulas** page documenting every equation.
-- **🤖 LLM button**: download every scenario and result (user scenarios, what-ifs, stress tests, Monte Carlo) as one file for any external LLM, and review the scenarios an LLM proposes before anything touches your plan.
+- **🤖 LLM button**: download every scenario and result (user scenarios, what-ifs, stress tests, Monte Carlo) as one file for any external LLM, and review the scenarios an LLM proposes before anything touches your plan. A live bridge (`node server/mcp.js --bridge`) lets an MCP host such as Claude Desktop work on the plan on your screen; the chat also accepts any OpenAI-compatible server.
 - **Optional chat** that answers questions about your plan and runs what-ifs through the app's own projection engine (you supply your own Google Gemini or Anthropic API key).
 
 ## Getting started
@@ -42,7 +42,7 @@ Everything runs in your browser. Plans are autosaved to the browser's local stor
 |---|---|
 | [`misc/Usage.md`](misc/Usage.md) | User guide: every panel, card, chart and button |
 | [`misc/Note4User.md`](misc/Note4User.md) | Planning observations (Social Security timing, Roth conversions, IRMAA, widow taxation) |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | File-by-file spec: state schema, projection row schema, tax rules, load order, with diagrams |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | File-by-file spec: state schema, projection row schema, tax rules, load order, with diagrams |
 | [`docs/MONTE_CARLO.md`](docs/MONTE_CARLO.md) | Monte Carlo and stress-test design |
 | [`ChangeLog.md`](ChangeLog.md) | Numbered history of changes |
 | [`tests/README.md`](tests/README.md) | How the regression tests work |
@@ -52,7 +52,7 @@ The app also has built-in **Usage**, **Formulas** and **Tips** pages.
 ## Project layout
 
 ```
-index.html          page shell; script load order matters (see ARCHITECTURE.md §7.2)
+index.html          page shell; script load order matters (see docs/ARCHITECTURE.md §7.2)
 css/styles.css
 js/
   core/             constants, helpers, state (single source of truth for inputs)

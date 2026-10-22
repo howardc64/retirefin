@@ -122,9 +122,10 @@ tests/
   check.js  snapshot.js  compare.js  baseline.json  README.md   (Node regression harness; not loaded by the app)
   chart_big_test.js   (enlarged-chart layout model: footprint, displacement, row compaction, 2×N round trip, save/load)
   market/       market_test.js  market_ui_test.js   (market path model, tool API, MCP shapes; chat tool → D view → Stress card, §13)
+  llm/          runs_test.js  llm_ui_test.js  jobs_test.js  mcp_test.js  bridge_test.js  bridge_mcp_test.js  bridge_ui_test.js  openai_test.js  wsclient.js   (LLM integration, §13.5–13.7)
   mc/           mc_harness.js  mc_test.js  mc_inherit_test.js  mc_replay_test.js  mc_ui_test.js  mc_runplan.js  mc_sweep.js  mc_infl_cmp.js  stress_test.js  stress_mc_test.js  guardrail_test.js  guardrail_ui_test.js  panic_test.js  medshock_test.js  medshock_ui_test.js  xlsx_trial_test.js  xlsx_guardrail_test.js   (Monte Carlo tests, §10; stress tests, §11; guardrails §4.6a; panic §10.6; medical shock §4.6b)
   xlsx_e2e/     write_workbook.js  compare_recalc.py  README.md   (Excel export recalculated in LibreOffice, §6.11)
-docs/           MONTE_CARLO.md  (what the Monte Carlo add-on changed, how it works, how to test it)  + design spec and slide decks
+docs/           ARCHITECTURE.md  (this file)  MONTE_CARLO.md  (what the Monte Carlo add-on changed, how it works, how to test it)  LLM_INTEGRATION_DESIGN.md  + design spec and slide decks
 js/
   core/         constants.js  helpers.js  markdown.js  state.js
   compute/      socialSecurityCalc.js  rmd.js  tax.js  dates.js  ageRange.js
@@ -134,8 +135,9 @@ js/
                 brokerage.js  realEstate.js  ira.js  roth.js  inheritance.js  liveLink.js  incomeForms.js
   display/      chartHelpers.js  chartPanels.js  chartInfo.js  overlayPlugin.js
                 ssChart.js  incomeChart.js  tssChart.js  taxChart.js  expenseChart.js  assetChart.js  iraLtcgChart.js  inhIncomeChart.js  inflationChart.js  marketChart.js  footer.js  print.js
-                formulasPage.js  mdPage.js  excelExport.js  scenarios.js  userNotes.js  chatTools.js  chatCharts.js  chat.js  mcPanel.js  stressPanel.js  cardStack.js
+                formulasPage.js  mdPage.js  excelExport.js  scenarios.js  userNotes.js  chatTools.js  chatCharts.js  chat.js  llmPanel.js  llmBridge.js  mcPanel.js  stressPanel.js  cardStack.js  llmPanel.js  llmBridge.js
   app.js
+server/    engine.js  mcp.js  bridge.js   (Node only, not loaded by the page: the MCP stdio server and the live-bridge WebSocket, §13.4, §13.7)
 misc/      Usage.md            (how to use the app; rendered to HTML by the Usage button, §6.10)
            Note4User.md        (user-facing tips; rendered to HTML by the Tips button, §6.10)
 Samples/   *.json  manifest.json (example saved plans: Widow.json, a single widow of 85 with LTC at the end of life, and Couple_Heir.json, a California married couple (community property) whose wife Susan inherits from Widow.json, with a 1% AUM fee on portfolios and IRAs; each .json is one entry in the Load file menu, §5.6)
@@ -1124,7 +1126,7 @@ flowchart LR
   c --> d["core/state.js"]
   d --> e["compute: dates, ageRange, projection,<br/>whatIf, donorTraj,<br/>monteCarlo, stressTest"]
   e --> f["input/*"]
-  f --> g["display/*<br/>charts, formulasPage, mdPage, excelExport,<br/>mcPanel, stressPanel, cardStack"]
+  f --> g["display/*<br/>charts, formulasPage, mdPage, excelExport,<br/>chat, llmPanel, llmBridge,<br/>mcPanel, stressPanel, cardStack"]
   g --> h["app.js<br/>boot"]
 ```
 
@@ -1143,7 +1145,7 @@ flowchart LR
   input/loadMenu →
   display/chartHelpers → display/chartPanels → display/chartInfo → display/overlayPlugin → display/ssChart → display/incomeChart →
   display/tssChart → display/taxChart → display/expenseChart → display/assetChart → display/iraLtcgChart → display/inhIncomeChart → display/footer →
-  display/formulasPage → display/mdPage → display/excelExport → display/scenarios → display/userNotes → display/print → display/chat → display/mcPanel → display/stressPanel → display/cardStack → app.js`
+  display/formulasPage → display/mdPage → display/excelExport → display/scenarios → display/userNotes → display/print → display/chat → display/llmPanel → display/llmBridge → display/mcPanel → display/stressPanel → display/cardStack → app.js`
 - **Adding a file:** insert its `<script>` tag after everything it reads from and before everything
   that reads from it. Function *calls* deferred to a later event (a click, `DOMContentLoaded`) don't
   need this — only code that runs immediately when the script loads (top-level `let`/`const`
@@ -1435,13 +1437,14 @@ Provider-neutral history (`user`, `assistant` + `calls`, `tool` + `results`) map
 
 ## 13. Market scenarios and the tool API (add-on)
 
-One data model for "what if the market and inflation did *this*, year by year", one hook for the engine, and one transport-neutral tool surface. The chat uses it today; an MCP server, or any other host, can drive the same functions tomorrow without touching the engine or the display.
+One data model for "what if the market and inflation did *this*, year by year", one hook for the engine, and one transport-neutral tool surface. The chat and the MCP server (with its optional live bridge, §13.7) use it; any other host, can drive the same functions tomorrow without touching the engine or the display.
 
 ```mermaid
 flowchart LR
   subgraph HOSTS["hosts (transports)"]
     chat["in-page chat<br/>display/chat.js"]
-    mcp["MCP server (future)<br/>tools/list, tools/call, resources"]
+    mcp["MCP server<br/>server/mcp.js: tools/list, tools/call, resources"]
+    bridge["live bridge<br/>server/bridge.js + display/llmBridge.js"]
   end
   subgraph API["compute/scenarioApi.js (no DOM)"]
     reg["apiRegister / apiList / apiCall<br/>apiToMcpResult, apiResources"]
@@ -1452,13 +1455,15 @@ flowchart LR
   end
   eng["withEngineHooks (projection.js)<br/>computeProjection()"]
   chat --> reg
-  mcp -.-> reg
+  mcp --> reg
+  mcp <-->|"plan, effects"| bridge
   reg --> tools --> val
   hook --> eng
   stress["stressTest.js"] --> MS
   spec["scenarioSpec.js<br/>marketStress lever"] --> MS
   tools -->|"cards, effects"| chat
   chat -->|"showMarketPath"| dview["mcLoadMarketPath: D view"]
+  bridge -->|"approved showMarketPath"| dview
 ```
 
 ### 13.1 `compute/marketScenario.js` — the MarketPath
@@ -1501,14 +1506,80 @@ Tools: the four lever tools (`run_scenarios`, `sweep`, `show_chart`, `get_rows`,
 `engine.js` loads the engine files plus `scenarioSpec/Api`, `runRegistry`, `runJobs` into a Node `vm` with a stub DOM (logs go to stderr) and loads a saved plan with `hydrateState`. `mcp.js` speaks newline-delimited JSON-RPC 2.0 on stdio: `initialize`, `ping`, `tools/list` = `apiList('mcp','mcp')`, `tools/call` = `apiToMcpResult(apiCall(name,args,{source:'mcp'}))`, `resources/list|read`; stdout carries protocol only. `RR_TOOL_NAMES=false` masks names unless `--names`. The plan file is re-read when its mtime changes (runs then report `stale`); it is never written. After `import_scenarios` the held proposals are written to `<plan>.proposals.json` (`planner.scenarios/1`) for the page's Import tab. The 🆎 scenario set lives in browser storage, so the server sees only the plan. Test: `tests/llm/mcp_test.js` (spawns it).
 
 ### 13.5 Run registry, analysis bundle and LLM panel (`compute/runRegistry.js`, `display/llmPanel.js`)
-Design and phases: `docs/LLM_INTEGRATION_DESIGN.md` (phases 1 and 2 built). `rrEntries()` reads every store and returns one **Run** shape: `plan` (live scenario), `user` (the other 🆎 scenarios, run on a state swap), `lever` (`apiRuns`), `market` (`msList()`), `stress` (`stResults.results`; KPIs from the stored measure `m`, yearly values via `stReplay`), `stress_mc` (`stResults.mc.rows`) and `monte_carlo` (`mcResults`). Page-only stores are read behind `typeof`, so a headless host (tests, a future MCP server) sees plan + lever + market. A Run has `id` (`plan`, `scn:B`, `lev:r1`, `mkt:<id>`, `st:<scenario>`, `stmc:<scenario|none>`, `mc:run`), `kind`, `label`, `source`, `spec`, `planKey` (8-hex `rrHash` of the plan), `stale` (the plan was edited since), `kpis` (the `SPEC_KPIS` vector) or `distribution` (funded share, final-asset and lifetime-tax percentiles, failure causes, risk factors, and with detail the funded-through-age and percentile bands by age), plus `stress` extras.
+Design and phases: `docs/LLM_INTEGRATION_DESIGN.md` (phases 1, 2 and 3 built). `rrEntries()` reads every store and returns one **Run** shape: `plan` (live scenario), `user` (the other 🆎 scenarios, run on a state swap), `lever` (`apiRuns`), `market` (`msList()`), `stress` (`stResults.results`; KPIs from the stored measure `m`, yearly values via `stReplay`), `stress_mc` (`stResults.mc.rows`) and `monte_carlo` (`mcResults`). Page-only stores are read behind `typeof`, so a headless host (tests, a future MCP server) sees plan + lever + market. A Run has `id` (`plan`, `scn:B`, `lev:r1`, `mkt:<id>`, `st:<scenario>`, `stmc:<scenario|none>`, `mc:run`), `kind`, `label`, `source`, `spec`, `planKey` (8-hex `rrHash` of the plan), `stale` (the plan was edited since), `kpis` (the `SPEC_KPIS` vector) or `distribution` (funded share, final-asset and lifetime-tax percentiles, failure causes, risk factors, and with detail the funded-through-age and percentile bands by age), plus `stress` extras.
 - `rrBuildBundle({tier,runs,names,round})` → `planner.analysis/1`: instructions, engine fingerprint, privacy block, plan section (structured, plus the chat snapshot text when the page is loaded), glossary, runs, `comparison` (KPI changes against the plan), `stochastic` table, lever catalog, notes; the *standard* tier adds `series` (`{columns,rows}`, plan + up to 3 runs, never stale runs) and `exemplarSeries` (replayed earliest failure and typical success of up to 2 stochastic runs). Money goes through `rrM` (rounding step set per build), labels through `rrClean` (control characters out, 80 chars, names masked unless allowed).
 - `rrImport(text|object, host)` → `{accepted, rejected, warnings}`: finds the JSON in a pasted reply (`rrExtractJson`), requires `planner.scenarios/1`, rejects unknown fields and kinds, validates levers with `specValidateLevers` and paths with `msValidate`, runs them (`specRunBatch`, `apiRunMarketPaths`) and stores **proposals** in memory (`rrProposals`, max 30). Nothing in it writes `state`.
 - Tools (same registry as §13.2): `list_runs`, `get_run`, `compare_runs`, `get_mc_summary`, `get_trial` (seeded replay via `mcRunTrial`; refused for a stale run), `get_stress_results`, `import_scenarios` (effect `showProposals` → `chatApplyEffects` opens the panel). Resources `planner://runs` and `planner://analysis/summary`. Declarations avoid objects without `properties` and union types (Gemini rejects both); `tests/llm/runs_test.js` checks that.
 - Display: `llmPanel.js` is a popup like the Scenario card (button `#llmBtn`), not a card in the stack, so `state.ui` / `cardOrder` are untouched. Export tab builds the bundle on click only; Import tab → proposals with Show / Add / Copy / Dismiss; the only writes are `scnAddFromState` and `stAddPath` from those clicks.
 - `compute/runJobs.js` (phase 2): `RJ_MC_SPEC` / `RJ_ST_SPEC` validate settings (bounds, unknown fields rejected, no late-life medical shock); `rjBase` starts from the card settings. `rjRunStress` runs the stress rows synchronously (`stl:` runs, `includePathIds` → `cfg.extraPaths` appended by `stScenarios`). Monte Carlo runs as a **job**: a snapshot clone of `state`, ~40 ms `setTimeout` slices, one running and the rest queued, ids `mcj:<job>[:<scenario>]`; limits chat / import 2000 trials per row and 6000 total, mcp 5000 / 20000. `rjImportStress` / `rjImportMc` back the import kinds `stress` and `montecarlo`; `llmApplyCfg` writes proposal settings to `state.ui.stressCfg/mcCfg` (click only). Tools `define_stress_config`, `define_mc_config`, `run_stress_tests`, `run_monte_carlo`, `get_job`, `cancel_job` carry `hosts:['mcp']`: `apiList(fmt,host)` hides them and `apiCall` refuses them for the chat.
-- Not built (phase 3): the live bridge (page ↔ server), an OpenAI-compatible provider in the chat.
+- Phase 3 (the live bridge and an OpenAI-compatible chat provider) is §13.7.
 Tests: `node tests/llm/runs_test.js` (73 checks: every kind, KPI parity with the cards, bundle tiers / size / rounding / privacy / staleness, import rules, every tool, plan byte-identical) and `node tests/llm/llm_ui_test.js` (the popup: export, import, proposals, the click-only writes, stress / MC proposals and apply-to-card), `node tests/llm/jobs_test.js` (53 checks: validation, stress runs, job slicing / queue / cancel, limits, host gating) and `node tests/llm/mcp_test.js` (the server over a real pipe).
 
 ### 13.6 Tests
 `node tests/market/market_test.js` (validation, dense full-horizon resolution and tail, row-for-row parity with the stress-test arithmetic, hooks restored, every tool, MCP shapes, saving, hydrate sanitising, the `marketStress` lever) and `node tests/market/market_ui_test.js` (chat tool → effect → D view → banner; chat cards; Add to Stress test card; the table's Show in charts).
+
+### 13.7 Live bridge and the OpenAI-compatible provider (phase 3)
+```mermaid
+flowchart LR
+  subgraph LLM["LLM host (Claude Desktop, script)"]
+    host["MCP client<br/>asks the user to approve each tool"]
+  end
+  subgraph NODE["Node process: node server/mcp.js --bridge"]
+    mcp["mcp.js<br/>JSON-RPC over stdio"]
+    eng["engine.js<br/>the app's engine in a vm<br/>+ scenarioApi / runRegistry / runJobs"]
+    br["bridge.js<br/>WebSocket, 127.0.0.1 only<br/>pairing code, Host check"]
+    file[("plan file<br/>(optional, read only)")]
+  end
+  subgraph PAGE["Browser: the open planner page"]
+    lb["llmBridge.js<br/>Connect, plan sync,<br/>per-effect approval"]
+    st["state (the plan on screen)"]
+    ui["charts: D view, 🤖 proposals list"]
+  end
+  host <-->|"tools/call, results + pageEffects"| mcp
+  mcp --> eng
+  mcp <--> br
+  file -.->|"used when no page is connected"| eng
+  st -->|"autosave → plan (Save JSON)"| lb
+  lb <-->|"hello+code, plan, effect, effectResult"| br
+  br -->|"plan → loadPlanObject"| eng
+  lb -->|"only after the user allows that kind"| ui
+```
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant P as Page (llmBridge.js)
+  participant B as bridge.js
+  participant M as mcp.js + engine
+  participant H as MCP host (LLM)
+  Note over B,M: server started with --bridge, prints port and pairing code
+  U->>P: enter port and code, Connect
+  P->>B: hello(code)
+  B-->>P: welcome(effect kinds)
+  P->>B: plan (whole state), approvals []
+  B->>M: plan event: loadPlanObject, planSource page
+  B-->>P: planAck(key)
+  H->>M: tools/call define_market_scenario(showInCharts)
+  M->>M: run on the page's plan (private clone)
+  M->>B: requestEffect(showMarketPath, full path)
+  B->>P: effect(id, path, why)
+  P->>U: Allow / Allow once / Deny?
+  U->>P: Allow
+  P->>P: msValidate again, mcLoadMarketPath (no write to state)
+  P->>B: effectResult(applied) + approvals [showMarketPath]
+  B-->>M: status applied
+  M-->>H: result + pageEffects [applied]
+  U->>P: edits the plan
+  P->>B: plan (debounced 800 ms)
+  Note over M,H: earlier runs now report stale
+```
+
+**Bridge server — `server/bridge.js`** (no packages). A WebSocket server (RFC 6455: text frames, fragmentation, ping / pong, close; client frames must be masked; binary refused) bound to `127.0.0.1` only. Rules: the `Host` header must be `127.0.0.1:<port>`, `localhost:<port>` or `[::1]:<port>` (DNS-rebinding guard) and the path `/`; the first frame must be `{type:'hello', token}` within 5 s and ≤ 1 KB (`preAuthMs`), compared in constant time (`tokenOk`, case / dashes ignored); after 5 wrong codes the code is **replaced** (`rotate`), so a page cannot keep guessing; at most 4 unauthenticated sockets; one authenticated page at a time (a newer authenticated page replaces it, a failed login never does); the server pings every 20 s. Messages: page → server `hello`, `plan` (≤ 8 MB, the Save JSON), `approvals`, `effectResult`, `bye`; server → page `welcome` (session, effect kinds), `denied`, `planAck`, `effect` (id, effect, why), `effectCancel`. `requestEffect(effect,{why,timeoutMs})` → `Promise<{status,note}>` with status `applied | denied | unsupported | error | timeout | noPage | disconnected | busy` (max 8 waiting; 30 s wait; the page is sent `effectCancel` on timeout). Unknown message types are ignored (a newer page may send more).
+
+**Wiring — `server/mcp.js --bridge [--bridge-port 8765] [--bridge-token CODE] [--bridge-hide-code] [--plan file]`.** `--plan` becomes optional; with neither a plan nor a page the tools answer "No plan is loaded yet". The `plan` event runs `E.loadPlanObject` (`engine.js`; `hydrateState` sanitises it) and sets `planSource='page'`; while a page is connected the file is not re-read; on disconnect the file is used again (or, with no file, the last page plan stays, labelled `page (disconnected)`). The engine is still the server's (every tool call runs there, on the page's plan; runs made before an edit report `stale` through the plan key). A tool result's `effects` are turned into page payloads (`effectForPage`): `showMarketPath` → the full validated MarketPath (not an id, which the page would not know), `showProposals` → a `planner.scenarios/1` object holding only the proposals that call accepted, with the plan key; the tool's JSON gains `pageEffects:[{type,status,note}]` (also `noPage`), so the LLM learns what the user allowed. Extra tool `bridge_status` (listed only with `--bridge`): connection, port, plan source / key / last sync, effects the user has approved, and how to connect (the pairing code is included only while no page is connected and unless `--bridge-hide-code`). Without `--bridge` nothing changes (no port, no extra tool). Sidecar `<plan>.proposals.json` is still written when there is a plan file.
+
+**Page — `display/llmBridge.js`** (+ the **Live bridge** tab in `llmPanel.js`; `autosave()` calls `llmBridgeNotify()`). Off until the user enters port and code and presses Connect (`lbConnect`: port 1024–65535, `ws://127.0.0.1:<port>` only). After `welcome` it sends the plan (`JSON.stringify(state)`, re-sent 800 ms after an autosave that changed it) and its approvals. The code is kept only in a form variable, cleared once used, never in storage, `state` or a file. Incoming messages are capped (2 MB) and untrusted. `LB_EFFECTS` is the whole vocabulary: `showMarketPath` (`msValidate` again, a unique id so no saved or preset path is replaced, `msSessionAdd`, `mcLoadMarketPath` → the D view, shown as B) and `showProposals` (`rrImport(spec,{source:'mcp'})` re-validates and re-runs everything, then opens the Import tab). A kind that is not in the table is answered `unsupported` without asking. **Approval:** the first request of a kind on a connection is not applied; it is listed in the tab (escaped text, the LLM's reason) with **Allow** (this kind for this connection; the server is told through `approvals`; same-kind requests already waiting are applied), **Allow once** and **Deny** (answers `denied`, remembers nothing). At most 5 wait. Approvals are forgotten on Disconnect or when the socket drops, and can be revoked in the tab. No effect writes `state`.
+
+**OpenAI-compatible provider — `display/chat.js`.** `CHAT_PROVIDERS.openai` (label, editable base URL, optional key, free model id; prefs `baseUrl`, key under its own storage key). `chatOpenAIEndpoint(base)` → `<base>/chat/completions`; plain `http` is accepted only for `localhost`, `127.x.x.x` and `[::1]` (the key is never sent in clear to another host), user info, query and fragment are refused, and a remote server needs a key (a local one does not). `chatBuildRequest('openai',…,{baseUrl})`: `messages` (system first; assistant `tool_calls` with JSON-string arguments; one `tool` message per result; ids cut to 40 characters), `tools` as `{type:'function',function}`, `tool_choice` `auto` / `none`, `stream:true`, **no** `max_tokens` (OpenAI's newer models want `max_completion_tokens`, older servers want `max_tokens`). `chatParseEvent('openai')` collects tool-call pieces by `index` in `st.tc` and emits the calls at `finish_reason` (or at the end of the stream, `chatOpenAIFlush`, for servers that send none); `[DONE]` and comment lines are skipped; arguments given as an object are accepted; a cut-off call becomes an `__error` call the model can correct. Error bodies in both `{error:{message}}` and `{error:"text"}` form are read. The browser calls the server directly, so the server must allow the page's origin (CORS).
+Docs: Usage (*Connecting an MCP host* incl. macOS steps, *Live bridge*), the Formulas page (§ *Scenarios from an outside LLM and the live bridge*, `f-llm`). No calculation changed, so the Excel export is unchanged: a path shown through the bridge is the D view and exports as a stress test (`xlsxTrialContext`).
+Tests: `node tests/llm/bridge_test.js` (42), `bridge_mcp_test.js` (37), `bridge_ui_test.js`, `openai_test.js`.

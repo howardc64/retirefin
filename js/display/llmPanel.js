@@ -4,6 +4,7 @@
 // Design: docs/LLM_INTEGRATION_DESIGN.md (phase 1). The data work is in compute/runRegistry.js; this file is only the popup.
 //   Export tab: choose runs, detail and privacy, then Download / Copy the `planner.analysis/1` JSON (or preview its size).
 //   Import tab: paste an LLM's reply (or load a file) in the `planner.scenarios/1` form; every scenario is validated, run on the plan and listed as a PROPOSAL.
+//   Live bridge tab (phase 3, display/llmBridge.js): connect this page to an MCP server on this computer; the user approves each kind of on-screen effect it may ask for.
 // Nothing here writes the plan except a click on a proposal's button (Add to Scenario set → scnAddFromState, Add to Stress test card → stAddPath).
 // Proposals live in memory only (rrProposals); the popup keeps nothing in the saved plan.
 // ═══════════════════════════════════════════════════════════════
@@ -162,6 +163,8 @@ function renderLlmCard(){
       '<label><input type="checkbox" '+(llmOpts.names?'checked ':'')+'onchange="llmSetOpt(\'names\',this.checked)"> Include names</label></div>'+
       '<div class="llm-acts"><button class="btn btn-primary" onclick="llmDownload()">Download JSON</button><button class="btn" onclick="llmCopy()">Copy JSON</button><button class="btn" onclick="llmShowPreview()">Preview &amp; size</button></div>'+
       (llmPreview?'<pre class="llm-pre">'+llmEsc(llmPreview)+'</pre>':'');
+  } else if(llmTab==='bridge'){
+    body+=(typeof lbTabHtml==='function')?lbTabHtml():'<div class="llm-note">The live bridge is not loaded.</div>';
   } else {
     const props=rrProposals();
     body+='<div class="llm-note">Paste an LLM\'s reply, or load its file. Each scenario is checked, run on your plan and listed below; <b>nothing changes in your plan until you click a button</b>.</div>'+
@@ -171,6 +174,7 @@ function renderLlmCard(){
   }
   clearTimeout(llmPollTimer); if(llmTab==='import'&&rrProposals().some(p=>p.job&&(p.job.status==='queued'||p.job.status==='running'))) llmPollTimer=setTimeout(()=>{ if(llmCardOpen) renderLlmCard(); },700);   // live progress of a proposed Monte Carlo run
   card.innerHTML='<div class="scn-head"><b>🤖 LLM</b><button class="chat-icon" onclick="closeLlmCard()" title="Close" aria-label="Close">✕</button></div>'+
-    '<div class="llm-tabs"><button class="btn'+(llmTab==='export'?' on':'')+'" onclick="llmSetTab(\'export\')">Send to an LLM</button><button class="btn'+(llmTab==='import'?' on':'')+'" onclick="llmSetTab(\'import\')">Scenarios from an LLM'+(rrProposals().length?' ('+rrProposals().length+')':'')+'</button></div>'+
+    '<div class="llm-tabs"><button class="btn'+(llmTab==='export'?' on':'')+'" onclick="llmSetTab(\'export\')">Send to an LLM</button><button class="btn'+(llmTab==='import'?' on':'')+'" onclick="llmSetTab(\'import\')">Scenarios from an LLM'+(rrProposals().length?' ('+rrProposals().length+')':'')+'</button>'+
+      (typeof lbTabHtml==='function'?'<button class="btn'+(llmTab==='bridge'?' on':'')+'" onclick="llmSetTab(\'bridge\')">Live bridge'+(typeof lbStatus!=='undefined'&&lbStatus==='connected'?' ●':'')+(typeof lbPending!=='undefined'&&lbPending.length?' ('+lbPending.length+' waiting)':'')+'</button>':'')+'</div>'+
     (llmMsg?'<div class="'+(llmMsgErr?'llm-err':'llm-ok')+'">'+llmEsc(llmMsg)+'</div>':'')+body;
 }

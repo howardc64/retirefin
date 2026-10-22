@@ -16,10 +16,11 @@ function makeEngine(opts){
   if(opts.names===false||opts.names===undefined) vm.runInContext('RR_TOOL_NAMES=false',ctx);   // names become "Person N" unless the operator asks otherwise
   const run=code=>vm.runInContext(code,ctx);
   // Load a plan file (the JSON the app's Save writes). The 🆎 scenario set lives in the browser's storage, not in the file, so only the plan itself is loaded.
-  function loadPlan(file){
-    ctx.__plan=JSON.parse(fs.readFileSync(file,'utf8'));
+  function loadPlanObject(obj){
+    ctx.__plan=obj;
     run('{ const h=hydrateState(__plan); Object.keys(state).forEach(k=>{ delete state[k]; }); Object.assign(state,h); }');
   }
-  return {ctx,run,loadPlan,ROOT};
+  function loadPlan(file){ loadPlanObject(JSON.parse(fs.readFileSync(file,'utf8'))); }
+  return {ctx,run,loadPlan,loadPlanObject,ROOT};
 }
 module.exports={makeEngine,ROOT};

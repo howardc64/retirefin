@@ -1,6 +1,6 @@
 # Design proposal: feeding every scenario to an external LLM, and letting an LLM define scenarios
 
-Status: **phase 1 built** (ChangeLog 318; ARCHITECTURE §13.5). Differences from this text: the UI is a popup opened by a 🤖 LLM button, not a card under the Stress / Monte Carlo cards (no change to `state.ui` or the card stack); the import accepts `lever` and `market` scenarios only (stress / Monte Carlo configs and the `define_stress_config` / `define_mc_config` / `run_*` tools are phase 2); `get_run` returns series for scenarios and distributions for Monte Carlo kinds; `propose_change` was not added (`import_scenarios` covers it). **Phase 2 built** (ChangeLog 319; ARCHITECTURE §13.4–13.5): stress / Monte Carlo import kinds, the definition and run tools with a job model (MCP host only), the stdio server `server/mcp.js`, apply-to-card buttons. The live page bridge and an OpenAI-compatible provider remain phase 3 proposals. Builds on ARCHITECTURE §13 (`compute/scenarioApi.js`, `scenarioSpec.js`, `marketScenario.js`).
+Status: **phase 1 built** (ChangeLog 318; ARCHITECTURE §13.5). Differences from this text: the UI is a popup opened by a 🤖 LLM button, not a card under the Stress / Monte Carlo cards (no change to `state.ui` or the card stack); the import accepts `lever` and `market` scenarios only (stress / Monte Carlo configs and the `define_stress_config` / `define_mc_config` / `run_*` tools are phase 2); `get_run` returns series for scenarios and distributions for Monte Carlo kinds; `propose_change` was not added (`import_scenarios` covers it). **Phase 2 built** (ChangeLog 319; ARCHITECTURE §13.4–13.5): stress / Monte Carlo import kinds, the definition and run tools with a job model (MCP host only), the stdio server `server/mcp.js`, apply-to-card buttons. **Phase 3 built** (ChangeLog 320; ARCHITECTURE §13.7): the live bridge (`server/bridge.js` + `display/llmBridge.js`, MCP server flag `--bridge`) and an OpenAI-compatible provider in the in-page chat. Differences from §6.3 / §6.4 below: the pairing code is created by the *server* (printed on its stderr, and returned by the `bridge_status` tool unless `--bridge-hide-code`) and typed into the page, rather than shown by the page; the page sends its whole plan to the server and the server's engine answers every tool call (the page does not execute tools), so what the LLM sees is the plan on screen; the effects are `showMarketPath` and `showProposals` (a run of the user's own scenarios was already covered by *Show* on a proposal); the chat provider omits `max_tokens` on purpose. Builds on ARCHITECTURE §13 (`compute/scenarioApi.js`, `scenarioSpec.js`, `marketScenario.js`).
 
 ## 1. Where we are
 
@@ -54,7 +54,7 @@ Mapping: Scenario A/B set → `user`; `run_scenarios` runs → `lever`; saved or
 | Path | For | How |
 |---|---|---|
 | **A. Export bundle** | Any LLM, no setup (paste or attach in Claude.ai, ChatGPT, Gemini) | New button **Export for LLM**: downloads `analysis.json` (and a ready prompt preamble). User chooses which runs and the detail tier. |
-| **B. MCP server** | Claude Desktop, other MCP hosts, scripts | Node stdio server wrapping the same registry (§13.4), reading a saved plan file. Phase 3 adds a live bridge to an open page. |
+| **B. MCP server** | Claude Desktop, other MCP hosts, scripts | Node stdio server wrapping the same registry (§13.4), reading a saved plan file. Phase 3 adds a live bridge to an open page (`--bridge`). |
 | **C. In-page chat** | Already built | Gains the new read tools; no other change. |
 
 ### 4.2 The analysis bundle (`planner.analysis/1`)
@@ -141,10 +141,10 @@ Pure front end. `display/llmExport.js` builds the bundle from `runRegistry`; `di
 ### 6.2 MCP server, headless (phase 2)
 `server/mcp.js`: Node, stdio, loads the compute scripts into a `vm` as `tests/chat/harness.js` does. `tools/list` = `apiList('mcp')`; `tools/call` = `apiToMcpResult(apiCall(name, args, {source:'mcp'}))`; resources from `apiResources`. The plan comes from a saved plan file (`--plan path.json`), so no browser is needed and Monte Carlo can use a worker thread. Proposals from this server are written to a sidecar `proposals.json` that the page imports (path A's import).
 
-### 6.3 Live bridge (phase 3, optional)
+### 6.3 Live bridge (phase 3, built)
 A localhost WebSocket relay so a connected LLM sees the page's *current* plan and can request effects (`showMarketPath`, show run in charts). Bound to 127.0.0.1, per-session token shown in the page, off by default, page asks the user to approve each effect type once.
 
-### 6.4 Other providers in the in-page chat (cheap)
+### 6.4 Other providers in the in-page chat (phase 3, built)
 An "OpenAI-compatible" provider entry (base URL + key + model) reuses `apiList('neutral')`. Same privacy rules as today.
 
 ## 7. Safety and privacy
@@ -162,9 +162,9 @@ An "OpenAI-compatible" provider entry (base URL + key + model) reuses `apiList('
 |---|---|---|---|
 | 1 | `Run` adapter, bundle export, import + validation, inbox, new read tools in the registry | `compute/runRegistry.js`, `display/llmExport.js`, `display/llmImport.js`, `display/llmPanel.js`; `scenarioApi.js`, `index.html` | `tests/llm/runs_test.js` (every kind maps; KPI parity with the cards), `bundle_test.js` (schema, privacy tiers, size caps), `import_test.js` (valid, invalid, hostile labels, stale) |
 | 2 | `define_stress_config`, `define_mc_config`, `run_*` tools with job model; MCP stdio server | `scenarioApi.js`, `server/mcp.js` | MCP protocol test over a pipe; MC job progress / cancel; parity with in-page results for the same seed |
-| 3 | Live bridge; OpenAI-compatible provider | `server/bridge.js`, `display/chat.js` | Effect approval flow; token rejection |
+| 3 | Live bridge; OpenAI-compatible provider | `server/bridge.js` (new), `display/llmBridge.js` (new), `server/mcp.js`, `server/engine.js`, `display/chat.js`, `display/llmPanel.js`, `core/state.js` (autosave hook), `index.html` | `tests/llm/bridge_test.js` (server: token, rotation, Host guard, frames, effects), `bridge_mcp_test.js` (MCP process + real WebSocket), `bridge_ui_test.js` (page: effect approval flow, nothing without a click), `openai_test.js` (endpoint rules, request / stream mapping, a full tool round) |
 
-Docs to update when built: ARCHITECTURE §13 (and the §13.4 "not built" list), Usage ("Ask about this plan", new *Export for LLM* and proposals sections), Formulas page (KPI definitions are already there; add the bundle's glossary source), tests README.
+Docs updated (phases 1–3): ARCHITECTURE §13 (and the §13.4 "not built" list), Usage ("Ask about this plan", new *Export for LLM* and proposals sections), Formulas page (KPI definitions are already there; add the bundle's glossary source), tests README.
 
 ## 9. Open questions
 

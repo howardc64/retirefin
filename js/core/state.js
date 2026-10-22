@@ -454,6 +454,7 @@ function autosave(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); localStorage.setItem(STORAGE_KEY+'_ts',String(Date.now())); }
   catch(e){ console.error('Autosave failed',e); }
   if(typeof scnSave==='function') scnSave();   // the other scenarios are kept alongside (scenarios.js)
+  if(typeof llmBridgeNotify==='function') llmBridgeNotify();   // a connected live bridge gets the new plan (display/llmBridge.js)
 }
 function loadAutosave(){
   try{

@@ -58,7 +58,7 @@ against the pre-refactor code showed identical output, so it also represents the
 
 ## Monte Carlo tests
 
-`tests/mc/` holds the Monte Carlo tests; see ARCHITECTURE.md §10.5 and `docs/MONTE_CARLO.md`. They take plan files from the caller (`PLAN=… node tests/mc/mc_test.js`) except `mc_ui_test.js`, which needs nothing.
+`tests/mc/` holds the Monte Carlo tests; see docs/ARCHITECTURE.md §10.5 and `docs/MONTE_CARLO.md`. They take plan files from the caller (`PLAN=… node tests/mc/mc_test.js`) except `mc_ui_test.js`, which needs nothing.
 
 `tests/mc/xlsx_trial_test.js` checks the Excel export of a Monte Carlo trial (the MC trial sheet, the deflator and account-sheet growth formulas, the trial's own Inputs) and that a plan still exports with constant-rate formulas. It needs only Node.
 For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`), open it once in LibreOffice (or Excel) so it recalculates, and compare each formula cell with the value the app cached: there should be no differences.
@@ -71,13 +71,13 @@ For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`)
 
 `tests/mc/aum_ira_test.js` checks the AUM box on the pre-tax IRA, Roth IRA and inherited IRA cards (fee = rate × start-of-year balance, additive with portfolios, fixed-$ mode, fee off, save/load, older saves): `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/aum_ira_test.js`.
 
-`tests/mc/stress_test.js` checks the stress-test engine (`compute/stressTest.js`, ARCHITECTURE.md §11): `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/stress_test.js`.
+`tests/mc/stress_test.js` checks the stress-test engine (`compute/stressTest.js`, docs/ARCHITECTURE.md §11): `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/stress_test.js`.
 
 `tests/inplace_update_test.js` checks `updateChartInPlace` (chartHelpers.js): when the dataset list changes length, surviving datasets keep their object identity (so Chart.js tweens them) and only the new line is fresh: `node tests/inplace_update_test.js`.
 
-`tests/mc/guardrail_test.js`, `guardrail_ui_test.js`, `panic_test.js`, `medshock_test.js`, `medshock_ui_test.js` and `xlsx_guardrail_test.js` cover the spending guardrails (ARCHITECTURE.md §4.6a), systemic panic (§10.6), the late-life medical shock (§4.6b, §11.7) and their Excel export (§6.11); run each as `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/<name>.js` (the `_ui_` ones need no plan arguments beyond `PLAN`). `tests/xlsx_e2e/` recalculates the exported workbook in LibreOffice and compares every formula cell (read its README first: LibreOffice must be set to always recalculate, or the check proves nothing).
+`tests/mc/guardrail_test.js`, `guardrail_ui_test.js`, `panic_test.js`, `medshock_test.js`, `medshock_ui_test.js` and `xlsx_guardrail_test.js` cover the spending guardrails (docs/ARCHITECTURE.md §4.6a), systemic panic (§10.6), the late-life medical shock (§4.6b, §11.7) and their Excel export (§6.11); run each as `PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/<name>.js` (the `_ui_` ones need no plan arguments beyond `PLAN`). `tests/xlsx_e2e/` recalculates the exported workbook in LibreOffice and compares every formula cell (read its README first: LibreOffice must be set to always recalculate, or the check proves nothing).
 
-`tests/chat/` tests the chat's scenario tools (ARCHITECTURE.md §12): `node tests/chat/spec_test.js` and `node tests/chat/tools_test.js` need only Node; `node tests/chat/e2e_browser.js` drives the real app in Chromium against a scripted Gemini / Anthropic API (install `playwright-core` and `chart.js@4.4.1` in `tests/chat/`, set `CHROMIUM` if Chromium is not at the default path).
+`tests/chat/` tests the chat's scenario tools (docs/ARCHITECTURE.md §12): `node tests/chat/spec_test.js` and `node tests/chat/tools_test.js` need only Node; `node tests/chat/e2e_browser.js` drives the real app in Chromium against a scripted Gemini / Anthropic API (install `playwright-core` and `chart.js@4.4.1` in `tests/chat/`, set `CHROMIUM` if Chromium is not at the default path).
 
 ## Market scenarios / tool API
 
@@ -88,4 +88,8 @@ node tests/llm/runs_test.js           # run registry, analysis bundle, import, L
 node tests/llm/llm_ui_test.js         # the 🤖 LLM popup: export, import, proposals (stub DOM, real scripts)
 node tests/llm/jobs_test.js           # stress / Monte Carlo definition tools, background jobs, limits, host gating
 node tests/llm/mcp_test.js            # the MCP stdio server over a real pipe (needs Node only)
+node tests/llm/bridge_test.js         # live bridge server: pairing code, rotation, Host guard, frames, effect round trip
+node tests/llm/bridge_mcp_test.js     # MCP server --bridge over a real pipe and a real WebSocket (page plan, stale runs, effects, noPage)
+node tests/llm/bridge_ui_test.js      # page side: connect, plan sync, per-kind effect approval, nothing without a click
+node tests/llm/openai_test.js         # OpenAI-compatible chat provider: endpoint rules, request / stream mapping, a full tool round
 ```
