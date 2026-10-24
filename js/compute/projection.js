@@ -56,7 +56,7 @@ function pfGainFraction(bal, basis){ return bal>0 ? Math.max(0,(bal-basis)/bal) 
 const STRETCH_YEARS=10;
 // Inherited IRAs (Inheritance card): the account must be emptied by the end of the 10th year after it is inherited (SECURE Act 10-year rule).
 const INH_IRA_YEARS=10;
-// Row (0 = this year) in which an inherited asset enters the plan, from its `startYear` (calendar year of the last passing in the plan it comes from).
+// Row (0 = this year) in which an inherited asset enters the scenario, from its `startYear` (calendar year of the last passing in the scenario it comes from).
 function inhStartRow(item){ const y=Number(item&&item.startYear); return (item&&item.inh&&Number.isFinite(y))?Math.max(0,Math.round(y-THIS_YEAR)):0; }
 // Tax↔LTCG fixed-point iteration (see computeProjection): stop when the tax moves less than TAX_TOL dollars, at most TAX_MAX_ITERS rounds.
 const TAX_TOL=0.005, TAX_MAX_ITERS=60;
@@ -375,23 +375,23 @@ function computeProjection(){
   const pfState=people.map(p=>(p.brokerage||[]).map(b=>{
     const bal0=Number(b&&b.balance)||0, tracked=pfTracksBasis(b);
     const bas0=tracked?clamp(pfBasisEntered(b)?bal0*Number(b.basisPct)/100:bal0, 0, bal0):0;
-    // An inherited portfolio enters the plan in its start row (`pendK`): until then it has no balance; then it arrives at `bal0` with cost basis `bas0`.
+    // An inherited portfolio enters the scenario in its start row (`pendK`): until then it has no balance; then it arrives at `bal0` with cost basis `bas0`.
     const pendK=inhStartRow(b);
     return {bal:pendK>0?0:bal0, bal0, bas0, pendK:pendK>0?pendK:null, dead:false, tracked, basis:pendK>0?0:bas0, stepped:false, steppedNow:false, swapAmt:0};
   }));
   // Real estate: a passive asset (no income, no expenses paid from it, never sold). Value grows at its own real rate; cost basis (blank = no
   // unrealized gain today) is a fixed nominal amount, so in today's $ it erodes by inflation, and it steps up to value when the owner passes
-  // (a property not jointly owned leaves the plan at that point, like a brokerage portfolio).
+  // (a property not jointly owned leaves the scenario at that point, like a brokerage portfolio).
   const reState=people.map(p=>(p.realEstate||[]).map(r=>{
     const bal0=Math.max(0,Number(r&&r.balance)||0);
     const bas0=clamp(reBasisEntered(r)?Number(r.basis):bal0, 0, bal0);   // dollars, today's $; blank = no unrealized gain
-    const pendK=inhStartRow(r);   // an inherited property enters the plan in its start row (see pfState above)
+    const pendK=inhStartRow(r);   // an inherited property enters the scenario in its start row (see pfState above)
     return {bal:pendK>0?0:bal0, bal0, bas0, pendK:pendK>0?pendK:null, dead:false, basis:pendK>0?0:bas0, stepped:false, steppedNow:false, sold:false};
   }));
   // Selling a property (optional, per property; default never). The row it is sold in, by `sellMode`:
   //   'age'     — the first row the OWNER is at least `sellAge` (row 0 if already past it);
   //   'ltc'     — the row the LAST person to start long-term care starts it (the latest start row among the people whose LTC starts; never if LTC is off);
-  //   'passing' — the last row of the plan, the year the last person passes.
+  //   'passing' — the last row of the scenario, the year the last person passes.
   // Order of a sale: (1) the basis is adjusted for a passing — stepped up to value if the owner has passed (a 'passing' sale is made at the passing, so it is
   // always stepped up first); (2) any taxable gain (value − basis) is realized LTCG that year, so it goes through the household's tax like portfolio LTCG
   // (SCGL shield, qualified brackets, NIIT, taxable Social Security); the tax it adds is paid out of the sale; (3) the remaining value (value − that tax) and
@@ -846,7 +846,7 @@ function computeProjection(){
     // Real estate sales, part 2 — taxed sales on an age / LTC date, made at the END of this year at the year-end value. (1) The basis steps up to value if the
     // owner has already passed (the property continues only with a surviving spouse, if jointly owned); (2) the gain over the (inflation-eroded) basis is realized
     // LTCG this year (value − exemption × owners alive − basis), added to the portfolio sales' LTCG in the waterfall below; (3) after the tax it adds, the rest goes to the designated portfolio (which must
-    // still be held next year) at a 100% basis. The last year of the plan is excluded (the owner's passing then steps the basis up anyway).
+    // still be held next year) at a 100% basis. The last year of the scenario is excluded (the owner's passing then steps the basis up anyway).
     const aliveNext=people.map((p,i)=>ages[i]+1<passAges[i]);
     const reSales=[];
     people.forEach((p,i)=>(p.realEstate||[]).forEach((r,ri)=>{
@@ -1361,6 +1361,13 @@ function displayPersonName(person, idx){
   return entered || `Person ${idx+1}`;
 }
 function p0Name(proj){ return displayPersonName(proj.people[proj.idxP0], proj.idxP0); }
-// X-axis title shared by every age-axis chart: the older person's (P0's) name, e.g. "Alice's age".
-function ageAxisLabel(proj){ return proj ? p0Name(proj)+"'s age" : 'Age'; }
+// X-axis title shared by every age-axis chart: the older person's (P0's) name, then the younger person's, then "age", e.g. "Alice, Bob age" (one person: "Alice age").
+// On the charts the older name is drawn black and the younger dark blue (ageAxisTitle plugin, overlayPlugin.js); this is the plain-text form (Excel, tooltips, other charts).
+function ageAxisNames(proj){
+  if(!proj||!proj.people) return [];
+  const n=proj.rows&&proj.rows[0]&&proj.rows[0].ages?proj.rows[0].ages.length:proj.people.length, io=proj.idxP0||0, out=[displayPersonName(proj.people[io],io)];
+  if(n>1){ const iy=io===0?1:0; out.push(displayPersonName(proj.people[iy],iy)); }
+  return out;
+}
+function ageAxisLabel(proj){ return proj ? ageAxisNames(proj).join(', ')+' age' : 'Age'; }
 

@@ -21,7 +21,7 @@ const INH_INC_KINDS=[   // bottom → top
   {kind:'ltcg',  title:'Realized LTCG',                           color:()=>VZ.ltcg},
   {kind:'reGain',title:'Real estate sale gain',                   color:()=>'#C26A0E'}
 ];
-// The inherited assets of the plan (portfolios, properties and IRAs created by the Inheritance card) and the income components each pays in a row. Shared by the chart and the Excel export.
+// The inherited assets of the scenario (portfolios, properties and IRAs created by the Inheritance card) and the income components each pays in a row. Shared by the chart and the Excel export.
 function inhIncomeAssets(proj){
   const assets=[];   // [{kind:'pf'|'ira', personIdx, idx, name, qpct}]
   proj.people.forEach((p,i)=>{

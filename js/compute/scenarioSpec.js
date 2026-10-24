@@ -10,21 +10,21 @@
 // A run is computeProjection() on a private clone of `state` (withTempState), measured with mcMeasure(), so every number equals what the
 // main charts would show if the same changes were typed into the inputs. Everything is in today's dollars.
 // Exports (globals): SPEC_LEVERS, SPEC_KPIS, SPEC_CHARTS, specValidateLevers, specApplyLevers, specRunBatch, specSweep, specChartData,
-//   specModelSummary, specRowsCsv, specToolSchemas, specPlanKey, specLeverLabel.
+//   specModelSummary, specRowsCsv, specToolSchemas, specScenarioKey, specLeverLabel.
 // ═══════════════════════════════════════════════════════════════
 const SPEC_MAX_SCENARIOS=6, SPEC_MAX_SWEEP=12, SPEC_MAX_ROWS=40, SPEC_SAMPLE_EVERY=5;
 const specIsNum=v=>typeof v==='number'&&isFinite(v);
 const specClone=o=>JSON.parse(JSON.stringify(o));
-function specPlanKey(){ return JSON.stringify(Object.assign({},state,{ui:null})); }
+function specScenarioKey(){ return JSON.stringify(Object.assign({},state,{ui:null})); }
 
 // Parameter types: 'person' (1 or 2), 'integer', 'number', 'boolean', 'string', 'numberArray'.
-const SPEC_P_PERSON={type:'person', desc:'1 or 2: which person (1 = first person in the plan)'};
+const SPEC_P_PERSON={type:'person', desc:'1 or 2: which person (1 = first person in the scenario)'};
 const SPEC_ENABLED={type:'boolean', desc:'true to switch on (default), false to switch off'};
 
 function specPerson(s,n){ const size=s.filingStatus==='married'?2:1; return (Number.isInteger(n)&&n>=1&&n<=size)?s.people[n-1]:null; }
 const specIgnore=note=>({status:'ignored',note});
 const specOk=note=>({status:'applied',note:note||''});
-const specNoPerson=n=>specIgnore('Person '+n+' is not in this plan (it has '+(state.filingStatus==='married'?'2 people':'1 person')+')');
+const specNoPerson=n=>specIgnore('Person '+n+' is not in this scenario (it has '+(state.filingStatus==='married'?'2 people':'1 person')+')');
 function specSnap(stops,v){ let best=null; stops.forEach(x=>{ if(x!=null&&(best==null||Math.abs(x-v)<Math.abs(best-v))) best=x; }); return best; }
 
 const SPEC_LEVERS={
@@ -56,7 +56,7 @@ const SPEC_LEVERS={
     apply(s,a){ s.inflation=a.pct/100; return specOk(); }
   },
   returns:{
-    desc:'Shift the nominal investment return of the plan\'s assets by a number of percentage points (e.g. -2 for returns two points lower).',
+    desc:'Shift the nominal investment return of the scenario\'s assets by a number of percentage points (e.g. -2 for returns two points lower).',
     params:{deltaPct:{type:'number',min:-10,max:10,desc:'percentage points added to each asset\'s growth rate'}, target:{type:'string',desc:'one of all (default: portfolios, IRAs, Roth), portfolios, ira, roth, realEstate'}},
     req:['deltaPct'],
     check:a=>(a.target==null||['all','portfolios','ira','roth','realEstate'].includes(a.target))?null:'target must be one of all, portfolios, ira, roth, realEstate',
@@ -75,7 +75,7 @@ const SPEC_LEVERS={
         if((t==='all'||t==='roth')&&p.roth&&p.roth.enabled) shift(p.roth.growth);
         if(t==='realEstate') (p.realEstate||[]).forEach(r=>{ if(r.enabled!==false) shift(r.growth); });
       }
-      return n?specOk(n+' growth rate'+(n>1?'s':'')+' shifted'):specIgnore('No enabled assets of type "'+t+'" in this plan');
+      return n?specOk(n+' growth rate'+(n>1?'s':'')+' shifted'):specIgnore('No enabled assets of type "'+t+'" in this scenario');
     }
   },
   passingAge:{
@@ -187,11 +187,11 @@ const SPEC_LEVERS={
     apply(s,a){ s.stateTax.enabled=a.enabled!==false; if(a.state) s.stateTax.state=a.state; return specOk(); }
   },
   marketStress:{
-    desc:'Replace the plan\'s constant returns with a market stress path starting on the first year without wages (or now, or a calendar year): lostDecade (actual 2000-2009), stagflation (flat stocks, rising inflation), y1966 (actual 1966-1981), or custom (your own yearly returns and inflation, optionally continued to the end of the plan). This is a simulation overlay, not a saved input, so it cannot be saved as a Scenario. (define_market_scenario does the same for a custom path and can also show it on the main charts.)',
+    desc:'Replace the scenario\'s constant returns with a market stress path starting on the first year without wages (or now, or a calendar year): lostDecade (actual 2000-2009), stagflation (flat stocks, rising inflation), y1966 (actual 1966-1981), or custom (your own yearly returns and inflation, optionally continued to the end of the scenario). This is a simulation overlay, not a saved input, so it cannot be saved as a Scenario. (define_market_scenario does the same for a custom path and can also show it on the main charts.)',
     params:{kind:{type:'string',desc:'lostDecade, stagflation, y1966 or custom'}, startsAt:{type:'string',desc:'retirement (default), now or year (with startYear)'}, startYear:{type:'integer',min:2000,max:2200,desc:'calendar year of the first value (custom)'}, equityShare:{type:'number',min:0,max:100,desc:'% of each asset that takes the stress return (default 100)'},
             returnsPct:{type:'numberArray',desc:'custom: nominal equity return per year, percent, e.g. [-20,-10,5]'}, inflationPct:{type:'numberArray',desc:'custom: inflation per year, percent (optional, same length as returnsPct)'},
-            afterReturnPct:{type:'number',min:-95,max:200,desc:'custom: nominal equity return for every year after the list, to the end of the plan'}, afterInflationPct:{type:'number',min:-10,max:100,desc:'custom: inflation for every year after the list'},
-            actualInflation:{type:'boolean',desc:'lostDecade: use actual CPI instead of the plan\'s inflation'}, years:{type:'integer',min:1,max:30,desc:'stagflation: length in years (default 10)'},
+            afterReturnPct:{type:'number',min:-95,max:200,desc:'custom: nominal equity return for every year after the list, to the end of the scenario'}, afterInflationPct:{type:'number',min:-10,max:100,desc:'custom: inflation for every year after the list'},
+            actualInflation:{type:'boolean',desc:'lostDecade: use actual CPI instead of the scenario\'s inflation'}, years:{type:'integer',min:1,max:30,desc:'stagflation: length in years (default 10)'},
             eqReturnPct:{type:'number',min:-20,max:20,desc:'stagflation: nominal equity return per year (default 0)'}, inflStartPct:{type:'number',min:0,max:20,desc:'stagflation: starting inflation (default 6)'}, inflEndPct:{type:'number',min:0,max:20,desc:'stagflation: ending inflation (default 11)'}},
     req:['kind'],
     check:a=>{ if(!['lostDecade','stagflation','y1966','custom'].includes(a.kind)) return 'kind must be lostDecade, stagflation, y1966 or custom';
@@ -285,7 +285,7 @@ function specFingerprint(proj,m){
 }
 
 // ── running ─────────────────────────────────────────────────────
-// One scenario on a private clone of the live plan. `sc.levers` must already be validated. → run object (proj and measure kept in memory).
+// One scenario on a private clone of the live scenario. `sc.levers` must already be validated. → run object (proj and measure kept in memory).
 // The MarketPath a marketStress lever stands for (compute/marketScenario.js): a custom one is validated as typed; the presets are the Stress card's scenarios placed at the chosen start.
 function specMarketPath(mk){
   if(mk.kind==='custom') return msValidate(Object.assign({label:'Custom path',source:'chat'},mk)).path;
@@ -311,33 +311,33 @@ function specRunScenario(sc){
   });
 }
 
-// The live plan with these (validated) levers applied, as a plain plan object a Scenario can be made from. A market-stress lever is a simulation overlay
-// and has no plan form: it is reported in `market` and not included. → {plan, notes, market}
+// The live scenario with these (validated) levers applied, as a plain scenario object a Scenario can be made from. A market-stress lever is a simulation overlay
+// and has no scenario form: it is reported in `market` and not included. → {scenario, notes, market}
 function specBuildState(levers){
-  let plan=null, applied=null;
-  withTempState(s=>{ applied=specApplyLevers(s,levers); plan=specClone(s); }, ()=>null);
-  return {plan,notes:applied.notes,market:applied.market};
+  let scenario=null, applied=null;
+  withTempState(s=>{ applied=specApplyLevers(s,levers); scenario=specClone(s); }, ()=>null);
+  return {scenario,notes:applied.notes,market:applied.market};
 }
 
-// Run a batch: your plan as entered (id 'base') plus each scenario. → {planKey, base, scenarios:[run], rejected:[{id,label,errors}]}
+// Run a batch: your scenario as entered (id 'base') plus each scenario. → {scenarioKey, base, scenarios:[run], rejected:[{id,label,errors}]}
 function specRunBatch(scenarios){
   if(!Array.isArray(scenarios)||!scenarios.length) throw new Error('scenarios must be a non-empty list');
   if(scenarios.length>SPEC_MAX_SCENARIOS) throw new Error('at most '+SPEC_MAX_SCENARIOS+' scenarios per call');
-  const planKey=specPlanKey(), rejected=[], ok=[], seen={};
+  const scenarioKey=specScenarioKey(), rejected=[], ok=[], seen={};
   scenarios.forEach((raw,i)=>{
     const id=String((raw&&raw.id)||('S'+(i+1))), label=String((raw&&raw.label)||id);
     if(seen[id]){ rejected.push({id,label,errors:['duplicate scenario id "'+id+'"']}); return; } seen[id]=1;
     const v=specValidateLevers(raw&&raw.levers);
     if(v.errors.length) rejected.push({id,label,errors:v.errors}); else ok.push({id,label,levers:v.levers});
   });
-  const baseRun=specRunScenario({levers:[]}); baseRun.id='base'; baseRun.label='Your plan'; baseRun.levers=[]; baseRun.kpis=specKpis(baseRun.proj,baseRun.m);
+  const baseRun=specRunScenario({levers:[]}); baseRun.id='base'; baseRun.label='Your scenario'; baseRun.levers=[]; baseRun.kpis=specKpis(baseRun.proj,baseRun.m);
   const baseFp=specFingerprint(baseRun.proj,baseRun.m), alone={};
   const runs=ok.map(sc=>{
     const r=specRunScenario(sc); r.id=sc.id; r.label=sc.label; r.levers=sc.levers; r.kpis=specKpis(r.proj,r.m);
     r.fp=specFingerprint(r.proj,r.m); r.changed=r.fp!==baseFp;
-    // Which levers did anything? One lever: the scenario itself. Several: each applied lever run alone against the plan.
+    // Which levers did anything? One lever: the scenario itself. Several: each applied lever run alone against the scenario.
     const applied=r.notes.filter(n=>n.status==='applied');
-    if(!r.changed){ applied.forEach(n=>{ n.status='noEffect'; n.note=(n.note?n.note+'; ':'')+'the plan\'s results did not change'; }); }
+    if(!r.changed){ applied.forEach(n=>{ n.status='noEffect'; n.note=(n.note?n.note+'; ':'')+'the scenario\'s results did not change'; }); }
     else if(sc.levers.length>1){
       r.notes.forEach((n,i)=>{ if(n.status!=='applied') return;
         const key=JSON.stringify(sc.levers[i]); if(!(key in alone)){ const one=specRunScenario({levers:[sc.levers[i]]}); alone[key]=specFingerprint(one.proj,one.m)!==baseFp; }
@@ -345,7 +345,7 @@ function specRunBatch(scenarios){
     }
     return r;
   });
-  return {planKey,base:baseRun,scenarios:runs,rejected};
+  return {scenarioKey,base:baseRun,scenarios:runs,rejected};
 }
 
 // Vary one parameter of one lever. template = a lever object (without `param`); values = up to 12 numbers. → same shape as specRunBatch plus {sweep:{param,values}}
@@ -362,7 +362,7 @@ function specSweep(template,param,values){
 function specRunBatchUncapped(scenarios){
   const keep=scenarios.slice(); const chunks=[]; for(let i=0;i<keep.length;i+=SPEC_MAX_SCENARIOS) chunks.push(keep.slice(i,i+SPEC_MAX_SCENARIOS));
   const parts=chunks.map(specRunBatch);
-  return {planKey:parts[0].planKey, base:parts[0].base, scenarios:[].concat(...parts.map(p=>p.scenarios)), rejected:[].concat(...parts.map(p=>p.rejected))};
+  return {scenarioKey:parts[0].scenarioKey, base:parts[0].base, scenarios:[].concat(...parts.map(p=>p.scenarios)), rejected:[].concat(...parts.map(p=>p.rejected))};
 }
 
 // ── charts: data only (display/chatCharts.js draws it) ─────────
@@ -370,7 +370,7 @@ const SPEC_CHARTS={
   assets:{title:'Total assets (today\'s $)',type:'line'},
   annualTax:{title:'Federal income tax + IRMAA per year (today\'s $)',type:'line'},
   cumulativeTax:{title:'Cumulative federal tax + IRMAA (today\'s $)',type:'line'},
-  unfundedExpenses:{title:'Expenses the plan could not pay (today\'s $)',type:'line'},
+  unfundedExpenses:{title:'Expenses the scenario could not pay (today\'s $)',type:'line'},
   magi:{title:'MAGI per year (today\'s $)',type:'line'},
   irmaa:{title:'Medicare IRMAA surcharge per year (today\'s $)',type:'line'},
   socialSecurityCumulative:{title:'Cumulative Social Security (today\'s $)',type:'line'},
@@ -431,7 +431,7 @@ function specRunSummary(run,base){
   const ages=run.proj.rows.map(r=>Math.round(r.age0)), o={runId:run.id,label:run.label,kpis:run.kpis};
   if(run.id!=='base'){
     o.levers=run.notes.map(n=>({lever:n.lever,what:n.label,status:n.status,note:n.note||undefined}));
-    o.changeVsYourPlan={}; Object.keys(SPEC_KPIS).forEach(k=>{ const a=run.kpis[k], b=base.kpis[k]; if(a!=null&&b!=null&&a!==b) o.changeVsYourPlan[k]=a-b; });
+    o.changeVsYourScenario={}; Object.keys(SPEC_KPIS).forEach(k=>{ const a=run.kpis[k], b=base.kpis[k]; if(a!=null&&b!=null&&a!==b) o.changeVsYourScenario[k]=a-b; });
     if(run.market) o.marketStress=run.market;
   }
   o.sampledEveryYears=SPEC_SAMPLE_EVERY; o.sampleAges=specSample(ages);
@@ -440,7 +440,7 @@ function specRunSummary(run,base){
   return o;
 }
 function specModelSummary(batch){
-  const o={units:'today\'s dollars; ages are the first person\'s age unless stated', yourPlan:specRunSummary(batch.base,batch.base), scenarios:batch.scenarios.map(r=>specRunSummary(r,batch.base))};
+  const o={units:'today\'s dollars; ages are the first person\'s age unless stated', yourScenario:specRunSummary(batch.base,batch.base), scenarios:batch.scenarios.map(r=>specRunSummary(r,batch.base))};
   if(batch.rejected.length) o.rejected=batch.rejected;
   return o;
 }
@@ -473,7 +473,7 @@ function specToolSchemas(){
   const chartNames=Object.keys(SPEC_CHARTS), kpiNames=Object.keys(SPEC_KPIS);
   return [
     {name:'run_scenarios',
-     description:'Run what-if scenarios on the user\'s plan with the app\'s own projection engine and show the results as charts in the chat. Up to '+SPEC_MAX_SCENARIOS+' scenarios per call; your plan as entered is always included for comparison. Each scenario is a list of levers (never raw settings):\n'+catalog+'\nThe result lists every lever as applied, ignored (with why) or noEffect: report ignored / noEffect levers to the user instead of presenting unchanged numbers as a finding.',
+     description:'Run what-if scenarios on the user\'s scenario with the app\'s own projection engine and show the results as charts in the chat. Up to '+SPEC_MAX_SCENARIOS+' scenarios per call; your scenario as entered is always included for comparison. Each scenario is a list of levers (never raw settings):\n'+catalog+'\nThe result lists every lever as applied, ignored (with why) or noEffect: report ignored / noEffect levers to the user instead of presenting unchanged numbers as a finding.',
      parameters:{type:'object',properties:{
        scenarios:{type:'array',description:'1 to '+SPEC_MAX_SCENARIOS+' scenarios',items:{type:'object',properties:{id:{type:'string',description:'short id, e.g. S1'},label:{type:'string',description:'short human label'},levers:{type:'array',items:item}},required:['id','label','levers']}},
        charts:{type:'array',description:'charts to draw now (default assets and annualTax). Any of: '+chartNames.join(', '),items:{type:'string'}},
@@ -482,7 +482,7 @@ function specToolSchemas(){
      description:'Vary ONE numeric parameter of ONE lever over 2 to '+SPEC_MAX_SWEEP+' values (e.g. Social Security claim age 62 to 70) and chart a headline measure against it. `template` is a lever object without the swept parameter.',
      parameters:{type:'object',properties:{template:item,param:{type:'string',description:'the numeric parameter to vary, e.g. age'},values:{type:'array',items:{type:'number'},description:'2 to '+SPEC_MAX_SWEEP+' values'},metric:{type:'string',description:'measure to chart, one of: '+kpiNames.join(', ')+' (default finalTotal)'}},required:['template','param','values']}},
     {name:'show_chart',
-     description:'Draw a chart from runs already computed in this conversation (no computation). Use the runId values returned by run_scenarios ("base" is your plan as entered).',
+     description:'Draw a chart from runs already computed in this conversation (no computation). Use the runId values returned by run_scenarios ("base" is your scenario as entered).',
      parameters:{type:'object',properties:{chart:{type:'string',description:'one of: '+chartNames.join(', ')},runs:{type:'array',items:{type:'string'},description:'runIds to draw'},metric:{type:'string',description:'outcomes chart only: one of '+kpiNames.join(', ')}},required:['chart','runs']}},
     {name:'get_rows',
      description:'Read yearly values of one computed run as CSV (at most '+SPEC_MAX_ROWS+' rows). Fields: totalAssets, investableAssets, '+Object.keys(SPEC_ROW_FIELDS).join(', ')+'.',

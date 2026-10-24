@@ -3,7 +3,7 @@
 // Used by server/mcp.js; the file list mirrors tests/mc/mc_harness.js + tests/chat/harness.js.
 const fs=require('fs'), vm=require('vm'), path=require('path');
 const ROOT=path.resolve(__dirname,'..');
-const FILES=['core/constants.js','core/helpers.js','compute/socialSecurityCalc.js','compute/rmd.js','compute/tax.js','core/state.js','compute/dates.js','compute/ageRange.js','compute/projection.js','compute/whatIf.js','compute/donorTraj.js','compute/monteCarlo.js','compute/stressTest.js','compute/marketScenario.js','input/inheritance.js','compute/scenarioSpec.js','compute/scenarioApi.js','compute/runRegistry.js','compute/runJobs.js','plans/planSpec.js','plans/planStore.js','plans/scenarioSetProducer.js','plans/stressProducer.js','plans/monteCarloProducer.js','plans/marketProducer.js','plans/leverProducer.js','plans/jobsProducer.js','plans/planTools.js'];
+const FILES=['core/constants.js','core/helpers.js','compute/socialSecurityCalc.js','compute/rmd.js','compute/tax.js','core/state.js','compute/dates.js','compute/ageRange.js','compute/projection.js','compute/whatIf.js','compute/donorTraj.js','compute/monteCarlo.js','compute/stressTest.js','compute/marketScenario.js','input/inheritance.js','compute/scenarioSpec.js','compute/scenarioApi.js','compute/runRegistry.js','compute/runJobs.js','scenarios/scenarioRecord.js','scenarios/scenarioStore.js','scenarios/scenarioSetProducer.js','scenarios/stressProducer.js','scenarios/monteCarloProducer.js','scenarios/marketProducer.js','scenarios/leverProducer.js','scenarios/jobsProducer.js','scenarios/scenarioTools.js'];
 function makeEngine(opts){
   opts=opts||{};
   const el=()=>new Proxy(function(){}, {get:(t,p)=>p==='style'?{}:p==='classList'?{add(){},remove(){},toggle(){}}:el(), apply:()=>el(), set:()=>true});

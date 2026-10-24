@@ -1,10 +1,10 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// PLANS / SPEC — pure helpers for the master plan list (plans/planStore.js). No DOM, never writes the live `state`.
+// SCENARIOS / SPEC — pure helpers for the master scenario list (scenarios/scenarioStore.js). No DOM, never writes the live `state`.
 //
-//   plFingerprint(st)      short hash of a plan state (the UI part is ignored): "did the inputs change?"
-//   plMaterialize(plan)    the plan's input as a ready-to-run state object (a private copy)
-//   plSummarize(st)        run the engine once on a state → slim summary {kpis, fin[], re[], failAge, ...}; never the projection rows
+//   scFingerprint(st)      short hash of a scenario state (the UI part is ignored): "did the inputs change?"
+//   scMaterialize(scenario)    the plan's input as a ready-to-run state object (a private copy)
+//   scSummarize(st)        run the engine once on a state → slim summary {kpis, fin[], re[], failAge, ...}; never the projection rows
 //
 // A Plan's `input` is one of
 //   {state}                                   a full snapshot (an A/B scenario)
@@ -14,37 +14,37 @@
 //                                             {type:'levers', levers}                                      validated what-if levers (compute/scenarioSpec.js)
 //   {baseKey, baseFingerprint, draw}          a seeded trial: another plan plus {type:'mc', cfg, trial, stressDef|null}. mcRunTrial(cfg, trial, …) rebuilds the
 //                                             trial's random lifespans, care, inheritance, returns and inflation exactly, so nothing else needs storing.
-// A delta is valid only while the base plan still has `baseFingerprint` (plIsStale).
-// Loaded after compute/scenarioSpec.js, scenarioApi.js and stressTest.js (uses specKpis, stRun, apiMarketRun) and before plans/planStore.js.
+// A delta is valid only while the base scenario still has `baseFingerprint` (scIsStale).
+// Loaded after compute/scenarioSpec.js, scenarioApi.js and stressTest.js (uses specKpis, stRun, apiMarketRun) and before scenarios/scenarioStore.js.
 // ═══════════════════════════════════════════════════════════════
-function plHash(s){ let h=2166136261>>>0; s=String(s); for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return h.toString(16).padStart(8,'0'); }
-const plStateKey=st=>JSON.stringify(Object.assign({},st,{ui:null}));
-const plFingerprint=st=>plHash(plStateKey(st));
-const plClone=o=>JSON.parse(JSON.stringify(o));
+function scHash(s){ let h=2166136261>>>0; s=String(s); for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return h.toString(16).padStart(8,'0'); }
+const scStateKey=st=>JSON.stringify(Object.assign({},st,{ui:null}));
+const scFingerprint=st=>scHash(scStateKey(st));
+const scClone=o=>JSON.parse(JSON.stringify(o));
 
 // Fingerprint of an input: a snapshot hashes its state; a delta hashes the base's fingerprint plus the overlay.
-function plInputFingerprint(inp){
-  if(inp&&inp.state) return plFingerprint(inp.state);
-  if(inp&&inp.baseKey) return plHash(inp.baseFingerprint+'|'+JSON.stringify(inp.overlay||null)+'|'+JSON.stringify(inp.draw||null));
-  throw new Error('plan input needs {state} or {baseKey, baseFingerprint, overlay|draw}');
+function scInputFingerprint(inp){
+  if(inp&&inp.state) return scFingerprint(inp.state);
+  if(inp&&inp.baseKey) return scHash(inp.baseFingerprint+'|'+JSON.stringify(inp.overlay||null)+'|'+JSON.stringify(inp.draw||null));
+  throw new Error('scenario input needs {state} or {baseKey, baseFingerprint, overlay|draw}');
 }
 // The plan's input as something runnable: {state (a private copy), overlay|null, draw|null}. A delta whose base is missing or has changed since is refused, not guessed.
-function plResolve(plan){
-  const inp=plan&&plan.input;
-  if(inp&&inp.state) return {state:plClone(inp.state),overlay:null,draw:null};
+function scResolve(scenario){
+  const inp=scenario&&scenario.input;
+  if(inp&&inp.state) return {state:scClone(inp.state),overlay:null,draw:null};
   if(inp&&inp.baseKey){
-    const base=plGet(inp.baseKey);
-    if(!base||base.fingerprint!==inp.baseFingerprint) throw new Error('plan "'+plan.key+'" is out of date: its base plan "'+inp.baseKey+'" changed or was removed');
-    return {state:plResolve(base).state,overlay:plClone(inp.overlay||null),draw:plClone(inp.draw||null)};
+    const base=scGet(inp.baseKey);
+    if(!base||base.fingerprint!==inp.baseFingerprint) throw new Error('scenario "'+scenario.key+'" is out of date: its base scenario "'+inp.baseKey+'" changed or was removed');
+    return {state:scResolve(base).state,overlay:scClone(inp.overlay||null),draw:scClone(inp.draw||null)};
   }
-  throw new Error('plan "'+(plan&&plan.key)+'" has no usable input');
+  throw new Error('scenario "'+(scenario&&scenario.key)+'" has no usable input');
 }
-const plMaterialize=plan=>plResolve(plan).state;
+const scMaterialize=scenario=>scResolve(scenario).state;
 
 // Run the engine for a plan's resolved input and hand back the FULL result {proj, m, draws} (the live `state` is put back afterwards). Callers that keep anything long-term
-// must slim it (plSummarize); callers that show it (a chart, a yearly series) use it directly and let it go.
-function plRunFull(st,overlay,draw){
-  const backup=state; state=plClone(st);
+// must slim it (scSummarize); callers that show it (a chart, a yearly series) use it directly and let it go.
+function scRunFull(st,overlay,draw){
+  const backup=state; state=scClone(st);
   try{
     let proj, m, draws=null;
     if(draw){   // a seeded trial: the engine replays it from cfg + trial number (compute/monteCarlo.js), identical to the run's own trial
@@ -64,13 +64,13 @@ function plRunFull(st,overlay,draw){
   } finally { state=backup; }
 }
 // Keep only what is cheap to hold: the KPI vector and the yearly investable / real-estate balances (whole dollars; plain numbers, since Float32 loses cents on large estates).
-function plSummarize(st,overlay,draw){
-  const backup=state; state=plClone(st);               // specKpis reads the state's own settings through the engine, so keep the plan in place while it runs
+function scSummarize(st,overlay,draw){
+  const backup=state; state=scClone(st);               // specKpis reads the state's own settings through the engine, so keep the scenario in place while it runs
   try{
-    const r=plRunFull(st,overlay,draw), m=r.m, R=Math.round;
+    const r=scRunFull(st,overlay,draw), m=r.m, R=Math.round;
     return {kpis:specKpis(r.proj,m), age0:m.age0, n:m.n, fin:Array.from(m.fin,R), re:Array.from(m.re,R),
       failAge:m.failAge==null?null:R(m.failAge), shortfall:R(m.shortfall), lifeTax:R(m.lifeTax), draws:r.draws};
   } finally { state=backup; }
 }
 // The full engine result of a stored plan, for a chart or a series: null when the plan is out of date (its base changed), never a guess.
-function plRunPlan(p){ try{ const r=plResolve(p); return plRunFull(r.state,r.overlay,r.draw); }catch(e){ return null; } }
+function scRunScenario(p){ try{ const r=scResolve(p); return scRunFull(r.state,r.overlay,r.draw); }catch(e){ return null; } }

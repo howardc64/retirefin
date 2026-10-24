@@ -18,9 +18,9 @@ function chatApplyEffects(effects){
   const notes=[];
   (effects||[]).forEach(e=>{
     try{
-      if(e.type==='showProposals'&&typeof openLlmCard==='function'){ openLlmCard('import'); notes.push('Opened the 🤖 LLM panel: the proposed scenarios wait there for your review; nothing in your plan has changed.'); }
-      else if(e.type==='showPlan'&&typeof plShow==='function'){ const r=plShow(String(e.ref||'')); notes.push(r.ok?'Showing "'+r.label+'" in the main charts. Use Back to plan to return.':'Could not show that plan: '+r.why); }
-      else if(e.type==='showMarketPath'&&typeof mcLoadMarketPath==='function'){ const ok=mcLoadMarketPath(e.id); notes.push(ok?'Showing "'+(apiPathById(e.id)||{label:e.id}).label+'" in the main charts (D view). Use Back to plan to return.':'Could not show that scenario in the charts.'); }
+      if(e.type==='showProposals'&&typeof openLlmCard==='function'){ openLlmCard('import'); notes.push('Opened the 🤖 LLM panel: the proposed scenarios wait there for your review; nothing in your scenario has changed.'); }
+      else if(e.type==='showScenario'&&typeof scShow==='function'){ const r=scShow(String(e.ref||'')); notes.push(r.ok?'Showing "'+r.label+'" in the main charts. Use Back to scenario to return.':'Could not show that scenario: '+r.why); }
+      else if(e.type==='showMarketPath'&&typeof mcLoadMarketPath==='function'){ const ok=mcLoadMarketPath(e.id); notes.push(ok?'Showing "'+(apiPathById(e.id)||{label:e.id}).label+'" in the main charts (D view). Use Back to scenario to return.':'Could not show that scenario in the charts.'); }
     }catch(err){ console.error('chat effect',err); }
   });
   return notes;

@@ -3,11 +3,11 @@
 // DISPLAY / SCENARIOS — any number of saved plans (A, B, C …) behind one "🆎 Scenario" button in the top bar.
 // Exactly one scenario is "live" at a time: it is `state`, so every input, chart and export works on it as usual.
 // The others sit in `scnSnaps` as plain snapshots. Switching swaps them, rebuilds the input forms and re-draws every chart,
-// so comparing plans is a matter of switching and watching the charts animate between them (the chart y-axis scale is kept across a switch).
-// Layout settings (`state.ui`: hidden sections, devalue sliders…) belong to the viewer, not the plan, and stay put when switching.
+// so comparing scenarios is a matter of switching and watching the charts animate between them (the chart y-axis scale is kept across a switch).
+// Layout settings (`state.ui`: hidden sections, devalue sliders…) belong to the viewer, not the scenario, and stay put when switching.
 // The Scenario button opens a popup card that floats over the page: scenario chips (click one to show it), New scenario (a copy of the one on screen), Delete scenario (the one on screen, one at a time), a name box, and a collapsible list of every input that differs.
-// The set is kept in localStorage and written into the plan file by Save. The first scenario is always A; the plan is the same as before until a second one is created.
-// Nothing here changes how a plan is computed.
+// The set is kept in localStorage and written into the plan file by Save. The first scenario is always A; the scenario is the same as before until a second one is created.
+// Nothing here changes how a scenario is computed.
 // ═══════════════════════════════════════════════════════════════
 let SCN_STORAGE_KEY=planKeys(PLAN_INSTANCE).scn;   // set again by claimPlanSlot() (core/state.js) once the tab's slot is known
 const SCN_OLD_KEY='retirementPlannerAB_v1';     // previous two-scenario (A/B) format; read once and migrated
@@ -75,7 +75,7 @@ function scnSwitch(id){
   renderAll();                            // rebuilds every input form; the charts are NOT destroyed, so renderCharts updates them in place and Chart.js animates the lines between the two plans' values
   autosave();
 }
-// New scenario: a copy of the plan on screen, which is then shown so the next edits go to the new one.
+// New scenario: a copy of the scenario on screen, which is then shown so the next edits go to the new one.
 function scnCreate(){
   const id=scnNextId();
   if(!id){ alert('Up to '+SCN_MAX+' scenarios are supported.'); return; }
@@ -87,13 +87,13 @@ function scnCreate(){
   scnActive=id; state=copy;
   renderAll(); autosave();
 }
-// Add a scenario that was built elsewhere (the chat's chart cards, display/chatCharts.js). `plan` is a plan object (a changed copy of the live plan);
+// Add a scenario that was built elsewhere (the chat's chart cards, display/chatCharts.js). `plan` is a scenario object (a changed copy of the live scenario);
 // it is hydrated like a loaded file and joins the set under the next free letter. show=true also switches to it, so the full chart grid shows it.
 // Called only from a user's click; returns {id} or {error}.
-function scnAddFromState(plan,name,show){
+function scnAddFromState(scenario,name,show){
   const id=scnNextId();
   if(!id) return {error:'Up to '+SCN_MAX+' scenarios are supported.'};
-  const added=scnHydrate(scnCopy(plan)); added.ui=state.ui;
+  const added=scnHydrate(scnCopy(scenario)); added.ui=state.ui;
   scnSnaps[id]=added; scnOrder.push(id); scnNames[id]=String(name||'').slice(0,60);
   if(show) scnSwitch(id); else { autosave(); renderScenarioCard(); }
   return {id};
@@ -110,7 +110,7 @@ function scnDelete(){
   scnActive=next; state=incoming;
   renderAll(); autosave();
 }
-// Delete a scenario that is NOT on screen, by id (master plan list: plDelete → plans/scenarioSetProducer.js). The one on screen and the last one are refused with a reason.
+// Delete a scenario that is NOT on screen, by id (master scenario list: scDelete → scenarios/scenarioSetProducer.js). The one on screen and the last one are refused with a reason.
 function scnDeleteOther(id){
   if(id===scnActive) return {ok:false,why:'Scenario '+id+' is on screen; switch to another scenario first, then delete it'};
   if(!scnSnaps[id]||scnOrder.indexOf(id)<0) return {ok:false,why:'no such scenario "'+id+'"'};
@@ -119,14 +119,14 @@ function scnDeleteOther(id){
   scnSave(); if(typeof renderScenarioCard==='function') renderScenarioCard(); if(typeof autosave==='function') autosave();
   return {ok:true};
 }
-// Reset to defaults: every other scenario is removed and the plan on screen becomes the one scenario, A (called by resetState before it redraws).
+// Reset to defaults: every other scenario is removed and the scenario on screen becomes the one scenario, A (called by resetState before it redraws).
 function scnReset(){
   scnOrder=['A']; scnActive='A'; scnSnaps={}; Object.keys(scnNames).forEach(k=>delete scnNames[k]);
   scnSave();   // clears the stored scenario set
 }
 function scnRename(v){ scnNames[scnActive]=v.trim(); scnSave(); renderScenarioCard(); }
 // ── Plan file: Save writes every scenario, Load restores them all ──
-// A file with one scenario is a plain plan (the same format as before). With several, the scenario on screen is the plan itself and the
+// A file with one scenario is a plain plan (the same format as before). With several, the scenario on screen is the scenario itself and the
 // others ride along under `scenarios` ({active, order, names, snaps}); older readers simply ignore that key.
 function scnFileData(){
   if(scnOrder.length<2) return state;

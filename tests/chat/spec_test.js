@@ -94,7 +94,7 @@ for(const plan of ['Couple_Heir.json','Widow.json']){
   const ctx=makeCtx('Widow.json');
   ctx.__s=[{id:'A',label:'a',levers:[{lever:'ssClaimAge',person:2,age:70}]}];
   const r=run(ctx,'specRunBatch(__s)');
-  ok(r.scenarios[0].notes[0].status==='ignored'&&r.scenarios[0].notes[0].note.includes('not in this plan'),'person 2 on a single plan is ignored with a reason');
+  ok(r.scenarios[0].notes[0].status==='ignored'&&r.scenarios[0].notes[0].note.includes('not in this scenario'),'person 2 on a single plan is ignored with a reason');
 }
 console.log('\n'+(n-fails)+'/'+n+' checks passed');
 process.exit(fails?1:0);

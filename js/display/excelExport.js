@@ -1,7 +1,7 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / EXCEL EXPORT — "Export Excel" button (next to Notes)
-// downloads the plan as a .xlsx workbook that is a LIVE model, not just a table of numbers:
+// downloads the scenario as a .xlsx workbook that is a LIVE model, not just a table of numbers:
 //   • "Inputs" sheet — every assumption and input value (household, Social Security, pension, portfolios, IRAs, LTC, fees…).
 //     Inflation, first year, passing ages, SCGL and the future-NIIT assumption are named cells the formulas use.
 //   • "Tax tables" sheet — brackets, standard / senior deductions, qualified-dividend tiers, SS thresholds, NIIT, IRMAA tiers (named ranges).
@@ -124,7 +124,7 @@ function xlsxTable(sh, top, cols, rows, opts){
   return {letter, dataTop, firstRow:dataTop+1, lastRow:dataTop+rows.length};
 }
 
-// The state whose tax applies to this plan: 'CA' / 'WA', or null when state income tax is off. The workbook carries ONLY this
+// The state whose tax applies to this scenario: 'CA' / 'WA', or null when state income tax is off. The workbook carries ONLY this
 // state's tables, inputs and projection columns.
 function xlsxSelectedState(){
   const t=state.stateTax;
@@ -254,7 +254,7 @@ function xlsxFieldFmt(key){
 // Every assumption / input of the saved plan, laid out label | value | note. `addr(name)` finds a cell for the account sheets.
 function xlsxInputsSheet(proj,trial){
   const sh=xlsxSheet(), names=[], addr={}; let r=0;
-  const st=trial?trial.state:state;   // a Monte Carlo trial is replayed on its own copy of the plan: its drawn passing ages, care and inheritance
+  const st=trial?trial.state:state;   // a Monte Carlo trial is replayed on its own copy of the scenario: its drawn passing ages, care and inheritance
   const put=(label,value,o)=>{
     o=o||{};
     xlsxPut(sh,r,0,xlsxTxt(label));
@@ -268,14 +268,14 @@ function xlsxInputsSheet(proj,trial){
   const head=t=>{ r++; xlsxPut(sh,r,0,xlsxTxt(t)); r++; };
   const yn=v=>v?'Yes':'No';
   // An asset created by the Inheritance card enters the plan in its start year (balance = value at the source plan's last passing, in today's $; basis stepped up).
-  const inhNote=o=>(o&&o.inh)?{note:`Inherited from ${o.inh.file||'another plan'}: enters the plan in ${Number(o.startYear)||'its start year'}; the balance is its value then (today's $)`}:undefined;
-  xlsxPut(sh,r++,0,xlsxTxt('INPUTS & ASSUMPTIONS of the saved plan (all money in today\'s $). Cells marked as a name below are used by formulas in the other sheets; the rest document the plan the app solved.')); 
-  xlsxPut(sh,r++,0,xlsxTxt('Changing a named cell here recalculates the formula columns, but the income / expense-funding / Roth-conversion amounts on "Projection by year" are the app\'s solved values: re-export after changing the plan in the app for those.'));
-  if(trial){ xlsxPut(sh,r++,0,xlsxTxt(`${trial.label}: the passing ages, Long Term Care and inheritance below are ${trial.view==='D'?'the plan\'s own':'this trial\'s random draws'}; its yearly inflation and market returns are on the "MC trial" sheet.`)); }
+  const inhNote=o=>(o&&o.inh)?{note:`Inherited from ${o.inh.file||'another plan'}: enters the scenario in ${Number(o.startYear)||'its start year'}; the balance is its value then (today's $)`}:undefined;
+  xlsxPut(sh,r++,0,xlsxTxt('INPUTS & ASSUMPTIONS of the scenario (all money in today\'s $). Cells marked as a name below are used by formulas in the other sheets; the rest document the scenario the app solved.')); 
+  xlsxPut(sh,r++,0,xlsxTxt('Changing a named cell here recalculates the formula columns, but the income / expense-funding / Roth-conversion amounts on "Projection by year" are the app\'s solved values: re-export after changing the scenario in the app for those.'));
+  if(trial){ xlsxPut(sh,r++,0,xlsxTxt(`${trial.label}: the passing ages, Long Term Care and inheritance below are ${trial.view==='D'?'the scenario\'s own':'this trial\'s random draws'}; its yearly inflation and market returns are on the "MC trial" sheet.`)); }
   head('General (filing status, inflation; passing ages are under each person)');
   put('Filing status',st.filingStatus==='married'?'Married (MFJ)':'Single',{key:'filing'});
   put('Year 0 (first projected year)',THIS_YEAR,{name:'BaseYear',fmt:XLSX_YEAR});
-  put(trial?'Inflation (SS COLA assumed equal): the plan\'s average rate':'Inflation (SS COLA assumed equal)',st.inflation,{name:'Inflation',fmt:'0.00%',key:'inflation',note:trial?'This trial\'s inflation varies by year: see the MC trial sheet':undefined});
+  put(trial?'Inflation (SS COLA assumed equal): the scenario\'s average rate':'Inflation (SS COLA assumed equal)',st.inflation,{name:'Inflation',fmt:'0.00%',key:'inflation',note:trial?'This trial\'s inflation varies by year: see the MC trial sheet':undefined});
   head('Expenses');
   put('Household living expenses / yr',Number(st.living)||0,{fmt:XLSX_MONEY,key:'living'});
   const ltc=st.ltc||{};
@@ -327,7 +327,7 @@ function xlsxInputsSheet(proj,trial){
     const nm=displayPersonName(p,i), pass=st.passing[p.id]!=null?st.passing[p.id]:95;
     head(`${nm}`);
     put('Name',nm); put('Birth year',p.birthYear,{fmt:XLSX_YEAR,key:`birthYear${i}`}); put('Birth month',p.birthMonth);
-    put('Passing age (plan ends)',pass,{name:`Pass_${i+1}`});
+    put('Passing age (scenario ends)',pass,{name:`Pass_${i+1}`});
     const w=p.wage||{}; put('Wage income',yn(w.enabled)); put('  amount / yr',Number(w.amount)||0,{fmt:XLSX_MONEY});
     const s=p.ss||{}; put('Social Security',yn(s.enabled)); put('  PIA / month',Number(s.pia)||0,{fmt:XLSX_MONEY}); put('  full retirement age',Number(s.fra)||0); put('  already started',yn(s.started)); put('  claim age',Number(s.claimAge)||0);
     const pn=p.pension||{}; put('Pension',yn(pn.enabled)); put('  amount / yr',Number(pn.amount)||0,{fmt:XLSX_MONEY}); put('  inherited by spouse',yn(pn.bene));
@@ -392,8 +392,8 @@ function xlsxRealGrowthFormula(modeCell,valCell,change,inflation){
 }
 
 // ═══ Monte Carlo trial ═══════════════════════════════════════════════════════════════════════════
-// While a Monte Carlo trial is on screen (B / C in the trial banner) the export is THAT trial, and it is a live model too. A trial differs from the plan in four ways:
-//   • its own lifespans, Long Term Care and inheritance        → the Inputs sheet is written from the trial's private copy of the plan (mcTrialView.state);
+// While a Monte Carlo trial is on screen (B / C in the trial banner) the export is THAT trial, and it is a live model too. A trial differs from the scenario in four ways:
+//   • its own lifespans, Long Term Care and inheritance        → the Inputs sheet is written from the trial's private copy of the scenario (mcTrialView.state);
 //   • a price level that moves year by year                    → "MC trial" sheet: inflation of each year, the price level and the deflator the Projection formulas use;
 //   • a market shock for every asset in every year             → "MC trial" sheet: the shock factor (a value, the trial's draw) and the real growth rate = (1 + the plan's rate) × factor − 1,
 //     where the plan's rate is a formula of the Inputs growth cell (a nominal "fixed" / "custom" rate is re-priced by that year's inflation, as the engine does);
@@ -404,7 +404,7 @@ function xlsxTrialContext(){
   if(typeof mcShowingTrial!=='function'||!mcShowingTrial()||typeof mcTrialView==='undefined'||!mcTrialView) return null;
   return {n:mcTrialView.trial+1, view:mcTrialView.view, state:mcTrialView.state, label:mcTrialView.view==='D'?'STRESS TEST "'+(mcTrialView.d&&mcTrialView.d.label||'')+'"':((mcTrialView.view==='E'||mcTrialView.view==='F')?'STRESS TEST "'+(mcTrialView.sm&&mcTrialView.sm.label||'')+'" + MONTE CARLO TRIAL #'+(mcTrialView.trial+1):'MONTE CARLO TRIAL #'+(mcTrialView.trial+1))};
 }
-// Builds the "MC trial" sheet. Returns null when the projection carries no recorded path (then the export stays as for a plan).
+// Builds the "MC trial" sheet. Returns null when the projection carries no recorded path (then the export stays as for a scenario).
 function xlsxTrialSheet(proj,trial,inAddr){
   const rows=proj.rows, rates=proj.rates, pis=proj.inflRate;
   if(!rates||!pis||!rows.length) return null;
@@ -437,8 +437,8 @@ function xlsxTrialSheet(proj,trial,inAddr){
   const Fval=(a,k)=>{ const r=rateAt(a,k), b=baseAt(a.change,k); return (r==null||!(1+b>0))?1:(1+r)/(1+b); };   // no recorded rate that year: the plan's own rate
   const gval=(a,k)=>{ const r=rateAt(a,k); return r==null?baseAt(a.change,k):r; };
   const sh=xlsxSheet();
-  xlsxPut(sh,0,0,xlsxTxt(`${trial.view==='D'?'Stress test':'Monte Carlo trial #'+trial.n} (${trial.view==='D'?'view D':(trial.view==='C'?'a successful run':(trial.view==='E'||trial.view==='F'?'view '+trial.view+', a Monte Carlo trial under a stress test':'trial view B'))}): this ${trial.view==='D'?'scenario\'s':'trial\'s random'} path. Edit an inflation rate or a shock factor and the Projection and account sheets recalculate. A shock factor of 1 = the plan's own return that year.`));
-  xlsxPut(sh,1,0,xlsxTxt('Columns labelled "trial input" are the trial\'s draws. Real growth = (1 + the plan\'s real rate from Inputs) × shock factor − 1; a nominal fixed / custom rate is re-priced by the year\'s inflation.'));
+  xlsxPut(sh,0,0,xlsxTxt(`${trial.view==='D'?'Stress test':'Monte Carlo trial #'+trial.n} (${trial.view==='D'?'view D':(trial.view==='C'?'a successful run':(trial.view==='E'||trial.view==='F'?'view '+trial.view+', a Monte Carlo trial under a stress test':'trial view B'))}): this ${trial.view==='D'?'scenario\'s':'trial\'s random'} path. Edit an inflation rate or a shock factor and the Projection and account sheets recalculate. A shock factor of 1 = the scenario's own return that year.`));
+  xlsxPut(sh,1,0,xlsxTxt('Columns labelled "trial input" are the trial\'s draws. Real growth = (1 + the scenario\'s real rate from Inputs) × shock factor − 1; a nominal fixed / custom rate is re-priced by the year\'s inflation.'));
   const cols=[
     {key:'year',head:'Year',kind:'f',fmt:XLSX_YEAR,v:r=>THIS_YEAR+r.k,f:(X,idx)=>idx===0?'BaseYear':`${X('year',-1)}+1`},
     {key:'pi',head:'Inflation rate this year (this trial\'s path)',kind:'v',tag:'trial input',fmt:XLSX_PCT2,v:(r,idx)=>pi[idx]},
@@ -447,7 +447,7 @@ function xlsxTrialSheet(proj,trial,inAddr){
   ];
   assets.forEach(a=>{
     cols.push({key:'F'+a.j,head:`Market shock factor, ${a.label} (this trial; mean 1)`,kind:'v',tag:'trial input',fmt:'0.0000',v:(r,idx)=>Fval(a,idx)});
-    cols.push({key:'g'+a.j,head:`Real growth, ${a.label} = (1 + plan rate) × shock factor − 1`,kind:'f',fmt:XLSX_PCT2,v:(r,idx)=>gval(a,idx),
+    cols.push({key:'g'+a.j,head:`Real growth, ${a.label} = (1 + scenario rate) × shock factor − 1`,kind:'f',fmt:XLSX_PCT2,v:(r,idx)=>gval(a,idx),
       f:X=>`(1+${baseF(a.change,a.valCell,X('pi'))})*${X('F'+a.j)}-1`});
   });
   const t=xlsxTable(sh,2,cols,rows);
@@ -476,7 +476,7 @@ function xlsxPortfolioSheet(proj,i,bi,inAddr,T){
     {key:'bal',head:'Balance (SOY)',v:r=>ent(r).balance},
     {key:'gr',head:'Growth %',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).growthPct)},
     {key:'ngr',head:'Net growth %',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).netGrowthPct!=null?ent(r).netGrowthPct:ent(r).growthPct)},
-    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: plan rate × this trial\'s market shock)',kind:'f',fmt:XLSX_PCT2,v:r=>T.gVal(gKey,r.k),f:(X,idx,R,r)=>T.gRef(gKey,r.k)}]:[]),
+    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: scenario rate × this trial\'s market shock)',kind:'f',fmt:XLSX_PCT2,v:r=>T.gVal(gKey,r.k),f:(X,idx,R,r)=>T.gRef(gKey,r.k)}]:[]),
     {key:'fee',head:'AUM fee share',v:r=>ent(r).feeDrag},
     {key:'ltcg',head:'Realized LTCG (gross, before SCGL) = shares sold × gain share + distributed LTCG',v:r=>ent(r).ltcg},
     {key:'cgd',head:'  of which: Distributed LTCG (paid out; taxed whether or not shares are sold)',v:r=>ent(r).cgd||0},
@@ -512,7 +512,7 @@ function xlsxRealEstateSheet(proj,i,ri,inAddr,T){
     {key:'age',head:`${person} age`,fmt:XLSX_AGE,v:r=>r.ages[i]},
     {key:'bal',head:'Value (SOY)',v:r=>ent(r).balance},
     {key:'gr',head:'Growth % (real)',fmt:XLSX_PCTNUM,v:r=>round1(ent(r).growthPct)},
-    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: plan rate × this trial\'s property shock)',kind:'f',fmt:XLSX_PCT2,v:r=>T.gVal(gKey,r.k),f:(X,idx,R,r)=>T.gRef(gKey,r.k)}]:[]),
+    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: scenario rate × this trial\'s property shock)',kind:'f',fmt:XLSX_PCT2,v:r=>T.gVal(gKey,r.k),f:(X,idx,R,r)=>T.gRef(gKey,r.k)}]:[]),
     {key:'basis',head:'Cost basis (SOY)',v:r=>ent(r).basis},
     {key:'gain',head:'Unrealized gain (SOY)',kind:'f',v:r=>Math.max(0,ent(r).balance-ent(r).basis),f:X=>`MAX(0,${X('bal')}-${X('basis')})`},
     {key:'bpct',head:'Basis % of value',kind:'f',fmt:XLSX_PCT,v:r=>ent(r).balance>0?ent(r).basis/ent(r).balance:'',f:X=>`IF(${X('bal')}<=0,"",${X('basis')}/${X('bal')})`},
@@ -533,7 +533,7 @@ function ownRmd(r,i){ return Math.max(0,(r.iraByPerson[i]||0)-((r.inhIraWdByPers
 function ownConv(r,i){ return r.convMainByPerson?(r.convMainByPerson[i]||0):(r.rothConvByPerson[i]||0); }
 function xlsxIraRothSheet(proj,i,isRoth,inAddr,T){
   const person=displayPersonName(proj.people[i],i), acct=isRoth?proj.people[i].roth:proj.people[i].ira, inf=proj.inflation||state.inflation;
-  const gKey=(isRoth?'roth:':'ira:')+proj.people[i].id, tg=!!(T&&T.has(gKey));   // heirs' stretch years always compound at the plan's constant rate (no market shock)
+  const gKey=(isRoth?'roth:':'ira:')+proj.people[i].id, tg=!!(T&&T.has(gKey));   // heirs' stretch years always compound at the scenario's constant rate (no market shock)
   const key=isRoth?'roth':'ira', sh=xlsxSheet();
   const g=realGrowth(acct.growth,inf);
   xlsxAccountHeader(sh,`${person} – ${isRoth?'Roth IRA':'Pre-tax IRA'}`,xlsxRealGrowthFormula(inAddr[`${key}${i}GMode`],inAddr[`${key}${i}GVal`],acct.growth,inf),inAddr[`${key}${i}Bal`],Number(acct.balance)||0);
@@ -556,7 +556,7 @@ function xlsxIraRothSheet(proj,i,isRoth,inAddr,T){
     ...(isRoth?[]:[{key:'rmd',head:'RMD',v:x=>x.heirs?0:ownRmd(x.r,i)}]),
     {key:'conv',head:isRoth?'Converted in from pre-tax IRA (withdraws marked as Roth conversion)':'Pre-tax IRA annual withdraw',v:x=>x.heirs?0:((isRoth?x.r.rothInByPerson[i]:ownConv(x.r,i))||0)},
     {key:'ex',head:isRoth?'Roth IRA sold for expenses':'Pre-tax IRA withdraw for expenses',v:x=>x.heirs?0:(isRoth?(x.r.rothExpByPerson[i]||0):(x.r.iraExpByPerson[i]||0))},
-    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: plan rate × this trial\'s market shock)',kind:'f',fmt:XLSX_PCT2,v:x=>x.heirs?'':T.gVal(gKey,x.r.k),f:(X,idx,R,x)=>x.heirs?null:T.gRef(gKey,x.r.k)}]:[]),
+    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: scenario rate × this trial\'s market shock)',kind:'f',fmt:XLSX_PCT2,v:x=>x.heirs?'':T.gVal(gKey,x.r.k),f:(X,idx,R,x)=>x.heirs?null:T.gRef(gKey,x.r.k)}]:[]),
     {key:'bal',head:isRoth?'Roth IRA balance (EOY) = (prior EOY + converted in − sold) × (1 + growth)':'Pre-tax IRA balance (EOY) = (prior EOY − RMD − annual withdraw − expense draw) × (1 + growth)',kind:'f',v:x=>bal(x),
       f:(X,idx)=>{
         if(Math.abs(predicted[idx]-bal(items[idx]))>1) return null;
@@ -588,7 +588,7 @@ function xlsxInheritedIraSheet(proj,i,ii,inAddr,T){
     {key:'year',head:'Year',fmt:XLSX_YEAR,v:y=>THIS_YEAR+y.r.k},
     {key:'age',head:`${person} age`,fmt:XLSX_AGE,v:y=>y.r.ages[i]},
     {key:'wd',head:isRoth?'Withdraw (Roth: untaxed household cash)':'Withdraw (RMD / 10-year schedule; ordinary income)',v:y=>wd(y)},
-    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: plan rate × this trial\'s market shock)',kind:'f',fmt:XLSX_PCT2,v:y=>T.gVal(gKey,y.r.k),f:(X,idx,R,y)=>T.gRef(gKey,y.r.k)}]:[]),
+    ...(tg?[{key:'g',head:'Real growth this year (from the MC trial sheet: scenario rate × this trial\'s market shock)',kind:'f',fmt:XLSX_PCT2,v:y=>T.gVal(gKey,y.r.k),f:(X,idx,R,y)=>T.gRef(gKey,y.r.k)}]:[]),
     {key:'bal',head:'Balance (EOY) = (prior EOY − withdraw) × (1 + growth)',kind:'f',v:y=>bal(y),
       f:(X,idx)=>{ if(Math.abs(predicted[idx]-bal(items[idx]))>1) return null; const prev=idx===0?'$B$3':X('bal',-1); return `MAX(0,${prev}-${X('wd')})*(1+${tg?X('g'):'$B$2'})`; }}
   ];
@@ -826,7 +826,7 @@ function xlsxMainColumns(proj,acctSheets,T){
   // that produced them: the app's spending / balance, and the rate, cut line, tripwire and "above the line?" test as live formulas (the band is the Inputs name Gr_Band).
   if(proj.rows[0]&&proj.rows[0].guard){
     const bandOf=r=>(r.guard.bandPct||0), lineOf=r=>r.guard.iwr==null?'':r.guard.iwr*(1+bandOf(r)/100);
-    V('gMult','Guardrail: multiplier on the discretionary part of living expenses this year (1 = the plan\'s amount)',r=>r.guard.mult,'0.000');
+    V('gMult','Guardrail: multiplier on the discretionary part of living expenses this year (1 = the scenario\'s amount)',r=>r.guard.mult,'0.000');
     V('gDraw','Guardrail: spending the portfolios must fund (total expenses − wages, Social Security, pension, rental and annuity income)',r=>r.guard.draw);
     V('gBal0','Guardrail: invested balance at the start of the year',r=>r.guard.bal0);
     F('gWr','Guardrail: withdrawal rate = spending ÷ start-of-year balance',r=>(r.guard.bal0>0?r.guard.draw/r.guard.bal0:''),X=>`IF(${X('gBal0')}>0,${X('gDraw')}/${X('gBal0')},"")`,XLSX_PCT2);
@@ -881,7 +881,7 @@ function xlsxMainColumns(proj,acctSheets,T){
   pfAdd('bI','Brokerage balance, IDGT (SOY)',r=>sumPortfolios(r,true,'balance'),pfI,'bal');
   pfAdd('gN','Unrealized gain, non-IDGT (SOY)',r=>v(r.embeddedGain),pfN,'gain');
   pfAdd('gI','Unrealized gain, IDGT (SOY)',r=>v(r.embeddedGainIdgt),pfI,'gain');
-  // Real estate: summed from the property sheets by Year (a property that is sold or has left the plan has no row after that).
+  // Real estate: summed from the property sheets by Year (a property that is sold or has left the scenario has no row after that).
   const reSheets=acctSheets.filter(s=>s.type==='re');
   const reSum=(r,f)=>r.realEstateByPerson.reduce((a,l)=>a+(l||[]).reduce((b,e)=>b+(e?f(e):0),0),0);
   pfAdd('reVal','Real estate value (SOY)',r=>reSum(r,e=>e.balance),reSheets,'bal');
@@ -899,7 +899,7 @@ function chartTotalIncome(r){
 function xlsxBuildWorkbook(proj,trial){
   proj.inflation=proj.inflation!=null?proj.inflation:state.inflation;
   const inputs=xlsxInputsSheet(proj,trial), tax=xlsxTaxSheet();
-  const T=trial?xlsxTrialSheet(proj,trial,inputs.addr):null;   // null (a plan, or a projection without a recorded path): the constant-rate workbook
+  const T=trial?xlsxTrialSheet(proj,trial,inputs.addr):null;   // null (a scenario, or a projection without a recorded path): the constant-rate workbook
   const acct=xlsxAccountSheets(proj,inputs.addr,T);
   const cols=xlsxMainColumns(proj,acct,T);
   const main=xlsxSheet();

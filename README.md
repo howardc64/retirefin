@@ -11,13 +11,13 @@ A browser-based retirement income and tax planner for a single person or a marri
 - **Tax modeling**: federal brackets, taxable Social Security, long-term gains, NIIT, IRMAA, the enhanced senior deduction, and state income tax for California or Washington.
 - **Planning levers**: Roth conversions (fixed, or to a bracket / IRMAA limit, with several start triggers), RMDs, IRA stretch, and a configurable order for paying expenses from the accounts.
 - **Charts** in a draggable 2- or 3-column grid: annual expenses, income, MAGI, taxable ordinary and qualified income, total / ordinary / qualified tax, asset value, IRA, LTCG, inheritance income, Social Security, inflation and market returns. In the 3-column grid any chart can be **enlarged to 2×2 cells** with the other charts beside it. Hover popups show the detail behind each number.
-- **Monte Carlo simulation**: re-runs the plan with random returns, a systemic-panic mode, lifespans, long-term care, inflation and inheritance, explains why trials fail, and loads any single trial into the charts.
+- **Monte Carlo simulation**: re-runs the scenario with random returns, a systemic-panic mode, lifespans, long-term care, inflation and inheritance, explains why trials fail, and loads any single trial into the charts.
 - **Stress tests**: Lost Decade, stagflation, a 1966 retiree and a late-life medical shock, optionally combined with Monte Carlo.
 - **Inheritance** from another plan file, and **two plans linked live** (parent in one tab, heir in another).
-- **Scenarios** to create, switch, compare and delete variants of a plan; **Notes** for the whole plan and per scenario.
+- **Scenarios** to create, switch, compare and delete the variants held in one plan; **Notes** for the whole plan and per scenario.
 - **Save / Load** plan files (JSON), **Export to Excel** with live formulas for the main tax chain, and a **Formulas** page documenting every equation.
-- **🤖 LLM button**: download every scenario and result (user scenarios, what-ifs, stress tests, Monte Carlo) as one file for any external LLM, and review the scenarios an LLM proposes before anything touches your plan. A Claude Desktop extension (`node server/build-mcpb.js`, then drag `dist/retirement-planner.mcpb` into Settings → Extensions) and a live bridge (`node server/mcp.js --bridge`) lets an MCP host such as Claude Desktop work on the plan on your screen (**the live bridge is still in development**: expect rough edges and changes; the file export, the saved-plan MCP server and the chat are not affected); the chat also accepts any OpenAI-compatible server.
-- **Optional chat** that answers questions about your plan and runs what-ifs through the app's own projection engine (you supply your own Google Gemini or Anthropic API key).
+- **🤖 LLM button**: download every scenario and result (user scenarios, what-ifs, stress tests, Monte Carlo) as one file for any external LLM, and review the scenarios an LLM proposes before anything touches your scenarios. A Claude Desktop extension (`node server/build-mcpb.js`, then drag `dist/retirement-planner.mcpb` into Settings → Extensions) and a live bridge (`node server/mcp.js --bridge`) lets an MCP host such as Claude Desktop work on the scenario on your screen (**the live bridge is still in development**: expect rough edges and changes; the file export, the saved-plan MCP server and the chat are not affected); the chat also accepts any OpenAI-compatible server.
+- **Optional chat** that answers questions about your scenario and runs what-ifs through the app's own projection engine (you supply your own Google Gemini or Anthropic API key).
 
 ## Getting started
 
@@ -30,7 +30,7 @@ python3 -m http.server 8000     # then open http://localhost:8000
 - **Use Chrome.** All testing was done in Chrome. In Chrome, Save overwrites the same file; other browsers ask for a file name on every save.
 - Serving over `http://localhost` is needed for the live parent/heir link and the chat; most of the app also works from `file://`.
 - Chart.js, SheetJS and the Google fonts load from CDNs, so the first load needs internet access.
-- Try the example plans in `Samples/` (`Couple_Heir.json`, `Widow.json`) from the **Load file** menu.
+- Try the example scenarios in `Samples/` (`Couple_Heir.json`, `Widow.json`) from the **Load file** menu.
 
 ## Privacy
 

@@ -31,7 +31,7 @@ ok(/outside the projection/.test(els.stSummary.innerHTML),'an age beyond the hor
 run(`buildMcPanel();`); E('mcRet').checked=true; E('mcPanic').checked=true; E('mcPanCmp').checked=true; E('mcPanRho').value='0.95'; E('mcPanTrig').value='1.5'; E('mcPanHold').value='2'; E('mcTrials').value='50'; E('mcPanRe').checked=true;
 ok(run(`(()=>{ const c=mcReadCfg(); return c.returns.panic.enabled&&c.returns.panic.rhoPanic===0.95&&c.returns.panic.trigger===-1.5&&c.returns.panic.holdYears===2&&c.returns.panic.compare&&c.returns.panic.includeRE; })()`),'panic settings are read from the card');
 run(`(()=>{ const cfg=JSON.parse(JSON.stringify(mcReadCfg())), off=JSON.parse(JSON.stringify(cfg)); off.returns.panic.enabled=false; const a=[],b=[]; for(let t=0;t<60;t++){ a.push(mcRunTrial(cfg,t)); b.push(mcRunTrial(off,t)); }
-  mcResults={cfg,S:mcSummarize(a),R:mcFailureReasons(a),complete:true,results:a,cmp:mcSummarize(b)}; mcStateAtRun=mcPlanKey(); mcRender(); })()`);
+  mcResults={cfg,S:mcSummarize(a),R:mcFailureReasons(a),complete:true,results:a,cmp:mcSummarize(b)}; mcStateAtRun=mcScenarioKey(); mcRender(); })()`);
 const m=els.mcSummary.innerHTML;
 ok(/Systemic panic/.test(m)&&/had a panic year/.test(m)&&/Same trials without panic/.test(m),'Monte Carlo card shows panic rows and the paired comparison');
 run(`mcResults.S.panic=null; mcResults.cmp=null; mcRender();`);

@@ -45,7 +45,7 @@ for(const plan of ['Couple_Heir.json','Widow.json']){
   let r=call('define_market_scenario',{label:'Two bad years',returnsPct:[-25,-10,6,12],inflationPct:[4,5,3,3],afterReturnPct:5,showInCharts:true});
   ok(!r.isError&&r.cards.map(c=>c.type).join()==='summary,market,chart,chart','define_market_scenario: summary, market and two chart cards');
   ok(r.effects.length===1&&r.effects[0].type==='showMarketPath'&&r.effects[0].id===r.response.marketScenario.scenarioId,'showInCharts asks the host to show it (effect)');
-  ok(r.response.marketScenario.asPlaced.length===4&&r.response.marketScenario.asPlaced[0].year>=T&&r.response.yourPlan&&r.response.scenarios[0].kpis,'the model gets the path as placed, plus plan and scenario KPIs');
+  ok(r.response.marketScenario.asPlaced.length===4&&r.response.marketScenario.asPlaced[0].year>=T&&r.response.yourScenario&&r.response.scenarios[0].kpis,'the model gets the path as placed, plus plan and scenario KPIs');
   const sid=r.response.marketScenario.scenarioId;
   ok(run(ctx,'JSON.stringify(state)')===before,'live plan (including ui.marketPaths) untouched by the tool');
   r=call('define_market_scenario',{label:'Two bad years',returnsPct:[-1,1]}); ok(r.response.marketScenario.scenarioId!==sid,'a second scenario with the same label gets its own id');
@@ -62,7 +62,7 @@ for(const plan of ['Couple_Heir.json','Widow.json']){
   const mcp=J(ctx,'apiList("mcp")'); ok(mcp.length>=8&&mcp.every(t=>t.name&&t.description&&t.inputSchema&&t.inputSchema.type==='object'),'apiList("mcp") entries are MCP tools/list entries');
   ok(J(ctx,'apiList("neutral")').every(t=>t.parameters),'neutral declarations keep `parameters` for the chat providers');
   ctx.__x=null; const mres=J(ctx,'apiToMcpResult(apiCall("list_market_scenarios",{}))'); ok(mres.content[0].type==='text'&&JSON.parse(mres.content[0].text).scenarios&&mres.isError===false,'apiToMcpResult is an MCP tools/call result');
-  ok(J(ctx,'apiResources()').length===5&&J(ctx,'apiReadResource("planner://market-scenarios")').scenarios.length>=4&&J(ctx,'apiReadResource("planner://plan/summary")').kpis,'resources readable');
+  ok(J(ctx,'apiResources()').length===5&&J(ctx,'apiReadResource("planner://market-scenarios")').scenarios.length>=4&&J(ctx,'apiReadResource("planner://scenario/summary")').kpis,'resources readable');
   r=call('define_market_scenario',{label:'from mcp',returnsPct:[-10]},{source:'mcp'}); ok(J(ctx,'msGet('+JSON.stringify(r.response.marketScenario.scenarioId)+')').source==='mcp','host source is stamped on the scenario');
 
   // 6. saving is a user action: msSave writes to ui.marketPaths, stress card picks it up with its own start

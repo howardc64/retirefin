@@ -20,7 +20,7 @@ const tool=async(n,a)=>{ const r=await rpc('tools/call',{name:n,arguments:a||{}}
     ['list_runs','get_run','get_mc_summary','import_scenarios','run_stress_tests','run_monte_carlo','get_job','cancel_job','define_stress_config','define_mc_config'].forEach(n=>ck('tool '+n,names.includes(n)));
     ck('tools have inputSchema',tl.every(t=>t.inputSchema&&t.inputSchema.type==='object'));
     const lr=await tool('list_runs'); ck('list_runs ok',lr.j&&!lr.r.isError);
-    const runs=lr.j&&(lr.j.runs||lr.j); ck('plan run present',Array.isArray(runs)&&runs.some(r=>r.id==='plan'));
+    const runs=lr.j&&(lr.j.runs||lr.j); ck('plan run present',Array.isArray(runs)&&runs.some(r=>r.id==='entered'));
     
     const st=await tool('run_stress_tests',{}); ck('run_stress_tests ok',st.j&&!st.r.isError);
     const lr2=await tool('list_runs'); const r2=lr2.j.runs||lr2.j; ck('stress runs listed',r2.some(r=>/^stl:/.test(r.id)));

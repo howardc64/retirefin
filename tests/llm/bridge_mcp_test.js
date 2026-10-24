@@ -35,18 +35,18 @@ const autoAnswer=(c,status,log)=>{ const iv=setInterval(()=>{ c.messages.filter(
     await s.rpc('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'t',version:'0'}}); s.p.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');
     ck('the pairing code is printed on stderr',s.stderr.includes('pairing code: '+CODE));
     const names=(await s.rpc('tools/list')).result.tools.map(t=>t.name); ck('bridge_status is listed with the other tools',names.includes('bridge_status')&&names.includes('list_runs'));
-    const noPlan=await s.tool('list_runs'); ck('without a plan a tool says so and is an error',noPlan.r.isError&&/No plan is loaded/.test(noPlan.j.error));
+    const noPlan=await s.tool('list_runs'); ck('without a plan a tool says so and is an error',noPlan.r.isError&&/No scenario is loaded/.test(noPlan.j.error));
     const st0=await s.tool('bridge_status'); ck('bridge_status works before any plan: not connected, with port and code',st0.j.bridge.pageConnected===false&&st0.j.bridge.port===port&&st0.j.bridge.pairingCode===CODE&&/Live bridge/.test(st0.j.bridge.howToConnect)&&st0.j.bridge.planSource==='none');
     ck('resources need a plan too',!!(await s.rpc('resources/read',{uri:'planner://runs'})).error);
 
     // token rejection
-    const bad=await login(port,'WRONG-WRONG-WRONG'); ck('a wrong pairing code is denied',bad.w.type==='denied'); ck('…and no plan is loaded because of it',(await s.tool('list_runs')).r.isError);
+    const bad=await login(port,'WRONG-WRONG-WRONG'); ck('a wrong pairing code is denied',bad.w.type==='denied'); ck('…and no scenario is loaded because of it',(await s.tool('list_runs')).r.isError);
 
     // ── B. a page connects and sends its plan ──
     const {c:page,w}=await login(port,CODE,coupleText); ck('the right code is welcomed, with the effect kinds',w.type==='welcome'&&w.effects.includes('showMarketPath'));
     const ack=page.messages.find(x=>x.type==='planAck'); ck('the plan is acknowledged with its version key',ack.ok===true&&/^[0-9a-f]{8}$/.test(ack.key));
-    const lr=await s.tool('list_runs'); ck('tools now answer about the page\'s plan',!lr.r.isError&&(lr.j.runs||lr.j).some(r=>r.id==='plan'));
-    const st1=await s.tool('bridge_status'); ck('bridge_status: connected, source page, same key, no pairing code any more',st1.j.bridge.pageConnected&&st1.j.bridge.planSource==='page'&&st1.j.bridge.planKey===ack.key&&st1.j.bridge.pairingCode===undefined&&!!st1.j.bridge.lastSync);
+    const lr=await s.tool('list_runs'); ck('tools now answer about the page\'s plan',!lr.r.isError&&(lr.j.runs||lr.j).some(r=>r.id==='entered'));
+    const st1=await s.tool('bridge_status'); ck('bridge_status: connected, source page, same key, no pairing code any more',st1.j.bridge.pageConnected&&st1.j.bridge.planSource==='page'&&st1.j.bridge.scenarioKey===ack.key&&st1.j.bridge.pairingCode===undefined&&!!st1.j.bridge.lastSync);
     page.send({type:'plan',plan:'not an object'}); const bad2=await page.waitFor(x=>x.type==='planAck'&&x.ok===false); ck('a plan that is not an object is rejected, the old one stays',!!bad2&&!(await s.tool('list_runs')).r.isError);
     page.send({type:'plan',plan:{filingStatus:'nonsense',inflation:'x'}}); await page.waitFor(x=>x.type==='planAck'&&x.key&&x!==ack&&page.messages.indexOf(x)>page.messages.indexOf(bad2));    // hydrateState sanitises junk: it is accepted and the tools still run
     page.send({type:'plan',plan:JSON.parse(coupleText)}); await sleep(150);
@@ -56,7 +56,7 @@ const autoAnswer=(c,status,log)=>{ const iv=setInterval(()=>{ c.messages.filter(
     const before=((await s.tool('list_runs')).j.runs||[]).find(r=>/^lev:/.test(r.id)); ck('it is listed, fresh',before&&!before.stale);
     const edited=JSON.parse(coupleText); edited.living=(edited.living||0)+5000; const mark=page.messages.length; page.send({type:'plan',plan:edited}); await page.waitFor(x=>x.type==='planAck'&&page.messages.indexOf(x)>=mark);
     const after=((await s.tool('list_runs')).j.runs||[]).find(r=>/^lev:/.test(r.id)); ck('after the page edits its plan the earlier run is reported stale',after&&after.stale===true);
-    const st2=await s.tool('bridge_status'); ck('the plan version changed with the edit',st2.j.bridge.planKey!==ack.key);
+    const st2=await s.tool('bridge_status'); ck('the plan version changed with the edit',st2.j.bridge.scenarioKey!==ack.key);
 
     // ── C. effects ──
     const effs=[], stop=autoAnswer(page,'applied',effs);
@@ -64,7 +64,7 @@ const autoAnswer=(c,status,log)=>{ const iv=setInterval(()=>{ c.messages.filter(
     ck('showInCharts → the page is asked to show the path (full validated path, not just an id)',effs.length===1&&effs[0].effect.type==='showMarketPath'&&effs[0].effect.path.returns.length===4&&effs[0].effect.path.label==='Two bad years');
     ck('the tool result reports what the page did',dm.j.pageEffects&&dm.j.pageEffects[0].type==='showMarketPath'&&dm.j.pageEffects[0].status==='applied'&&dm.j.pageEffects[0].note==='ok');
     const imp=await s.tool('import_scenarios',{schema:'planner.scenarios/1',scenarios:[{kind:'lever',label:'Delay SS',why:'test',levers:[{lever:'ssClaimAge',person:1,age:70}]}]});
-    const pe=effs.find(e=>e.effect.type==='showProposals'); ck('import_scenarios → the page gets the proposals in the import form, with the plan key',pe&&pe.effect.spec.schema==='planner.scenarios/1'&&pe.effect.spec.scenarios.length===1&&pe.effect.spec.scenarios[0].label==='Delay SS'&&pe.effect.spec.planKey===st2.j.bridge.planKey);
+    const pe=effs.find(e=>e.effect.type==='showProposals'); ck('import_scenarios → the page gets the proposals in the import form, with the plan key',pe&&pe.effect.spec.schema==='planner.scenarios/1'&&pe.effect.spec.scenarios.length===1&&pe.effect.spec.scenarios[0].label==='Delay SS'&&pe.effect.spec.scenarioKey===st2.j.bridge.scenarioKey);
     ck('and the host sees it applied',imp.j.pageEffects&&imp.j.pageEffects[0].status==='applied'&&imp.j.accepted.length===1);
     const imp2=await s.tool('import_scenarios',{schema:'planner.scenarios/1',scenarios:[{kind:'lever',label:'Other',levers:[{lever:'ssClaimAge',person:2,age:68}]}]});
     ck('a second import sends only its own proposal, not the earlier one',effs.filter(e=>e.effect.type==='showProposals').pop().effect.spec.scenarios.length===1&&effs.filter(e=>e.effect.type==='showProposals').pop().effect.spec.scenarios[0].label==='Other'&&imp2.j.accepted.length===1);
@@ -109,10 +109,10 @@ const autoAnswer=(c,status,log)=>{ const iv=setInterval(()=>{ c.messages.filter(
     ck('an unknown kind of page run is ignored',!(await s.tool('list_runs')).r.isError);
     // an EDIT of the same plan keeps the runs (they become stale); a DIFFERENT plan (replaced:true) clears them
     const ed=JSON.parse(coupleText); ed.living=(ed.living||0)+3000; page.send({type:'plan',plan:ed}); await sleep(300);
-    const kept=await s.tool('list_plans'); ck('after an edit the runs are still there (reported stale)',kept.j.plans.some(p=>/^mcj:/.test(p.ref)&&p.stale===true)&&!(await s.tool('get_job',{id:job.id})).r.isError);
+    const kept=await s.tool('list_scenarios'); ck('after an edit the runs are still there (reported stale)',kept.j.scenarios.some(p=>/^mcj:/.test(p.ref)&&p.stale===true)&&!(await s.tool('get_job',{id:job.id})).r.isError);
     const mark2=page.messages.length; page.send({type:'plan',plan:JSON.parse(widowText),replaced:true}); const ack2=await page.waitFor(x=>x.type==='planAck'&&page.messages.indexOf(x)>=mark2);
     ck('a different plan is acknowledged',ack2.ok===true);
-    const gone=await s.tool('list_plans'); ck('a different plan clears every run made on the old one: only the new plan is left',gone.j.plans.length===1&&gone.j.plans[0].kind==='scenario'&&gone.j.monteCarloRuns.length===0);
+    const gone=await s.tool('list_scenarios'); ck('a different plan clears every run made on the old one: only the new plan is left',gone.j.scenarios.length===1&&gone.j.scenarios[0].kind==='scenario'&&gone.j.monteCarloRuns.length===0);
     ck('no job, no stress run and no Monte Carlo result remains',(await s.tool('get_job')).r.isError&&(await s.tool('get_mc_summary')).r.isError&&((await s.tool('list_runs')).j.runs||[]).every(r=>!/^(mcj|stl)/.test(r.id)));
     ck('and the server says so',/a different plan was loaded/.test(s.stderr));
     page.send({type:'pageRun',kind:'mc',mc:{trials:60,seed:5},stress:null});
@@ -127,8 +127,8 @@ const autoAnswer=(c,status,log)=>{ const iv=setInterval(()=>{ c.messages.filter(
   s=start(['--bridge','--bridge-port','0','--bridge-token',CODE,'--bridge-hide-code','--plan',planFile]);
   try{
     const port=await s.port(); await s.rpc('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'t',version:'0'}});
-    const planKpi=async()=>{ const r=await s.tool('get_run',{id:'plan'}); const j=Object.assign({},r.j); delete j.planVersion; delete j.planChanged; delete j.pageSync; return JSON.stringify(j).slice(0,3000); };
-    const fileKpi=await planKpi(); ck('with --plan the file is used until a page connects',!/No plan/.test(fileKpi)&&fileKpi.length>50);
+    const planKpi=async()=>{ const r=await s.tool('get_run',{id:'entered'}); const j=Object.assign({},r.j); delete j.planVersion; delete j.planChanged; delete j.pageSync; return JSON.stringify(j).slice(0,3000); };
+    const fileKpi=await planKpi(); ck('with --plan the file is used until a page connects',!/No scenario/.test(fileKpi)&&fileKpi.length>50);
     const st=await s.tool('bridge_status'); ck('--bridge-hide-code keeps the code out of the tool result',st.j.bridge.pairingCode===undefined&&!/TEST-PAIR/.test(JSON.stringify(st.j))&&st.j.bridge.planSource==='file');
     const {c:page}=await login(port,CODE,coupleText); await sleep(100);
     const live=await planKpi(); ck('the connected page\'s plan replaces the file\'s',live!==fileKpi);

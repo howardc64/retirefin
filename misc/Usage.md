@@ -4,6 +4,8 @@
 
 Everything is entered in **today's dollars**, and the charts are drawn in today's dollars too, so you can read them without adjusting for inflation.
 
+**Words used.** A **plan** is the file you save and load. A **scenario** is anything the planner calculates from your inputs: the inputs as you entered them, a scenario you created (A to F), a stress test, a stress test combined with Monte Carlo, a saved market path, or a Monte Carlo trial. One plan file holds your scenarios, notes and settings.
+
 ## Contents
 
 1. [Quick start](#quick-start)
@@ -23,7 +25,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 15. [Tax features worth knowing](#tax-features-worth-knowing)
 16. [Monte Carlo simulation](#monte-carlo-simulation)
     - [Stress tests](#stress-tests)
-17. [Ask about this plan](#ask-about-this-plan)
+17. [Ask about this scenario](#ask-about-this-scenario)
 18. [Send results to an LLM, and scenarios from an LLM](#send-results-to-an-llm-and-scenarios-from-an-llm)
 
 ## Quick start
@@ -41,10 +43,10 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 - **Roth conversions**, RMDs and IRA stretch after the last passing.
 - **Tax modeling**: federal brackets, taxable Social Security, long-term gains, NIIT, IRMAA and the senior deduction.
 - **Charts** for Social Security claiming age, annual income, taxes, expenses, asset value, IRA, LTCG and inheritance income.
-- **Monte Carlo simulation**: re-runs the plan with random returns, lifespans, care, inflation and inheritance, then lets you load any single trial into the charts.
+- **Monte Carlo simulation**: re-runs the scenario with random returns, lifespans, care, inflation and inheritance, then lets you load any single trial into the charts.
 - **Inheritance** from another plan file, and **two plans linked live** (parent in one tab, heir in another).
 - **Drag to reorder** the income cards (spouses move together); the order is saved with the plan.
-- **Save / load** plans, **Export Excel**, a **Formulas** reference and an optional **chat** to ask about your plan and run what-ifs that are charted for you.
+- **Save / load** plans, **Export Excel**, a **Formulas** reference and an optional **chat** to ask about your scenario and run what-ifs that are charted for you.
 
 ## Household and planning panels
 
@@ -73,17 +75,17 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 - Selling a property sells the whole property at the start of that year. Its gain is taxed as long-term capital gain and any proceeds not needed move to the property's designated portfolio.
 - With the card off, the built-in order is used: Living expense & income portfolios, then pre-tax IRAs, then Roth IRAs.
 
-**Spending guardrails** (switch the card on). Without them the plan spends the same amount every year until the money runs out. With them the household cuts back when the markets do, and the stress tests and Monte Carlo then show *where* the cut-back starts instead of just whether the plan fails.
+**Spending guardrails** (switch the card on). Without them the scenario spends the same amount every year until the money runs out. With them the household cuts back when the markets do, and the stress tests and Monte Carlo then show *where* the cut-back starts instead of just whether the scenario fails.
 - **The rule.** At the end of each year the planner computes the **withdrawal rate**: what the portfolios must pay for the year (living expenses, Long Term Care, IRMAA, fees and tax, less Social Security, pensions, wages, rent and annuity income) divided by the invested balance (portfolios, IRAs, Roth, inherited IRAs) at the *start* of that year. If it is more than the **band** (default 20%) above the starting rate, **next year's discretionary spending is cut** by the **cut %** (default 10%).
 - **Starting rate.** *First year without wages* (the default) or a *Target rate* you enter. The first year after wages is also the baseline for later years, so a year with a Roth conversion or a lump sum there makes it unrepresentative: use a target rate in that case.
-- **Discretionary share.** The part of living expenses that can be cut (default 30%). The rest is essential and is never cut; a cut applies to the discretionary part only, and compounds (two cuts leave 90% × 90% = 81% of it). Cuts stay unless **Prosperity rule** is on, which raises spending again (never above the plan's amount) when the rate falls by the same margin.
+- **Discretionary share.** The part of living expenses that can be cut (default 30%). The rest is essential and is never cut; a cut applies to the discretionary part only, and compounds (two cuts leave 90% × 90% = 81% of it). Cuts stay unless **Prosperity rule** is on, which raises spending again (never above the scenario's amount) when the rate falls by the same margin.
 - **No changes in the last N years** (default 15) follows the Guyton–Klinger rule of not cutting late in life. **Leave the Long Term Care cost out of the rate** makes the rule react to the markets only, not to a care event.
-- **What you see.** In the Stress tests card, a table with and without guardrails, the age of the first cut and the **invested balance that tripped it** (the tripwire), the deepest cut and the spending given up. In the Monte Carlo card, the share of trials that had to cut, when, how deep, and the years below plan. Read the success rate **together with** how often and how deeply the household cut: a plan can "succeed" only because it cut a lot. The Excel export has the rate, cut line and tripwire as formulas.
+- **What you see.** In the Stress tests card, a table with and without guardrails, the age of the first cut and the **invested balance that tripped it** (the tripwire), the deepest cut and the spending given up. In the Monte Carlo card, the share of trials that had to cut, when, how deep, and the years below scenario. Read the success rate **together with** how often and how deeply the household cut: a scenario can "succeed" only because it cut a lot. The Excel export has the rate, cut line and tripwire as formulas.
 
 **Late-life medical shock** (switch the card on). A large medical cost for a few years late in life (default $100,000 a year for 3 years from age 80, in today's $), on top of any Long Term Care card.
 - It is counted as a Long Term Care cost: it is an **itemized medical deduction** (the part above 7.5% of AGI, and California's medical deduction if state tax is on), it is paid from your accounts in the **withdrawal order**, and it appears in the Household Expenses chart under *Long Term Care / medical shock*. Living expenses do **not** switch to the care amount. Nothing is charged for a person who has died.
 - Selling taxable holdings to pay it realizes capital gains, and the gains raise AGI, which shrinks the medical deduction; the planner solves that circularity as it does for any other sale.
-- The **Stress tests** card has a *Late-life medical shock* group that shows what the shock forces without changing your plan (below).
+- The **Stress tests** card has a *Late-life medical shock* group that shows what the shock forces without changing your scenario (below).
 
 ### Tax & Optimizations panel
 
@@ -110,8 +112,8 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 ### How the cards behave
 
 - Each feature in the Expenses and Tax & Optimizations panels is its own card with an **Enable** box on the left and a **Hide** box on the right.
-- **Enable** unticked: the plan ignores that feature but keeps what you typed.
-- **Hide** ticked: collapses just that card to save space, without changing the plan.
+- **Enable** unticked: the scenario ignores that feature but keeps what you typed.
+- **Hide** ticked: collapses just that card to save space, without changing the scenario.
 - These cards start hidden; untick a card's **Hide** box to open it.
 - An unchecked card shows **not used** after its title, so a blank partner card is easy to understand; matching cards of both partners always stay in the same row.
 - Long grey help texts show two lines with a **More** link; click it to read the rest (**Less** folds it again).
@@ -121,8 +123,8 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 ### Items and common fields
 
 - Most items have an **age range** (when the amount starts and stops) and an **annual change** (how the amount grows or shrinks in real, today's-dollar terms).
-- In a married plan, an owned item (rental, brokerage portfolio, real estate, annuity) can be marked **Joint owned with spouse**. A jointly owned portfolio or property also gets a full basis step-up at either spouse's passing.
-- In a married plan, an IRA (pre-tax or Roth) or a pension can be marked **Inherited by spouse**.
+- In a married scenario, an owned item (rental, brokerage portfolio, real estate, annuity) can be marked **Joint owned with spouse**. A jointly owned portfolio or property also gets a full basis step-up at either spouse's passing.
+- In a married scenario, an IRA (pre-tax or Roth) or a pension can be marked **Inherited by spouse**.
 - In both cases the spouse owns (or receives) the item after the first person passes.
 
 ### Brokerage portfolio types
@@ -141,7 +143,7 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 
 ### Hiding one person's column
 
-- In a married plan every person's Income & Assets column has a **Hide** button at the top right. Hiding John collapses his column to a thin tab (his name, reading *John ▸ show*) and gives Jane's column the whole width of the input area; click the tab to bring him back. Hide Jane instead and John gets the width.
+- In a married scenario every person's Income & Assets column has a **Hide** button at the top right. Hiding John collapses his column to a thin tab (his name, reading *John ▸ show*) and gives Jane's column the whole width of the input area; click the tab to bring him back. Hide Jane instead and John gets the width.
 - Only one column can be hidden at a time.
 - This is display only: the hidden person's income and assets are still used in every calculation and chart, and their cards keep their settings.
 - The choice is saved with the plan. Switching to *Single* or Reset to defaults shows everything again. On a narrow window the columns stack and the hidden one becomes a one-line bar. Printing shows both columns.
@@ -149,7 +151,7 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 ### Reordering cards
 
 - Drag the ⋮⋮ handle at the left of any income card (Social Security, wages, pension, rentals, brokerage, real estate, annuities, IRA, Roth) and drop it above or below another card.
-- In a married plan both spouses' cards of that type move together.
+- In a married scenario both spouses' cards of that type move together.
 - The order is saved with the plan and restored when you load it.
 - Drag and drop works with a mouse or pen; it is not available on touch screens.
 
@@ -162,7 +164,7 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 | **Usage** | This page. **Tips** and **Formulas** open the tips and the calculation reference. |
 | **Save** | Saves the whole plan (all scenarios and notes) as a file. See *Save and Load* below. |
 | **Load file** | Brings a saved plan back (or loads a sample plan if any are available). |
-| **Scenario** | Popup card for working with several versions of a plan. See *Scenarios* below. |
+| **Scenario** | Popup card for working with several versions of a scenario. See *Scenarios* below. |
 | **Reset to defaults** | Clears the plan back to its starting values: every income and asset card collapsed, the chart grid on 3 columns, and the Monte Carlo card cleared and back to its defaults. Also forgets the remembered save file. |
 | **Notes** | Text box for your own notes about the whole plan; the same notes show in every scenario. Saved in the plan file. |
 | **🤖 LLM** | Popup for working with an outside LLM: download everything the app has computed as one file for it to analyse, and review scenarios it proposes. See *Send results to an LLM* below. |
@@ -189,9 +191,9 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 
 - **Projection by year** sheet: the full year-by-year projection, including the Annual Household Income popup's *Total income*, ordinary income before deduction, the deduction, ordinary / qualified / total taxable income, and the no-conversion figures and "trigger met" flag used by the Roth conversion start triggers. It also totals real estate value and unrealized gain, and has *Inheritance asset income* columns.
 - **One sheet per account:** portfolios, IRAs, **inherited IRAs** (withdraw and balance under the 10-year rule), annuities, and each **real estate** property (value, cost basis, and any sale's gain, exemption, tax and amount sent to the portfolio).
-- **A Monte Carlo trial exports as that trial.** With a trial loaded (B or a successful run C) the file is named `retirement-plan-mc-trial-N.xlsx`, **Inputs** shows the trial's drawn passing ages, Long Term Care and inheritance, and an extra **MC trial** sheet lists the trial's inflation for each year and every asset's market shock. The portfolio, property and IRA sheets compound with those yearly rates, and the tax thresholds follow the trial's price level, so the workbook stays live: edit an inflation rate or a shock factor (1 = the plan's own return) on the MC trial sheet, or a growth % on Inputs, and the formulas recalculate. As in a plan, the amounts the app solves (income, expense funding, Roth conversions) stay as values. With A (the plan) showing, the export is the plan.
+- **A Monte Carlo trial exports as that trial.** With a trial loaded (B or a successful run C) the file is named `retirement-plan-mc-trial-N.xlsx`, **Inputs** shows the trial's drawn passing ages, Long Term Care and inheritance, and an extra **MC trial** sheet lists the trial's inflation for each year and every asset's market shock. The portfolio, property and IRA sheets compound with those yearly rates, and the tax thresholds follow the trial's price level, so the workbook stays live: edit an inflation rate or a shock factor (1 = the scenario's own return) on the MC trial sheet, or a growth % on Inputs, and the formulas recalculate. As in a scenario, the amounts the app solves (income, expense funding, Roth conversions) stay as values. With A (the plan) showing, the export is the plan.
 - **Guardrails and the medical shock.** **Inputs** lists their settings. With guardrails on, the **Projection by year** sheet gains *Guardrail* columns: the multiplier on discretionary spending, the spending the portfolios must fund and the start-of-year balance (values from the app), and the **withdrawal rate, cut line, tripwire and "above the cut line?"** as live formulas (change the band on Inputs and they follow; the cuts themselves are app values, as the rest of the solver's output). The medical shock has its own column and is inside *Long Term Care expense* and the itemized deduction.
-- **A market path from an LLM exports like a stress test.** If a path proposed by the chat, the 🤖 LLM panel or the live bridge is on screen in the charts (the B view), **Export Excel** writes that scenario (file `retirement-plan-stress-test.xlsx`, named after the path) with live formulas on the **MC trial** sheet, exactly as for the Stress test card. The workbook always comes from the plan and view on screen, never from a proposal that is only listed.
+- **A market path from an LLM exports like a stress test.** If a path proposed by the chat, the 🤖 LLM panel or the live bridge is on screen in the charts (the B view), **Export Excel** writes that scenario (file `retirement-plan-stress-test.xlsx`, named after the path) with live formulas on the **MC trial** sheet, exactly as for the Stress test card. The workbook always comes from the scenario and view on screen, never from a proposal that is only listed.
 - **State income tax** is exported for the selected state only (California's brackets, deduction and credits, or Washington's capital-gains tax). With state tax off, no state tables or columns are written.
 
 ### Hover helpers
@@ -199,11 +201,11 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 | Control | What it does |
 |---|---|
 | **Input Element** (checked by default) | Hovering an input (a box, slider, checkbox, radio button, button or its label) shows a short description. Drop-down menus show each choice's description as you move the cursor over it. |
-| **Chart Element** (checked by default) | Hovering a chart shows a description of the element under the cursor (a band, bracket, IRMAA, deduction or cost-basis line, a Social Security claiming-age line, the LTC bar, the 10 year IRA stretch bar) instead of that year's numbers. Uncheck it for the usual value popups. |
+| **Chart Element** (checked by default) | Hovering a chart shows a description of the element under the cursor (a band, bracket, IRMAA, deduction or cost-basis line, a Social Security claiming-age line, the LTC bar, the 10 year IRA stretch bar) instead of that year's numbers. On a stacked chart, pointing slightly above the top of the stack (within about 12 pixels) shows the **total of the whole stack** at that age, for example *Total income* or *Total asset value*; pointing at or below the top edge picks the top band, so a thin band at the top stays reachable. Uncheck it for the usual value popups. |
 | **Popup Details** | Adds the line-by-line breakdown to the value popups on the main charts. |
 | **Popup background** | Slider next to Popup Details: from see-through white (left) to see-through black (right). Text switches to dark on a light background. Remembered in your browser. |
 
-The small charts beside Annual Household Income, Total Income Tax and Asset Value show the plan owner(s) and age, then only their own values.
+The small charts beside Annual Household Income, Total Income Tax and Asset Value show the scenario owner(s) and age, then only their own values.
 
 ### About the Usage, Tips and Formulas pages
 
@@ -225,10 +227,20 @@ The small charts beside Annual Household Income, Total Income Tax and Asset Valu
 | **IRA** | Everything that leaves the pre-tax IRAs each year (details below). | A pre-tax IRA is on, or an inherited IRA pays out |
 | **LTCG** | Long-term capital gain realized each year (details below). | A portfolio or property can be sold |
 | **Inheritance asset income** | Income paid each year by assets created with the Inheritance card (details below). | An inherited asset pays something |
-| **Inflation rate** | The plan's inflation rate each year (flat). While a Monte Carlo trial is loaded it also shows that trial's drawn rate. | Always (starts hidden) |
-| **Market return %** | The nominal yearly return of every portfolio, IDGT, pre-tax / Roth / inherited IRA and property in the years it is in the plan: (1 + growth) × (1 + that year's inflation) − 1. Flat in the plan; it moves with the market shocks while a Monte Carlo trial is loaded. The ◀ ▶ buttons in the panel's tools row step through the lines one asset at a time (All lines → asset 1 → … → All lines); the Y scale stays fitted to every line. Display only, not saved. | Always (starts hidden) |
+| **Inflation rate** | The scenario's inflation rate each year (flat, dashed). While a Monte Carlo trial or stress scenario is loaded it also shows that trial's drawn rate as a thin line plus its **5-year centred average** as a thick line of the same colour (each year averaged with the two years either side; fewer at the ends). | Always (starts hidden) |
+| **Market return %** | The nominal yearly return of every portfolio, IDGT, pre-tax / Roth / inherited IRA and property in the years it is in the scenario: (1 + growth) × (1 + that year's inflation) − 1. Flat in the scenario; it moves with the market shocks while a Monte Carlo trial is loaded. With **all lines** shown, each asset has one thick line, its **5-year centred average**, so the many yearly lines do not clutter. The ◀ ▶ buttons in the panel's tools row step through the assets one at a time (All lines → asset 1 → … → All lines); one asset shows its yearly return (thin) and its 5-year average (thick) in the same colour; the Y scale stays fitted to every line. Display only, not saved. | Always (starts hidden) |
+
+Both the **Market return %** and **Inflation rate** charts draw a thin solid line at 0%, so a negative return or a deflation year is easy to see.
+
+The **Rescale** button on the **Market return %** and **Inflation rate** charts works differently from the other charts: each click sets the Y-axis maximum to the next of 10%, 20% … 100% (then back to 10%), and the button shows the maximum in force. It is display only and is not saved.
 
 Charts that have nothing to show have no panel.
+
+### The age axis, passing lines and the care bar
+
+- **X axis.** Every time-based chart (including the Social Security start-age chart) runs along the **older** person's age. The numbers change with who is alive: the older person's age in **black** while they are alive; once they have passed, the **younger** person's age in **dark blue**; once both have passed, the last two digits of the calendar **year** in **red** (62 = 2062). The younger person's age is white on a dark-blue pill. The axis title names the people the same way: the older name in black, the younger name white on a dark-blue pill, then "age" (for example *Robert,* (Susan) *age* with Susan in the pill).
+- **Passing lines.** A thin vertical line marks the year each person passes: black for the older person, dark blue for the younger one. They are drawn on every chart with this axis (a passing beyond the right end of the axis is drawn at the edge), including a Monte Carlo trial or stress scenario (which have their own passing ages).
+- **Long Term Care bar** (above the plot). **Grey** = the older person (or a single person) is on LTC, **light blue** = the younger person is, **dark blue** = both at once. The red **stretch IRA** bar on the Asset Value chart covers just the 10 years after the last passing, in the scenario and in every scenario.
 
 ### Annual Household Income and its companion charts
 
@@ -293,7 +305,7 @@ Moving a chart:
 
 ### Marks that appear on every age chart
 
-- **Purple triangle** just below the age axis: the year an inherited asset arrives in your plan. While a Monte Carlo trial is loaded it follows that trial's arrival year.
+- **Purple triangle** just below the age axis: the year an inherited asset arrives in your scenario. While a Monte Carlo trial is loaded it follows that trial's arrival year.
 - **Faint red band** behind the data: a year whose expenses could not be paid.
 - **IRA stretch alert**: the red note about an IRA whose stretch is not set sits in the row of scale buttons, so every chart card keeps the same height.
 
@@ -393,7 +405,7 @@ Each contract has:
 
 ## Real estate
 
-The **Real estate** card (after the brokerage card; **Add** / **Remove**, one set per person) holds any number of properties. Each has a **property name**, a **value**, an optional **cost basis** in today's $, an **annual change** and, in a married plan, a *Joint owned with spouse* box.
+The **Real estate** card (after the brokerage card; **Add** / **Remove**, one set per person) holds any number of properties. Each has a **property name**, a **value**, an optional **cost basis** in today's $, an **annual change** and, in a married scenario, a *Joint owned with spouse* box.
 
 ### Fields
 
@@ -406,7 +418,7 @@ The **Real estate** card (after the brokerage card; **Add** / **Remove**, one se
 
 ### Selling (optional)
 
-Choose when the property is sold: **Never** (default), **When the last person starts LTC**, **At the last person's passing** (the final year of the plan), or **At an age** (the owner's age).
+Choose when the property is sold: **Never** (default), **When the last person starts LTC**, **At the last person's passing** (the final year of the scenario), or **At an age** (the owner's age).
 
 A sale works in three steps:
 1. The cost basis is stepped up to value if the owner has passed.
@@ -420,7 +432,7 @@ A sale works in three steps:
 
 - A property is passive: no dividends, tax-exempt yield, foreign credit, AUM fee, portfolio type or age range.
 - It is sold only on the date you choose, or, if you switch on the **Expense shortfall withdrawal order** and list it there, when expenses need it.
-- It leaves the plan when its owner passes unless it is jointly owned.
+- It leaves the scenario when its owner passes unless it is jointly owned.
 - **Asset Value chart:** each property is a band above the brokerage portfolios and below the IRAs, with a **dotted cost-basis line** inside the band at the basis % height; the band above the line is the unrealized gain. The popup shows the value and, on its own row, the cost basis in $ and as a % of the value. The withdraw cost sliders do not change real estate bands.
 
 ## Rental income and tax-exempt income
@@ -439,14 +451,14 @@ A sale works in three steps:
 
 The **Inheritance** card (one per person) imports another plan file, for example a parent's, and lets you inherit what is left after that plan's **last passing**. The card has its own **Hide** box and starts hidden.
 
-### Importing a plan
+### Importing a scenario
 
 - **Import plan file** reads the other file's active scenario (the file itself is not changed). You can import several files.
 - A file is identified by its **name** only, not its folder.
 - Each asset in the file (brokerage portfolio, real estate, pre-tax IRA, Roth IRA) starts at **0%** (not inherited). Type a % to create a new asset card for it. Annuities are not imported.
 - **Import the same file name again** to update every asset created from it. **Remove** deletes the file and all assets created from it.
 
-### When an inherited asset enters your plan
+### When an inherited asset enters your scenario
 
 - The card field **Inherited at <name>'s age** is the age of the person holding it (the beneficiary) in the year of the last passing in the source plan.
 - You can edit that age; a note under the field shows the calendar year it corresponds to.
@@ -500,7 +512,7 @@ Run the parent plan in one browser tab and the heir plan in another. Changes in 
 | **Live** checkbox | Untick to freeze a source. |
 | **Link…** button | Picks the open plan when A has no file name yet or was renamed. |
 | Closing A | B keeps its last snapshot ("Waiting for …"). |
-| Loops | A plan that inherits from itself through the chain is refused. |
+| Loops | A scenario that inherits from itself through the chain is refused. |
 | Second tab with a stored session | Asks **Restore previous 2nd app session?** (**Start fresh** is the default answer). Reloading the tab keeps its session without asking. |
 | `?plan=NAME` in the address | Still picks a named slot. |
 | Requirements | The page must be served (for example from `localhost`). It works only between tabs of the same browser. |
@@ -565,20 +577,20 @@ The two rows of sliders above the Asset Value chart show roughly what the balanc
 
 ## Monte Carlo simulation
 
-The **Monte Carlo simulation** card sits under the charts and starts collapsed (clear its **Hide** box to open it). It re-runs the whole plan many times with random draws. It is a scenario analysis, not a forecast: the result depends on the assumptions in the card. Your plan is never changed.
+The **Monte Carlo simulation** card sits under the charts and starts collapsed (clear its **Hide** box to open it). It re-runs the whole scenario many times with random draws. It is a scenario analysis, not a forecast: the result depends on the assumptions in the card. Your scenario is never changed.
 
 ### Settings
 
-Each group has a checkbox. A group that is switched off uses the plan's own figures, so with every group off each trial equals the plan exactly.
+Each group has a checkbox. A group that is switched off uses the scenario's own figures, so with every group off each trial equals the scenario exactly.
 
 | Group | What is random |
 |---|---|
 | **Random returns** | A yearly market shock on every growth rate (average unchanged). Equity volatility, real estate volatility and the correlation between portfolios are set here. |
 | **Random lifespans** | Each person's age at passing, replacing the "passes at age" sliders. Modal age and spread are set here. |
 | **Random Long Term Care** | Whether care is needed, for how long and at what cost; it replaces every LTC card, an inheritance source's too. |
-| **Random inflation** | Inflation drifts around the plan's rate; fixed-dollar items and fixed or custom growth follow it. |
+| **Random inflation** | Inflation drifts around the scenario's rate; fixed-dollar items and fixed or custom growth follow it. |
 | **Systemic panic** | Needs random returns. In a year the market falls by more than the **crash** size you set (default 1.5 standard deviations, about 1 year in 15), and for the years it **lasts**, every portfolio's correlation with the others rises to the **panic correlation** (default 0.9) and optionally property falls with the market too: diversification stops working just when it is needed. The average return is unchanged. **Also run the same trials without panic** runs a second pass on the same random draws so the card can say what the panic itself cost (it doubles the run time). |
-| **Random inheritance** | Each inheritance source plan gets its own lifespan, care and the same market shocks, and the asset arrives in that plan's last-passing year. An optional **haircut %** discounts what you count on. Sources imported before this feature say "re-import (or live-link) it to simulate" and stay as planned until you do. |
+| **Random inheritance** | Each inheritance source plan gets its own lifespan, care and the same market shocks, and the asset arrives in that scenario's last-passing year. An optional **haircut %** discounts what you count on. Sources imported before this feature say "re-import (or live-link) it to simulate" and stay as planned until you do. |
 
 Below the groups set the number of **Trials** (50 to 10,000) and the **Seed**. The same seed and trial number always give the same draws. **Run simulation** works in small steps so the page stays usable; **Cancel** keeps the partial result. A red note says when the plan changed since the run.
 
@@ -590,7 +602,7 @@ With **Spending guardrails** on (Expenses panel) every trial cuts discretionary 
 
 - The share of trials that stayed fully funded, plus the 10th, median and 90th percentile of assets in the last projected year and of lifetime income tax.
 - **Why trials ran short**: the main cause of each failure and a table of risk factors (how often each appears, and the failure rate with versus without it).
-- **Assets by age**: a fan chart (10th, 25th, median, 75th, 90th percentile) with the plan as entered dashed on top, and **Share of trials**, by age.
+- **Assets by age**: a fan chart (10th, 25th, median, 75th, 90th percentile) with the scenario as entered dashed on top, and **Share of trials**, by age.
 
 ### Study one trial
 
@@ -598,13 +610,13 @@ Load any trial into the chart grid: **Earliest failure**, **Median failure**, **
 
 The **Stress test card** stays at the top of the chart column, above the scale buttons, so you can scroll through the charts and keep stepping:
 
-- **A · Plan / B · Stress Test / C · Stress + Monte Carlo Failure / D · Stress + Monte Carlo Success / E · Monte Carlo Failure / F · Monte Carlo Success**: flip the charts between the plan as entered (A), a stress test (B), a Monte Carlo trial replayed under a stress test that ran out of money (C) or stayed funded (D), the Monte Carlo failure you loaded (E) and a Monte Carlo success (F, a trial that stayed funded to the end). While any of B–F is on, the plan's lines stay behind as thin dashed grey lines, and every chart's scale is fitted to the largest of the loaded views so only the data moves. The message under the buttons names the trial number or the stress test.
-- **B** cycles through the scenarios of the Stress tests card (Lost Decade, Stagflation, 1966 retiree, whichever are ticked, plus saved market paths), one per click, wrapping around. If the stress tests have not been run for this plan yet, B runs them with the card's current settings first. The **Show in charts** button next to a scenario in the Stress tests table loads that one directly.
+- **A · Scenario / B · Stress Test / C · Stress + Monte Carlo Failure / D · Stress + Monte Carlo Success / E · Monte Carlo Failure / F · Monte Carlo Success**: flip the charts between the scenario as entered (A), a stress test (B), a Monte Carlo trial replayed under a stress test that ran out of money (C) or stayed funded (D), the Monte Carlo failure you loaded (E) and a Monte Carlo success (F, a trial that stayed funded to the end). While any of B–F is on, the plan's lines stay behind as thin dashed grey lines, and every chart's scale is fitted to the largest of the loaded views so only the data moves. The message under the buttons names the trial number or the stress test.
+- **B** cycles through the scenarios of the Stress tests card (Lost Decade, Stagflation, 1966 retiree, whichever are ticked, plus saved market paths), one per click, wrapping around. If the stress tests have not been run for this scenario yet, B runs them with the card's current settings first. The **Show in charts** button next to a scenario in the Stress tests table loads that one directly.
 - **C / D** need a run of *Run stress tests + Monte Carlo* (see Stress tests): they replay a trial of that combined run under its scenario. Each click steps to the next trial across all scenarios. The combined table has Failure / Success buttons per scenario that open the first such trial.
 - **E / F** step through Monte Carlo failures and successes. E stays greyed out until a Monte Carlo run exists or a trial is loaded; F until a run has a trial that stayed funded.
-- Keys: **A** shows the plan; **B** the next stress test; **C** / **D** the next stress + Monte Carlo failure / success; **E** / **F** the next Monte Carlo failure / success. **Shift** with any of them goes back (the lists wrap).
+- Keys: **A** shows the scenario; **B** the next stress test; **C** / **D** the next stress + Monte Carlo failure / success; **E** / **F** the next Monte Carlo failure / success. **Shift** with any of them goes back (the lists wrap).
 - **◀ ▶** step through whichever kind is on screen (B–F).
-- **Back to plan** returns the charts to the plan. Starting a new run or editing the plan also ends the trial view.
+- **Back to scenario** returns the charts to the scenario. Starting a new run or editing the scenario also ends the trial view.
 - The message under the buttons has room for two lines and says what failed and how many other failed trials share the main cause.
 - The Inflation rate and Market return % charts show the trial's drawn inflation and returns.
 
@@ -616,22 +628,22 @@ Trial views are display only; nothing is saved with the plan.
 
 The **Stress tests** and **Monte Carlo** cards sit under the charts, Stress tests first. Drag a card by its title bar (the ⠿ grip) and drop it anywhere above or below the other one: above its middle puts the dragged card first, below puts it last. The order, every setting of both cards and their Hide boxes are saved with the plan, and **Reset to defaults** puts them back.
 
-The **Stress tests** card (under the Monte Carlo card, collapsed until you untick Hide) forces a fixed bad stretch onto your plan and shows whether the money lasts. Unlike Monte Carlo these are single, repeatable scenarios; your passing ages, Social Security, Long Term Care and taxes stay as entered.
+The **Stress tests** card (under the Monte Carlo card, collapsed until you untick Hide) forces a fixed bad stretch onto your scenario and shows whether the money lasts. Unlike Monte Carlo these are single, repeatable scenarios; your passing ages, Social Security, Long Term Care and taxes stay as entered.
 
-- **When the shock starts**: *Day 1 of retirement* (the first year without wages; the default), *Today*, or a number of years from now. *Share of assets hit %* is how much of each portfolio and IRA takes the scenario's stock return (the rest keeps the plan's own return; property is never changed).
+- **When the shock starts**: *Day 1 of retirement* (the first year without wages; the default), *Today*, or a number of years from now. *Share of assets hit %* is how much of each portfolio and IRA takes the scenario's stock return (the rest keeps the scenario's own return; property is never changed).
 - **Lost Decade**: the actual 2000–2009 S&P 500 returns. Tick *Also use that decade's actual inflation* to add that decade's CPI.
 - **Stagflation**: flat stock returns (default 0% a year) for 10 years while inflation ramps from 6% to 11%. All four numbers are editable.
 - **1966 retiree**: actual 1966–1981 stock returns and inflation, the classic worst starting date for a retiree.
 - **Run stress tests + Monte Carlo**: a second button repeats every ticked market scenario with the Monte Carlo card's trials, seed and settings, beside a "Monte Carlo alone" row on the same random draws. Inside a scenario's years its stock returns (and its inflation, where it defines one) replace the random ones; before and after, for property, and for lifespans, Long Term Care and inheritance the random draws still apply. The table shows the funded share, the difference from Monte Carlo alone, the median age the money runs out and the 10th / median / 90th percentile of final assets. It has a progress bar and **Cancel** (a cancelled run keeps the stress table). A scenario can raise the success rate, since its fixed returns replace the random bad tail inside its window. The late-life medical shock is not part of this run.
 - **Market scenarios (yearly paths)**: a path is a list of yearly stock returns (and optionally inflation) starting at retirement, now or a calendar year, with an optional long-run return and inflation for the years after, and an equity share. Saved paths are listed in the card and each runs as a row; the B view can replay any of them. Paths are saved with the plan.
-- **Late-life medical shock** (liquidity and tax test, separate from the market scenarios and can be run alone): pick whose age, the starting age, the number of years and the yearly cost. It shows the plan with and without the shock: which accounts paid (dividends, asset sales, IRA, Roth, property), the **capital gains it realizes** against the unrealized gain you started with, the itemized deduction it creates, the highest AGI, the extra income tax in the shock years and two years after, the IRMAA effect and the estate. *Also compare four withdrawal orders* repeats it with your own order (or the built-in one), IRA first, Roth first and taxable → Roth → IRA, and stars the best final estate. The shock in this card does not change your plan; the Expenses card does.
+- **Late-life medical shock** (liquidity and tax test, separate from the market scenarios and can be run alone): pick whose age, the starting age, the number of years and the yearly cost. It shows the scenario with and without the shock: which accounts paid (dividends, asset sales, IRA, Roth, property), the **capital gains it realizes** against the unrealized gain you started with, the itemized deduction it creates, the highest AGI, the extra income tax in the shock years and two years after, the IRMAA effect and the estate. *Also compare four withdrawal orders* repeats it with your own order (or the built-in one), IRA first, Roth first and taxable → Roth → IRA, and stars the best final estate. The shock in this card does not change your scenario; the Expenses card does.
 - **With Spending guardrails on**, every scenario above runs with them, and a second table shows each scenario with and without the guardrails, the age and invested balance of the first cut (the tripwire), the deepest cut and the spending given up.
 - **Show in charts / B button**: load a scenario into every chart (see the Stress test card under Study one trial); the Inflation rate and Market return % charts then show the scenario's inflation and returns.
-- **Results**: for the plan and each scenario, whether the money lasts (or the age it runs out), the unpaid expenses, invested assets at the end of the shock and as a % of the plan, the lowest invested assets after the start, and the assets in the last projected year; the card has no chart of its own, because the D button / *Show in charts* loads each scenario into the real charts. Everything is in today's $. Press **Run stress tests** again after changing the plan or the settings (a red note tells you when a result is out of date).
+- **Results**: for the scenario and each scenario, whether the money lasts (or the age it runs out), the unpaid expenses, invested assets at the end of the shock and as a % of the scenario, the lowest invested assets after the start, and the assets in the last projected year; the card has no chart of its own, because the D button / *Show in charts* loads each scenario into the real charts. Everything is in today's $. Press **Run stress tests** again after changing the plan or the settings (a red note tells you when a result is out of date).
 
-## Ask about this plan
+## Ask about this scenario
 
-The chat box answers questions about your plan and can **run what-ifs and chart them**. Open it with the **💬 Ask about this plan** button at the bottom right.
+The chat box answers questions about your scenario and can **run what-ifs and chart them**. Open it with the **💬 Ask about this scenario** button at the bottom right.
 
 **Setup**
 - It needs your own API key. **Google Gemini** is the default and has a free tier: get a key at aistudio.google.com/apikey, paste it in ⚙ Settings and ask. Anthropic Claude (paid key) also works, and so does any **OpenAI-compatible** server (choose that provider, enter its base URL such as `https://api.openai.com/v1`, `https://openrouter.ai/api/v1` or `http://localhost:11434/v1` for Ollama, a model id and, unless the server is on this computer, a key). The server must allow this page's origin (CORS) and the model must support tool calls.
@@ -642,20 +654,20 @@ The chat box answers questions about your plan and can **run what-ifs and chart 
 **What to ask**
 - Questions about your results: why tax jumps in a year, when expenses stop being fully funded.
 - What-ifs: "What if Person 1 claims Social Security at 70?", "Compare converting $40k and $80k a year to Roth", "What if returns are 2 points lower and living costs rise 15%?", "Show claim ages 62 to 70", "What if a Lost-Decade crash starts the year I retire?".
-- Ask for the comparison in one message: up to 6 scenarios run together, each against your plan as entered.
+- Ask for the comparison in one message: up to 6 scenarios run together, each against your scenario as entered.
 
 **What you get back**
-- A **results card**: headline numbers for your plan and each scenario (assets at the end, lifetime federal tax, highest IRMAA surcharge, amounts moved by IRA withdraws and conversions, unfunded expenses and more), with the difference from your plan in green (better) or red (worse). Only rows that differ are shown.
-- **Changes vs your plan**: every change the model made, each marked ✓ applied, ⚠ *Ignored* (with the reason, for example "Person 1 already claims at 70") or ⚠ *No effect* (applied, but your results did not change). **Check this list first**: it is how you see whether the model understood your question the way you meant it.
-- **Charts** under the reply (total assets and yearly tax by default; the model can also draw cumulative tax, unfunded expenses, MAGI, IRMAA, cumulative Social Security, income by source and outcome bars). Your plan is the dashed grey line. **⤢** enlarges a chart; **PNG** downloads it.
-- Every number comes from the app's own projection engine, run on a copy of your plan, so it equals what the main charts show if you typed the same changes into the inputs. The model does not calculate or draw anything itself.
+- A **results card**: headline numbers for your scenario and each scenario (assets at the end, lifetime federal tax, highest IRMAA surcharge, amounts moved by IRA withdraws and conversions, unfunded expenses and more), with the difference from your scenario in green (better) or red (worse). Only rows that differ are shown.
+- **Changes vs your scenario**: every change the model made, each marked ✓ applied, ⚠ *Ignored* (with the reason, for example "Person 1 already claims at 70") or ⚠ *No effect* (applied, but your results did not change). **Check this list first**: it is how you see whether the model understood your question the way you meant it.
+- **Charts** under the reply (total assets and yearly tax by default; the model can also draw cumulative tax, unfunded expenses, MAGI, IRMAA, cumulative Social Security, income by source and outcome bars). Your scenario is the dashed grey line. **⤢** enlarges a chart; **PNG** downloads it.
+- Every number comes from the app's own projection engine, run on a copy of your scenario, so it equals what the main charts show if you typed the same changes into the inputs. The model does not calculate or draw anything itself.
 
-**Your plan is never changed by the chat.** The results card has buttons, and only a click changes anything:
+**Your scenario is never changed by the chat.** The results card has buttons, and only a click changes anything:
 - **Open in main charts**: adds the scenario to the 🆎 Scenario set and switches to it, so all the charts show it.
 - **Save as Scenario**: adds it to the set without switching.
 - **Copy spec**: copies the list of changes as JSON.
-- **Market scenarios**: ask the chat to define a year-by-year market path (for example a 1973–74 style crash). It is run against your plan and its card has **Show in main charts**, **Add to Stress test card** and **Copy JSON**. Saved paths are written only when you click.
-- A card is a snapshot. If you edit the plan afterwards, it shows **plan edited since**; Open and Save then ask before rebuilding the scenario from your plan as it is now.
+- **Market scenarios**: ask the chat to define a year-by-year market path (for example a 1973–74 style crash). It is run against your scenario and its card has **Show in main charts**, **Add to Stress test card** and **Copy JSON**. Saved paths are written only when you click.
+- A card is a snapshot. If you edit the scenario afterwards, it shows **scenario edited since**; Open and Save then ask before rebuilding the scenario as it is now.
 
 **What the model can change in a scenario**: Social Security claim age, living expenses, inflation, investment returns, passing age, the age someone stops working, a pension, the annual IRA withdraw / Roth conversion (fixed or bracket mode, start age), long-term care, the late-life medical shock, spending guardrails, portfolio sales, state tax, and a market stress path (Lost Decade, stagflation, 1966, or your own yearly returns). It can also *sweep* one value, for example every claim age from 62 to 70, on one chart.
 
@@ -671,9 +683,9 @@ The **🤖 LLM** button opens a popup with three tabs (send to an LLM, scenarios
 
 ### Send to an LLM
 
-The tab lists every result the app currently holds, each with a headline and a **stale** tag when you edited the plan after it was run:
+The tab lists every result the app currently holds, each with a headline and a **stale** tag when you edited the scenario after it was run:
 
-- **Your plan** (always included) and your other **Scenarios** (🆎 set).
+- **Your scenario** (always included) and your other **Scenarios** (🆎 set).
 - **What-ifs** and **market paths** made with the chat.
 - The **Stress tests** card results, the **stress + Monte Carlo** table and the **Monte Carlo** run (only if you have run them).
 
@@ -681,8 +693,8 @@ Untick what you do not want to send. Then choose:
 
 | Option | Meaning |
 |---|---|
-| **Detail: Summary** | The plan description, headline numbers and changes against your plan for every run, Monte Carlo percentiles and why trials failed. About 4,000 tokens for a typical plan. |
-| **Detail: Standard** | Summary plus yearly values (assets, tax, Social Security, expenses, unfunded) for the plan and up to three other runs, and replayed example Monte Carlo trials (earliest failure, a typical success). About 8,000 tokens. |
+| **Detail: Summary** | The scenario description, headline numbers and changes against your scenario for every run, Monte Carlo percentiles and why trials failed. About 4,000 tokens for a typical scenario. |
+| **Detail: Standard** | Summary plus yearly values (assets, tax, Social Security, expenses, unfunded) for the scenario and up to three other runs, and replayed example Monte Carlo trials (earliest failure, a typical success). About 8,000 tokens. |
 | **Round money to** | Whole dollars, $100, $1,000 (default) or $10,000. |
 | **Include names** | Off by default: names become "Person 1 / 2", and a name typed into a scenario label is masked too. |
 
@@ -693,21 +705,21 @@ Untick what you do not want to send. Then choose:
 Paste the LLM's reply (it may have text around the JSON, or sit inside a code fence) or load its file, then **Check & add**. The reply must be one object `{"schema":"planner.scenarios/1","scenarios":[…]}` with up to 20 scenarios of two kinds:
 
 - `{"kind":"lever","label":"…","why":"…","levers":[{"lever":"ssClaimAge","person":1,"age":70}]}`: a what-if built from the same named levers the chat uses (the file lists them).
-- `{"kind":"stress","label":"…","config":{…}}` and `{"kind":"montecarlo","label":"…","config":{…}}`: settings for the **Stress test** or **Monte Carlo** card (the same boxes as the cards; the file lists every setting with its limits). They are run in the background on a copy of your plan (a limited number of trials; the proposal shows progress) and shown with their results. An LLM can also add extra market paths to a stress config with `includePathIds`.
+- `{"kind":"stress","label":"…","config":{…}}` and `{"kind":"montecarlo","label":"…","config":{…}}`: settings for the **Stress test** or **Monte Carlo** card (the same boxes as the cards; the file lists every setting with its limits). They are run in the background on a copy of your scenario (a limited number of trials; the proposal shows progress) and shown with their results. An LLM can also add extra market paths to a stress config with `includePathIds`.
 - `{"kind":"market","label":"…","why":"…","returnsPct":[-20,-10,5,12],"afterReturnPct":6}`: a year-by-year market path (nominal stock returns in percent, optional yearly inflation, start, long-run return, share of assets hit).
 
-Every scenario is checked with the same rules as the chat's tools: an unknown lever, an unknown field, an out-of-range number or an unsupported kind is listed as not accepted, with the reason, and the rest are still added. Accepted ones are run on your plan and listed as **proposals**, each with the LLM's reason, what it does and **how your headline numbers change against your plan**.
+Every scenario is checked with the same rules as the chat's tools: an unknown lever, an unknown field, an out-of-range number or an unsupported kind is listed as not accepted, with the reason, and the rest are still added. Accepted ones are run on your scenario and listed as **proposals**, each with the LLM's reason, what it does and **how your headline numbers change against your scenario**.
 
-Nothing changes in your plan until you click a button on a proposal:
+Nothing changes in your scenario until you click a button on a proposal:
 
 | Button | Effect |
 |---|---|
-| **Show in main charts** | Replays it in all the charts (the B view of the Stress test card for a market path; a what-if is added as a 🆎 scenario and shown). Back to plan returns. |
+| **Show in main charts** | Replays it in all the charts (the B view of the Stress test card for a market path; a what-if is added as a 🆎 scenario and shown). Back to scenario returns. |
 | **Add to Scenario set** / **Add to Stress test card** | A what-if becomes the next scenario of the 🆎 set; a market path is saved in the plan and becomes a row of the Stress test card. |
 | **Use these settings** / **Use and run** | (stress and Monte Carlo proposals) Writes the settings into the card (saved with the plan) and optionally runs the card at its normal size. |
 | **Copy JSON** / **Dismiss** | Copy the scenario in the import form; remove it from the list. |
 
-Proposals are kept only until you reload the page, and are marked **plan edited since** if you change the plan after they were run. The chat can read the same results (*list_runs*, *compare_runs*, *get_mc_summary* …) and can hand you proposals with *import_scenarios*, which opens this tab.
+Proposals are kept only until you reload the page, and are marked **scenario edited since** if you change the scenario after they were run. The chat can read the same results (*list_runs*, *compare_runs*, *get_mc_summary* …) and can hand you proposals with *import_scenarios*, which opens this tab.
 
 
 
@@ -716,7 +728,7 @@ Proposals are kept only until you reload the page, and are marked **plan edited 
 1. Build the extension file once: `node server/build-mcpb.js` (Node 18+). It writes `dist/retirement-planner.mcpb`.
 2. In Claude Desktop open **Settings → Extensions** and drag the file in (or double-click it), then press **Install**. Claude Desktop runs the server with its own Node, so nothing else needs installing.
 3. A settings form appears. Everything is optional: **Plan file** (a plan you saved with Save; leave empty to use only the live bridge), **Live bridge** (on by default), the bridge **port** and **pairing code** (leave the code empty for a random one), and **Show names**.
-4. To follow the plan on your screen (*live bridge, still in development*), open the planner page, choose **🤖 LLM → Live bridge**, and enter the port and the code. Ask Claude "check bridge_status" and it tells you both.
+4. To follow the scenario on your screen (*live bridge, still in development*), open the planner page, choose **🤖 LLM → Live bridge**, and enter the port and the code. Ask Claude "check bridge_status" and it tells you both.
 
 Change the settings any time under Settings → Extensions → Retirement Income Planner. The file is unsigned, so Claude Desktop may show a warning on install. The older way, editing the config file by hand, is described next.
 
@@ -755,9 +767,9 @@ In Claude Desktop add it to the MCP servers file as `{"command":"node","args":["
 - It runs on your computer only (no network). The 🆎 scenario set is kept in the browser, so the server sees the plan file only (unless you use the live bridge below). Limits are higher than in the page (5,000 trials per row, 20,000 per call) and one job runs at a time.
 
 
-### Live bridge: let the MCP host see the plan on your screen
+### Live bridge: let the MCP host see the scenario on your screen
 
-> **Still in development.** The live LLM link works, but it is not finished: the messages, the approval prompts, the settings and the behaviour described here may change, and some cases (a busy page, reconnecting after sleep, several pages open at once) are not fully polished. It never changes your plan and the numbers come from the same engine as the rest of the app, but treat it as a preview. The other ways of working with an LLM (the downloaded file, pasted proposals, an MCP host reading a saved plan file) do not depend on it.
+> **Still in development.** The live LLM link works, but it is not finished: the messages, the approval prompts, the settings and the behaviour described here may change, and some cases (a busy page, reconnecting after sleep, several pages open at once) are not fully polished. It never changes your scenario and the numbers come from the same engine as the rest of the app, but treat it as a preview. The other ways of working with an LLM (the downloaded file, pasted proposals, an MCP host reading a saved plan file) do not depend on it.
 
 Start the server with `--bridge` instead of (or as well as) a plan file:
 
@@ -767,9 +779,9 @@ node server/mcp.js --bridge
 
 It prints a port (8765 by default) and a pairing code. In the page open **🤖 LLM → Live bridge**, enter both and press **Connect**. Then:
 
-- The host works on **the plan as it is on screen**. It is sent again after each edit, and before every tool call the server also asks the page for its latest plan, so a call never runs on a plan that is a moment old. Every result carries a `planVersion`; the first result after you edit the plan also carries `planChanged` (which inputs changed, and the plan's headline numbers before and after), so Claude knows its earlier numbers are out of date. Earlier results are marked stale. Disconnect stops it.
-- If the page is busy and does not answer within a second, the result says so (`pageSync`) and uses the last plan it has.
+- The host works on **the scenario as it is on screen**. It is sent again after each edit, and before every tool call the server also asks the page for its latest scenario, so a call never runs on a scenario that is a moment old. Every result carries a `planVersion`; the first result after you edit the scenario also carries `planChanged` (which inputs changed, and the scenario's headline numbers before and after), so Claude knows its earlier numbers are out of date. Earlier results are marked stale. Disconnect stops it.
+- If the page is busy and does not answer within a second, the result says so (`pageSync`) and uses the last scenario it has.
 - What is sent is your whole plan, the same content as Save (names and birth years included; the server still hides names from the LLM unless started with `--names`). The link never leaves this computer (127.0.0.1) and nothing is sent until you press Connect.
-- The host can ask the page to **show a market path in the charts** or to **put scenarios in your proposals list**. The first time it asks for each kind, the tab asks you: **Allow** (until you disconnect), **Allow once** or **Deny**. It can never change your plan.
+- The host can ask the page to **show a market path in the charts** or to **put scenarios in your proposals list**. The first time it asks for each kind, the tab asks you: **Allow** (until you disconnect), **Allow once** or **Deny**. It can never change your scenario.
 - The host can call `bridge_status` to see whether a page is connected; the pairing code is returned there unless you start with `--bridge-hide-code` (then read it from the server's log). A fixed code and port: `--bridge-port 8765 --bridge-token ABCD-EFGH-JKLM`.
 - An https page may be blocked from `ws://127.0.0.1` by the browser; open the app from a local file or `http://localhost` if Connect fails.

@@ -1,17 +1,17 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// DISPLAY / PLAN VIEW — put a plan of the master plan list (plans/planStore.js) on the main chart grid, whatever made it. One entry point, plShow(ref), that hands the plan to the
-// viewer that already knows how to draw its kind (the A–F buttons and their stepping stay as they are; they and plShow open the same views):
-//   scenario → scnSwitch (or Back to plan when it is the one on screen)   stress, market → mcLoadMarketPath (the D view)
+// DISPLAY / SCENARIO VIEW — put a scenario of the master scenario list (scenarios/scenarioStore.js) on the main chart grid, whatever made it. One entry point, scShow(ref), that hands the scenario to the
+// viewer that already knows how to draw its kind (the A–F buttons and their stepping stay as they are; they and scShow open the same views):
+//   scenario → scnSwitch (or Back to scenario when it is the one on screen)   stress, market → mcLoadMarketPath (the D view)
 //   Monte Carlo trial → mcLoadTrial (B or C by outcome)                    stress + Monte Carlo trial → mcLoadSm (E or F by outcome)
-// → {ok, label} or {ok:false, why}. Never changes the user's plan. A plan made before an edit of the plan on screen cannot be replayed.
+// → {ok, label} or {ok:false, why}. Never changes the user's scenario. A scenario made before an edit of the scenario on screen cannot be replayed.
 // ═══════════════════════════════════════════════════════════════
-function plShow(ref){
-  if(typeof plResolveRef!=='function') return {ok:false,why:'the plan list is not available'};
-  const r=plResolveRef(ref); if(!r.plan) return {ok:false,why:r.error};
-  const p=r.plan, k=p.origin.kind, rf=p.origin.ref||{}, label=p.label;
+function scShow(ref){
+  if(typeof scResolveRef!=='function') return {ok:false,why:'the scenario list is not available'};
+  const r=scResolveRef(ref); if(!r.scenario) return {ok:false,why:r.error};
+  const p=r.scenario, k=p.origin.kind, rf=p.origin.ref||{}, label=p.label;
   if(typeof mcRun!=='undefined'&&mcRun) return {ok:false,why:'a Monte Carlo run is in progress'};
-  if(p.input.baseKey&&plIsStale(p)) return {ok:false,why:'that plan was made before the plan on screen was edited, so it cannot be replayed; run it again'};
+  if(p.input.baseKey&&scIsStale(p)) return {ok:false,why:'that scenario was made before the scenario on screen was edited, so it cannot be replayed; run it again'};
   const done=ok=>ok===false?{ok:false,why:'the page could not show it'}:{ok:true,label};
   if(k==='scenario'){
     if(typeof scnSwitch!=='function') return {ok:false,why:'scenarios cannot be switched here'};
@@ -25,7 +25,7 @@ function plShow(ref){
     return done(ok);
   }
   if(k==='mc_trial'){
-    if(p.origin.groupId!=='mc:run'||typeof mcLoadTrial!=='function') return {ok:false,why:'trials of tool-started jobs are not shown in the charts; read them with get_plan detail "series"'};
+    if(p.origin.groupId!=='mc:run'||typeof mcLoadTrial!=='function') return {ok:false,why:'trials of tool-started jobs are not shown in the charts; read them with get_scenario detail "series"'};
     mcLoadTrial(rf.trial); return {ok:true,label};
   }
   if(k==='stress_mc_trial'){
@@ -37,5 +37,5 @@ function plShow(ref){
     if(pos<0) return {ok:false,why:'that trial is not in the stress + Monte Carlo list'};
     mcLoadSm(kind,pos); return {ok:true,label};
   }
-  return {ok:false,why:'this kind of plan ('+k+') cannot be shown in the main charts'};
+  return {ok:false,why:'this kind of scenario ('+k+') cannot be shown in the main charts'};
 }

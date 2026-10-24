@@ -63,6 +63,8 @@ against the pre-refactor code showed identical output, so it also represents the
 `tests/mc/xlsx_trial_test.js` checks the Excel export of a Monte Carlo trial (the MC trial sheet, the deflator and account-sheet growth formulas, the trial's own Inputs) and that a plan still exports with constant-rate formulas. It needs only Node.
 For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`), open it once in LibreOffice (or Excel) so it recalculates, and compare each formula cell with the value the app cached: there should be no differences.
 
+`tests/charts/stack_zero_test.js` checks the Chart Element stack total (a pointer slightly above the top of a stack gives the total of the filled bands; at or below the top edge gives the band) and the `zeroLine` plugin (`PLANNER_ROOT=. node tests/charts/stack_zero_test.js`, no browser).
+
 `tests/chart_big_test.js` checks the Enlarge-a-chart layout model in 3×N (`node tests/chart_big_test.js`, no browser): 2×2 footprint, displaced charts, refusing overlapping blocks, drag clamping, row compaction, 2×N round trip, and that save → load keeps the flag. CSS sizing is not covered (check it in a browser).
 
 `tests/unit/rmd_niit_test.js` (RMD start age, NIIT on rentals and property sales) and `tests/unit/ca_credit_phaseout_test.js` (California exemption-credit phase-out) need only Node: `node tests/unit/<file>`.
@@ -98,8 +100,8 @@ node tests/llm/openai_test.js         # OpenAI-compatible chat provider: endpoin
 
 ## Master plan list
 ```
-PLANNER_ROOT=. node tests/plans/plan_store_test.js   # store, producers (scenarios, stress, Monte Carlo, stress + MC), staleness, tombstones
-PLANNER_ROOT=. node tests/plans/plan_tools_test.js   # list_plans / get_plan / compare_plans / show_plan / delete_plan, reference lookup, plShow dispatch
-node tests/plans/e2e_browser.js                       # the real app in Chromium (needs playwright + a Chromium; Chart.js / xlsx replaced by stand-ins)
+PLANNER_ROOT=. node tests/scenarios/scenario_store_test.js   # store, producers (scenarios, stress, Monte Carlo, stress + MC), staleness, tombstones
+PLANNER_ROOT=. node tests/scenarios/scenario_tools_test.js   # list_scenarios / get_scenario / compare_scenarios / show_scenario / delete_scenario, reference lookup, scShow dispatch
+node tests/scenarios/e2e_browser.js                       # the real app in Chromium (needs playwright + a Chromium; Chart.js / xlsx replaced by stand-ins)
 ```
 `rrEntries()` is built from the store; to check a change to it, dump `rrListRuns()` plus every `get_run` / the bundle before and after and diff (the refactor that introduced it produced zero differences).

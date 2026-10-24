@@ -50,12 +50,12 @@ run(`globalThis.__b=xlsxBuildWorkbook(lastProjection,xlsxTrialContext())`);
 let b=ctx.__b, main=sheetOf(b,'Projection by year');
 ok(!sheetOf(b,'MC trial'),'plan workbook has no "MC trial" sheet');
 ok(/Inflation/.test(cell(main,colOf(main,'f')+'5').f),'plan deflator is (1+Inflation)^-(year-BaseYear): '+cell(main,colOf(main,'f')+'5').f);
-const irPlan=b.sheets.find(s=>/Pre-tax IRA/.test(s.name));
-ok(irPlan&&Object.keys(irPlan.ws).some(a=>a[0]!=='!'&&cell(irPlan,a).f&&/\$B\$2/.test(cell(irPlan,a).f)),'plan IRA roll-forward uses the constant rate $B$2');
+const irScenario=b.sheets.find(s=>/Pre-tax IRA/.test(s.name));
+ok(irScenario&&Object.keys(irScenario.ws).some(a=>a[0]!=='!'&&cell(irScenario,a).f&&/\$B\$2/.test(cell(irScenario,a).f)),'plan IRA roll-forward uses the constant rate $B$2');
 
 // ── a trial ──
 run(`(()=>{ const cfg=JSON.parse(JSON.stringify(MC_DEFAULTS)); cfg.ltc.prob=0.9; cfg.returns.volEquity=24; const res=[]; for(let t=0;t<120;t++) res.push(mcRunTrial(cfg,t));
-  mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcPlanKey(); })()`);
+  mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcScenarioKey(); })()`);
 const tr=run(`mcResults.R.list[0].trial`); run(`mcLoadTrial(${tr})`);
 const T=run(`xlsxTrialContext()`);
 ok(T&&T.n===tr+1&&T.view==='B','trial on screen: context carries trial #'+(tr+1));
@@ -84,16 +84,16 @@ const isHeirs=a=>(cell(ir,hcol+rowOf(a))||{}).v==='Yes';
 const mainFs=balAddrs.filter(a=>!isHeirs(a)).map(a=>cell(ir,a).f), heirFs=balAddrs.filter(isHeirs);
 ok(mainFs.length>5&&mainFs.every(f=>!/\$B\$2/.test(f)&&f.includes(gcol)),'IRA balance chain over the main horizon is live and reads the yearly growth ('+mainFs.length+' formulas)');
 ok(heirFs.length>0&&heirFs.every(a=>cell(ir,a).f===balc+(rowOf(a)-1)+'*(1+$B$2)'),'heirs\' stretch years compound the prior balance at the plan rate $B$2, by design ('+heirFs.length+' formulas)');
-const planRate=cell(ir,'B2').v;
-ok(heirFs.every(a=>Math.abs(cell(ir,a).v-cell(ir,balc+(rowOf(a)-1)).v*(1+planRate))<=1),'cached stretch balances equal prior x (1 + plan rate), the same figures the app shows');
+const scenarioRate=cell(ir,'B2').v;
+ok(heirFs.every(a=>Math.abs(cell(ir,a).v-cell(ir,balc+(rowOf(a)-1)).v*(1+scenarioRate))<=1),'cached stretch balances equal prior x (1 + plan rate), the same figures the app shows');
 ok(/^'MC trial'!\$/.test(cell(ir,gcol+ir._t.firstRow).f),'the yearly growth cell links to the MC trial sheet: '+cell(ir,gcol+ir._t.firstRow).f);
 const gm=colOf(mc,'g0'), fm=colOf(mc,'F0');
 ok(cell(mc,gm+'5').f.includes(fm+'5')&&cell(mc,gm+'5').f.includes('Inputs!'),'MC growth = (1 + plan rate from Inputs) × shock factor − 1: '+cell(mc,gm+'5').f);
 // Inputs: the trial's draws, not the plan's
 const inp=sheetOf(b,'Inputs'), tState=run(`mcTrialView.state`), pid=run(`mcTrialView.state.people[0].id`);
-const passCell=Object.keys(inp.ws).find(a=>a[0]!=='!'&&cell(inp,a).t==='s'&&cell(inp,a).v==='Passing age (plan ends)');
-const passVal=cell(inp,'B'+passCell.slice(1)).v, trialPass=tState.passing[pid], planPass=run(`state.passing[state.people[0].id]`);
-ok(passVal===trialPass,'Inputs shows the trial\'s drawn passing age ('+passVal+'), the plan\'s is '+planPass);
+const passCell=Object.keys(inp.ws).find(a=>a[0]!=='!'&&cell(inp,a).t==='s'&&cell(inp,a).v==='Passing age (scenario ends)');
+const passVal=cell(inp,'B'+passCell.slice(1)).v, trialPass=tState.passing[pid], scenarioPass=run(`state.passing[state.people[0].id]`);
+ok(passVal===trialPass,'Inputs shows the trial\'s drawn passing age ('+passVal+'), the plan\'s is '+scenarioPass);
 // every cached formula value of the trial is a finite number or text (nothing NaN reached the sheet)
 const bad=[]; b.sheets.forEach(s=>Object.keys(s.ws).forEach(a=>{ if(a[0]==='!') return; const c=s.ws[a]; if(c.f&&c.t==='n'&&!isFinite(c.v)) bad.push(s.name+'!'+a); }));
 ok(bad.length===0,'no NaN / Infinity cached in any formula cell'+(bad.length?': '+bad.slice(0,5):''));

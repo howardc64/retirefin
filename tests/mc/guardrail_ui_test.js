@@ -18,7 +18,7 @@ run(`buildStressPanel();`); const E=id=>run(`document.getElementById('${id}')`);
 run(`stStart();`);
 ok(/Spending guardrails are on/.test(els.stSummary.innerHTML)&&/Invested balance that tripped it/.test(els.stSummary.innerHTML),'Stress test card shows the guardrail table');
 run(`(()=>{ const cfg=JSON.parse(JSON.stringify(MC_DEFAULTS)); const res=[]; for(let t=0;t<60;t++) res.push(mcRunTrial(cfg,t));
-  mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcPlanKey(); mcRender(); })()`);
+  mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcScenarioKey(); mcRender(); })()`);
 ok(/Trials that had to cut spending/.test(els.mcSummary.innerHTML)&&/with spending guardrails/.test(els.mcSummary.innerHTML),'Monte Carlo card shows the guardrail rows');
 run(`onEnableToggle('guardrail.enabled',false);`);
 run(`(()=>{ const cfg=JSON.parse(JSON.stringify(MC_DEFAULTS)); const res=[]; for(let t=0;t<20;t++) res.push(mcRunTrial(cfg,t)); mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcRender(); })()`);

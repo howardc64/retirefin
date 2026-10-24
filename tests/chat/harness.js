@@ -9,7 +9,7 @@ function makeCtx(planFile){
   vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/scenarioApi.js'),'utf8'),ctx,{filename:'compute/scenarioApi.js'});
   vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/runRegistry.js'),'utf8'),ctx,{filename:'compute/runRegistry.js'});
   vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/runJobs.js'),'utf8'),ctx,{filename:'compute/runJobs.js'});
-  ['plans/planSpec.js','plans/planStore.js','plans/scenarioSetProducer.js','plans/stressProducer.js','plans/monteCarloProducer.js','plans/marketProducer.js','plans/leverProducer.js','plans/jobsProducer.js','plans/planTools.js'].forEach(f=>{ const fp=path.join(ROOT,'js',f); if(fs.existsSync(fp)) vm.runInContext(fs.readFileSync(fp,'utf8'),ctx,{filename:f}); });
+  ['scenarios/scenarioRecord.js','scenarios/scenarioStore.js','scenarios/scenarioSetProducer.js','scenarios/stressProducer.js','scenarios/monteCarloProducer.js','scenarios/marketProducer.js','scenarios/leverProducer.js','scenarios/jobsProducer.js','scenarios/scenarioTools.js'].forEach(f=>{ const fp=path.join(ROOT,'js',f); if(fs.existsSync(fp)) vm.runInContext(fs.readFileSync(fp,'utf8'),ctx,{filename:f}); });
   if(planFile) mc.loadPlan(ctx,JSON.parse(fs.readFileSync(path.join(ROOT,'Samples',planFile),'utf8')));
   return ctx;
 }

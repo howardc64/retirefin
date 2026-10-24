@@ -9,8 +9,8 @@ const stateBefore=run(ctx,'JSON.stringify(state)');
 
 // ── 1. plan-only registry ──
 let runs=J('rrListRuns()');
-ok(runs.length===1&&runs[0].id==='plan'&&runs[0].kind==='plan'&&runs[0].kpis.finalTotal>0,'a fresh plan lists exactly one run: the plan, with KPIs');
-const planKpis=runs[0].kpis;
+ok(runs.length===1&&runs[0].id==='entered'&&runs[0].kind==='entered'&&runs[0].kpis.finalTotal>0,'a fresh plan lists exactly one run: the plan, with KPIs');
+const scenarioKpis=runs[0].kpis;
 
 // ── 2. every kind ──
 // lever scenario (through the chat tool, as the in-page chat does)
@@ -23,22 +23,22 @@ ok(!r.isError,'define_market_scenario accepted');
 run(ctx,`var scnNames={A:'',B:'Spend more'}; function scnLabel(id){ return 'Scenario '+id+(scnNames[id]?' — '+scnNames[id]:''); }
   (()=>{ const alt=JSON.parse(JSON.stringify(state)); alt.living=state.living*1.3; scnOrder=['A','B']; scnActive='A'; scnSnaps={B:alt}; })()`);
 // stress test results as the page keeps them
-run(ctx,`(()=>{ const cfg=JSON.parse(JSON.stringify(ST_DEFAULTS)); stResults=Object.assign(stRunAll(cfg),{cfg,planKey:JSON.stringify(Object.assign({},state,{ui:null}))}); })()`);
+run(ctx,`(()=>{ const cfg=JSON.parse(JSON.stringify(ST_DEFAULTS)); stResults=Object.assign(stRunAll(cfg),{cfg,scenarioKey:JSON.stringify(Object.assign({},state,{ui:null}))}); })()`);
 // Monte Carlo (60 trials) + the stress + Monte Carlo rows
 run(ctx,`(()=>{ const mc=JSON.parse(JSON.stringify(MC_DEFAULTS)); mc.trials=60; mc.seed=7;
   const res=mcRunRange(mc,0,60); mcResults={cfg:mc,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=JSON.stringify(Object.assign({},state,{ui:null}));
-  globalThis.mcPlanKey=()=>JSON.stringify(Object.assign({},state,{ui:null}));
+  globalThis.mcScenarioKey=()=>JSON.stringify(Object.assign({},state,{ui:null}));
   const sc=stScenarios(stResults.cfg)[0], base=stRun(null,0,stResults.cfg), start=stStartRow(stResults.cfg,base), sd={scen:sc,start,share:100};
   const r2=[]; for(let t=0;t<60;t++) r2.push(mcRunTrial(mc,t,null,null,sd));
   stResults.mc={cfg:mc,rows:[{id:'none',label:'Monte Carlo alone',stress:false,stressDef:null,res:res,S:mcSummarize(res)},{id:sc.id,label:sc.label,stress:true,stressDef:sd,res:r2,S:mcSummarize(r2)}]}; })()`);
 runs=J('rrListRuns()');
 const kinds=runs.map(x=>x.kind);
-ok(['plan','user','lever','market','stress','stress_mc','monte_carlo'].every(k=>kinds.includes(k)),'every kind is listed: '+[...new Set(kinds)].join(', '));
+ok(['entered','user','lever','market','stress','stress_mc','monte_carlo'].every(k=>kinds.includes(k)),'every kind is listed: '+[...new Set(kinds)].join(', '));
 ok(runs.every(x=>typeof x.id==='string'&&typeof x.label==='string'&&typeof x.stale==='boolean'),'every run has id, label, stale');
 ok(new Set(runs.map(x=>x.id)).size===runs.length,'run ids are unique');
 const by=id=>runs.find(x=>x.id===id);
 ok(JSON.stringify(by('lev:r1').kpis)===JSON.stringify(toolKpis),'lever run KPIs equal what run_scenarios returned');
-ok(by('scn:B').kpis.finalTotal<planKpis.finalTotal,'the other saved scenario runs on its own inputs (more spending → fewer assets)');
+ok(by('scn:B').kpis.finalTotal<scenarioKpis.finalTotal,'the other saved scenario runs on its own inputs (more spending → fewer assets)');
 const st=runs.filter(x=>x.kind==='stress'); ok(st.length>=3&&st.every(x=>x.kpis&&x.stress&&x.stress.years>0),'stress rows carry KPIs and the stress-specific fields');
 ok(st[0].kpis.finalTotal===J('Math.round(stResults.results[0].m.estateFin+stResults.results[0].m.estateRe)'),'stress KPI parity with the Stress card row (final assets)');
 const mcRun=by('mc:run'); ok(mcRun.distribution.fundedShare===Math.round(J('mcResults.S.successRate')*1000)/1000&&mcRun.distribution.trials===60,'Monte Carlo funded share and trial count match the card');
@@ -48,19 +48,19 @@ ok(!runs.some(x=>x.stale),'nothing is stale right after running');
 
 // ── 3. bundle ──
 const bs=J("rrBuildBundle({tier:'summary'})"), bt=J("rrBuildBundle({tier:'standard'})");
-ok(bs.schema==='planner.analysis/1'&&/quote them/.test(bs.instructions)&&bs.engine.planKey.length===8,'bundle: schema, instructions, plan fingerprint');
-ok(!bs.series&&bt.series&&bt.series[0].run==='plan'&&bt.series[0].rows.length===bs.plan.projectionYears,'summary has no yearly series; standard has the plan\'s, one row per projected year');
+ok(bs.schema==='planner.analysis/1'&&/quote them/.test(bs.instructions)&&bs.engine.scenarioKey.length===8,'bundle: schema, instructions, plan fingerprint');
+ok(!bs.series&&bt.series&&bt.series[0].run==='entered'&&bt.series[0].rows.length===bs.scenario.projectionYears,'summary has no yearly series; standard has the plan\'s, one row per projected year');
 ok(bt.series.length<=1+3,'standard series are capped to the plan + 3 runs');
 ok(bt.exemplarSeries&&bt.exemplarSeries.length>=1,'standard bundle includes replayed exemplar trials');
-ok(bs.comparison.length>=2&&bs.comparison.every(c=>c.changesVsPlan&&typeof c.changesVsPlan==='object'),'comparison lists changes against the plan');
+ok(bs.comparison.length>=2&&bs.comparison.every(c=>c.changesVsScenario&&typeof c.changesVsScenario==='object'),'comparison lists changes against the plan');
 ok(bs.stochastic.length>=2&&bs.stochastic.every(s=>s.fundedShare>=0&&s.fundedShare<=1),'stochastic table has a funded share for each Monte Carlo run');
 const sizeS=JSON.stringify(bs).length, sizeT=JSON.stringify(bt).length;
 ok(sizeS/4<12000&&sizeT/4<40000&&sizeT>sizeS,'size: summary ≈'+(sizeS/4|0)+' tokens, standard ≈'+(sizeT/4|0)+' (tiers differ, both within budget)');
 ok(!/NaN|Infinity/.test(run(ctx,"JSON.stringify(rrBuildBundle({tier:'standard'}))")),'no NaN / Infinity anywhere in the bundle');
 const rounded=J("rrBuildBundle({tier:'summary',round:1000})"), exact=J("rrBuildBundle({tier:'summary',round:0})");
-ok(rounded.runs[0].kpis.finalTotal%1000===0&&exact.runs[0].kpis.finalTotal===planKpis.finalTotal,'rounding: $1,000 steps by default option, whole dollars when off');
+ok(rounded.runs[0].kpis.finalTotal%1000===0&&exact.runs[0].kpis.finalTotal===scenarioKpis.finalTotal,'rounding: $1,000 steps by default option, whole dollars when off');
 ok(rounded.runs.every(x=>!x.kpis||x.kpis.lifetimeTax%1000===0),'every run\'s money is rounded');
-const sel=J("rrBuildBundle({tier:'summary',runs:['lev:r1']})"); ok(sel.runs.map(x=>x.id).join()==='plan,lev:r1','a run selection keeps the plan and only the chosen runs');
+const sel=J("rrBuildBundle({tier:'summary',runs:['lev:r1']})"); ok(sel.runs.map(x=>x.id).join()==='entered,lev:r1','a run selection keeps the plan and only the chosen runs');
 // privacy
 const hadName=J('"name" in state.people[0]'), name0=run(ctx,'state.people[0].name'); run(ctx,"state.people[0].name='Alice Zed'");
 ctx.__l={scenarios:[{id:'S9',label:'Alice Zed claims at 70',levers:[{lever:'ssClaimAge',person:1,age:70}]}]}; run(ctx,'apiCall("run_scenarios",__l)');
@@ -68,7 +68,7 @@ const masked=run(ctx,"JSON.stringify(rrBuildBundle({tier:'summary',names:false})
 ok(!/Alice|Zed/.test(masked)&&/Person 1 claims at 70/.test(masked),'names off: a name typed into a label is replaced by "Person 1"');
 ok(/Alice Zed claims/.test(shown),'names on: labels are kept');
 if(hadName){ ctx.__n=name0; run(ctx,'state.people[0].name=__n'); } else run(ctx,'delete state.people[0].name');
-const pkNow=J("rrBuildBundle({tier:'summary'}).engine.planKey"); ok(pkNow===bs.engine.planKey,'the plan fingerprint is the same after the name is put back');
+const pkNow=J("rrBuildBundle({tier:'summary'}).engine.scenarioKey"); ok(pkNow===bs.engine.scenarioKey,'the plan fingerprint is the same after the name is put back');
 // staleness
 run(ctx,'state.living+=1000'); const stale=J("rrBuildBundle({tier:'standard'})");
 ok(stale.runs.filter(x=>x.stale).length>=3&&stale.notes.some(t=>/Stale runs/.test(t)),'after a plan edit the stored runs are flagged stale and the bundle says so');
@@ -77,8 +77,8 @@ run(ctx,'state.living-=1000');
 
 // ── 4. import ──
 const imp=(obj,host)=>{ ctx.__i=obj; ctx.__h=host||null; return J('rrImport(__i,__h)'); };
-const pk=bs.engine.planKey;
-let ir=imp({schema:'planner.scenarios/1',planKey:pk,scenarios:[
+const pk=bs.engine.scenarioKey;
+let ir=imp({schema:'planner.scenarios/1',scenarioKey:pk,scenarios:[
   {kind:'lever',label:'Claim at 70',why:'Delay SS',levers:[{lever:'ssClaimAge',person:1,age:70}]},
   {kind:'market',label:'Slow decade',why:'tests sequence risk',returnsPct:[-15,0,2,4,5,6],startsAt:'retirement',afterReturnPct:6}]});
 ok(ir.accepted.length===2&&!ir.rejected.length&&!ir.warnings.length,'a valid lever + market import is accepted');
@@ -86,8 +86,8 @@ ok(ir.accepted[0].kpis&&typeof ir.accepted[0].deltas==='object'&&ir.accepted[1].
 ok(J('rrProposals().length')===2&&J('rrProposals()[0].stale')===false,'proposals are stored in memory and not stale');
 ir=imp('Here you go:\n```json\n'+JSON.stringify({schema:'planner.scenarios/1',scenarios:[{kind:'lever',label:'Spend less',levers:[{lever:'living',pctChange:-10}]}]})+'\n```\nHope that helps');
 ok(ir.accepted.length===1,'a reply with prose and a ``` fence around the JSON is read');
-ir=imp({schema:'planner.scenarios/1',planKey:'deadbeef',scenarios:[{kind:'lever',label:'x',levers:[{lever:'living',pctChange:5}]}]});
-ok(ir.accepted.length===1&&ir.warnings.length===1,'a planKey from another version of the plan warns but still imports');
+ir=imp({schema:'planner.scenarios/1',scenarioKey:'deadbeef',scenarios:[{kind:'lever',label:'x',levers:[{lever:'living',pctChange:5}]}]});
+ok(ir.accepted.length===1&&ir.warnings.length===1,'a scenarioKey from another version of the plan warns but still imports');
 ir=imp({schema:'planner.scenarios/1',scenarios:[{kind:'lever',label:'a',levers:[{lever:'nope'}]},{kind:'lever',label:'b',extra:1,levers:[{lever:'living',pctChange:5}]},{kind:'bogus',label:'c'},{kind:'market',label:'d',returnsPct:[500]},'junk']});
 ok(ir.accepted.length===0&&ir.rejected.length===5,'unknown lever, unknown field, unsupported kind, out-of-range return and a non-object are each rejected with a reason');
 ok(/kind must be/.test(ir.rejected[2].errors[0]),'an unknown kind is rejected and the allowed kinds are named');
@@ -108,7 +108,7 @@ ok(!J("apiList('neutral')").some(t=>objWithoutProps(t.parameters)),'no tool decl
 ok(!JSON.stringify(J("apiList('neutral')")).includes('"type":["'),'no union types in the declarations');
 r=call('list_runs',{}); ok(!r.isError&&r.response.runs.length===J('rrListRuns().length'),'list_runs returns every run');
 ok(call('list_runs',{kinds:['stress']}).response.runs.every(x=>x.kind==='stress'),'list_runs filters by kind');
-r=call('get_run',{id:'lev:r1',detail:'series'}); ok(!r.isError&&r.response.series.columns.length===8&&r.response.series.rows.length===bs.plan.projectionYears,'get_run series: yearly rows for a lever run');
+r=call('get_run',{id:'lev:r1',detail:'series'}); ok(!r.isError&&r.response.series.columns.length===8&&r.response.series.rows.length===bs.scenario.projectionYears,'get_run series: yearly rows for a lever run');
 r=call('get_run',{id:'lev:r1',detail:'series',fromAge:70,toAge:75}); ok(r.response.series.rows.length===6&&r.response.series.rows.every(x=>x[0]>=70&&x[0]<=75),'get_run series respects fromAge / toAge');
 r=call('get_run',{id:'mc:run',detail:'series'}); ok(r.response.distribution.assetsByAge.length>3&&r.response.exemplars.earliestFailure!==undefined,'get_run on Monte Carlo: percentile bands by age and exemplars');
 ok(call('get_run',{id:'nope'}).isError,'get_run rejects an unknown id and lists the known ones');
@@ -139,7 +139,7 @@ r=call('get_trial',{id:'stmc:'+st[0].id.slice(3),trial:'typicalSuccess'}); ok(!r
 }
 r=call('get_stress_results',{}); ok(!r.isError&&r.response.stress.length===st.length&&r.response.stressPlusMonteCarlo.length===2,'get_stress_results: stress rows and the stress + Monte Carlo table');
 r=call('import_scenarios',{schema:'planner.scenarios/1',scenarios:[{kind:'lever',label:'via tool',why:'test',levers:[{lever:'living',pctChange:-5}]}]});
-ok(!r.isError&&r.response.accepted.length===1&&r.effects[0].type==='showProposals'&&/nothing in the plan has changed/.test(r.response.note),'import_scenarios stores a proposal and asks the host to show the list');
+ok(!r.isError&&r.response.accepted.length===1&&r.effects[0].type==='showProposals'&&/nothing in the scenario has changed/.test(r.response.note),'import_scenarios stores a proposal and asks the host to show the list');
 ok(call('import_scenarios',{schema:'planner.scenarios/1',scenarios:[{kind:'lever',label:'bad',levers:[{lever:'zzz'}]}]}).isError,'import_scenarios with nothing valid is an error the model can read');
 ok(J("apiReadResource('planner://runs')").runs.length>=7&&J("apiReadResource('planner://analysis/summary')").schema==='planner.analysis/1','resources planner://runs and planner://analysis/summary');
 ok(J("apiResources().map(r=>r.uri)").includes('planner://runs'),'the resources are listed');

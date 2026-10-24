@@ -164,7 +164,7 @@ const stretchTintPlugin={
     if(!opts||opts.fromIdx==null) return;
     const {ctx,chartArea:{left,right,top},scales:{x}}=chart; if(!x) return;
     const n=chart.data.labels.length, step=n>1?(x.getPixelForValue(1)-x.getPixelForValue(0)):0;
-    const xa=Math.max(left,x.getPixelForValue(opts.fromIdx)-step/2), xb=Math.min(right,x.getPixelForValue(n-1)+step/2);
+    const xa=Math.max(left,x.getPixelForValue(opts.fromIdx)-step/2), xb=Math.min(right,x.getPixelForValue(opts.toIdx!=null?Math.min(n-1,opts.toIdx):n-1)+step/2);   // toIdx: the bar covers only the 10 stretch years
     if(xb<=xa) return;
     const y0=top-LTC_BAR_H-3;
     ctx.save();
@@ -181,16 +181,19 @@ if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('stretchTint')) Cha
 // and an "LTC" label above the bar. No legend entry. Nothing is drawn (and no space reserved) unless the LTC assumption is enabled and
 // at least one LTC year falls on the chart. The bar sits in the chart's top layout padding (see ltcTopPad / upsertLineChart).
 const LTC_BAR_H=6, LTC_PAD=22;
+const LTC_C_OLD='#9a9a9a', LTC_C_YOUNG='#8ec5ef', LTC_C_BOTH='#1f3a8a';   // older person (or a single person) grey, younger person light blue, both at once dark blue
 // How many people are on LTC in each year of `labels` (the age axis): 0, 1 or 2.
 function ltcCounts(labels){
   const l=(typeof mcShowingTrial==='function'&&mcShowingTrial()&&mcTrialView.state.ltc)||state.ltc, rows=lastProjection&&lastProjection.rows;   // a loaded Monte Carlo trial has its own care draw
   if(!l||!l.enabled||!rows||!labels) return null;
   const byAge={}; rows.forEach(r=>{ byAge[Math.round(r.age0)]=r; });
-  const out=labels.map(a=>{
-    const r=byAge[a]; if(!r||!r.ages||!r.alive) return 0;
-    let n=0; r.ages.forEach((age,i)=>{ const L=l.people&&l.people[i]; if(L && r.alive[i] && age>=(Number(L.startAge)||0)) n++; });
+  const who=[];
+  const out=labels.map((a,j)=>{
+    const r=byAge[a]; who[j]=[]; if(!r||!r.ages||!r.alive) return 0;
+    let n=0; r.ages.forEach((age,i)=>{ const L=l.people&&l.people[i]; if(L && r.alive[i] && age>=(Number(L.startAge)||0)){ n++; who[j].push(i); } });
     return n;
   });
+  out.who=who; out.youngerIdx=(rows[0].ages.length>1)?((lastProjection.idxP0||0)===0?1:0):null;   // who is on LTC each year, and which person is the younger one
   return out.some(n=>n>0)?out:null;
 }
 function ltcTopPad(chart){ return (ltcCounts(chart.data.labels)||stretchBarOpts(chart))?LTC_PAD:0; }
@@ -206,8 +209,9 @@ const ltcBarPlugin={
     const runs=(min)=>{ const r=[]; let s=-1; for(let i=0;i<=n;i++){ const on=i<n&&counts[i]>=min; if(on&&s<0) s=i; if(!on&&s>=0){ r.push([s,i-1]); s=-1; } } return r; };
     const y0=top-LTC_BAR_H-3;
     ctx.save();
-    const draw=(min,color)=>runs(min).forEach(([a,b])=>{ const [xa,xb]=span(a,b); if(xb>xa){ ctx.fillStyle=color; ctx.fillRect(xa,y0,xb-xa,LTC_BAR_H); } });
-    draw(1,'#9a9a9a'); draw(2,'#000');
+    // Per year: both people = dark blue, only the younger person = light blue, otherwise grey. Consecutive years of one colour are drawn as one block.
+    const cls=counts.map((c,i)=>c>=2?2:(c===1?((counts.youngerIdx!=null&&counts.who[i][0]===counts.youngerIdx)?1:0):-1)), colors=[LTC_C_OLD,LTC_C_YOUNG,LTC_C_BOTH];
+    for(let i=0;i<n;){ if(cls[i]<0){ i++; continue; } let j=i; while(j+1<n&&cls[j+1]===cls[i]) j++; const [xa,xb]=span(i,j); if(xb>xa){ ctx.fillStyle=colors[cls[i]]; ctx.fillRect(xa,y0,xb-xa,LTC_BAR_H); } i=j+1; }
     ctx.font='bold 10px DM Sans,sans-serif'; ctx.fillStyle='#444'; ctx.textBaseline='bottom'; ctx.textAlign='center';
     runs(1).forEach(([a,b])=>{ const [xa,xb]=span(a,b); if(xb>xa) ctx.fillText('LTC',(xa+xb)/2,y0-2); });
     ctx.restore();
@@ -215,7 +219,7 @@ const ltcBarPlugin={
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('ltcBar')) Chart.register(ltcBarPlugin);
 
-// Inheritance arrivals: a small ▲ just below the x-axis line, in the year an inherited asset enters the plan, on every time-based chart (always on; the x ticks reserve room
+// Inheritance arrivals: a small ▲ just below the x-axis line, in the year an inherited asset enters the scenario, on every time-based chart (always on; the x ticks reserve room
 // for it, see ageXAxis). Hover it with the "Chart Element" box checked for what arrives (chartInfo.js ciOverlayAt reads chart._inhArrows).
 // Sources: every inherited brokerage portfolio / property / IRA (items with `inh`) at its start row (inhStartRow); the plan's own copy, or the loaded Monte Carlo trial's
 // (which has the drawn arrival year and scaled balances). Several sources in one year share one ▲.
@@ -285,3 +289,72 @@ const unfundedYearsPlugin={
   }
 };
 if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('unfundedYears')) Chart.register(unfundedYearsPlugin);
+
+
+// X-axis title in two colours: the older person's name black, the younger person's dark blue, then "age" (e.g. "Alice, Bob age"). The axis itself (ageXAxis, chartHelpers.js)
+// reserves the room with a transparent title; this paints the text over it. Not used by the Social Security start-age chart.
+function pillPath(ctx,x,y,w,h){ const r=h/2; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arc(x+w-r,y+r,r,-Math.PI/2,Math.PI/2); ctx.lineTo(x+r,y+h); ctx.arc(x+r,y+r,r,Math.PI/2,Math.PI*1.5); ctx.closePath(); }
+const ageAxisTitlePlugin={
+  id:'ageAxisTitle',
+  afterDraw(chart,args,opts){
+    if(!opts||typeof lastProjection==='undefined'||!lastProjection) return;
+    const x=chart.scales.x, t=x&&x.options&&x.options.title; if(!t||!t.display||t.color!=='rgba(0,0,0,0)') return;   // only axes built by ageXAxis
+    const names=ageAxisNames(lastProjection); if(!names.length) return;
+    const ctx=chart.ctx, size=(t.font&&t.font.size)||11, fam=(Chart.defaults.font&&Chart.defaults.font.family)||'sans-serif';
+    ctx.save(); ctx.font=size+'px '+fam; ctx.textBaseline='middle'; ctx.textAlign='left';
+    const parts=[]; names.forEach((nm,i)=>{ parts.push({s:nm,pill:i>0}); if(i<names.length-1) parts.push({s:', '}); }); parts.push({s:' age'});
+    const PADX=5, wOf=p=>ctx.measureText(p.s).width+(p.pill?2*PADX:0), w=parts.reduce((a,p)=>a+wOf(p),0);
+    let px=(x.left+x.right)/2-w/2; const py=x.bottom-size*1.2/2-4;
+    parts.forEach(p=>{
+      if(p.pill){ pillPath(ctx,px,py-size/2-2,wOf(p),size+4); ctx.fillStyle=AGE_C_YOUNG; ctx.fill(); ctx.fillStyle='#fff'; ctx.fillText(p.s,px+PADX,py); }   // younger name: white on a dark-blue pill
+      else { ctx.fillStyle=AGE_C_OLD; ctx.fillText(p.s,px,py); }
+      px+=wOf(p); });
+    // The younger person's tick labels (hidden by the tick colour): white age on a dark-blue pill, at the position Chart.js gave the label.
+    const items=x._labelItems, ticks=x.ticks, tfont=(x.options.ticks.font&&x.options.ticks.font.size)||10;
+    if(items&&ticks&&items.length===ticks.length){
+      ctx.font=tfont+'px '+fam; ctx.textAlign='center';
+      items.forEach((it,i)=>{ const lab=chart.data.labels[ticks[i].value]; if(ageAxisTick(lastProjection,lab).color!==AGE_C_YOUNG) return;
+        const tr=it.options.translation||it.translation, tx=tr[0], tw=ctx.measureText(it.label).width+8, base=it.options.textBaseline||'middle';
+        const ty=tr[1]+(it.textOffset||0);   // where Chart.js draws this label's text (same baseline), so the pill sits on the line of the other labels
+        const cy=base==='top'?ty+tfont/2:(base==='bottom'?ty-tfont/2:ty);   // centre of the text box for that baseline
+        pillPath(ctx,tx-tw/2,cy-tfont/2-2,tw,tfont+4); ctx.fillStyle=AGE_C_YOUNG; ctx.fill();
+        ctx.fillStyle='#fff'; ctx.textBaseline=base; ctx.fillText(it.label,tx,ty); });
+    }
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('ageAxisTitle')) Chart.register(ageAxisTitlePlugin);
+
+// Passing lines: a thin vertical line, on every time-based chart, in the year each person passes (the older person's black, the younger person's dark blue). The year is the first one the
+// person is no longer alive in (the age on the axis where their passing age is reached). Drawn on top of the data, inside the plot area.
+const passLinesPlugin={
+  id:'passLines',
+  afterDatasetsDraw(chart,args,opts){
+    if(!opts||typeof lastProjection==='undefined'||!lastProjection) return;
+    const x=chart.scales.x, area=chart.chartArea, labels=chart.data.labels; if(!x||!area||!labels||!labels.length) return;
+    const P=passingYears(lastProjection); if(!P.length) return;
+    const ctx=chart.ctx; ctx.save(); ctx.beginPath(); ctx.rect(area.left,area.top,area.right-area.left,area.bottom-area.top); ctx.clip();
+    ctx.lineWidth=1; ctx.setLineDash([]); ctx.globalAlpha=0.75;
+    P.forEach(p=>{ let i=labels.indexOf(p.label); if(i<0&&p.label>labels[labels.length-1]) i=labels.length-1;   // a passing beyond the right end of the axis (a late passing age) still shows, at the edge
+      if(i<0) return; const px=Math.min(area.right-0.5,Math.max(area.left+0.5,Math.round(x.getPixelForValue(i))+0.5)); ctx.strokeStyle=p.color; ctx.beginPath(); ctx.moveTo(px,area.top); ctx.lineTo(px,area.bottom); ctx.stroke(); });
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('passLines')) Chart.register(passLinesPlugin);
+
+// Zero line: a thin solid line at 0% on the Inflation and Market return charts (enabled per chart with options.plugins.zeroLine). A plugin rather than a grid line, because the
+// Y axis has a tick at 0 only when its range happens to land on one. Drawn under the data, over the plot area.
+const zeroLinePlugin={
+  id:'zeroLine',
+  beforeDatasetsDraw(chart,args,opts){
+    if(!opts) return;
+    const y=chart.scales.y, area=chart.chartArea; if(!y||!area) return;
+    const py=y.getPixelForValue(0); if(!(py>=area.top-0.5&&py<=area.bottom+0.5)) return;
+    const ctx=chart.ctx, yy=Math.round(py)+0.5;
+    ctx.save(); ctx.beginPath(); ctx.rect(area.left,area.top-1,area.right-area.left,area.bottom-area.top+2); ctx.clip();
+    ctx.strokeStyle=BRACKET_COLOR; ctx.lineWidth=1; ctx.setLineDash([]); ctx.globalAlpha=0.8;
+    ctx.beginPath(); ctx.moveTo(area.left,yy); ctx.lineTo(area.right,yy); ctx.stroke();
+    ctx.restore();
+  }
+};
+if(typeof Chart!=='undefined' && !Chart.registry.plugins.get('zeroLine')) Chart.register(zeroLinePlugin);

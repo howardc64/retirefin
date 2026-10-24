@@ -22,6 +22,7 @@ function setChartInfo(on){
 
 // ── What each element means ───────────────────────────────────────────────────────────────────────────────────────────
 // Each entry: [test(label), text]. First match wins. Labels are the dataset labels the charts use (several carry a person's name).
+const CI_INFL_EFFECT='It moves fixed-dollar items (a pension with no COLA, un-indexed tax thresholds, cost basis) and nominal-rate growth.';
 const CI_INCOME=[
   [/Social Security/i, 'Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts.'],
   [/^Pension/, 'Pension income. Taxed as ordinary income.'],
@@ -82,10 +83,12 @@ function ciDescribe(key, ds, kidx){
       if(/^Actual Social Security Tax/.test(label)) return 'Actual Social Security Tax (SST): the income tax actually due because of Social Security — the extra tax caused by the taxable part of the benefit (0%, up to 50% or up to 85% of it).';
       return null;
     case 'market':
-      return 'Nominal yearly return of this asset in the years it is in the plan: (1 + the growth rate the projection used) × (1 + that year\'s inflation) − 1, i.e. the rate you enter on its card ("inflation + 4%" shows as 7% at 3% inflation). In the plan it is flat; in a Monte Carlo trial it follows that trial\'s market shocks (equity-like assets share one market, real estate has its own) and its inflation.';
+      return 'Nominal yearly return of this asset in the years it is in the scenario: (1 + the growth rate the projection used) × (1 + that year\'s inflation) − 1, i.e. the rate you enter on its card ("inflation + 4%" shows as 7% at 3% inflation). In the scenario it is flat; in a Monte Carlo trial it follows that trial\'s market shocks (equity-like assets share one market, real estate has its own) and its inflation.';
     case 'inflation':
-      if(/^Plan inflation/.test(label)) return 'The inflation rate the plan assumes every year (the Inflation slider). Prices, tax thresholds that are indexed, and "today\'s $" amounts all follow it.';
-      if(/^Monte Carlo trial/.test(label)) return 'The inflation rate drawn for this Monte Carlo trial: it drifts around the plan\'s rate and tends to stay high or low for a few years in a row. It moves fixed-dollar items (a pension with no COLA, un-indexed tax thresholds, cost basis) and nominal-rate growth.';
+      if(/^Scenario inflation/.test(label)) return 'The inflation rate the scenario assumes every year (the Inflation slider). Prices, tax thresholds that are indexed, and "today\'s $" amounts all follow it.';
+      if(/^Monte Carlo trial/.test(label)) return 'The inflation rate drawn for this Monte Carlo trial: it drifts around the scenario\'s rate and tends to stay high or low for a few years in a row. '+CI_INFL_EFFECT;
+      if(/^Stress test inflation rate/.test(label)) return 'The inflation rate this stress test applies: the stress scenario\'s own yearly inflation in the years it runs, and the scenario\'s rate in every other year. '+CI_INFL_EFFECT;
+      if(/^Stress \+ Monte Carlo trial inflation rate/.test(label)) return 'The inflation rate of this Monte Carlo trial with the stress test laid over it: the stress scenario\'s own yearly inflation in the years it runs, and the trial\'s drawn rate in every other year. '+CI_INFL_EFFECT;
       return null;
     case 'expense':
       return pick(CI_EXP);
@@ -134,6 +137,11 @@ function ciDescribe(key, ds, kidx){
   return null;
 }
 
+// Name of the whole stack on each stacked chart (shown when the pointer is at the top of the stack: ciElementAt).
+const CI_TOTAL_NAME={expense:'Total annual expenses', income:'Total income', incomeMagi:'Total MAGI', incomeOrd:'Total taxable ordinary income', incomeQual:'Total taxable qualified income',
+  tax:'Total income tax', taxOrd:'Total ordinary income tax', taxQual:'Total QDIV / LTCG / NIIT tax', asset:'Total asset value', idgt:'Total IDGT value',
+  ira:'Total out of IRAs', ltcg:'Total realized LTCG', inhIncome:'Total inheritance asset income'};
+
 // ── Which element is under the cursor ─────────────────────────────────────────────────────────────────────────────────
 // Index-mode charts cannot say which band the pointer is on, so it is found from the pointer's height: a dashed/solid line
 // within a few pixels wins; otherwise the stacked band whose top is the first one above the pointer (counting up from the axis).
@@ -142,7 +150,9 @@ function ciSegDist(px,py,a,b){
   let t=L>0?((px-a.x)*dx+(py-a.y)*dy)/L:0; t=Math.max(0,Math.min(1,t));
   return Math.hypot(px-(a.x+t*dx), py-(a.y+t*dy));
 }
-function ciElementAt(chart, e){
+// A pointer slightly ABOVE the top edge of a stack (up to CI_TOP_PX canvas pixels) reports the whole stack's total. Only above: a pointer on or below the edge belongs to the top band, so a thin band at the top of the stack can still be pointed at.
+const CI_TOP_PX=12;
+function ciElementAt(chart, e, key){
   const els=chart.getElementsAtEventForMode(e,'index',{intersect:false},false);
   if(!els||!els.length) return null;
   const idx=els[0].index;
@@ -175,6 +185,18 @@ function ciElementAt(chart, e){
     if(ok(pts[idx],ds,idx)&&lineD>=1e9){ const d=Math.hypot(px-pts[idx].x,py-pts[idx].y); if(d<lineD){ lineD=d; line={di,ds}; } }
   });
   if(line&&lineD<=9) return {...line,idx};
+  if(CI_TOTAL_NAME[key]&&bands.length){
+    const top=bands.reduce((m,b)=>b.y<m.y?b:m,bands[0]);   // the band whose top edge is highest on screen = the top of the stack
+    if(py<top.y-0.5&&py>=top.y-CI_TOP_PX){
+      let total=0, any=false;   // the stack's height at this year = the sum of the filled bands in the top band's stack group (lines such as the cost basis or the foreign tax credit are not part of it)
+      chart.data.datasets.forEach((ds,di)=>{
+        const meta=chart.getDatasetMeta(di);
+        if(!ds.fill||ds.stack!==top.ds.stack||!meta||meta.hidden||(chart.isDatasetVisible&&!chart.isDatasetVisible(di))) return;
+        const v=ds.data[idx]; if(typeof v==='number'&&Number.isFinite(v)){ total+=v; any=true; }
+      });
+      if(any&&total>=0.5) return {stackTotal:total,ds:top.ds,di:top.di,idx};
+    }
+  }
   bands.sort((a,b)=>b.y-a.y||a.di-b.di);   // lowest band on screen first
   for(const b of bands){ if(b.y<=py+0.5) return {di:b.di,ds:b.ds,idx}; }
   return null;
@@ -192,19 +214,20 @@ function ciOverlayAt(key, chart, e, datasetHit){
   if(py>area.bottom && py<=area.bottom+INH_ARROW_GAP+INH_ARROW_H+4 && chart._inhArrows){
     const t=chart._inhArrows.find(t=>Math.abs(px-t.px)<=INH_ARROW_H*0.9);
     if(t) return {name:'Inheritance arrives', color:INH_ARROW_COLOR, value:mrow('Arrives at age '+t.a.age+':',fmt(t.a.value)),
-      text:(t.a.files.length?'From '+t.a.files.join(', ')+'. ':'')+'The asset(s) inherited this year (value in today\'s $, shown here) join the plan from this year on: portfolios earn growth and dividends, a pre-tax IRA starts its 10-year payout clock, a property can be sold. Before this age they are not in the plan.'};
+      text:(t.a.files.length?'From '+t.a.files.join(', ')+'. ':'')+'The asset(s) inherited this year (value in today\'s $, shown here) join the scenario from this year on: portfolios earn growth and dividends, a pre-tax IRA starts its 10-year payout clock, a property can be sold. Before this age they are not in the scenario.'};
   }
   // Long Term Care bar: sits in the padding above the plot area of every time-based chart.
   if(py<area.top && py>=area.top-LTC_PAD){
     const so=stretchBarOpts(chart);
-    if(so && idx>=so.fromIdx) return ciStretchInfo();
+    if(so && idx>=so.fromIdx && (so.toIdx==null||idx<=so.toIdx)) return ciStretchInfo();
   }
   if(py<area.top && py>=area.top-LTC_PAD && typeof ltcCounts==='function'){
     const c=ltcCounts(chart.data.labels);
     if(c&&c[idx]>0){
-      return {name:'Long Term Care period', color:c[idx]>=2?'#000':'#9a9a9a',
-        text:(c[idx]>=2?'Black: both people are on Long Term Care this year. ':'Grey: one person is on Long Term Care this year. ')+
-        'The bar spans every year anyone is on LTC, from the LTC start age set in the LTC panel until that person passes; black marks years when two people overlap. In these years the LTC cost is an expense, living expenses drop to the amount set for after LTC starts, and the LTC cost can be itemized above 7.5% of AGI.'};
+      const who=c.who&&c.who[idx]||[], young=!!c.youngerIdx&&who.length===1&&who[0]===c.youngerIdx;
+      return {name:'Long Term Care period', color:c[idx]>=2?LTC_C_BOTH:(young?LTC_C_YOUNG:LTC_C_OLD),
+        text:(c[idx]>=2?'Dark blue: both people are on Long Term Care this year. ':(young?'Light blue: the younger person is on Long Term Care this year. ':'Grey: the older person (or the only person) is on Long Term Care this year. '))+
+        'The bar spans every year anyone is on LTC, from the LTC start age set in the LTC panel until that person passes; dark blue marks years when two people overlap. In these years the LTC cost is an expense, living expenses drop to the amount set for after LTC starts, and the LTC cost can be itemized above 7.5% of AGI.'};
     }
     return null;
   }
@@ -248,7 +271,7 @@ function ciChartOf(canvas){
   for(const k in charts){ const c=charts[k]; if(c&&c.canvas===canvas) return {key:k,chart:c}; }
   return null;
 }
-// "at age 86 (Peter)": the age of the OLDEST person alive that year, with their name (married plans). When nobody is alive (the IRA stretch years)
+// "at age 86 (Peter)": the age of the OLDEST person alive that year, with their name (married scenarios). When nobody is alive (the IRA stretch years)
 // it reads "3 years since Yen passed", naming whoever was the last to pass. Falls back to the axis age when the year's row is not found.
 function ciRowAt(label){
   const proj=(typeof lastProjection!=='undefined')?lastProjection:null;
@@ -320,12 +343,19 @@ function ciShow(e){
     const rect=hit.chart.canvas.getBoundingClientRect(), area=hit.chart.chartArea;
     const py=(e.clientY-rect.top)*(hit.chart.height/rect.height);
     if(area&&py>=area.top&&py<=area.bottom){
-      const f=ciElementAt(hit.chart,e);
+      const f=ciElementAt(hit.chart,e,hit.key);
+      if(f&&f.stackTotal!=null){
+        const age=' '+ciAgeText(hit.chart.data.labels&&hit.chart.data.labels[f.idx]);
+        info={name:CI_TOTAL_NAME[hit.key], color:null, owner:'',
+          value:mrow('Value'+age+':',fmt(f.stackTotal)+(CI_STOCK_KEYS.includes(hit.key)?'':'/yr')),
+          text:'The top edge of the stack: the sum of every band below it at this age.'};
+      } else {
       const text=f&&ciDescribe(hit.key,f.ds,f.di);
       if(text){
         const color=f.ds.borderColor&&typeof f.ds.borderColor==='string'?f.ds.borderColor:null;
         const name=String(f.ds.ordLabel?(hit.key==='incomeQual'?'Qualified tax bracket line: ':'Ordinary tax bracket line: ')+f.ds.ordLabel:f.ds.label);
         info={name,text,color,value:ciValueLine(hit.key,f,hit.chart),owner:ciOwnerText(f.ds.ciOwnerInfo,hit.chart.data.labels&&hit.chart.data.labels[f.idx])};
+      }
       }
     }
   }

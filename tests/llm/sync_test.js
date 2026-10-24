@@ -53,20 +53,20 @@ function fakePage(c,plan){
     ck('the first result has no planChanged',a.j.planChanged===undefined&&a.j.pageSync===undefined);
     ck('the server asked the page for its plan before the call',pg.syncs>=1);
     const b2=await s.tool('list_runs'); ck('nothing changed → same version, no notice',b2.j.planVersion===a.j.planVersion&&b2.j.planChanged===undefined);
-    const pl0=(await s.tool('get_run',{id:'plan'})).j; const before=pl0.kpis.finalTotal;
+    const pl0=(await s.tool('get_run',{id:'entered'})).j; const before=pl0.kpis.finalTotal;
 
     // an edit the page has NOT sent yet (still inside its debounce): the next tool call must already see it
     pg.edit(o=>{ o.living=(o.living||0)+7777; });
-    const t0=Date.now(); const c1=await s.tool('get_run',{id:'plan'}), dt=Date.now()-t0;
+    const t0=Date.now(); const c1=await s.tool('get_run',{id:'entered'}), dt=Date.now()-t0;
     ck('the call pulled the unsent edit: planChanged is present and the version moved',!!c1.j.planChanged&&c1.j.planVersion!==a.j.planVersion&&c1.j.planChanged.from===a.j.planVersion&&c1.j.planChanged.to===c1.j.planVersion);
     ck('no pageSync problem and no long wait',c1.j.pageSync===undefined&&dt<900);
     const ch=c1.j.planChanged; ck('it lists which input changed, as a path',ch.changedInputs.includes('living'));
     ck('it gives the headline numbers before and after, and they differ',ch.planHeadline.before&&ch.planHeadline.after&&ch.planHeadline.before.finalTotal===before&&ch.planHeadline.after.finalTotal!==before);
     ck('the result itself is computed on the NEW plan (the old one was only borrowed)',c1.j.kpis.finalTotal===ch.planHeadline.after.finalTotal);
     ck('no input values are leaked, only paths',!JSON.stringify(ch.changedInputs).includes(String(JSON.parse(pg.plan).living))&&ch.changedInputs.every(x=>typeof x==='string'));
-    ck('the note tells the LLM the earlier numbers are out of date',/out of date|describe the old plan/.test(ch.note));
-    const c2=await s.tool('get_run',{id:'plan'}); ck('the notice appears once: the next call is clean',c2.j.planChanged===undefined&&c2.j.planVersion===c1.j.planVersion);
-    const rr=((await s.tool('list_runs')).j.runs||[]); ck('(the plan run after the borrow is on the new plan)',rr.find(r=>r.id==='plan').kpis.finalTotal===ch.planHeadline.after.finalTotal);
+    ck('the note tells the LLM the earlier numbers are out of date',/out of date|describe the old scenario/.test(ch.note));
+    const c2=await s.tool('get_run',{id:'entered'}); ck('the notice appears once: the next call is clean',c2.j.planChanged===undefined&&c2.j.planVersion===c1.j.planVersion);
+    const rr=((await s.tool('list_runs')).j.runs||[]); ck('(the plan run after the borrow is on the new plan)',rr.find(r=>r.id==='entered').kpis.finalTotal===ch.planHeadline.after.finalTotal);
 
     // an edit that arrives the normal way (debounced push), then a tool call
     pg.edit(o=>{ o.inflation=(o.inflation||0.025)+0.01; }); pg.push(); await c.waitFor(x=>x.type==='planAck'&&c.messages.indexOf(x)>c.messages.length-3).catch(()=>{}); await sleep(100);
@@ -79,7 +79,7 @@ function fakePage(c,plan){
     const st=await s.tool('list_runs'); ck('the run made before the edit is stale in the same result that carries the notice',!!st.j.planChanged&&(st.j.runs||[]).some(r=>/^lev:/.test(r.id)&&r.stale===true));
 
     // a silent page: the call still works after about a second, and says so
-    pg.silent=true; pg.edit(o=>{ o.living=(o.living||0)+2; }); const t1=Date.now(); const sl=await s.tool('get_run',{id:'plan'}), d1=Date.now()-t1;
+    pg.silent=true; pg.edit(o=>{ o.living=(o.living||0)+2; }); const t1=Date.now(); const sl=await s.tool('get_run',{id:'entered'}), d1=Date.now()-t1;
     ck('a page that does not answer costs about a second',d1>=900&&d1<4000);
     ck('and the result says the plan may be behind',sl.j.pageSync&&sl.j.pageSync.status==='timeout'&&/behind/.test(sl.j.pageSync.note)&&!sl.r.isError);
     pg.silent=false;

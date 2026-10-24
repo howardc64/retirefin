@@ -1,8 +1,8 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / MARKET RETURN CHART — the nominal return (%) every growing asset gets in each year: one line per brokerage / IDGT portfolio, pre-tax IRA, Roth IRA,
-// inherited IRA and property, for the years it is in the plan. Nominal = (1 + growth the engine used) × (1 + that year's inflation) − 1, so it is the figure you enter
-// on each card ("inflation + 4%" shows as 7% at 3% inflation). In the plan the lines are flat; in a Monte Carlo trial they move with the market shock (and real estate with its own),
+// inherited IRA and property, for the years it is in the scenario. Nominal = (1 + growth the engine used) × (1 + that year's inflation) − 1, so it is the figure you enter
+// on each card ("inflation + 4%" shows as 7% at 3% inflation). In the scenario the lines are flat; in a Monte Carlo trial they move with the market shock (and real estate with its own),
 // and with the trial's inflation. Read-only (proj.rates / proj.inflRate, recorded by computeProjection); own Y scale, in no Same-scale group.
 // ═══════════════════════════════════════════════════════════════
 const MARKET_COLORS=['#3B6FA0','#0f6e56','#c8860a','#7a4fb5','#b4506e','#4a9b8e','#8A6D2B','#C26A0E','#5b7f2b','#a0522d'];
@@ -50,11 +50,15 @@ function buildMarketChart(){
   const shown=S.keys.map((k,i)=>i).filter(i=>marketSel<0||i===marketSel);
 
   const labels=ageLabelRange(rows[0].age0,chartMaxAge(proj)), ages=rows.map(r=>r.age0);
-  const datasets=shown.map(i=>({key:S.keys[i], i})).map(({key,i})=>({label:marketAssetLabel(proj,key), data:alignToAges(ages,S.at[key],labels), borderColor:MARKET_COLORS[i%MARKET_COLORS.length], backgroundColor:'transparent', borderWidth:THIN_W,
-    pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.15, fill:false, spanGaps:false, yAxisID:'y'}));
+  // All lines: only each asset's 5-year centred average (thick), so the many yearly lines do not clutter. One asset: its yearly return (thin) and its 5-year average (thick), same colour.
+  const single=marketSel>=0, datasets=[];
+  shown.forEach(i=>{ const key=S.keys[i], col=MARKET_COLORS[i%MARKET_COLORS.length], name=marketAssetLabel(proj,key), base={borderColor:col, backgroundColor:'transparent', pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.15, fill:false, spanGaps:false, yAxisID:'y'};
+    if(single) datasets.push({...base, label:name, data:alignToAges(ages,S.at[key],labels), borderWidth:THIN_W});
+    datasets.push({...base, label:name+' \u2014 5-year average', data:alignToAges(ages,centeredAvg(S.at[key]),labels), borderWidth:AVG_W}); });
   // One scale for the plan and a loaded trial alike (so flipping A / B moves only the lines): the range of both.
   const all=[]; (tv?mcViewProjs(tv):[proj]).forEach(pr=>{ const s=marketSeries(pr); s.keys.forEach(k=>s.at[k].forEach(v=>{ if(v!=null) all.push(v); })); });
-  const lo=Math.min(0,Math.floor(Math.min(...all)/5)*5), hi=Math.max(5,Math.ceil(Math.max(...all)/5)*5);
+  let lo=Math.min(0,Math.floor(Math.min(...all)/5)*5), hi=Math.max(5,Math.ceil(Math.max(...all)/5)*5);
+  if(pctScale.market){ hi=pctScale.market; lo=Math.min(lo,hi-5); }   // Rescale button: Y maximum cycles 10% … 100%
 
   const rowAt=idx=>rows.findIndex(x=>Math.round(x.age0)===labels[idx]);
   const tip={
@@ -62,7 +66,7 @@ function buildMarketChart(){
     label:()=>null,
     afterBody:items=>{
       const k=items[0]?rowAt(items[0].dataIndex):-1; if(k<0) return [];
-      const out=[]; shown.map(i=>S.keys[i]).forEach(key=>{ const v=S.at[key][k]; if(v!=null) out.push(mrow('  '+marketAssetLabel(proj,key), v.toFixed(1)+'%')); });
+      const out=[]; shown.map(i=>S.keys[i]).forEach(key=>{ const v=S.at[key][k], a=centeredAvg(S.at[key])[k]; if(v==null) return; if(marketSel>=0) out.push(mrow('  '+marketAssetLabel(proj,key), v.toFixed(1)+'%')); out.push(mrow('  '+(marketSel>=0?'5-year average':marketAssetLabel(proj,key)+' (5-yr avg)'), a.toFixed(1)+'%')); });
       out.push(''); out.push(mrow('  Inflation that year', (proj.inflRate[k]*100).toFixed(2)+'%'));
       return out;
     }
@@ -72,7 +76,7 @@ function buildMarketChart(){
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
-      plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,mode:'index',intersect:false,callbacks:justifyTip(tip)} },
+      plugins:{ legend:{display:false}, zeroLine:true, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,mode:'index',intersect:false,callbacks:justifyTip(tip)} },
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
         y:{min:lo,max:hi,position:'left',title:axisTitle('Nominal return (% per year)'),ticks:{...yAxisTicks,callback:v=>(Math.round(v*10)/10)+'%'},grid:AXIS_GRID}

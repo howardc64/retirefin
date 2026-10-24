@@ -53,12 +53,12 @@ const init=s=>s.rpc('initialize',{protocolVersion:'2025-06-18',capabilities:{},c
     ck('the bundle starts with no plan file and the bridge on (no usage error)',n1.includes('bridge_status')&&n1.includes('list_runs'));
     const st=await s.tool('bridge_status'); ck('it reports a random pairing code and a port',st.j.bridge.listening&&/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(st.j.bridge.pairingCode)&&st.j.bridge.port>0);
     ck('the tool list matches the manifest\'s tools list',JSON.stringify(n1.slice().sort())===JSON.stringify(man.tools.map(t=>t.name).sort()));
-    const none=await s.tool('list_runs'); ck('with no plan the tools say so',none.r.isError&&/No plan is loaded/.test(none.j.error));
+    const none=await s.tool('list_runs'); ck('with no plan the tools say so',none.r.isError&&/No scenario is loaded/.test(none.j.error));
     await s.stop();
     // 2. a plan file chosen in the form, bridge off, names off ("false" is not a flag)
     s=start(dir,{PLANNER_PLAN:plan,PLANNER_NAMES:'false',PLANNER_BRIDGE:'false'}); await init(s); const n2=await s.names();
     ck('bridge "false" → no bridge tool and no port',!n2.includes('bridge_status')&&!/listening/.test(s.err));
-    const lr=await s.tool('list_runs'); ck('the chosen plan file (a path with a space) is used',!lr.r.isError&&(lr.j.runs||lr.j).some(x=>x.id==='plan'));
+    const lr=await s.tool('list_runs'); ck('the chosen plan file (a path with a space) is used',!lr.r.isError&&(lr.j.runs||lr.j).some(x=>x.id==='entered'));
     const labelSeen=async()=>{ await s.tool('run_scenarios',{scenarios:[{id:'a',label:'Robert waits',levers:[{lever:'ssClaimAge',person:1,age:70}]}]}); return JSON.stringify((await s.tool('list_runs')).j); };
     const off=await labelSeen(); ck('names are hidden when "show names" is off',!/Robert/.test(off)&&/Person 1 waits/.test(off));
     await s.stop();

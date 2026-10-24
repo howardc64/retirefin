@@ -20,7 +20,7 @@ run(`state=hydrateState(__plan); Object.assign(state,{guardrail:Object.assign(st
 // MC_TRIAL=fail | ok  →  export a Monte Carlo trial (the first failed / first successful one of a stressed 120-trial run) instead of the plan
 if(process.env.MC_TRIAL){
   run(`(()=>{ const cfg=JSON.parse(JSON.stringify(MC_DEFAULTS)); cfg.ltc.prob=0.9; cfg.returns.volEquity=24; const res=[]; for(let t=0;t<120;t++) res.push(mcRunTrial(cfg,t));
-    mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcPlanKey(); })()`);
+    mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcScenarioKey(); })()`);
   run(process.env.MC_TRIAL==='ok'?`mcLoadTrial(mcOkTrials()[0])`:`mcLoadTrial(mcResults.R.list[0].trial)`);
   console.log('trial view',run('mcTrialView.view'),'trial #',run('mcTrialView.trial+1'));
 }

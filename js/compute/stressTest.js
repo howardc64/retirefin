@@ -4,7 +4,7 @@
 // No DOM. Loaded after monteCarlo.js (uses withTempState, mcMeasure, MC_HOOK / MC_INFL / REC_RATES from projection.js).
 //
 // A scenario is a fixed vector of nominal equity returns (and optionally a fixed vector of yearly inflation) that is forced onto the
-// plan starting on a chosen year — by default the first year with no wage income ("Day 1 of retirement") — instead of the plan's
+// scenario starting on a chosen year — by default the first year with no wage income ("Day 1 of retirement") — instead of the plan's
 // constant growth rates. Everything else (the plan's own passing ages, Social Security, LTC, taxes) is exactly as entered, so the
 // result isolates market / inflation risk. It reuses the Monte Carlo hooks, so with the stress off a run equals computeProjection().
 //
@@ -28,7 +28,7 @@ const ST_HIST={
 };
 
 const ST_DEFAULTS={
-  start:{mode:'retire', years:0},                                   // 'retire' = first year without wages (0 if the plan has none), 'now' = this year, 'custom' = `years` from now
+  start:{mode:'retire', years:0},                                   // 'retire' = first year without wages (0 if the scenario has none), 'now' = this year, 'custom' = `years` from now
   equityShare:100,                                                   // % of each non-property asset that earns the scenario's equity return
   lost:{enabled:true, actualInflation:false},                        // 2000–2009 actual returns; inflation stays the plan's unless actualInflation
   stag:{enabled:true, years:10, eqReturn:0, inflStart:6, inflEnd:11},// synthetic: flat nominal equities, inflation ramping inflStart → inflEnd (linear over `years`)
@@ -44,7 +44,7 @@ function stScenarios(cfg){
   if(cfg.lost.enabled){
     const H=ST_HIST.lost;
     out.push({id:'lost', label:'Lost Decade ('+H.from+'–'+(H.from+H.eq.length-1)+')', eq:pct(H.eq), infl:cfg.lost.actualInflation?pct(H.cpi):null,
-      note:'Actual S&P 500 total returns, '+(cfg.lost.actualInflation?'actual CPI':'the plan\'s own inflation')+'. Compounded nominal return of the decade: '+((H.eq.reduce((a,v)=>a*(1+v/100),1)-1)*100).toFixed(0)+'%.'});
+      note:'Actual S&P 500 total returns, '+(cfg.lost.actualInflation?'actual CPI':'the scenario\'s own inflation')+'. Compounded nominal return of the decade: '+((H.eq.reduce((a,v)=>a*(1+v/100),1)-1)*100).toFixed(0)+'%.'});
   }
   if(cfg.stag.enabled){
     const S=cfg.stag, n=Math.max(1,Math.round(S.years)), eq=[], infl=[];
@@ -63,14 +63,14 @@ function stScenarios(cfg){
 }
 // A market path in the stress card's scenario shape: {id,label,note,eq,infl} plus `path` (placed by its own `from`, with its own share and tail).
 function stPathScenario(p){ const d=msDescribe(p); return {id:p.id, label:p.label, eq:p.returns.slice(), infl:p.inflation?p.inflation.slice():null, path:p,
-  note:(p.note?p.note+' ':'')+d.years+' yearly values from '+d.startsAt+'; stocks '+d.compoundedReturnPct+'% compounded'+(d.inflation&&d.inflation.peakPct!=null?', inflation peaks at '+d.inflation.peakPct+'%':', plan\'s inflation')+'.'}; }
+  note:(p.note?p.note+' ':'')+d.years+' yearly values from '+d.startsAt+'; stocks '+d.compoundedReturnPct+'% compounded'+(d.inflation&&d.inflation.peakPct!=null?', inflation peaks at '+d.inflation.peakPct+'%':', scenario\'s inflation')+'.'}; }
 // Where a scenario starts (row) and the share of each asset it hits: a path carries its own, the built-in scenarios use the card's.
 function stPlace(sc, start, cfg, baseProj){
   if(sc.path) return {start:msStartRow(sc.path,{retireRow:stRetireRow(baseProj||stRun(null,0,cfg))}), share:(Number(sc.path.equityShare)||0)/100};
   return {start, share:Math.max(0,Math.min(1,(Number(cfg.equityShare)||0)/100))};
 }
 
-// First row in which the household has stopped earning wages ("Day 1 of retirement"); 0 if the plan has no wages at all.
+// First row in which the household has stopped earning wages ("Day 1 of retirement"); 0 if the scenario has no wages at all.
 function stRetireRow(proj){
   let last=-1; proj.rows.forEach((r,k)=>{ if((r.wageTotal||0)>0.5) last=k; });
   return last+1;
@@ -94,14 +94,14 @@ function stHook(scen, start, mean, infl, share){
   const L=scen.eq.length;
   return (g,key,k,ch)=>{
     const pi=infl.pi[k], nominalFixed=!!ch&&(ch.mode==='fixed'||ch.mode==='custom');
-    const planNom=nominalFixed?(1+g)*(1+mean)-1:(1+g)*(1+pi)-1;      // nominal rate the plan means: fixed / custom are nominal, inflation ± x follows the year's inflation
-    const j=k-start; let nom=planNom;
-    if(j>=0&&j<L&&!ST_NO_SHOCK(key)) nom=share*scen.eq[j]+(1-share)*planNom;
+    const scenarioNom=nominalFixed?(1+g)*(1+mean)-1:(1+g)*(1+pi)-1;      // nominal rate the scenario means: fixed / custom are nominal, inflation ± x follows the year's inflation
+    const j=k-start; let nom=scenarioNom;
+    if(j>=0&&j<L&&!ST_NO_SHOCK(key)) nom=share*scen.eq[j]+(1-share)*scenarioNom;
     return (1+nom)/(1+pi)-1;
   };
 }
 
-// Run the plan under one scenario (or, with scen=null, as entered). Returns the engine's projection plus a short summary.
+// Run the scenario under one scenario (or, with scen=null, as entered). Returns the engine's projection plus a short summary.
 // `record` (a replay shown in the charts) also records each asset's yearly rate for the Market return chart; batch runs skip it.
 function stRun(scen, start, cfg, record){
   return withTempState(()=>{}, ()=>{
@@ -115,7 +115,7 @@ function stRun(scen, start, cfg, record){
   });
 }
 
-// One scenario in full, for the chart grid (the card's D button): {proj, state (a private copy of the plan), cap-like fields, measure, scen, start}.
+// One scenario in full, for the chart grid (the card's D button): {proj, state (a private copy of the scenario), cap-like fields, measure, scen, start}.
 function stReplay(cfg, id, extra){
   const baseProj=stRun(null,0,cfg), scen=stScenarios(cfg).concat(extra||[]).find(s=>s.id===id);
   if(!scen) return null;
@@ -124,14 +124,14 @@ function stReplay(cfg, id, extra){
   return {proj, state:JSON.parse(JSON.stringify(state)), infl:(scen.infl||scen.path)?stInflation(scen,start,state.inflation,80):null, meanInfl:state.inflation, scen, start, measure, info:{pass:[0,0],ltcYears:[0,0],inh:{n:0,shift:null,orig:0,now:0}}};
 }
 
-// All scenarios against the plan as entered. Returns {start, startAge, base, results:[{id,label,note,m,...}]}.
+// All scenarios against the scenario as entered. Returns {start, startAge, base, results:[{id,label,note,m,...}]}.
 function stRunAll(cfg){
   const baseProj=stRun(null,0,cfg), start=stStartRow(cfg,baseProj), base=mcMeasure(baseProj,{pass:[0,0],ltcYears:[0,0]});
   const results=stScenarios(cfg).map(sc0=>{
     const sc=sc0, pl=stPlace(sc,start,cfg,baseProj), st=pl.start;
     const proj=stRun(sc,st,cfg), m=mcMeasure(proj,{pass:[0,0],ltcYears:[0,0]});
     const end=Math.min(st+sc.eq.length-1, m.n-1, base.n-1);                      // last row of the shock
-    const atEnd=st<=end?m.fin[end]:null, planAtEnd=st<=end?base.fin[end]:null;
+    const atEnd=st<=end?m.fin[end]:null, scenarioAtEnd=st<=end?base.fin[end]:null;
     let low=Infinity, lowK=-1; for(let k=Math.min(st,m.n-1);k<m.n;k++) if(m.fin[k]<low){ low=m.fin[k]; lowK=k; }
     let gapYears=0; proj.rows.forEach(r=>{ if(r.expUnfunded>1) gapYears++; });
     // Spending guardrails (state.guardrail on): when the first cut fires and at what portfolio value, how deep the cuts go, and what the same scenario does with no guardrail.
@@ -142,15 +142,15 @@ function stRunAll(cfg){
              tripwire:(()=>{ const r=proj.rows[g.firstCutK>=0?g.firstCutK:Math.min(st,proj.rows.length-1)]; return r&&r.guard?r.guard.tripwire:null; })(),
              off:{failAge:off.failAge, shortfall:off.shortfall, estate:off.estateFin+off.estateRe}};
     }
-    return {id:sc.id, label:sc.label, note:sc.note, years:sc.eq.length, start:st, share:pl.share*100, custom:!!sc.path, m, atEnd, planAtEnd, low:isFinite(low)?low:null, lowAge:lowK>=0?m.age0+lowK:null, gapYears,
+    return {id:sc.id, label:sc.label, note:sc.note, years:sc.eq.length, start:st, share:pl.share*100, custom:!!sc.path, m, atEnd, scenarioAtEnd, low:isFinite(low)?low:null, lowAge:lowK>=0?m.age0+lowK:null, gapYears,
             estate:m.estateFin+m.estateRe, covered:st<m.n, guard};
   });
   return {start, startAge:baseProj.rows[0].age0+start, startCovered:start<baseProj.rows.length, base, baseEstate:base.estateFin+base.estateRe, results, med:stMedRun(cfg)};
 }
 
 // ── late-life medical shock: liquidity and tax drag ──────────────
-// The plan with and without an extra itemized medical cost (cfg.med: cost a year for `years` years from `age` of person `person`; state.medShock of the plan itself is ignored here:
-// the "without" run switches it off, the "with" run uses the card's numbers). Same plan, same returns; only the shock differs, so every difference below is the shock's.
+// The scenario with and without an extra itemized medical cost (cfg.med: cost a year for `years` years from `age` of person `person`; state.medShock of the scenario itself is ignored here:
+// the "without" run switches it off, the "with" run uses the card's numbers). Same scenario, same returns; only the shock differs, so every difference below is the shock's.
 // Reports what the shock forces: which accounts pay it, how much capital gain it realises, the extra tax in and after the shock years, the itemized deduction it creates, and the IRMAA
 // that follows two years later; with cfg.med.orders also the same comparison under four withdrawal orders (which one pays the least tax).
 function stMedKeys(){
@@ -194,7 +194,7 @@ function stMedRun(cfg){
   const out={covered:true, sum, orders:null};
   if(M.orders){
     const K=stMedKeys(), cur=state.withdrawOrder&&state.withdrawOrder.enabled?(state.withdrawOrder.steps||[]).map(x=>x.asset):null;
-    const defs=[ {id:'plan', label:cur?'Your withdrawal order':'Built-in: taxable → IRA → Roth', keys:cur||K.pf.concat(K.ira,K.roth)},
+    const defs=[ {id:'entered', label:cur?'Your withdrawal order':'Built-in: taxable → IRA → Roth', keys:cur||K.pf.concat(K.ira,K.roth)},
                  {id:'iraFirst', label:'IRA first: IRA → taxable → Roth', keys:K.ira.concat(K.pf,K.roth)},
                  {id:'rothFirst', label:'Roth first: Roth → taxable → IRA', keys:K.roth.concat(K.pf,K.ira)},
                  {id:'rothLast', label:'Taxable → Roth → IRA', keys:K.pf.concat(K.roth,K.ira)} ];

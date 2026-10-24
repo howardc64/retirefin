@@ -472,7 +472,7 @@ input[type=number]{text-align:right;font-variant-numeric:tabular-nums;}
 .mc-f select{font-size:13px;padding:5px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface2);color:var(--text);font-family:inherit;max-width:260px}
 .st-tbl td,.st-tbl th{vertical-align:top;padding-right:16px}.st-tbl small{color:var(--text-faint)}
 .st-tbl .st-note{font-size:11px;color:var(--text-faint);margin-top:2px;max-width:360px;line-height:1.4}
-.st-tbl tr.st-plan td{color:var(--text-faint)}.st-ok{color:var(--teal);font-weight:600}.st-bad{color:var(--red);font-weight:600}
+.st-tbl tr.st-scenario td{color:var(--text-faint)}.st-ok{color:var(--teal);font-weight:600}.st-bad{color:var(--red);font-weight:600}
 
 .chart-grid.trial-view-d .chart-panel{outline:2px solid rgba(124,58,237,.45);outline-offset:-1px}
 .chart-grid.trial-view-e .chart-panel{outline:2px solid rgba(14,116,144,.5);outline-offset:-1px}

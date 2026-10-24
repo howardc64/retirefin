@@ -64,7 +64,7 @@ function anthropicHandler(body){
   // load a sample plan, set a key
   const plan=fs.readFileSync(path.join(APP,'Samples/Couple_Heir.json'),'utf8');
   await page.evaluate(t=>{ applyLoadedFileText(t); },plan);
-  const keyBefore=await page.evaluate(()=>specPlanKey()), stateBefore=await page.evaluate(()=>JSON.stringify(state));
+  const keyBefore=await page.evaluate(()=>specScenarioKey()), stateBefore=await page.evaluate(()=>JSON.stringify(state));
 
   console.log('\n== Gemini: run_scenarios');
   ok(await page.evaluate(()=>chatLoadPrefs().provider)==='gemini','Gemini is the default provider');
@@ -86,7 +86,7 @@ function anthropicHandler(body){
   ok(/your plan/i.test(cards.kpi)&&/assets at the end/i.test(cards.kpi)&&/lifetime federal/i.test(cards.kpi),'KPI table lists your plan and the headline numbers');
   ok(/Ignored: .*already claims at 70/.test(cards.changes),'changes list shows "Ignored: already claims at 70"');
   ok(/Hypothetical/.test(cards.note),'hypothetical label present');
-  ok(await page.evaluate(()=>specPlanKey())===keyBefore&&await page.evaluate(()=>JSON.stringify(state))===stateBefore,'live plan identical after tool runs');
+  ok(await page.evaluate(()=>specScenarioKey())===keyBefore&&await page.evaluate(()=>JSON.stringify(state))===stateBefore,'live plan identical after tool runs');
   const bubbleTexts=await page.evaluate(()=>[...document.querySelectorAll('.chat-assistant')].map(e=>e.innerText));
   ok(bubbleTexts.some(t=>/Let me run that/.test(t))&&bubbleTexts.some(t=>/already claims at 70/.test(t)),'assistant text streamed before and after the tool call');
   ok(await page.evaluate(()=>document.querySelectorAll('.chat-tool').length)===1,'tool note shown in the transcript');

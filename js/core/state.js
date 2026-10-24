@@ -38,10 +38,10 @@ function planSlotAsk(slot, info){
   return new Promise(res=>{
     const ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit';
-    const lbl=planSlotLabel(slot), detail=[info&&info.names?('plan for '+info.names):'', info&&info.when?('last used '+info.when):''].filter(Boolean).join(', ');
+    const lbl=planSlotLabel(slot), detail=[info&&info.names?('scenario for '+info.names):'', info&&info.when?('last used '+info.when):''].filter(Boolean).join(', ');
     ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;color:#222;max-width:440px;width:calc(100% - 40px);border-radius:12px;padding:22px 24px;box-shadow:0 10px 40px rgba(0,0,0,.3)">'+
       '<div style="font-size:17px;font-weight:600;margin-bottom:8px">Restore previous '+lbl+' session?</div>'+
-      '<div style="font-size:13px;line-height:1.5;margin-bottom:16px">This is the '+lbl+' open in this browser. A session saved by an earlier '+lbl+' is still stored'+(detail?' ('+detail+')':'')+'. Start fresh opens the default plan; the stored session is then discarded.</div>'+
+      '<div style="font-size:13px;line-height:1.5;margin-bottom:16px">This is the '+lbl+' open in this browser. A session saved by an earlier '+lbl+' is still stored'+(detail?' ('+detail+')':'')+'. Start fresh opens the default scenario; the stored session is then discarded.</div>'+
       '<div style="display:flex;gap:10px;justify-content:flex-end"><button type="button" class="btn" id="planRestoreBtn">Restore previous session</button><button type="button" class="btn btn-primary" id="planFreshBtn">Start fresh</button></div></div>';
     document.body.appendChild(ov);
     const done=v=>{ ov.remove(); document.removeEventListener('keydown',key); res(v); };

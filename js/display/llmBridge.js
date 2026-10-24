@@ -25,7 +25,7 @@ function lbSay(msg,err){ lbMsg=msg; lbMsgErr=!!err; if(typeof renderLlmCard==='f
 const LB_EFFECTS={
   showMarketPath:{
     label:'Show a market scenario in the main charts',
-    what(e){ const p=e&&e.path||{}; return '“'+lbClean(p.label,60)+'” ('+((p.returns&&p.returns.length)||0)+' yearly values) replayed in all the charts like the B view. Your plan is not changed; Back to plan returns.'; },
+    what(e){ const p=e&&e.path||{}; return '“'+lbClean(p.label,60)+'” ('+((p.returns&&p.returns.length)||0)+' yearly values) replayed in all the charts like the B view. Your scenario is not changed; Back to scenario returns.'; },
     apply(e){
       if(typeof msValidate!=='function'||typeof mcLoadMarketPath!=='function') return {status:'error',note:'this page cannot show market paths'};
       const v=msValidate(e&&e.path,{source:'mcp'}); if(v.errors.length) return {status:'error',note:'not a valid market path: '+v.errors[0]};
@@ -35,16 +35,16 @@ const LB_EFFECTS={
       if(!mcLoadMarketPath(path.id)) return {status:'error',note:'the page could not show it (is a Monte Carlo run in progress?)'};
       return {status:'applied',note:'showing "'+path.label+'"'};
     }},
-  showPlan:{
-    label:'Show a plan in the main charts',
-    what(e){ return 'the plan “'+lbClean(e&&e.ref,60)+'” replayed in all the charts like the B view. Your plan is not changed; Back to plan returns.'; },
+  showScenario:{
+    label:'Show a scenario in the main charts',
+    what(e){ return 'the scenario “'+lbClean(e&&e.ref,60)+'” replayed in all the charts like the B view. Your scenario is not changed; Back to scenario returns.'; },
     apply(e){
-      if(typeof plShow!=='function') return {status:'error',note:'this page cannot show plans'};
-      const r=plShow(String(e&&e.ref||'')); return r.ok?{status:'applied',note:'showing "'+lbClean(r.label,60)+'"'}:{status:'error',note:r.why};
+      if(typeof scShow!=='function') return {status:'error',note:'this page cannot show scenarios'};
+      const r=scShow(String(e&&e.ref||'')); return r.ok?{status:'applied',note:'showing "'+lbClean(r.label,60)+'"'}:{status:'error',note:r.why};
     }},
   showProposals:{
     label:'Add scenarios to the 🤖 LLM proposals list',
-    what(e){ const l=(e&&e.spec&&Array.isArray(e.spec.scenarios))?e.spec.scenarios:[]; return l.length+' scenario'+(l.length===1?'':'s')+' ('+l.slice(0,4).map(s=>'“'+lbClean(s&&s.label,40)+'”').join(', ')+(l.length>4?', …':'')+') to review. Nothing is added to your plan; you choose what to do with each.'; },
+    what(e){ const l=(e&&e.spec&&Array.isArray(e.spec.scenarios))?e.spec.scenarios:[]; return l.length+' scenario'+(l.length===1?'':'s')+' ('+l.slice(0,4).map(s=>'“'+lbClean(s&&s.label,40)+'”').join(', ')+(l.length>4?', …':'')+') to review. Nothing is added to your scenario; you choose what to do with each.'; },
     apply(e){
       if(typeof rrImport!=='function') return {status:'error',note:'this page cannot import scenarios'};
       const r=rrImport(e&&e.spec,{source:'mcp'}); if(r.error) return {status:'error',note:r.error};
@@ -161,16 +161,16 @@ function lbEffectHtml(req){
     '<button class="btn" onclick="lbDeny(\''+lbEsc(req.id)+'\')">Deny</button></div></div>';
 }
 function lbTabHtml(){
-  let h=(lbMsg?'<div class="'+(lbMsgErr?'llm-err':'llm-ok')+'">'+lbEsc(lbMsg)+'</div>':'')+'<div class="llm-note">Lets an MCP host (Claude Desktop, a script) that runs <code>node server/mcp.js --bridge</code> <b>on this computer</b> work on the plan exactly as it is on screen, and ask this page to show things. '+
+  let h=(lbMsg?'<div class="'+(lbMsgErr?'llm-err':'llm-ok')+'">'+lbEsc(lbMsg)+'</div>':'')+'<div class="llm-note">Lets an MCP host (Claude Desktop, a script) that runs <code>node server/mcp.js --bridge</code> <b>on this computer</b> work on the scenario exactly as it is on screen, and ask this page to show things. '+
     'Off until you connect. The link stays on this computer (127.0.0.1) and needs the pairing code the server prints. <b>What is sent:</b> your whole plan, the same content as Save (names and birth years included; the server hides names from the LLM unless it was started with <code>--names</code>), again after each edit while connected. '+
-    'The server cannot change your plan. It can only ask for the on-screen effects listed here, and each kind asks you first.</div>';
+    'The server cannot change your scenario. It can only ask for the on-screen effects listed here, and each kind asks you first.</div>';
   if(lbStatus==='off'||lbStatus==='denied'||lbStatus==='connecting'){
     h+='<div class="llm-opts"><label>Port <input type="text" inputmode="numeric" size="6" value="'+lbEsc(lbForm.port)+'" oninput="lbSetField(\'port\',this.value)" autocomplete="off"></label>'+
       '<label>Pairing code <input type="password" size="18" value="'+lbEsc(lbForm.token)+'" oninput="lbSetField(\'token\',this.value)" onkeydown="if(event.key===\'Enter\')lbConnect()" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX"></label></div>'+
       '<div class="llm-acts"><button class="btn btn-primary" onclick="lbConnect()"'+(lbStatus==='connecting'?' disabled':'')+'>'+(lbStatus==='connecting'?'Connecting…':'Connect')+'</button></div>';
   } else {
     h+='<div class="llm-ok">Connected'+(lbSession?' <span class="llm-badge">'+lbEsc(lbSession)+'</span>':'')+'. '+
-      (lbSync.ok===true?'The server has your plan (version '+lbEsc(lbSync.key||'?')+', '+new Date(lbSync.at).toLocaleTimeString()+').':(lbSync.ok===false?'<span class="llm-err">The server could not read the plan: '+lbEsc(lbSync.error)+'</span>':'Sending the plan…'))+'</div>'+
+      (lbSync.ok===true?'The server has your scenario (version '+lbEsc(lbSync.key||'?')+', '+new Date(lbSync.at).toLocaleTimeString()+').':(lbSync.ok===false?'<span class="llm-err">The server could not read the scenario: '+lbEsc(lbSync.error)+'</span>':'Sending the plan…'))+'</div>'+
       '<div class="llm-acts"><button class="btn" onclick="lbDisconnect()">Disconnect</button><button class="btn" onclick="lbSendPlan(true)" title="Send the plan again now">Send plan now</button></div>';
     const kinds=Object.keys(LB_EFFECTS);
     h+='<div class="llm-note"><b>Effects it may ask for:</b></div><div class="llm-runs">'+kinds.map(k=>'<div class="llm-run"><span><b>'+lbEsc(LB_EFFECTS[k].label)+'</b> '+

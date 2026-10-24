@@ -28,7 +28,7 @@ function build(outFile){
   const manifest=JSON.parse(fs.readFileSync(path.join(ROOT,'mcpb','manifest.json'),'utf8'));
   // tools: straight from the registry (plus the bridge tool, which exists when the bridge is on)
   const E=makeEngine({}); const tools=JSON.parse(E.run('JSON.stringify(apiList("mcp","mcp"))')).map(t=>({name:t.name,description:String(t.description||'').split(/(?<=\.)\s/)[0].slice(0,200)}));
-  tools.push({name:'bridge_status',description:'Whether the planner page is connected through the live bridge, which plan is in use, and how to connect.'});
+  tools.push({name:'bridge_status',description:'Whether the planner page is connected through the live bridge, which scenario is in use, and how to connect.'});
   manifest.tools=tools;
   const files=[['manifest.json',Buffer.from(JSON.stringify(manifest,null,2)+'\n')],['icon.png',fs.readFileSync(path.join(ROOT,'mcpb','icon.png'))],['LICENSE',fs.readFileSync(path.join(ROOT,'LICENSE'))]];
   ['mcp.js','engine.js','bridge.js'].forEach(f=>files.push(['server/'+f,fs.readFileSync(path.join(ROOT,'server',f))]));

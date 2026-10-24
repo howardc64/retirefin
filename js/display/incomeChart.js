@@ -200,7 +200,7 @@ function buildIncomeChart(){
     borderColor:INC_COLORS[k], backgroundColor:INC_COLORS[k]+'bb',
     borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'magi'
   }));
-  // Popup shows the plan owner(s) and age, then only the MAGI value and the IRMAA surcharge for the tier that MAGI reaches (nothing else, regardless
+  // Popup shows the scenario owner(s) and age, then only the MAGI value and the IRMAA surcharge for the tier that MAGI reaches (nothing else, regardless
   // of Popup Details); every other value is in the primary chart's popup.
   const magiTip={
     title:tooltipCallbacks.title,   // owners + ages, as on the primary

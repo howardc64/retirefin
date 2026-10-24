@@ -6,7 +6,7 @@
 // browser (no backend), and streams the answer back. Providers: Anthropic Claude, Google Gemini (free tier available), or any OpenAI-compatible server (OpenAI, OpenRouter, a local Ollama / LM Studio / llama.cpp server: base URL + key + model).
 //
 // Scenario tools (display/chatTools.js, display/chatCharts.js, compute/scenarioSpec.js): the model can call run_scenarios / sweep / show_chart /
-// get_rows. Each call is run by the app's own projection engine on a private copy of the plan and drawn as chart cards under the reply; the model
+// get_rows. Each call is run by the app's own projection engine on a private copy of the scenario and drawn as chart cards under the reply; the model
 // never computes or draws a number. Gemini function calling is the first-class path (free tier); Anthropic tool use is wired the same way.
 //
 // Read-only with respect to the plan: it never writes `state` (a scenario reaches the plan only when the user clicks a button on a card), and adds nothing to the saved plan file. The API key
@@ -33,7 +33,7 @@ const CHAT_PROVIDERS = {
     defaultModel:'gemini-3-flash-preview',
     models:[{id:'gemini-3-flash-preview',label:'Gemini 3 Flash (preview)'},{id:'gemini-3.1-flash-lite',label:'Gemini 3.1 Flash-Lite (lightest)'},{id:'gemini-3.8-flash',label:'Gemini 3.8 Flash'},{id:'gemini-2.5-flash',label:'Gemini 2.5 Flash'}],
     sentTo:'Google’s Gemini API',
-    privacy:'On Google’s free tier, prompts and replies may be used to improve Google’s products; paid-tier usage is not. Treat free-tier use as sharing this plan data with Google.'
+    privacy:'On Google’s free tier, prompts and replies may be used to improve Google’s products; paid-tier usage is not. Treat free-tier use as sharing this scenario data with Google.'
   },
   anthropic:{
     label:'Anthropic Claude (paid API key)',
@@ -98,7 +98,7 @@ function chatSetKey(prov, key, remember){
   try{ (remember?localStorage:sessionStorage).setItem(k, key); }catch(e){}
 }
 
-// ── Snapshot of the plan + results, as text for the model ──
+// ── Snapshot of the scenario + results, as text for the model ──
 const chatRound = v => Math.round(Number(v)||0);
 const chatSum = a => (Array.isArray(a)?a:[]).reduce((t,v)=>t+(Number(v)||0),0);
 function chatStrip(o){ return JSON.parse(JSON.stringify(o,(k,v)=>(k==='hidden'||k==='id')?undefined:v)); }
@@ -178,24 +178,24 @@ function buildChatSnapshot(includeNames){
 
 function buildChatSystemPrompt(includeNames){
   return [
-`You are an assistant built into a retirement income planner web app. The user is looking at the app's charts and wants to discuss their own plan. Below is a snapshot of their current inputs and of the app's computed projection.`,
+`You are an assistant built into a retirement income planner web app. The user is looking at the app's charts and wants to discuss their own scenario. Below is a snapshot of their current inputs and of the app's computed projection.`,
 ``,
 `How to answer:`,
 `- Ground every answer in the snapshot. Quote specific years, ages and dollar amounts from it. If something is not in the snapshot, say so instead of guessing.`,
 `- Explain and interpret the app's results (what drives a tax spike, when expenses go unfunded, how balances evolve); do not silently recompute taxes from scratch. If you do a back-of-envelope calculation, label it as such.`,
-`- You never change the user's plan. A "what if" is answered by running the scenario tools (below) on a copy of the plan; the app shows the results as charts in the chat.`,
+`- You never change the user's scenario. A "what if" is answered by running the scenario tools (below) on a copy of the scenario; the app shows the results as charts in the chat.`,
 `- Be concise and plain-spoken. Short paragraphs or a short list; a small table only when comparing years. No long preambles.`,
 `- You are not a financial, tax or legal advisor. Mention that briefly only when the user asks for a recommendation or a decision, and lay out the trade-offs rather than a confident directive.`,
 ``,
 `Model facts worth knowing: everything is in today's dollars; filing status switches to single the year after a spouse passes; income sources marked to continue to the spouse do so after a passing; household expenses (living costs, IRMAA, AUM fee, income tax) are paid from income first, then dividends of portfolios flagged "Pay expenses", then asset sales (which realize capital gains); Roth conversions and RMDs come from the pre-tax IRA; the projection ends at each person's planned passing age.`+(includeNames?'':` People are labeled Person 1 / Person 2 (names are withheld).`),
 ``,
-`Scenario tools (run_scenarios, sweep, show_chart, get_rows, define_market_scenario, list_market_scenarios, run_market_scenarios, show_market_scenario_in_charts, list_plans, get_plan, compare_plans, show_plan, delete_plan, list_runs, get_run, compare_runs, get_mc_summary, get_trial, get_stress_results, import_scenarios):`,
-`- For any what-if, comparison or "which age is best" question, call a tool instead of describing what to change. The app runs your levers through the planner's own projection engine on a copy of the plan and draws the charts; the user's saved plan is never changed.`,
-`- Quote only numbers that are in the plan snapshot or in tool results. Never compute projections yourself, and never invent a chart: ask for one with the charts argument or show_chart.`,
+`Scenario tools (run_scenarios, sweep, show_chart, get_rows, define_market_scenario, list_market_scenarios, run_market_scenarios, show_market_scenario_in_charts, list_scenarios, get_scenario, compare_scenarios, show_scenario, delete_scenario, list_runs, get_run, compare_runs, get_mc_summary, get_trial, get_stress_results, import_scenarios):`,
+`- For any what-if, comparison or "which age is best" question, call a tool instead of describing what to change. The app runs your levers through the planner's own projection engine on a copy of the scenario and draws the charts; the user's scenario is never changed.`,
+`- Quote only numbers that are in the scenario snapshot or in tool results. Never compute projections yourself, and never invent a chart: ask for one with the charts argument or show_chart.`,
 `- Put all scenarios to compare into ONE run_scenarios call (up to 6), and use sweep for "try every value of X". Normally one tool call is enough; do not call tools repeatedly.`,
 `- Every lever comes back applied, ignored (with a reason) or noEffect. If one is ignored or has no effect, tell the user plainly; never present unchanged numbers as a finding. Market-stress levers are simulations and cannot be saved as a Scenario.`,
-`- Market and inflation paths: when the user describes how the market or inflation should behave year by year (\"two bad years then recovery\", \"inflation at 8% for five years\"), call define_market_scenario with one nominal stock return per year (returnsPct, percent) and optionally one inflation value per year; use afterReturnPct / afterInflationPct to carry a long-run rate to the end of the plan. Set showInCharts true when they ask to SEE it on the main charts (it is a replay, their plan is never changed). list_market_scenarios and run_market_scenarios reuse the presets and earlier paths.`,
-`- Results the user already has on screen (their other Scenarios, the Stress test card, Monte Carlo, stress + Monte Carlo): call list_plans (every plan, however it was made: scenario, stress test, Monte Carlo trial, saved market scenario, what-if), then get_plan (detail "inputs" tells you what a plan is made of; ask for a Monte Carlo trial as "mc trial 17") / compare_plans, or list_runs / get_run / compare_runs / get_mc_summary / get_trial / get_stress_results, to read them instead of guessing or re-running them; a run marked stale was made before the user edited the plan. Use import_scenarios only when the user wants proposals they can review and add themselves.`,
+`- Market and inflation paths: when the user describes how the market or inflation should behave year by year (\"two bad years then recovery\", \"inflation at 8% for five years\"), call define_market_scenario with one nominal stock return per year (returnsPct, percent) and optionally one inflation value per year; use afterReturnPct / afterInflationPct to carry a long-run rate to the end of the scenario. Set showInCharts true when they ask to SEE it on the main charts (it is a replay, their scenario is never changed). list_market_scenarios and run_market_scenarios reuse the presets and earlier paths.`,
+`- Results the user already has on screen (their other Scenarios, the Stress test card, Monte Carlo, stress + Monte Carlo): call list_scenarios (every scenario, however it was made: scenario, stress test, Monte Carlo trial, saved market scenario, what-if), then get_scenario (detail "inputs" tells you what a scenario is made of; ask for a Monte Carlo trial as "mc trial 17") / compare_scenarios, or list_runs / get_run / compare_runs / get_mc_summary / get_trial / get_stress_results, to read them instead of guessing or re-running them; a run marked stale was made before the user edited the scenario. Use import_scenarios only when the user wants proposals they can review and add themselves.`,
 `- If the request is ambiguous (which person? from what age?), choose a sensible default, say in one line what you assumed, and run it. People are numbered 1 and 2 as in the snapshot.`,
 `- After the results, answer in a few short sentences: what changed, why, and one caveat. The headline-numbers table and the charts are already on screen, so do not repeat every figure. Dollar amounts from tools are in today's dollars.`,
 ``,
@@ -269,7 +269,7 @@ function chatLoadFields(prov){
   chatEl('chatModelList').innerHTML=P.models.map(m=>`<option value="${escAttr(m.id)}">${escHtml(m.label)}</option>`).join('');
   chatEl('chatNames').checked=prefs.includeNames;
   chatEl('chatRemember').checked=prefs.remember;
-  chatEl('chatPrivacy').firstChild.textContent='Each message sends your plan (ages, balances, income, tax and expense figures) to '+(typeof P.sentTo==='function'?P.sentTo(prefs):P.sentTo)+', and so do the results of any scenarios the model runs (headline numbers and a few sampled years). '+(P.privacy?P.privacy+' ':'')+'The key stays in this browser and is never written to a saved plan file. ';
+  chatEl('chatPrivacy').firstChild.textContent='Each message sends your scenario (ages, balances, income, tax and expense figures) to '+(typeof P.sentTo==='function'?P.sentTo(prefs):P.sentTo)+', and so do the results of any scenarios the model runs (headline numbers and a few sampled years). '+(P.privacy?P.privacy+' ':'')+'The key stays in this browser and is never written to a saved plan file. ';
   chatRefreshPreview();
 }
 function onChatSettingsChange(){ chatSaveFields(); chatRefreshPreview(); }
@@ -295,7 +295,7 @@ function clearChat(){
   chatMessages=[]; const box=chatEl('chatMessages'); if(box) box.textContent=''; chatShowStatus('');
   if(typeof chatCardsClear==='function') chatCardsClear();   // destroy the chart cards (display/chatCharts.js) and forget the finished runs (display/chatTools.js)
   if(typeof chatClearRuns==='function') chatClearRuns();
-  chatAddBubble('assistant','Ask me anything about this plan — for example: why does tax jump in a particular year, or when do expenses stop being fully funded. I can also run what-ifs and chart them: “What if Person 1 claims Social Security at 70?”, “Compare converting $40k and $80k a year to Roth”, or “Show claim ages 62 to 70”. Your saved plan is never changed.');
+  chatAddBubble('assistant','Ask me anything about this scenario — for example: why does tax jump in a particular year, or when do expenses stop being fully funded. I can also run what-ifs and chart them: “What if Person 1 claims Social Security at 70?”, “Compare converting $40k and $80k a year to Roth”, or “Show claim ages 62 to 70”. Your scenario is never changed.');
 }
 function onChatKeydown(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); } }
 function stopChat(){ if(chatAbort) chatAbort.abort(); }
@@ -314,7 +314,7 @@ function chatCompactResponse(resp){
   try{
     if(JSON.stringify(resp).length<2500) return resp;
     const o={note:'earlier result shortened; run ids stay valid for show_chart and get_rows'};
-    if(resp.yourPlan&&resp.yourPlan.kpis) o.yourPlan=resp.yourPlan.kpis; else if(resp.yourPlan) o.yourPlan=resp.yourPlan;
+    if(resp.yourScenario&&resp.yourScenario.kpis) o.yourScenario=resp.yourScenario.kpis; else if(resp.yourScenario) o.yourScenario=resp.yourScenario;
     if(resp.scenarios) o.scenarios=resp.scenarios.map(s=>({runId:s.runId,label:s.label,kpis:s.kpis,levers:(s.levers||[]).map(l=>l.what+' ['+l.status+']')}));
     if(resp.results) o.results=resp.results.map(r=>({runId:r.runId,value:r.value,kpis:r.kpis}));
     return o;
@@ -567,7 +567,7 @@ async function sendChat(){
         chatMessages.push({role:'assistant',content:reply});
         break;
       }
-      // Tool round: run every call on a private copy of the plan, show the cards, and give the results back to the model.
+      // Tool round: run every call on a private copy of the scenario, show the cards, and give the results back to the model.
       if(!reply) bubble.remove(); else bubble.classList.remove('chat-pending');
       chatShowStatus('Running scenarios…');
       await new Promise(r=>setTimeout(r,30));     // let the status paint before the (synchronous) engine runs

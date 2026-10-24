@@ -48,7 +48,7 @@ function renderIncomeForms(){
 
 // ── Drag to reorder the income-source cards ──
 // Each top-level card carries data-card="<key>" and a ⋮⋮ drag handle. The order lives in state.ui.incomeOrder and is shared by all
-// person columns, so in a married plan dragging either spouse's card moves both spouses' cards of that type together (both are
+// person columns, so in a married scenario dragging either spouse's card moves both spouses' cards of that type together (both are
 // highlighted while dragging). The order is part of the saved plan. Display-only: no recompute. (HTML5 drag and drop: mouse / pen.)
 function normalizeIncomeOrderInState(){
   if(!state.ui) state.ui={};

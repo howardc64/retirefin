@@ -1,7 +1,7 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
 // COMPUTE / MARKET PATH — the one data model for "what if the market and inflation did THIS, year by year".
-// No DOM, never writes the live plan. Loaded after stressTest.js's data is not needed: this file only needs projection.js (hooks), whatIf.js (withTempState)
+// No DOM, never writes the live scenario. Loaded after stressTest.js's data is not needed: this file only needs projection.js (hooks), whatIf.js (withTempState)
 // and monteCarlo.js (mcMeasure). stressTest.js, scenarioSpec.js (marketStress lever), scenarioApi.js (tools) and the display all go through it.
 //
 // A MarketPath is plain JSON (it can be typed by a user, written by a chat model, or sent by an outside MCP client, and it is saved in `state.ui.marketPaths`):
@@ -9,9 +9,9 @@
 //     from:{ mode:'retire'|'now'|'year', year? },        // where value[0] lands: first year without wages, this year, or a calendar year
 //     returns:[ nominal equity return per year, FRACTION ],   // 1..MS_MAX_YEARS values, every one a number
 //     inflation:[ nominal inflation per year, fraction ] | null,   // same length as returns, or null = the plan's own rate
-//     tail:{ returnPct:number|null, inflationPct:number|null },     // what every LATER year up to the end of the plan gets (null = the plan's own rate)
+//     tail:{ returnPct:number|null, inflationPct:number|null },     // what every LATER year up to the end of the scenario gets (null = the plan's own rate)
 //     equityShare:0..100 }                                // % of each non-property asset that earns the path's return
-// "Full future values": msResolve() places the path on the plan and returns DENSE per-row vectors for the whole projection (row 0 = this year … the last row):
+// "Full future values": msResolve() places the path on the scenario and returns DENSE per-row vectors for the whole projection (row 0 = this year … the last row):
 //   eq[k] (NaN = the plan's own rate), pi[k] (always a number: the path's, or the plan's constant rate) and the price level cpi[k]. Everything downstream (the engine hook,
 //   the Monte Carlo stress overlay, the charts) reads only these vectors, so there is exactly one place where "which year gets which return" is decided.
 // Units: the engine is in today's $; a nominal return r in a year of inflation π enters as the real rate (1+r)/(1+π)−1 (see msHook).
@@ -36,7 +36,7 @@ function msValidate(raw, opts){
   else if(ret.length>MS_MAX_YEARS) errors.push('at most '+MS_MAX_YEARS+' yearly returns (use afterReturnPct for the years after the list)');
   else ret.forEach((v,i)=>{ if(!msIsNum(v)) errors.push('returnsPct['+i+'] must be a number'); else if(v<MS_RET_LIM[0]||v>MS_RET_LIM[1]) errors.push('returnsPct['+i+'] must be between '+MS_RET_LIM[0]*100+' and '+MS_RET_LIM[1]*100+' (got '+v*100+')'); });
   if(inf!=null){
-    if(ret&&ret.length&&inf.length!==ret.length) errors.push('inflationPct must have the same number of values as returnsPct ('+(ret?ret.length:0)+'), or be omitted to keep the plan\'s inflation');
+    if(ret&&ret.length&&inf.length!==ret.length) errors.push('inflationPct must have the same number of values as returnsPct ('+(ret?ret.length:0)+'), or be omitted to keep the scenario\'s inflation');
     inf.forEach((v,i)=>{ if(!msIsNum(v)) errors.push('inflationPct['+i+'] must be a number'); else if(v<MS_INF_LIM[0]||v>MS_INF_LIM[1]) errors.push('inflationPct['+i+'] must be between '+MS_INF_LIM[0]*100+' and '+MS_INF_LIM[1]*100+' (got '+v*100+')'); });
   }
   // where the first value lands
@@ -59,7 +59,7 @@ function msValidate(raw, opts){
 }
 
 // ── placement: which row gets value 0 ────────────────────────────
-// `ctx.retireRow` is only needed for from.mode 'retire' (the first row without wages of the plan as entered; see stRetireRow). → row index (may be ≥ the number of rows: no effect)
+// `ctx.retireRow` is only needed for from.mode 'retire' (the first row without wages of the scenario as entered; see stRetireRow). → row index (may be ≥ the number of rows: no effect)
 function msStartRow(path, ctx){
   if(ctx&&ctx.startRow!=null) return Math.max(0,ctx.startRow);   // the caller already placed it (the Stress card's start, a replay)
   const m=path.from.mode;
@@ -93,9 +93,9 @@ function msHook(res){
   const {eq,pi,mean,share}=res;
   return (g,key,k,ch)=>{
     const p=pi[k], nominalFixed=!!ch&&(ch.mode==='fixed'||ch.mode==='custom');
-    const planNom=nominalFixed?(1+g)*(1+mean)-1:(1+g)*(1+p)-1;
-    let nom=planNom; const e=eq[k];
-    if(e===e&&!MS_NO_SHOCK(key)) nom=share*e+(1-share)*planNom;
+    const scenarioNom=nominalFixed?(1+g)*(1+mean)-1:(1+g)*(1+p)-1;
+    let nom=scenarioNom; const e=eq[k];
+    if(e===e&&!MS_NO_SHOCK(key)) nom=share*e+(1-share)*scenarioNom;
     return (1+nom)/(1+p)-1;
   };
 }
@@ -112,12 +112,12 @@ function msToStress(path, ctx){
 }
 
 // ── running ──────────────────────────────────────────────────────
-// Row index of the first year without wages in the plan as entered (0 if it has no wages), the anchor of from.mode 'retire'.
+// Row index of the first year without wages in the scenario as entered (0 if it has no wages), the anchor of from.mode 'retire'.
 function msRetireRow(){
   let last=-1; REC_RATES=false; try{ computeProjection().rows.forEach((r,k)=>{ if((r.wageTotal||0)>0.5) last=k; }); } finally{ REC_RATES=true; }
   return last+1;
 }
-// Run the plan under one path (or as entered with path=null) on a private clone. `record` also records each asset's yearly rate (the Market return chart); batch runs skip it.
+// Run the scenario under one path (or as entered with path=null) on a private clone. `record` also records each asset's yearly rate (the Market return chart); batch runs skip it.
 // → {proj, m (mcMeasure), res (the resolved vectors | null), start}
 function msRun(path, opts){
   opts=opts||{};
@@ -133,7 +133,7 @@ function msDescribe(path){
   const L=path.returns.length, comp=path.returns.reduce((a,v)=>a*(1+v),1)-1, inf=path.inflation;
   const o={id:path.id,label:path.label,source:path.source,years:L,startsAt:path.from.mode==='year'?'year '+path.from.year:path.from.mode==='now'?'now':'retirement',
     compoundedReturnPct:Math.round(comp*1000)/10, worstYearPct:Math.round(Math.min.apply(null,path.returns)*1000)/10, equityShare:path.equityShare,
-    inflation:inf?{avgPct:Math.round(inf.reduce((a,v)=>a+v,0)/L*1000)/10, peakPct:Math.round(Math.max.apply(null,inf)*1000)/10}:'plan\'s own rate'};
+    inflation:inf?{avgPct:Math.round(inf.reduce((a,v)=>a+v,0)/L*1000)/10, peakPct:Math.round(Math.max.apply(null,inf)*1000)/10}:'scenario\'s own rate'};
   if(path.tail&&(path.tail.returnPct!=null||path.tail.inflationPct!=null)) o.afterTheList={returnPct:path.tail.returnPct,inflationPct:path.tail.inflationPct};
   return o;
 }

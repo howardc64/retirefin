@@ -38,14 +38,14 @@ ok(Math.abs(h.out-0.03)<1e-12,'outside the window the plan\'s own real rate is b
 ok(Math.abs(h.pi[2]-0.08)<1e-12&&Math.abs(h.pi[1]-h.mean)<1e-12&&Math.abs(h.cpi2-1.08)<1e-12,'inflation path placed at the start row; plan\'s rate elsewhere');
 
 // 5. more inflation with flat nominal stocks is worse than the same stocks at plan inflation
-const flatPlanInfl=totals({eq:Array(10).fill(0),infl:null},0), flatHighInfl=totals({eq:Array(10).fill(0),infl:Array(10).fill(0.09)},0);
-ok(flatHighInfl.fin[9]<flatPlanInfl.fin[9],'flat stocks + 9% inflation ends the decade lower than flat stocks at plan inflation ('+Math.round(flatHighInfl.fin[9])+' vs '+Math.round(flatPlanInfl.fin[9])+')');
+const flatScenarioInfl=totals({eq:Array(10).fill(0),infl:null},0), flatHighInfl=totals({eq:Array(10).fill(0),infl:Array(10).fill(0.09)},0);
+ok(flatHighInfl.fin[9]<flatScenarioInfl.fin[9],'flat stocks + 9% inflation ends the decade lower than flat stocks at plan inflation ('+Math.round(flatHighInfl.fin[9])+' vs '+Math.round(flatScenarioInfl.fin[9])+')');
 
 // 6. full run: the three scenarios, retirement row, summaries
-const all=J(run(ctx,`(()=>{const r=stRunAll(JSON.parse(JSON.stringify(ST_DEFAULTS))); return {start:r.start,startAge:r.startAge,base:{failAge:r.base.failAge,estate:r.baseEstate},res:r.results.map(x=>({id:x.id,label:x.label,failAge:x.m.failAge,estate:x.estate,atEnd:x.atEnd,planAtEnd:x.planAtEnd,low:x.low,lowAge:x.lowAge,gap:x.gapYears,short:x.m.shortfall}))}})()`));
+const all=J(run(ctx,`(()=>{const r=stRunAll(JSON.parse(JSON.stringify(ST_DEFAULTS))); return {start:r.start,startAge:r.startAge,base:{failAge:r.base.failAge,estate:r.baseEstate},res:r.results.map(x=>({id:x.id,label:x.label,failAge:x.m.failAge,estate:x.estate,atEnd:x.atEnd,scenarioAtEnd:x.scenarioAtEnd,low:x.low,lowAge:x.lowAge,gap:x.gapYears,short:x.m.shortfall}))}})()`));
 console.log(JSON.stringify(all,null,1));
 ok(all.res.length===3,'three scenarios by default');
-ok(all.res.every(r=>r.atEnd==null||r.atEnd<=r.planAtEnd+1e-6),'every stress ends its shock window at or below the plan');
+ok(all.res.every(r=>r.atEnd==null||r.atEnd<=r.scenarioAtEnd+1e-6),'every stress ends its shock window at or below the plan');
 ok(all.start>=0,'start row '+all.start+' (age '+all.startAge.toFixed(1)+')');
 // 7. start modes
 const modes=J(run(ctx,`(()=>{const c=JSON.parse(JSON.stringify(ST_DEFAULTS)); const b=stRun(null,0,c); const o=[]; for(const m of ['now','retire','custom']){ c.start={mode:m,years:7}; o.push(stStartRow(c,b)); } return o})()`));

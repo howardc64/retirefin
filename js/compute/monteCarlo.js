@@ -5,7 +5,7 @@
 // No DOM access. Loaded after projection.js and whatIf.js (uses withTempState, currentAge, MC_HOOK).
 //
 // What is random (each part can be switched off in the settings):
-//   • returns   — every growth rate the plan uses (brokerage, IRA, Roth, inherited IRA, real estate) is multiplied
+//   • returns   — every growth rate the scenario uses (brokerage, IRA, Roth, inherited IRA, real estate) is multiplied
 //                 each year by a lognormal factor with mean exactly 1, so the average return is the one the user
 //                 typed and only the spread is added (no silent "volatility drag" on the plan's assumptions).
 //   • panic     — optional (returns.panic): after a multi-sigma market drop the portfolios stop diversifying — their pairwise correlation rises to
@@ -173,18 +173,18 @@ function mcDonorLastRow(people, passes){ let K=0; people.forEach((p,i)=>{ K=Math
 // One inheritance source in one trial: the year it arrives and each asset's value relative to the source plan's own figure (1 = as planned).
 // A random part that is switched off uses the plan's own number for the donor, so with every part off every factor is exactly 1.
 function mcDonorOutcome(cfg, path, src){
-  const D=src.donor, keys=Object.keys(D.traj), planPass=D.people.map(p=>p.passing);
+  const D=src.donor, keys=Object.keys(D.traj), scenarioPass=D.people.map(p=>p.passing);
   const rng=mcRng(path.base^mcHash('donor:'+src.id));
   const u=D.people.map(()=>({life:rng(), needs:rng(), dur:mcNormal(rng), cost:mcNormal(rng)}));
-  const pass=cfg.mortality.enabled?D.people.map((p,i)=>mcPassFromU(currentAge(p),cfg.mortality,u[i].life)):planPass.slice();
-  const Kp=mcDonorLastRow(D.people,planPass), Ks=mcDonorLastRow(D.people,pass);
+  const pass=cfg.mortality.enabled?D.people.map((p,i)=>mcPassFromU(currentAge(p),cfg.mortality,u[i].life)):scenarioPass.slice();
+  const Kp=mcDonorLastRow(D.people,scenarioPass), Ks=mcDonorLastRow(D.people,pass);
   // donor's Long Term Care: the plan's own (cost × years from its start age to passing) or a random draw of the same shape
   let drainP=0, drainS=0;
   D.people.forEach((p,i)=>{
-    const planYears=(pp)=>D.ltcOn&&p.ltc.cost>0?p.ltc.cost*Math.max(0,pp-p.ltc.startAge):0;   // the plan's rule: from its start age until the passing
-    drainP+=planYears(planPass[i]);
+    const scenarioYears=(pp)=>D.ltcOn&&p.ltc.cost>0?p.ltc.cost*Math.max(0,pp-p.ltc.startAge):0;   // the plan's rule: from its start age until the passing
+    drainP+=scenarioYears(scenarioPass[i]);
     if(cfg.ltc.enabled){ const d=mcLtcDraw(u[i],cfg.ltc,pass[i],currentAge(p),p.ltc.cost>0?p.ltc.cost:0); drainS+=d.cost*d.years; }
-    else drainS+=planYears(pass[i]);   // care not random: the plan's rule still ends at the DRAWN passing (no care bill for a donor who passes before the start age)
+    else drainS+=scenarioYears(pass[i]);   // care not random: the plan's rule still ends at the DRAWN passing (no care bill for a donor who passes before the start age)
   });
   // the household's own market shocks up to the donor's last year (so a bad market hits both), per asset
   const shock={};
@@ -239,7 +239,7 @@ function mcMeasure(proj, info){
     if(r.expUnfunded>1){ shortfall+=r.expUnfunded; if(failK<0) failK=k; }
     lifeTax+=r.totalTax||0; if((r.irmaaSurcharge||0)>irmaaMax) irmaaMax=r.irmaaSurcharge; convTotal+=r.rothConvTotal||0;
   }
-  // Spending guardrails (rows carry `guard` only when state.guardrail is on): how often and how deep the plan had to cut, and the living-expense path.
+  // Spending guardrails (rows carry `guard` only when state.guardrail is on): how often and how deep the scenario had to cut, and the living-expense path.
   let guardM=null;
   if(rows[0]&&rows[0].guard){
     const liv=new Float64Array(n); let firstCutK=-1, minMult=1, cutYears=0, cutTotal=0, firstCutBal=null;
@@ -257,7 +257,7 @@ function mcMeasure(proj, info){
 }
 
 // Run ONE trial. `mutate(s)` (optional) changes the cloned state first — used for what-if sweeps on the same random paths.
-// `capture` (optional object) is filled with what a replay needs: the full projection, the trial's own copy of the plan (its drawn lifespans / care / inheritance),
+// `capture` (optional object) is filled with what a replay needs: the full projection, the trial's own copy of the scenario (its drawn lifespans / care / inheritance),
 // the inflation path and the draws. Same seed + trial index = the same trial, so a failed trial is replayed rather than stored (see mcReplayTrial).
 // `stress` (optional, the Stress test card's "run with Monte Carlo"): {scen, start, share} from compute/stressTest.js. INSIDE the scenario's years the stress test is in full control of returns and
 // inflation, exactly as in the plain stress test (stRun): its stock return (equityShare % of every non-property asset; the rest, and property, keep the plan's own rate) and its inflation (the
@@ -281,8 +281,8 @@ function mcRunTrial(cfg, trial, mutate, capture, stress){
         const j=k-stress.start;
         if(j>=0&&j<stress.scen.eq.length){
           const pi=infl.pi[k], nominalFixed=!!ch&&(ch.mode==='fixed'||ch.mode==='custom');
-          const planNom=nominalFixed?(1+g)*(1+mean)-1:(1+g)*(1+pi)-1;      // the nominal rate the plan means: fixed / custom are nominal, inflation ± x follows the year's inflation
-          const nom=(key.charCodeAt(0)===114&&key.charCodeAt(1)===101)?planNom:sShare*stress.scen.eq[j]+(1-sShare)*planNom;   // 're:…' (property) keeps the plan's own rate
+          const scenarioNom=nominalFixed?(1+g)*(1+mean)-1:(1+g)*(1+pi)-1;      // the nominal rate the scenario means: fixed / custom are nominal, inflation ± x follows the year's inflation
+          const nom=(key.charCodeAt(0)===114&&key.charCodeAt(1)===101)?scenarioNom:sShare*stress.scen.eq[j]+(1-sShare)*scenarioNom;   // 're:…' (property) keeps the plan's own rate
           return (1+nom)/(1+pi)-1;
         }
       }
@@ -304,7 +304,7 @@ function mcRunTrial(cfg, trial, mutate, capture, stress){
   });
 }
 
-// Replay one trial in full: {measure, proj, state, info, infl, meanInfl, trial}. `state` is the trial's private copy of the plan (the real plan is untouched).
+// Replay one trial in full: {measure, proj, state, info, infl, meanInfl, trial}. `state` is the trial's private copy of the scenario (the real scenario is untouched).
 function mcReplayTrial(cfg, trial){ const cap={}; cap.measure=mcRunTrial(cfg,trial,null,cap); return cap; }
 
 // Run a batch of trials [from, to). Synchronous; the caller chunks it to keep a UI responsive (or runs several chunks in workers).

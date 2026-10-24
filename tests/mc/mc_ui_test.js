@@ -65,17 +65,17 @@ let inf=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, l
 ok(inf.n===1&&Math.abs(inf.v-run('state.inflation*100'))<1e-9,'normal mode: one dashed line at the plan rate ('+inf.v+'%)');
 // a stressed run so there are failures to study
 run(`(()=>{ const cfg=JSON.parse(JSON.stringify(MC_DEFAULTS)); cfg.ltc.prob=0.9; cfg.returns.volEquity=24; const res=[]; for(let t=0;t<120;t++) res.push(mcRunTrial(cfg,t));
-  mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcPlanKey(); })()`);
+  mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcScenarioKey(); })()`);
 const tr=run(`mcResults.R.list[0].trial`);
-const planProj=run(`lastProjection`);
+const scenarioProj=run(`lastProjection`);
 run(`mcLoadTrial(${tr})`);
 ok(run(`!!mcTrialView && mcTrialView.trial===${tr} && lastProjection===mcTrialView.proj && lastProjection!==null`),'mcLoadTrial: trial view is active and the charts read the replayed projection');
-ok(run(`lastProjection.rows.length`)>0 && run(`lastProjection`)!==planProj,'replayed projection differs from the plan projection object');
+ok(run(`lastProjection.rows.length`)>0 && run(`lastProjection`)!==scenarioProj,'replayed projection differs from the plan projection object');
 const banner=document.getElementById('mcTrialBanner');
 ok(banner.hidden===false && banner.innerHTML.includes('failure <b>#'+(tr+1)+'</b>') && /runs out at age/.test(banner.innerHTML),'banner shows trial number and the failure age');
 inf=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, t:c.data.datasets[1]&&c.data.datasets[1].data.filter(x=>x!=null).length, spread:c.data.datasets[1]&&(Math.max(...c.data.datasets[1].data.filter(x=>x!=null))-Math.min(...c.data.datasets[1].data.filter(x=>x!=null)))}})()`);
 const trialRows=run(`lastProjection.rows.length`);   // the line has one point per year of the trial, and a trial can end early (random lifespans), so compare with its own length
-ok(inf.n===2&&inf.t>=trialRows-1&&inf.t>=10&&inf.spread>0,'trial mode: inflation chart gets the trial\'s own varying rate line ('+inf.t+' points, spread '+inf.spread.toFixed(2)+' pts)');
+ok(inf.n===3&&inf.t>=trialRows-1&&inf.t>=10&&inf.spread>0,'trial mode: inflation chart gets the trial\'s own varying rate line plus its thick 5-year average ('+inf.t+' points, spread '+inf.spread.toFixed(2)+' pts)');
 ok(run(`state.ui.chartYMax && Object.values(state.ui.chartYMax).every(v=>v===null || typeof v==='number')`),'trial scales are not written into the plan (captureChartYMax is skipped)');
 // stays in trial mode on a recompute with the same plan; leaves it when the plan changes
 run(`recompute()`); ok(run(`!!mcTrialView`),'recompute with the same plan keeps the trial loaded (Rescale etc. work on it)');
@@ -89,14 +89,14 @@ run(`mcLoadTrial(${tr})`); ok(alerted && run(`mcTrialView===null`),'a stale run 
 run(`state.living-=500`);
 // step through failed trials, exit
 run(`mcLoadTrial(${tr}); mcTrialStep(1)`); ok(run(`mcTrialView.trial`)===run(`mcResults.R.list[1].trial`),'next-failed-trial button steps through the failed list');
-run(`mcTrialExit()`); ok(run(`mcTrialView===null`)&&banner.hidden===true,'Back to plan clears the view');
+run(`mcTrialExit()`); ok(run(`mcTrialView===null`)&&banner.hidden===true,'Back to scenario clears the view');
 // "Any trial #" naming a trial that stayed funded must load it as a Monte Carlo SUCCESS (C), never as a failure (B)
 const okTr=run(`mcOkTrials()[0]`);
 ok(okTr!==undefined,'the run has at least one successful trial');
 run(`mcLoadTrial(${okTr})`);
 ok(run(`!!mcTrialView && mcTrialView.view==='C' && mcTrialView.cur==='C' && mcTrialView.trial===${okTr} && mcTrialView.b===null`),'a successful trial loads as C (Success), and B is not set');
 ok(/Monte Carlo success <b>#/.test(banner.innerHTML) && !/failure <b>#/.test(banner.innerHTML) && /stays funded/.test(banner.innerHTML),'banner says "success" and "stays funded", not "failure"');
-ok(run(`lastProjection===mcTrialView.proj && lastProjection!==mcTrialView.planProj`),'charts show the replayed successful trial');
+ok(run(`lastProjection===mcTrialView.proj && lastProjection!==mcTrialView.scenarioProj`),'charts show the replayed successful trial');
 run(`mcTrialExit()`);
 run(`mcLoadTrial(${tr})`);
 ok(run(`mcTrialView.view==='B' && mcTrialView.cur==='B' && mcTrialView.b.trial===${tr}`),'a failed trial still loads as B (Failure)');
@@ -131,11 +131,11 @@ ok(run(`(()=>{ const o=defaultChartPos(2); const P=PREV_DEFAULT_BOTTOM[2]; Objec
 ok(run(`(()=>{ const o=defaultChartPos(2); o.inflation={r:3,c:1}; o.incomeQual={r:9,c:1}; const n=normalizeChartPos(o,2); return n.inflation.r===3&&n.inflation.c===1; })()`),'a layout where the user put Inflation elsewhere is kept');
 ok(run(`(()=>{const o=normalizeChartPos(defaultChartPos(2),2); const cells=new Set(Object.values(o).map(v=>v.r+','+v.c)); return cells.size===CHART_KEYS.length})()`),'default 2-column layout has no overlapping cells');
 // similar-failures count in the banner (the plan was edited above for the arrival test, so re-stamp the run)
-run(`mcStateAtRun=mcPlanKey()`); run(`mcLoadTrial(${tr})`);
+run(`mcStateAtRun=mcScenarioKey()`); run(`mcLoadTrial(${tr})`);
 ok(/other failed trials? share this cause|No other failed trial shares/.test(banner.innerHTML),'banner shows how many other failed trials share the cause');
 run(`mcTrialExit()`);
 // ---- A/B comparison ----
-run(`mcStateAtRun=mcPlanKey()`); run(`mcLoadTrial(${tr})`);
+run(`mcStateAtRun=mcScenarioKey()`); run(`mcLoadTrial(${tr})`);
 ok(run(`mcTrialView.view`)==='B' && run(`mcShowingTrial()`) && run(`lastProjection===mcTrialView.proj`),'trial loads showing B');
 const ghostN=run(`Object.values(charts).filter(c=>c&&c._abGhost&&c._abGhost.length).length`);
 ok(ghostN>=8,'A is captured as ghost lines on the charts ('+ghostN+' charts)');
@@ -143,15 +143,15 @@ const a1=run(`JSON.stringify(charts.asset._abGhost.map(g=>g.pts.length))`), nl=r
 // A's age axis can be a little longer than B's (the stretch years follow each projection's passing ages); both start at the same age, so index j is the same age on both
 ok(JSON.parse(a1).every(n=>Math.abs(n-nl)<=5 && n>0),'ghost points are indexed from the same first age as the chart axis (A '+a1+' pts, B axis '+nl+')');
 const ymaxB=run(`JSON.stringify(chartYMax)`);
-ok(run(`lastProjection===mcTrialView.proj && mcTrialView.planProj!==mcTrialView.proj`),'both A and B projections are held');
+ok(run(`lastProjection===mcTrialView.proj && mcTrialView.scenarioProj!==mcTrialView.proj`),'both A and B projections are held');
 // axes are the same on A and B
 run(`mcAbSet('A')`);
-ok(run(`mcTrialView.view`)==='A' && !run(`mcShowingTrial()`) && run(`lastProjection===mcTrialView.planProj`),'A shows the plan projection');
+ok(run(`mcTrialView.view`)==='A' && !run(`mcShowingTrial()`) && run(`lastProjection===mcTrialView.scenarioProj`),'A shows the plan projection');
 ok(run(`JSON.stringify(chartYMax)`)===ymaxB,'Y scales are identical on A and B (the flip changes only the data)');
-ok(banner.innerHTML.includes('mc-ab-btn on')&&/A &middot; Plan/.test(banner.innerHTML),'banner A/B control highlights A');
+ok(banner.innerHTML.includes('mc-ab-btn on')&&/A &middot; Scenario/.test(banner.innerHTML),'banner A/B control highlights A');
 ok(run(`inhArrivals()`).some(a=>a.files.includes('donor')) && run(`(()=>{const l=ltcCounts([60,61]); return true})()`),'A uses the real plan for overlays');
 let infA=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, vals:c.data.datasets[1]&&c.data.datasets[1].data.filter(x=>x!=null).length}})()`);
-ok(infA.n===2&&infA.vals===0,'inflation chart on A: trial line empty, same two datasets');
+ok(infA.n===3&&infA.vals===0,'inflation chart on A: trial line empty, same three datasets');
 run(`mcAbToggle()`); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.data.datasets[1].data.filter(x=>x!=null).length`)>=run(`mcTrialView.proj.rows.length`)-1,'toggle (key B) flips back to B and the trial inflation line returns');
 // C: cycles through successful runs; B stays the trial that was loaded
 { const c=run(`(()=>{ const b0=mcTrialView.b.trial, out={};
@@ -169,7 +169,7 @@ run(`mcAbToggle()`); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.d
     mcTrialStep(1); out.cMoved=mcTrialView.view==='C'&&mcTrialView.c.trial!==c0&&mcResults.results[mcTrialView.c.trial].failK<0&&mcTrialView.b.trial===b0;
     mcAbSet('B'); const b1=mcTrialView.b.trial, c1=mcTrialView.c.trial; mcTrialStep(1);
     out.bMoved=mcTrialView.view==='B'&&mcTrialView.b.trial!==b1&&mcResults.results[mcTrialView.b.trial].failK>=0&&mcTrialView.c.trial===c1;
-    const h=mcEl('mcTrialBanner').innerHTML; out.layout=h.indexOf('mc-tb-top')<h.indexOf('Back to plan')&&h.indexOf('Back to plan')<h.indexOf('mc-tb-msg');
+    const h=mcEl('mcTrialBanner').innerHTML; out.layout=h.indexOf('mc-tb-top')<h.indexOf('Back to scenario')&&h.indexOf('Back to scenario')<h.indexOf('mc-tb-msg');
     out.title=h.includes('Previous Monte Carlo failure (E)'); mcAbSet('C'); out.titleC=mcEl('mcTrialBanner').innerHTML.includes('Previous Monte Carlo success (F)'); mcAbSet('B'); return out; })()`);
   ok(q.cMoved&&q.bMoved,'◀ ▶ step successful runs while C is on and failed trials while B is on, each leaving the other unchanged');
   ok(q.layout&&q.title&&q.titleC,'banner layout is the same for B and C (switch + buttons on one row, message below); the ◀ ▶ titles name the kind'); }
@@ -201,11 +201,11 @@ run(`state.people[0].brokerage.pop(); recompute()`);
 { const m=run(`(()=>{ const pr=lastProjection, S=marketSeries(pr); const c=charts.market; return {keys:S.keys, n:c&&c.data.datasets.length, infl:pr.inflRate.slice(0,3), first:S.keys.map(k=>S.at[k].find(v=>v!=null)), row0:S.at[S.keys[0]][0], hasRates:!!pr.rates&&pr.rates.length>=pr.rows.length, labels:S.keys.map(k=>marketAssetLabel(pr,k))}; })()`);
   ok(m.hasRates && m.keys.length>=1 && m.n===m.keys.length,'plan: market chart has one line per growing asset ('+m.labels.join(' | ')+')');
 { const st=run(`(()=>{ marketSel=-1; buildMarketChart(); const n=charts.market.data.datasets.length, out={all:n}; marketStep(1); out.first=charts.market.data.datasets.length; out.l1=charts.market.data.datasets[0].label; marketStep(1); out.l2=charts.market.data.datasets[0].label; marketStep(-1); out.back=charts.market.data.datasets[0].label; for(let i=0;i<n;i++) marketStep(1); out.wrapped=charts.market.data.datasets.length; marketStep(-1); out.prevFromAll=charts.market.data.datasets.length; marketSel=-1; buildMarketChart(); return out; })()`);
-  ok(st.all>=2&&st.first===1&&st.wrapped===st.all&&st.prevFromAll===1&&st.l1!==st.l2&&st.back===st.l1,'market ◀ ▶ buttons: one line per step, wrap through all lines, ◀ goes back ('+st.l1+' → '+st.l2+')'); }
+  ok(st.all>=2&&st.first===2&&st.wrapped===st.all&&st.prevFromAll===2&&st.l1!==st.l2&&st.back===st.l1,'market ◀ ▶ buttons: one asset per step (its yearly line + 5-year average; all lines show only the averages), wrap through all lines, ◀ goes back ('+st.l1+' → '+st.l2+')'); }
   ok(m.first.every(v=>v!=null && v>0 && v<20) && m.row0!=null && Math.abs(m.infl[0]-run('state.inflation'))<1e-12,'plan: nominal returns are sensible and inflation per year recorded ('+m.first.map(v=>v.toFixed(2)).join(', ')+'%)'); }
-run(`mcStateAtRun=mcPlanKey(); mcLoadTrial(${tr})`);
-{ const m=run(`(()=>{ const pr=lastProjection, S=marketSeries(pr); const vals=S.at[S.keys[0]].filter(v=>v!=null); return {n:vals.length, spread:Math.max(...vals)-Math.min(...vals), sameAsPlan:(()=>{ const P=marketSeries(mcTrialView.planProj); return JSON.stringify(P.at[P.keys[0]])===JSON.stringify(S.at[S.keys[0]]); })(), yaxis:[charts.market.options.scales.y.min,charts.market.options.scales.y.max], dsn:charts.market.data.datasets.length}; })()`);
-  ok(m.n>=3 && m.spread>5 && !m.sameAsPlan,'trial: returns move year to year ('+m.spread.toFixed(1)+' pts range) and differ from the plan');
+run(`mcStateAtRun=mcScenarioKey(); mcLoadTrial(${tr})`);
+{ const m=run(`(()=>{ const pr=lastProjection, S=marketSeries(pr); const vals=S.at[S.keys[0]].filter(v=>v!=null); return {n:vals.length, spread:Math.max(...vals)-Math.min(...vals), sameAsScenario:(()=>{ const P=marketSeries(mcTrialView.scenarioProj); return JSON.stringify(P.at[P.keys[0]])===JSON.stringify(S.at[S.keys[0]]); })(), yaxis:[charts.market.options.scales.y.min,charts.market.options.scales.y.max], dsn:charts.market.data.datasets.length}; })()`);
+  ok(m.n>=3 && m.spread>5 && !m.sameAsScenario,'trial: returns move year to year ('+m.spread.toFixed(1)+' pts range) and differ from the plan');
   ok(m.yaxis[0]<=0 && m.yaxis[1]>=10,'trial: Y axis spans the plan and trial ranges ('+m.yaxis.join(' to ')+'%)');
   const before=JSON.stringify(run(`[charts.market.options.scales.y.min,charts.market.options.scales.y.max]`)); run(`mcAbSet('A')`);
   ok(JSON.stringify(run(`[charts.market.options.scales.y.min,charts.market.options.scales.y.max]`))===before,'market Y axis identical on A and B'); run(`mcAbSet('B')`); }
@@ -219,12 +219,12 @@ ok(run(`(()=>{ REC_RATES=false; const pr=computeProjection(); REC_RATES=true; re
   ok(/3\.04%/.test(iv)&&!/\$/.test(iv),'Chart Element value on the inflation chart is a % ('+iv.replace('\u0001',' ')+')');
   ok(/7\.3%/.test(mv)&&!/\$/.test(mv),'Chart Element value on the market chart is a % ('+mv.replace('\u0001',' ')+')');
   ok(/\$250,000/.test(av),'dollar charts still show $');
-  ok(run(`!!ciDescribe('market',{label:'x'},0)&&!!ciDescribe('inflation',{label:'Plan inflation rate'},0)`),'Chart Element descriptions exist for both new charts'); }
+  ok(run(`!!ciDescribe('market',{label:'x'},0)&&!!ciDescribe('inflation',{label:'Scenario inflation rate'},0)`),'Chart Element descriptions exist for both new charts'); }
 run(`mcTrialExit()`);
 ok(run(`CHART_PANELS.some(p=>p.key==='inflation') && CHART_KEYS.includes('inflation') && defaultChartHidden().inflation===true`),'inflation panel is registered and hidden by default');
 // Loading another file / Reset to defaults clears the Monte Carlo card (results, trial view, running run) and puts its settings back to the defaults, collapsed
 { const seed=()=>run(`(()=>{ const cfg=JSON.parse(JSON.stringify(MC_DEFAULTS)); cfg.ltc.prob=0.9; cfg.returns.volEquity=24; const res=[]; for(let t=0;t<120;t++) res.push(mcRunTrial(cfg,t));
-    mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcPlanKey(); mcLoadTrial(mcResults.R.list[0].trial); })()`);
+    mcResults={cfg,S:mcSummarize(res),R:mcFailureReasons(res),complete:true,results:res}; mcStateAtRun=mcScenarioKey(); mcLoadTrial(mcResults.R.list[0].trial); })()`);
   seed(); ok(run(`!!mcResults && !!mcTrialView`),'(setup) results and a trial are loaded');
   run(`buildMcPanel(); mcCfg.returns.volEquity=21; mcSaveCfg()`);
   run(`applyLoadedFileText(JSON.stringify(__plan))`);
@@ -258,7 +258,7 @@ ok(run(`CHART_PANELS.some(p=>p.key==='inflation') && CHART_KEYS.includes('inflat
   ok(run(`state.ui.mcCfg&&state.ui.mcCfg.trials`)===250 && run(`state.ui.stressCfg&&state.ui.stressCfg.med.cost`)===150000,'hydrateState keeps the card settings (an older file without them gets null = defaults)');
   ok(run(`hydrateState(JSON.parse(JSON.stringify(Object.assign({},__plan,{ui:undefined})))).ui.mcCfg`)===null,'a plan file from before this setting loads with the card defaults');
   // a redraw with unchanged settings keeps the results table
-  run(`stResults={planKey:'x'}; renderAll();`);
+  run(`stResults={scenarioKey:'x'}; renderAll();`);
   ok(run(`stResults!==null`),'a redraw with the same settings keeps the stress results');
   run(`stResults=null; resetState()`);
 }

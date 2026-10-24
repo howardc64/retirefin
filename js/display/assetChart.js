@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 // Asset colors: one hue family per person (first person blues, second greens), a different shade for each of that person's assets, so who holds
 // what reads at a glance, and a third family (amber / orange) for every real estate property whoever holds it. No band shares a hue with the red
-// IRA stretch bar or the red tax lines. Adjacent bands alternate between the families. Cycles after 6 assets per family; a plan with one person
+// IRA stretch bar or the red tax lines. Adjacent bands alternate between the families. Cycles after 6 assets per family; a scenario with one person
 // and no property uses blues only.
 const ASSET_SHADES=[
   ['#1B4F8A','#2E86C1','#85C1E9','#154360','#5DADE2','#AED6F1'],
@@ -328,7 +328,8 @@ function buildAssetChartFor(cfg){
   };
 
   // Red bar + label above the stretch window (main chart only): starts at the first stretch year's age on the axis.
-  const stretchOpts=stretch.length?{fromIdx:Math.max(0,labels.indexOf(Math.round(stretch[0].age0))), label:'stretch IRA'}:null;
+  // toIdx = the last stretch year (STRETCH_YEARS = 10 after the last passing): in a Monte Carlo trial / stress view the axis runs far past it, and the bar must not.
+  const stretchOpts=stretch.length?{fromIdx:Math.max(0,labels.indexOf(Math.round(stretch[0].age0))), toIdx:Math.max(0,labels.indexOf(Math.round(stretch[stretch.length-1].age0))), label:'stretch IRA'}:null;
   upsertLineChart(cfg.key,{canvasId:cfg.canvasId, labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
     refresh:o=>{ o.plugins.stretchTint=stretchOpts||false; o.scales.x.min=xMin; o.scales.x.max=xMax; },
     createOptions:()=>({

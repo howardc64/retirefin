@@ -1027,9 +1027,9 @@ Charts shall consume projection results rather than recreate financial calculati
 
 **Consistent spacing.** One spacing value shall separate cards everywhere: between chart cards (rows and columns), between the chart grid and the first lower card, and between the lower cards. Spare space that exists only to receive a drop (an empty row below the last chart) shall occupy no room, and add no spacing, until a drag is in progress.
 
-**People are identified by name.** Wherever a control or result refers to a household member (for example, whose age starts the late-life medical shock in the Stress-test card), it shall show the name the user entered, and fall back to "Person 1" / "Person 2" only when no name has been entered. A single filer shall be offered only that one person. Names shall follow later edits and plan loads, shall be escaped when displayed, and shall be used the same way in exports.
+**People are identified by name.** Wherever a control or result refers to a household member (for example, whose age starts the late-life medical shock in the Stress-test card), it shall show the name the user entered, and fall back to "Person 1" / "Person 2" only when no name has been entered. A single filer shall be offered only that one person. Names shall follow later edits and scenario loads, shall be escaped when displayed, and shall be used the same way in exports.
 
-**Stress-test and medical-shock separation.** The Stress-test card's late-life medical shock is a what-if: it never changes the plan, whereas the plan's own medical-shock input does. The card shall present the with/without comparison for the person selected by name.
+**Stress-test and medical-shock separation.** The Stress-test card's late-life medical shock is a what-if: it never changes the scenario, whereas the scenario's own medical-shock input does. The card shall present the with/without comparison for the person selected by name.
 
 The current architecture follows this principle: display components consume projection rows and are prohibited from recomputing authoritative financial values. :chatgpt-content-reference{index="30"}
 
@@ -1167,7 +1167,7 @@ Examples:
 - IRC §§1001/1011–1016 — gains and basis
 - IRC §1222 — capital-gain classification
 - IRC §1411 — NIIT
-- IRC §§401/408 — retirement plans and IRAs
+- IRC §§401/408 — retirement scenarios and IRAs
 - IRC §4974 — RMD excise tax
 - IRC §§901–909 — foreign tax credit
 - IRC §§167/168 — depreciation
@@ -1405,7 +1405,7 @@ The AI shall not silently modify the authoritative scenario.
 
 Users shall be told when financial data is transmitted to an external provider.
 
-The current architecture follows this model: the chat feature receives a snapshot of the plan and projection and is read-only with respect to the financial state. :chatgpt-content-reference{index="36"}
+The current architecture follows this model: the chat feature receives a snapshot of the scenario and projection and is read-only with respect to the financial state. :chatgpt-content-reference{index="36"}
 
 ---
 
@@ -1535,7 +1535,7 @@ At the highest level:
 
 The key architectural distinction is:
 
-> **The household model describes what the household owns and plans to do. The tax-rule layer describes what the government rules mean. The projection engine determines what happens when those two interact. The analysis layer explains and compares the resulting projections.**
+> **The household model describes what the household owns and scenarios to do. The tax-rule layer describes what the government rules mean. The projection engine determines what happens when those two interact. The analysis layer explains and compares the resulting projections.**
 
 This separation should allow the implementation technology to change without changing the underlying financial model, and should allow federal tax law to change without requiring the financial projection architecture to be redesigned.
 

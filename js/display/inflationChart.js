@@ -9,23 +9,28 @@ function buildInflationChart(){
   const proj=lastProjection, rows=proj.rows;
   if(!rows.length) return;
   const tv=(typeof mcTrialView!=='undefined')?mcTrialView:null, trial=tv?tv.cap:null, infl=trial&&trial.infl?trial.infl:null, showTrial=!!infl&&tv.view!=='A';   // the axis always covers both A and B
-  const plan=((trial&&trial.meanInfl!=null)?trial.meanInfl:state.inflation)*100;
+  const scenario=((trial&&trial.meanInfl!=null)?trial.meanInfl:state.inflation)*100;
 
   const labels=ageLabelRange(rows[0].age0,chartMaxAge(proj));
   const ages=rows.map(r=>r.age0);
-  const planLine=alignToAges(ages, rows.map(()=>plan), labels);
+  const scenarioLine=alignToAges(ages, rows.map(()=>scenario), labels);
   const trialAll=infl?alignToAges(ages, rows.map((r,k)=>infl.pi[k]*100), labels):null;
   const trialLine=trialAll?(showTrial?trialAll:trialAll.map(()=>null)):null;   // on A the line stays (empty) so the datasets do not change
-  const vals=[plan].concat(trialAll?trialAll.filter(v=>v!=null):[]);
+  const trialAvg=trialAll?(showTrial?alignToAges(ages,centeredAvg(rows.map((r,k)=>infl.pi[k]*100)),labels):trialAll.map(()=>null)):null;   // 5-year centred average of the trial's yearly rate (thick, same colour)
+  const vals=[scenario].concat(trialAll?trialAll.filter(v=>v!=null):[]);
   const lo=Math.min(0,Math.floor(Math.min(...vals)*2)/2);
   const fitY=()=>Math.max(1,Math.ceil(Math.max(...vals)*1.15*2)/2);
-  const Y_MAX=tv?lockedYMax('inflation',fitY):fitY();   // derived from the rates themselves (not held between renders), except while a trial is loaded: then fixed across A and B
+  const Y_MAX=pctScale.inflation?pctScale.inflation:(tv?lockedYMax('inflation',fitY):fitY());   // Rescale button: maximum cycles 10% … 100%   // derived from the rates themselves (not held between renders), except while a trial is loaded: then fixed across A and B
 
+  // The trial line's name; display/chartInfo.js keys its popup text on these exact prefixes.
+  const trialName=tv&&tv.view==='D'?'Stress test inflation rate':(tv&&(tv.view==='E'||tv.view==='F')?'Stress + Monte Carlo trial inflation rate':'Monte Carlo trial inflation rate');
   const datasets=[
-    {label:'Plan inflation rate', data:planLine, borderColor:'#6b7280', backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[6,4],
+    {label:'Scenario inflation rate', data:scenarioLine, borderColor:'#6b7280', backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[6,4],
       pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0, fill:false, spanGaps:false, yAxisID:'y'}
   ];
-  if(trialLine) datasets.push({label:(tv&&tv.view==='D'?'Stress test inflation rate':(tv&&(tv.view==='E'||tv.view==='F')?'Stress + Monte Carlo trial inflation rate':'Monte Carlo trial inflation rate')), data:trialLine, borderColor:'#b45309', backgroundColor:'transparent', borderWidth:THIN_W,
+  if(trialLine) datasets.push({label:trialName, data:trialLine, borderColor:'#b45309', backgroundColor:'transparent', borderWidth:THIN_W,
+      pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.15, fill:false, spanGaps:false, yAxisID:'y'});
+  if(trialAvg) datasets.push({label:trialName+' \u2014 5-year average', data:trialAvg, borderColor:'#b45309', backgroundColor:'transparent', borderWidth:AVG_W,
       pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.15, fill:false, spanGaps:false, yAxisID:'y'});
 
   const tip={
@@ -34,10 +39,11 @@ function buildInflationChart(){
     afterBody:items=>{
       const idx=items[0]?.dataIndex; if(idx==null) return [];
       const k=rows.findIndex(x=>Math.round(x.age0)===labels[idx]); if(k<0) return [];
-      const out=[mrow('  Plan inflation rate', plan.toFixed(2)+'%')];
+      const out=[mrow('  Scenario inflation rate', scenario.toFixed(2)+'%')];
       if(showTrial){
         out.push(mrow('  Trial inflation rate', (infl.pi[k]*100).toFixed(2)+'%'));
-        out.push(mrow('  Price level vs plan', (infl.cpi[k]/Math.pow(1+plan/100,k)).toFixed(2)+'×'));
+        out.push(mrow('  5-year average', centeredAvg(rows.map((r,j)=>infl.pi[j]*100))[k].toFixed(2)+'%'));
+        out.push(mrow('  Price level vs scenario', (infl.cpi[k]/Math.pow(1+scenario/100,k)).toFixed(2)+'×'));
       }
       return out;
     }
@@ -47,7 +53,7 @@ function buildInflationChart(){
     createOptions:()=>({
       ...CHART_BASE,
       interaction:{mode:'index',intersect:false},
-      plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,mode:'index',intersect:false,callbacks:justifyTip(tip)} },
+      plugins:{ legend:{display:false}, zeroLine:true, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,mode:'index',intersect:false,callbacks:justifyTip(tip)} },
       scales:{
         x:ageXAxis(ageAxisLabel(proj)),
         y:{min:lo,max:Y_MAX,position:'left',title:axisTitle('Inflation rate (% per year)'),ticks:{...yAxisTicks,callback:v=>(Math.round(v*10)/10)+'%'},grid:AXIS_GRID}

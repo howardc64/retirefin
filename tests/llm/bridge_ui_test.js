@@ -39,7 +39,7 @@ ok(run('lbStatus')==='connected'&&sentOf(ws,'plan').length===1&&sentOf(ws,'appro
 ok(JSON.stringify(sentOf(ws,'plan')[0].plan)===run('JSON.stringify(state)'),'the plan sent is the plan as it is on screen');
 ok(run('lbForm.token')==='','the pairing code is dropped from memory once used');
 ok(!JSON.stringify(store).includes(CODE)&&!JSON.stringify(sessionStore).includes(CODE)&&!run('JSON.stringify(state)').includes(CODE),'the pairing code is in no storage and not in the plan');
-ws.recv({type:'planAck',ok:true,key:'1a2b3c4d'}); ok(/The server has your plan/.test(card())&&/1a2b3c4d/.test(card()),'the tab shows that the server has the plan');
+ws.recv({type:'planAck',ok:true,key:'1a2b3c4d'}); ok(/The server has your scenario/.test(card())&&/1a2b3c4d/.test(card()),'the tab shows that the server has the plan');
 // edits are re-sent, debounced, and only when changed
 run('state.living+=1234; autosave()'); run('state.living+=1; autosave()'); ok(sentOf(ws,'plan').length===1,'edits are not sent immediately');
 flush(); ok(sentOf(ws,'plan').length===2&&sentOf(ws,'plan')[1].plan.living===run('state.living'),'after the debounce the latest plan is sent once');

@@ -134,10 +134,10 @@
 
 <!-- ═══ CHAT: ask an LLM about this plan, and run what-ifs (display/chat.js, chatTools.js, chatCharts.js). Never changes the plan; key + settings live outside `state`. ═══ -->
 <div id="chatDock">
-  <button type="button" id="chatToggle" class="chat-fab" onclick="toggleChat()" aria-expanded="false" aria-controls="chatPanel">💬 Ask about this plan</button>
-  <div id="chatPanel" class="chat-panel" role="dialog" aria-label="Ask about this plan">
+  <button type="button" id="chatToggle" class="chat-fab" onclick="toggleChat()" aria-expanded="false" aria-controls="chatPanel">💬 Ask about this scenario</button>
+  <div id="chatPanel" class="chat-panel" role="dialog" aria-label="Ask about this scenario">
     <div class="chat-head">
-      <strong>Ask about this plan</strong>
+      <strong>Ask about this scenario</strong>
       <span class="chat-head-btns">
         <button type="button" id="chatWide" class="chat-icon" onclick="toggleChatWide()" title="Wide: more room for charts" aria-label="Wide panel" aria-pressed="false">⇔</button>
         <button type="button" class="chat-icon" onclick="toggleChatSettings()" title="Settings" aria-label="Settings">⚙</button>
@@ -166,7 +166,7 @@
     <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
     <div id="chatStatus" class="chat-status"></div>
     <div class="chat-input-row">
-      <textarea id="chatInput" rows="2" placeholder="Ask about your plan, or a what-if…" onkeydown="onChatKeydown(event)"></textarea>
+      <textarea id="chatInput" rows="2" placeholder="Ask about your scenario, or a what-if…" onkeydown="onChatKeydown(event)"></textarea>
       <button type="button" id="chatSend" class="btn btn-primary" onclick="sendChat()">Send</button>
       <button type="button" id="chatStop" class="btn" style="display:none" onclick="stopChat()">Stop</button>
     </div>
@@ -207,15 +207,15 @@
 <script src="js/compute/scenarioApi.js"></script>
 <script src="js/compute/runRegistry.js"></script>
 <script src="js/compute/runJobs.js"></script>
-<script src="js/plans/planSpec.js"></script>
-<script src="js/plans/planStore.js"></script>
-<script src="js/plans/scenarioSetProducer.js"></script>
-<script src="js/plans/stressProducer.js"></script>
-<script src="js/plans/monteCarloProducer.js"></script>
-<script src="js/plans/marketProducer.js"></script>
-<script src="js/plans/leverProducer.js"></script>
-<script src="js/plans/jobsProducer.js"></script>
-<script src="js/plans/planTools.js"></script>
+<script src="js/scenarios/scenarioRecord.js"></script>
+<script src="js/scenarios/scenarioStore.js"></script>
+<script src="js/scenarios/scenarioSetProducer.js"></script>
+<script src="js/scenarios/stressProducer.js"></script>
+<script src="js/scenarios/monteCarloProducer.js"></script>
+<script src="js/scenarios/marketProducer.js"></script>
+<script src="js/scenarios/leverProducer.js"></script>
+<script src="js/scenarios/jobsProducer.js"></script>
+<script src="js/scenarios/scenarioTools.js"></script>
 
 <!-- input -->
 <script src="js/input/controls.js"></script>
@@ -267,7 +267,7 @@
 <script src="js/display/mcPanel.js"></script>
 <script src="js/display/stressPanel.js"></script>
 <script src="js/display/cardStack.js"></script>
-<script src="js/display/planView.js"></script>
+<script src="js/display/scenarioView.js"></script>
 
 <!-- app wiring / entry point -->
 <script src="js/app.js"></script>

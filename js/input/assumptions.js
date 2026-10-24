@@ -110,7 +110,7 @@ function renderWithdrawOrderPanel(){
     const a=byKey[s.asset];
     const opts=(a?'':`<option value="${escAttr(s.asset)}" selected>(no longer available)</option>`)+
       assets.map(x=>`<option value="${escAttr(x.key)}" ${x.key===s.asset?'selected':''} ${(used[x.key]&&x.key!==s.asset)?'disabled':''}>${escHtml(x.label)}</option>`).join('');
-    const note=a?(a.warn||WO_TAX_NOTE[a.type]):'This asset no longer exists, or belongs to a person not in the plan — the step is skipped. Pick another asset or delete the step.';
+    const note=a?(a.warn||WO_TAX_NOTE[a.type]):'This asset no longer exists, or belongs to a person not in the scenario — the step is skipped. Pick another asset or delete the step.';
     const bad=!a||!!a.warn;
     return `<div class="field full" style="margin-bottom:6px">
       <div class="arow"><span style="flex:0 0 18px;font-weight:600;font-size:12px">${i+1}.</span>
@@ -258,7 +258,7 @@ function onGuardrailFlag(path,v){ setPath('guardrail.'+path, !!v); syncGuardrail
 
 // Late-life medical shock (Expenses card, after the guardrails; off by default): an extra itemized medical cost for a few years late in life. It is added to the Long Term Care
 // cost line, so the itemized deduction (above 7.5% of AGI) and the state medical deduction apply, and it is paid by the withdrawal order like any expense. See projection.js (`expMed`).
-// The Stress test card's "Late-life medical shock" shows what it forces (sales, gains, tax) without putting it in the plan.
+// The Stress test card's "Late-life medical shock" shows what it forces (sales, gains, tax) without putting it in the scenario.
 function renderMedShockPanel(){
   const m=state.medShock||{}, married=state.filingStatus==='married'&&(state.people||[]).length>1;
   const num=(id,label,path,v,min,max,step,unit)=>`<div class="field full inline"><label>${label}${unit?' ('+unit+')':''}</label>

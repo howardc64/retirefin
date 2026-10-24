@@ -11,11 +11,11 @@ const planJson=()=>run('JSON.stringify(Object.assign({},state,{ui:null}))');
 const before=planJson();
 ok(/id="llmBtn"/.test(fs.readFileSync(path.join(root,'index.html'),'utf8'))&&/runRegistry\\.js/.test(fs.readFileSync(path.join(root,'index.html'),'utf8')),'index.html has the 🤖 LLM button and loads runRegistry.js');
 // export tab
-run('openLlmCard("export")'); ok(/Send to an LLM/.test(card())&&/Your plan as entered/.test(card())&&/Download JSON/.test(card()),'export tab lists the plan and offers Download / Copy / Preview');
-ok(/Only your plan so far/.test(card()),'with nothing else run the tab says how to get more runs in');
-run('stResults=Object.assign(stRunAll(stLoadCfg()),{cfg:stLoadCfg(),planKey:JSON.stringify(Object.assign({},state,{ui:null}))})'); run('renderLlmCard()');
+run('openLlmCard("export")'); ok(/Send to an LLM/.test(card())&&/Your scenario as entered/.test(card())&&/Download JSON/.test(card()),'export tab lists the plan and offers Download / Copy / Preview');
+ok(/Only your scenario so far/.test(card()),'with nothing else run the tab says how to get more runs in');
+run('stResults=Object.assign(stRunAll(stLoadCfg()),{cfg:stLoadCfg(),scenarioKey:JSON.stringify(Object.assign({},state,{ui:null}))})'); run('renderLlmCard()');
 ok(/stress test/.test(card())&&/Lost Decade/.test(card()),'after the stress tests are run they appear as runs');
-run('llmToggleRun("st:lost",false)'); const b=run('llmBuild()'); ok(!b.bundle.runs.some(r=>r.id==='st:lost')&&b.bundle.runs.some(r=>r.id==='plan')&&b.tokens>500,'unticking a run removes it from the file; the plan stays; size is estimated ('+b.tokens+' tokens)');
+run('llmToggleRun("st:lost",false)'); const b=run('llmBuild()'); ok(!b.bundle.runs.some(r=>r.id==='st:lost')&&b.bundle.runs.some(r=>r.id==='entered')&&b.tokens>500,'unticking a run removes it from the file; the plan stays; size is estimated ('+b.tokens+' tokens)');
 run('llmShowPreview()'); ok(/About [\\d,]+ tokens/.test(card())&&/planner\\.analysis\\/1/.test(card()),'Preview shows the size and the start of the file');
 run('llmSetOpt("tier","standard")'); ok(run('llmBuild()').bundle.series&&run('llmOpts.tier')==='standard','the Standard tier adds yearly values');
 // import tab
@@ -24,7 +24,7 @@ document.getElementById('llmImportText').value='nothing useful'; run('llmImportR
 const reply='Sure! \`\`\`json\\n'+JSON.stringify({schema:'planner.scenarios/1',scenarios:[{kind:'lever',label:'Spend 10% less',why:'tests the cushion',levers:[{lever:'living',pctChange:-10}]},{kind:'market',label:'Bad start',why:'sequence risk',returnsPct:[-20,-5,5,8,8],afterReturnPct:6},{kind:'lever',label:'Broken',levers:[{lever:'zzz'}]}]})+'\\n\`\`\`';
 document.getElementById('llmImportText').value=reply; run('llmImportRun()');
 ok(/Added 2 proposals/.test(card())&&/Not accepted: &quot;Broken/.test(card()),'a fenced reply is read: 2 proposals added, the broken one reported with its name');
-ok(/Spend 10% less/.test(card())&&/Bad start/.test(card())&&/tests the cushion/.test(card())&&/Against your plan/.test(card()),'proposals show label, reason and the change against the plan');
+ok(/Spend 10% less/.test(card())&&/Bad start/.test(card())&&/tests the cushion/.test(card())&&/Against your scenario/.test(card()),'proposals show label, reason and the change against the plan');
 ok(/Show in main charts/.test(card())&&/Add to Scenario set/.test(card())&&/Add to Stress test card/.test(card())&&/Dismiss/.test(card()),'each proposal has the review buttons');
 ok(planJson()===before,'importing and listing proposals did not change the plan');
 // nothing reaches the plan except a click
@@ -35,12 +35,12 @@ run('llmAdd('+JSON.stringify(pids[1])+')'); ok(run('state.ui.marketPaths.length'
 run('llmShow('+JSON.stringify(pids[1])+')'); ok(run('!!mcTrialView&&mcTrialView.view==="D"'),'Show in main charts replays the market path (internal view D, shown as B)'); run('mcTrialExit()');
 run('llmDismiss('+JSON.stringify(pids[0])+')'); ok(run('rrProposals().length')===1,'Dismiss removes a proposal');
 // plans tab
-run('llmSetTab("plans")'); ok(/Plans/.test(card())&&/Scenario A/.test(card())&&/Lost Decade/.test(card())&&/llmPlanDelete/.test(card()),'Plans tab lists scenarios and stress rows with delete buttons');
-run('llmPlanDelete("st:stag")'); ok(!/Stagflation/.test(card().split('llm-runs')[1]||'')||run('plGet("st:stag")===null'),'deleting a stress plan hides it');
+run('llmSetTab("scenarios")'); ok(/Scenarios/.test(card())&&/Scenario A/.test(card())&&/Lost Decade/.test(card())&&/llmScenarioDelete/.test(card()),'Plans tab lists scenarios and stress rows with delete buttons');
+run('llmScenarioDelete("st:stag")'); ok(!/Stagflation/.test(card().split('llm-runs')[1]||'')||run('scGet("st:stag")===null'),'deleting a stress plan hides it');
 ok(/Deleted/.test(card()),'delete reports');
 run('llmSetTab("import")');
 // staleness
-run('state.living+=1000'); run('renderLlmCard()'); ok(/plan edited since/.test(card()),'after a plan edit the remaining proposal is marked');
+run('state.living+=1000'); run('renderLlmCard()'); ok(/scenario edited since/.test(card()),'after a plan edit the remaining proposal is marked');
 run('state.living-=1000');
 run('llmClearAll()'); ok(run('rrProposals().length')===0,'Dismiss all clears the list');
 // stress / Monte Carlo proposals (phase 2)

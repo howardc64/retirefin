@@ -16,6 +16,13 @@ const ORD_DASH=[], QUAL_DASH=[];   // reference lines are solid now (see THIN_W 
 // Every reference line (bracket, IRMAA, deduction, effective tax rate) is a thin solid line with a thin white line of the same width stacked directly on top of it (just above it),
 // so it reads over any band color. Labels sit on a small white pill that stays clear of those two lines: its bottom edge is LINE_LABEL_LIFT-6px above the line's y.
 const THIN_W=1.6, LINE_LABEL_LIFT=10;
+// 5-year centred moving average of a yearly series (market return and inflation charts): year i = the mean of years i-2 … i+2 that have a value (a shorter window at either end of
+// the series). A year with no value stays null. Thick line, same colour as the yearly line it smooths.
+const AVG_W=3.6, AVG_YEARS=5;
+function centeredAvg(vals,n){
+  const h=Math.floor((n||AVG_YEARS)/2);
+  return vals.map((v,i)=>{ if(v==null) return null; let s=0,c=0; for(let j=Math.max(0,i-h); j<=Math.min(vals.length-1,i+h); j++){ if(vals[j]!=null){ s+=vals[j]; c++; } } return c?s/c:null; });
+}
 const DEDUCTION_COLOR='#D62828';   // red dashed deduction line on the taxable ordinary income chart
 // §3 "show_details checkbox": when on, chart popups reveal the underlying calculation
 // components (provisional income, AGI, standard deduction, etc.) called out as
@@ -137,7 +144,38 @@ const AXIS_COLOR='#a09d98', AXIS_GRID={color:'rgba(0,0,0,0.05)'};
 const AXIS_TICKS={color:AXIS_COLOR,font:{size:10}};
 const axisTitle=text=>({display:true,text,font:{size:11},color:AXIS_COLOR});
 // Every chart panel is a third of the chart area, so all charts share the compact axis labeling: at most 7 age labels, at most 5 $ labels in $k.
-const ageXAxis=text=>({type:'category',title:axisTitle(text),ticks:{...AXIS_TICKS,maxTicksLimit:7,padding:11},grid:AXIS_GRID});   // padding: room between the axis line and the tick labels for the inheritance-arrival ▲ (overlayPlugin.js)
+// Age-axis tick model (every time-based chart; `plain` = the Social Security start-age chart, whose X axis is a claim age, keeps plain grey ticks).
+// Each label is the OLDER person's age (black) while they are alive; after they pass, the YOUNGER person's age (dark blue); after both have passed, the last two digits of the calendar year (red).
+const AGE_C_OLD='#111111', AGE_C_YOUNG='#1f3a8a', AGE_C_YEAR='#d00000';
+const _ageInfoCache=new WeakMap();
+function ageAxisInfo(proj){
+  if(!proj||!proj.rows||!proj.rows.length||!proj.rows[0].ages) return null;
+  let I=_ageInfoCache.get(proj); if(I) return I;
+  const rows=proj.rows, r0=rows[0], n=r0.ages.length, io=proj.idxP0||0, iy=n>1?(io===0?1:0):-1;
+  const pass=r0.ages.map((a,i)=>{ const k=rows.findIndex(r=>!r.alive[i]); return k<0?rows.length:k; });   // first row the person is no longer alive = the year of passing
+  I={rows,base:Math.round(r0.age0),io,iy,pass,n,age0y:iy>=0?r0.ages[iy]:null};
+  _ageInfoCache.set(proj,I); return I;
+}
+function ageAxisTick(proj,label){
+  const I=ageAxisInfo(proj), a=Math.round(Number(label));
+  if(!I||!Number.isFinite(a)) return {text:String(label),color:AGE_C_OLD};
+  const k=a-I.base;
+  if(k<I.pass[I.io]) return {text:String(a),color:AGE_C_OLD};
+  if(I.iy>=0&&k<I.pass[I.iy]) return {text:String(Math.round(I.age0y+k)),color:AGE_C_YOUNG};
+  return {text:String(THIS_YEAR+k).slice(-2),color:AGE_C_YEAR};
+}
+// Calendar-offset (row index) of each person's passing, for the passing lines: [{k, color}] (the older person black, the younger dark blue).
+function passingYears(proj){
+  const I=ageAxisInfo(proj); if(!I) return [];
+  const out=[]; for(let i=0;i<I.n;i++){ if(I.pass[i]>0) out.push({k:I.pass[i],label:I.base+I.pass[i],color:i===I.io?AGE_C_OLD:AGE_C_YOUNG}); }
+  return out;
+}
+const ageXAxis=(text,plain)=>plain?({type:'category',title:axisTitle(text),ticks:{...AXIS_TICKS,maxTicksLimit:7,padding:11},grid:AXIS_GRID}):({type:'category',
+  title:{...axisTitle(text),color:'rgba(0,0,0,0)'},   // the text is painted in two colours by the ageAxisTitle plugin (overlayPlugin.js); this one only reserves the room
+  ticks:{...AXIS_TICKS,maxTicksLimit:7,padding:11,
+    callback(value){ return ageAxisTick(typeof lastProjection!=='undefined'?lastProjection:null,this.getLabelForValue(value)).text; },
+    color:c=>{ const L=c.chart.data.labels, v=c.tick?c.tick.value:c.index, k=ageAxisTick(typeof lastProjection!=='undefined'?lastProjection:null,L?L[v]:v); return k.color===AGE_C_YOUNG?'rgba(0,0,0,0)':k.color; }},   // the younger person's ticks are painted white on a dark-blue pill by the ageAxisTitle plugin
+  grid:AXIS_GRID});   // padding: room between the axis line and the tick labels for the inheritance-arrival ▲ (overlayPlugin.js)
 const fmtAxisK=v=>{
   if(!v) return '$0';
   if(Math.abs(v)>=1e6){ const m=v/1e6; return '$'+(Number.isInteger(m)?m:m.toFixed(m<10?2:1).replace(/0$/,''))+'M'; }
@@ -232,7 +270,13 @@ function applySameScale(name){
   return changed;
 }
 // Rescale button on a chart: refit just that chart.
-function rescaleChart(which){ chartYMax[which]=null; recompute(); }
+// The Market return and Inflation charts are rate charts: their Rescale button cycles the Y-axis maximum through 10%, 20% … 100% (then back to 10%), so a flat 3% line can be
+// read at a glance. Display only, not saved; the button shows the maximum in force. Every other chart refits.
+const PCT_SCALE_CHARTS=['market','inflation'], pctScale={market:null,inflation:null};
+function pctScaleLabel(which){ const b=document.querySelector('button[onclick="rescaleChart(\''+which+'\')"]'); if(b) b.textContent=pctScale[which]?'\u2195 Max '+pctScale[which]+'%':'\u2195 Rescale'; }
+function rescaleChart(which){
+  if(PCT_SCALE_CHARTS.includes(which)){ const c=pctScale[which]; pctScale[which]=(c==null||c>=100)?10:c+10; pctScaleLabel(which); recompute(); return; }
+  chartYMax[which]=null; recompute(); }
 // "view IRMAA as tax" checkbox: redraw on the CURRENT scale: the Y axis is never changed, the IRMAA line just slides in / out (the chart tweens it).
 function toggleIrmaaAsTax(on){ viewIrmaaAsTax=!!on; recompute(); }
 // A Same-scale button: one action, nothing stays switched on.
@@ -242,7 +286,7 @@ function toggleScaleLink(name){ applySameScale(name); recompute(); saveDebounced
 // and lines deep inside the stack just cut through the bands. So only the lines that matter to the data are kept:
 //   • `lists` holds one entry per filing status in use: {vals, tops} — `vals` = the Y value of each line (ascending, index = bracket / tier number) and `tops` = the height of the
 //     data stack in each year that filing status applies (so the lines follow the stack of the years they are drawn over).
-//   • lo / hi = lowest / highest non-zero stack height. A line that falls between them crosses the data (it is where the plan crosses a bracket) and is a candidate; so are the
+//   • lo / hi = lowest / highest non-zero stack height. A line that falls between them crosses the data (it is where the scenario crosses a bracket) and is a candidate; so are the
 //     first line above hi (the next ceiling to stay under) and the last line below lo (the floor the stack has already cleared).
 //   • A candidate more than `farFrac` of the Y range away from the data is dropped (empty space / buried in the stack).
 //   • At most `keep` lines are drawn per chart: the ones nearest the data (ties go to the higher line); a line whose neighbours would sit closer than `gapFrac` of the Y range
@@ -348,9 +392,9 @@ function upsertLineChart(key, {canvasId, labels, datasets, yMax, tooltip, create
     if(opts.scales&&opts.scales.y1) opts.scales.y1.afterFit=sc=>{ sc.width=RIGHT_PAD; };
     else opts.layout={...(opts.layout||{}), padding:{...((opts.layout||{}).padding||{}), right:RIGHT_PAD}};
     if(key!=='ss'){   // every time-based chart carries the LTC bar (plugin 'ltcBar') and reserves room for it above the plot area
-      opts.plugins={...(opts.plugins||{}), ltcBar:true, inhArrival:true, abGhost:true, unfundedYears:true};   // inhArrival: the small ▲ on the x-axis where an inheritance arrives (overlayPlugin.js)
+      opts.plugins={...(opts.plugins||{}), ltcBar:true, inhArrival:true, abGhost:true, unfundedYears:true, ageAxisTitle:true, passLines:true};   // inhArrival: the small ▲ on the x-axis where an inheritance arrives (overlayPlugin.js)
       opts.layout={...(opts.layout||{}), padding:{...((opts.layout||{}).padding||{}), top:ltcTopPad({data:{labels},options:opts})}};
-    }
+    } else opts.plugins={...(opts.plugins||{}), ageAxisTitle:true, passLines:true};   // the Social Security chart is also an age axis: same axis labels and passing lines (no LTC bar)
     charts[key]=new Chart(document.getElementById(canvasId),{type:'line',data:{labels,datasets},options:opts});
   }
   return charts[key];

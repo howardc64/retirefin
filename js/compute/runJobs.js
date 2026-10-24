@@ -6,7 +6,7 @@
 //   Validated settings: rjValidateStress / rjValidateMc take PARTIAL settings in the cards' own shape, start from the card's current settings (page) or the defaults,
 //     and reject unknown keys and out-of-range values with the same bounds as the cards' inputs.
 //   Stress run:   rjRunStress(cfg)   → synchronous (a handful of projections); kept as the "tool" stress result (ids stl:<scenario>).
-//   Monte Carlo:  rjStartMc(cfg, opts, host) → a JOB that runs in ~40 ms slices (setTimeout) on a private snapshot of the plan, so editing the plan mid-run cannot corrupt it;
+//   Monte Carlo:  rjStartMc(cfg, opts, host) → a JOB that runs in ~40 ms slices (setTimeout) on a private snapshot of the scenario, so editing the scenario mid-run cannot corrupt it;
 //     one runs at a time, the rest queue; results appear as runs mcj:<job> (Monte Carlo) and mcj:<job>:<scenario> (stress + Monte Carlo) with `source:'llm'`.
 //   Tools (MCP host only: they carry hosts:['mcp']): define_stress_config, define_mc_config, run_stress_tests, run_monte_carlo, get_job, cancel_job.
 //   Import kinds `stress` and `montecarlo` (planner.scenarios/1) come through rjImportStress / rjImportMc, called by rrImport.
@@ -78,8 +78,8 @@ function rjValidateStress(input,opts){
 
 // ── stress run ───────────────────────────────────────────────────
 function rjRunStress(cfg){
-  const key=rrPlanKey(), sr=stRunAll(cfg);
-  RJ_STRESS={cfg,results:sr.results,sr,planKey:key,startAge:sr.startAge,startCovered:sr.startCovered};
+  const key=rrScenarioKey(), sr=stRunAll(cfg);
+  RJ_STRESS={cfg,results:sr.results,sr,scenarioKey:key,startAge:sr.startAge,startCovered:sr.startCovered};
   return RJ_STRESS;
 }
 
@@ -88,7 +88,7 @@ function rjJobInfo(id){
   const j=RJ_JOBS.find(x=>x.id===id); if(!j) return null;
   const o={id:j.id,status:j.status,done:j.done,total:j.total,percent:j.total?Math.round(j.done/j.total*100):0,trialsPerRow:j.cfg.trials,rows:j.rows.map(r=>({id:r.id,label:r.label,trials:r.res.length})),withStress:j.withStress,source:j.source,elapsedSec:Math.round(((j.finishedAt||Date.now())-(j.startedAt||j.createdAt))/100)/10};
   if(j.error) o.error=j.error;
-  if(j.fromPage) o.reproducedFromPage='this is the run you did in the page, reproduced here from the same plan, settings and seed (the same trials)';
+  if(j.fromPage) o.reproducedFromPage='this is the run you did in the page, reproduced here from the same scenario, settings and seed (the same trials)';
   if(j.status==='done'||j.status==='cancelled') o.runIds=j.rows.filter(r=>r.res.length).map(r=>'mcj:'+j.id+(r.id==='none'?'':':'+r.id));
   if(j.status==='cancelled') o.note='cancelled; the rows above hold the trials finished so far';
   return o;
@@ -128,13 +128,13 @@ function rjStartMc(cfg,opts,host){
   const total=rows.length*cfg.trials;
   if(cfg.trials>lim.trials) return {error:'trials must be at most '+lim.trials+' for this host'};
   if(total>lim.total) return {error:'this job would run '+total+' trials ('+rows.length+' rows × '+cfg.trials+'); the limit is '+lim.total+'. Lower trials or run without withStress.'};
-  const job={id:'j'+(++RJ_SEQ),cfg:rjClone(cfg),sig:JSON.stringify([cfg,opts.withStress?(opts.stressCfg||null):null]),rows,ri:0,total,done:0,status:'queued',withStress:!!opts.withStress,planKey:rrPlanKey(),snapshot:rjClone(state),createdAt:Date.now(),source:src,note};
+  const job={id:'j'+(++RJ_SEQ),cfg:rjClone(cfg),sig:JSON.stringify([cfg,opts.withStress?(opts.stressCfg||null):null]),rows,ri:0,total,done:0,status:'queued',withStress:!!opts.withStress,scenarioKey:rrScenarioKey(),snapshot:rjClone(state),createdAt:Date.now(),source:src,note};
   RJ_JOBS.push(job); rjNext();
   return {job};
 }
-// A run the user did in the PAGE (its Run button): reproduce it here from the same plan, settings and seed, so the tools can read it. The page's own results are never sent (they
-// are the same numbers: the draws depend only on the plan, the settings and the seed). kind: 'mc' (Monte Carlo card), 'stress' (stress tests), 'stmc' (stress tests + Monte Carlo).
-// mcIn / stIn: the settings the page used, in the cards' own shape (a few page-only keys are dropped). Asking twice for the same run on the same plan does nothing.
+// A run the user did in the PAGE (its Run button): reproduce it here from the same scenario, settings and seed, so the tools can read it. The page's own results are never sent (they
+// are the same numbers: the draws depend only on the scenario, the settings and the seed). kind: 'mc' (Monte Carlo card), 'stress' (stress tests), 'stmc' (stress tests + Monte Carlo).
+// mcIn / stIn: the settings the page used, in the cards' own shape (a few page-only keys are dropped). Asking twice for the same run on the same scenario does nothing.
 // → {job} | {stress:true} | {error}
 function rjFromPage(kind,mcIn,stIn){
   if(kind!=='mc'&&kind!=='stress'&&kind!=='stmc') return {error:'unknown kind of run'};
@@ -142,37 +142,37 @@ function rjFromPage(kind,mcIn,stIn){
   let cfg=null, scfg=null;
   if(kind!=='stress'){ const v=rjValidateMc(scrub(mcIn),{base:'defaults',source:'mcp'}); if(v.errors.length) return {error:'Monte Carlo settings: '+v.errors.join('; ')}; cfg=v.cfg; }
   if(kind!=='mc'){ const v=rjValidateStress(scrub(stIn),{base:'defaults'}); if(v.errors.length) return {error:'stress settings: '+v.errors.join('; ')}; scfg=v.cfg; }
-  if(scfg){ const key=rrPlanKey(); if(!(RJ_STRESS&&RJ_STRESS.planKey===key&&JSON.stringify(RJ_STRESS.cfg)===JSON.stringify(scfg))) rjRunStress(scfg); }
+  if(scfg){ const key=rrScenarioKey(); if(!(RJ_STRESS&&RJ_STRESS.scenarioKey===key&&JSON.stringify(RJ_STRESS.cfg)===JSON.stringify(scfg))) rjRunStress(scfg); }
   if(kind==='stress') return {stress:true};
-  const sig=JSON.stringify([cfg,kind==='stmc'?scfg:null]), key=rrPlanKey();
-  const same=RJ_JOBS.find(j=>j.planKey===key&&j.sig===sig&&(j.status==='queued'||j.status==='running'||j.status==='done'));
+  const sig=JSON.stringify([cfg,kind==='stmc'?scfg:null]), key=rrScenarioKey();
+  const same=RJ_JOBS.find(j=>j.scenarioKey===key&&j.sig===sig&&(j.status==='queued'||j.status==='running'||j.status==='done'));
   if(same) return {job:same,existing:true};
   const r=rjStartMc(cfg,{withStress:kind==='stmc',stressCfg:scfg},{source:'mcp'}); if(r.error) return r;
   r.job.fromPage=true; return r;
 }
 // A DIFFERENT plan was loaded in the page (file, sample, reset): everything made on the old plan goes: jobs (running ones are stopped), the stress run, the tool drafts, the what-ifs and
-// market what-ifs in the master plan list, the proposals and the promoted trials. Editing the same plan does not come here: those runs stay and are reported stale.
+// market what-ifs in the master scenario list, the proposals and the promoted trials. Editing the same scenario does not come here: those runs stay and are reported stale.
 // Job ids keep counting (a new "j3" is never an old "j3"). Saved market scenarios are not plan-specific and stay.
 function rjClearAll(){
   RJ_JOBS.slice().forEach(j=>{ if(j.status==='running'||j.status==='queued') rjCancel(j.id); });
   RJ_JOBS=[]; RJ_STRESS=null; RJ_DRAFT.stress=null; RJ_DRAFT.mc=null;
   if(typeof RR_CACHE!=='undefined') RR_CACHE=new Map();
   if(typeof RR_PROPOSALS!=='undefined') RR_PROPOSALS=[];
-  if(typeof plMcClearPromoted==='function') plMcClearPromoted();
-  if(typeof plReset==='function') plReset();
+  if(typeof scMcClearPromoted==='function') scMcClearPromoted();
+  if(typeof scReset==='function') scReset();
 }
 function rjCancel(id){ const j=RJ_JOBS.find(x=>x.id===id); if(!j) return null; if(j.status==='running'||j.status==='queued'){ j.status='cancelled'; j.finishedAt=Date.now(); rjNext(); } return rjJobInfo(id); }
 const rjLatest=()=>RJ_JOBS.length?RJ_JOBS[RJ_JOBS.length-1]:null;
 
 // Entries for the registry: the tool stress run, and every finished (or cancelled) job.
 rrRegisterSource((out,key,ph)=>{
-  // (the tool stress run is a set of plans in the master plan list: plans/jobsProducer.js; rrEntries lists them)
+  // (the tool stress run is a set of scenarios in the master scenario list: scenarios/jobsProducer.js; rrEntries lists them)
   RJ_JOBS.forEach(j=>{
-    if(j.status!=='done'&&j.status!=='cancelled') return; const stale=j.planKey!==key;
+    if(j.status!=='done'&&j.status!=='cancelled') return; const stale=j.scenarioKey!==key;
     j.rows.forEach(row=>{
       if(!row.res.length) return;
       const S=rrMemo('job|'+j.id+'|'+row.id+'|'+row.res.length,()=>mcSummarize(row.res)), id='mcj:'+j.id+(row.id==='none'?'':':'+row.id), partial=row.res.length<j.cfg.trials;
-      out.push({run:{id,kind:row.stressDef?'stress_mc':'monte_carlo',label:(row.stressDef?row.label+' + ':'')+'Monte Carlo (job '+j.id+', '+row.res.length+' trials'+(partial?', partial':'')+')',source:'llm',spec:{settings:rjClone(j.cfg),scenario:row.stressDef?row.id:null},planKey:rrHash(j.planKey),stale,distribution:rrDist(S,row.res,false)},
+      out.push({run:{id,kind:row.stressDef?'stress_mc':'monte_carlo',label:(row.stressDef?row.label+' + ':'')+'Monte Carlo (job '+j.id+', '+row.res.length+' trials'+(partial?', partial':'')+')',source:'llm',spec:{settings:rjClone(j.cfg),scenario:row.stressDef?row.id:null},scenarioKey:rrHash(j.scenarioKey),stale,distribution:rrDist(S,row.res,false)},
         res:row.res,S,cfg:j.cfg,stressDef:row.stressDef||null});
     });
   });
@@ -186,7 +186,7 @@ function rjStressSummary(sr){
 // Both return {error} or the stored proposal. `raw` already passed the key check.
 function rjImportStress(raw,label,why,src){
   const v=rjValidateStress(raw.config||{},{includePathIds:raw.includePathIds}); if(v.errors.length) return {errors:v.errors};
-  const sr=stRunAll(v.cfg), p=rrAddProposal({kind:'stress',label,why,source:src,planHash:rrHash(rrPlanKey()),config:v.cfg,includePathIds:raw.includePathIds||null,rows:rjStressSummary(sr),kpis:null,deltas:{},notes:[],changed:true,status:'new',basedOn:v.basedOn});
+  const sr=stRunAll(v.cfg), p=rrAddProposal({kind:'stress',label,why,source:src,scenarioHash:rrHash(rrScenarioKey()),config:v.cfg,includePathIds:raw.includePathIds||null,rows:rjStressSummary(sr),kpis:null,deltas:{},notes:[],changed:true,status:'new',basedOn:v.basedOn});
   return {proposal:p};
 }
 function rjImportMc(raw,label,why,src){
@@ -194,7 +194,7 @@ function rjImportMc(raw,label,why,src){
   let stressCfg=null;
   if(raw.withStress){ const sv=rjValidateStress(raw.stressConfig||{},{includePathIds:raw.includePathIds}); if(sv.errors.length) return {errors:sv.errors.map(e=>'stressConfig: '+e)}; stressCfg=sv.cfg; }
   const r=rjStartMc(v.cfg,{withStress:!!raw.withStress,stressCfg},{source:'import'}); if(r.error) return {errors:[r.error]};
-  const p=rrAddProposal({kind:'montecarlo',label,why,source:src,planHash:rrHash(rrPlanKey()),config:v.cfg,withStress:!!raw.withStress,stressConfig:stressCfg,includePathIds:raw.includePathIds||null,jobId:r.job.id,kpis:null,deltas:{},notes:[],changed:true,status:'new',basedOn:v.basedOn});
+  const p=rrAddProposal({kind:'montecarlo',label,why,source:src,scenarioHash:rrHash(rrScenarioKey()),config:v.cfg,withStress:!!raw.withStress,stressConfig:stressCfg,includePathIds:raw.includePathIds||null,jobId:r.job.id,kpis:null,deltas:{},notes:[],changed:true,status:'new',basedOn:v.basedOn});
   return {proposal:p};
 }
 
@@ -223,15 +223,15 @@ if(typeof apiRegister==='function'){
     handler(args,host){ const v=rjValidateMc(args.config||{},{base:args.base,source:(host&&host.source)||'mcp'}); if(v.errors.length) return rjErr(v.errors,'The Monte Carlo settings');
       RJ_DRAFT.mc=v.cfg; return {isError:false,response:{config:v.cfg,basedOn:v.basedOn,trialsLimit:(RJ_LIMITS[(host&&host.source)||'mcp']||RJ_LIMITS.mcp).trials,note:'remembered for run_monte_carlo'}}; }});
   apiRegister({name:'run_stress_tests',hosts:H,
-    description:'Run the stress tests (Lost Decade, Stagflation, 1966 retiree, saved market paths and any includePathIds) on the user\'s plan with the app\'s own engine, using config (over the remembered or base settings). Instant. Results are runs with ids stl:<scenario>: read them with get_stress_results, compare_runs or get_run.',
+    description:'Run the stress tests (Lost Decade, Stagflation, 1966 retiree, saved market paths and any includePathIds) on the user\'s scenario with the app\'s own engine, using config (over the remembered or base settings). Instant. Results are runs with ids stl:<scenario>: read them with get_stress_results, compare_runs or get_run.',
     inputSchema:{type:'object',properties:{base:RJ_BASE_PROP,config:rjSchema(RJ_ST_SPEC),includePathIds:RJ_PATH_PROP}},
     handler(args){
       let cfg; if(args.config!=null||args.includePathIds!=null||!RJ_DRAFT.stress){ const v=rjValidateStress(args.config||{},{base:args.base,includePathIds:args.includePathIds}); if(v.errors.length) return rjErr(v.errors,'The stress test settings'); cfg=v.cfg; } else cfg=RJ_DRAFT.stress;
       const sr=rjRunStress(cfg); RR_STEP=1; RR_KEEP_NAMES=RR_TOOL_NAMES;
-      try{ const rows=rrEntries().filter(e=>e.run.id.startsWith('stl:')).map(e=>rrRunOut(e,false)); return {isError:false,response:{units:'today\'s dollars',startAge:rr1(sr.startAge),shockStartsWithinProjection:!!sr.startCovered,plan:rrRunOut(rrEntries()[0],false).kpis,stress:rows}}; } finally{ RR_KEEP_NAMES=false; }
+      try{ const rows=rrEntries().filter(e=>e.run.id.startsWith('stl:')).map(e=>rrRunOut(e,false)); return {isError:false,response:{units:'today\'s dollars',startAge:rr1(sr.startAge),shockStartsWithinProjection:!!sr.startCovered,scenario:rrRunOut(rrEntries()[0],false).kpis,stress:rows}}; } finally{ RR_KEEP_NAMES=false; }
     }});
   apiRegister({name:'run_monte_carlo',hosts:H,
-    description:'Start a Monte Carlo run on the user\'s plan as a background job and return its id at once. With withStress true it also replays the trials under every stress scenario (the app\'s "stress + Monte Carlo" table). Poll get_job; when done the results are runs mcj:<job> (and mcj:<job>:<scenario>): read them with get_mc_summary, get_trial, compare_runs. The job runs on a snapshot of the plan, so later edits do not disturb it (its runs then show stale).',
+    description:'Start a Monte Carlo run on the user\'s scenario as a background job and return its id at once. With withStress true it also replays the trials under every stress scenario (the app\'s "stress + Monte Carlo" table). Poll get_job; when done the results are runs mcj:<job> (and mcj:<job>:<scenario>): read them with get_mc_summary, get_trial, compare_runs. The job runs on a snapshot of the scenario, so later edits do not disturb it (its runs then show stale).',
     inputSchema:{type:'object',properties:{base:RJ_BASE_PROP,config:rjSchema(RJ_MC_SPEC),withStress:{type:'boolean'},stressConfig:rjSchema(RJ_ST_SPEC),includePathIds:RJ_PATH_PROP}},
     handler(args,host){
       const src=(host&&host.source)||'mcp';

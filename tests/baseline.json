@@ -1453,9 +1453,11 @@
      },
      "maintainAspectRatio": true,
      "plugins": {
+      "ageAxisTitle": true,
       "legend": {
        "display": false
       },
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -1495,7 +1497,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -1503,12 +1506,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -2744,11 +2747,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -2788,7 +2793,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -2796,12 +2802,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -3952,6 +3958,7 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
@@ -3972,6 +3979,7 @@
        "switchIdx": 22,
        "toIdx": 28
       },
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -4011,7 +4019,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -4019,12 +4028,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -5335,11 +5344,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -5379,7 +5390,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -5387,12 +5399,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -5977,11 +5989,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -6021,7 +6035,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -6029,12 +6044,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -6351,11 +6366,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -6397,7 +6414,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -6405,12 +6423,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -7136,11 +7154,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -7180,7 +7200,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -7188,12 +7209,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -7518,11 +7539,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -7562,7 +7585,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -7570,12 +7594,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -8121,11 +8145,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -8165,7 +8191,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -8173,12 +8200,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -8646,11 +8673,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -8690,7 +8719,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -8698,12 +8728,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -9211,14 +9241,17 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "stretchTint": {
        "fromIdx": 29,
-       "label": "stretch IRA"
+       "label": "stretch IRA",
+       "toIdx": 38
       },
       "tooltip": {
        "backgroundColor": "[fn]",
@@ -9260,7 +9293,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -9268,12 +9302,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -9667,11 +9701,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "stretchTint": false,
       "tooltip": {
        "backgroundColor": "[fn]",
@@ -9713,7 +9749,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -9721,12 +9758,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -10084,11 +10121,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -10128,7 +10167,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -10136,12 +10176,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -10507,11 +10547,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -10551,7 +10593,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -10559,12 +10602,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -10746,7 +10789,7 @@
         null
        ],
        "fill": false,
-       "label": "Plan inflation rate",
+       "label": "Scenario inflation rate",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,
@@ -10816,11 +10859,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -10853,7 +10898,8 @@
         "size": 12
        }
       },
-      "unfundedYears": true
+      "unfundedYears": true,
+      "zeroLine": true
      },
      "responsive": true,
      "scales": {
@@ -10862,7 +10908,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -10870,12 +10917,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -10923,7 +10970,7 @@
    "tips": [
     {
      "afterBody": [
-      "  Plan inflation rate  3.00%"
+      "  Scenario inflation rate  3.00%"
      ],
      "footer": null,
      "idx": 0,
@@ -10931,13 +10978,13 @@
       null
      ],
      "title": [
-      "Person 1   Age 63.8 · Living",
-      "Person 2   Age 61.8 · Living"
+      "Person 1       Age 63.8 · Living",
+      "Person 2       Age 61.8 · Living"
      ]
     },
     {
      "afterBody": [
-      "  Plan inflation rate  3.00%"
+      "  Scenario inflation rate  3.00%"
      ],
      "footer": null,
      "idx": 9,
@@ -10945,13 +10992,13 @@
       null
      ],
      "title": [
-      "Person 1   Age 72.8 · Living",
-      "Person 2   Age 70.8 · Living"
+      "Person 1       Age 72.8 · Living",
+      "Person 2       Age 70.8 · Living"
      ]
     },
     {
      "afterBody": [
-      "  Plan inflation rate  3.00%"
+      "  Scenario inflation rate  3.00%"
      ],
      "footer": null,
      "idx": 19,
@@ -10959,8 +11006,8 @@
       null
      ],
      "title": [
-      "Person 1   Age 82.8 · Living",
-      "Person 2   Age 80.8 · Living"
+      "Person 1       Age 82.8 · Living",
+      "Person 2       Age 80.8 · Living"
      ]
     },
     {
@@ -10991,7 +11038,7 @@
       {
        "backgroundColor": "transparent",
        "borderColor": "#3B6FA0",
-       "borderWidth": 1.6,
+       "borderWidth": 3.6,
        "data": [
         7,
         7,
@@ -11034,7 +11081,7 @@
         null
        ],
        "fill": false,
-       "label": "Main (Person 1)",
+       "label": "Main (Person 1) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,
@@ -11045,7 +11092,7 @@
       {
        "backgroundColor": "transparent",
        "borderColor": "#0f6e56",
-       "borderWidth": 1.6,
+       "borderWidth": 3.6,
        "data": [
         7,
         7,
@@ -11088,7 +11135,7 @@
         null
        ],
        "fill": false,
-       "label": "Trust (IDGT) (Person 2)",
+       "label": "Trust (IDGT) (Person 2) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,
@@ -11099,7 +11146,7 @@
       {
        "backgroundColor": "transparent",
        "borderColor": "#c8860a",
-       "borderWidth": 1.6,
+       "borderWidth": 3.6,
        "data": [
         6,
         6,
@@ -11142,7 +11189,7 @@
         null
        ],
        "fill": false,
-       "label": "Pre-tax IRA (Person 1)",
+       "label": "Pre-tax IRA (Person 1) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,
@@ -11153,7 +11200,7 @@
       {
        "backgroundColor": "transparent",
        "borderColor": "#7a4fb5",
-       "borderWidth": 1.6,
+       "borderWidth": 3.6,
        "data": [
         6,
         6,
@@ -11196,7 +11243,7 @@
         null
        ],
        "fill": false,
-       "label": "Roth IRA (Person 2)",
+       "label": "Roth IRA (Person 2) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,
@@ -11266,11 +11313,13 @@
      "maintainAspectRatio": true,
      "plugins": {
       "abGhost": true,
+      "ageAxisTitle": true,
       "inhArrival": true,
       "legend": {
        "display": false
       },
       "ltcBar": true,
+      "passLines": true,
       "tooltip": {
        "backgroundColor": "[fn]",
        "bodyColor": "[fn]",
@@ -11303,7 +11352,8 @@
         "size": 12
        }
       },
-      "unfundedYears": true
+      "unfundedYears": true,
+      "zeroLine": true
      },
      "responsive": true,
      "scales": {
@@ -11312,7 +11362,8 @@
         "color": "rgba(0,0,0,0.05)"
        },
        "ticks": {
-        "color": "#a09d98",
+        "callback": "[fn]",
+        "color": "[fn]",
         "font": {
          "size": 10
         },
@@ -11320,12 +11371,12 @@
         "padding": 11
        },
        "title": {
-        "color": "#a09d98",
+        "color": "rgba(0,0,0,0)",
         "display": true,
         "font": {
          "size": 11
         },
-        "text": "Person 1's age"
+        "text": "Person 1, Person 2 age"
        },
        "type": "category"
       },
@@ -11373,12 +11424,12 @@
    "tips": [
     {
      "afterBody": [
-      "  Main (Person 1)          7.0%",
-      "  Trust (IDGT) (Person 2)  7.0%",
-      "  Pre-tax IRA (Person 1)   6.0%",
-      "  Roth IRA (Person 2)      6.0%",
+      "  Main (Person 1) (5-yr avg)          7.0%",
+      "  Trust (IDGT) (Person 2) (5-yr avg)  7.0%",
+      "  Pre-tax IRA (Person 1) (5-yr avg)   6.0%",
+      "  Roth IRA (Person 2) (5-yr avg)      6.0%",
       "",
-      "  Inflation that year     3.00%"
+      "  Inflation that year                3.00%"
      ],
      "footer": null,
      "idx": 0,
@@ -11389,18 +11440,18 @@
       null
      ],
      "title": [
-      "Person 1      Age 63.8 · Living",
-      "Person 2      Age 61.8 · Living"
+      "Person 1                 Age 63.8 · Living",
+      "Person 2                 Age 61.8 · Living"
      ]
     },
     {
      "afterBody": [
-      "  Main (Person 1)          7.0%",
-      "  Trust (IDGT) (Person 2)  7.0%",
-      "  Pre-tax IRA (Person 1)   6.0%",
-      "  Roth IRA (Person 2)      6.0%",
+      "  Main (Person 1) (5-yr avg)          7.0%",
+      "  Trust (IDGT) (Person 2) (5-yr avg)  7.0%",
+      "  Pre-tax IRA (Person 1) (5-yr avg)   6.0%",
+      "  Roth IRA (Person 2) (5-yr avg)      6.0%",
       "",
-      "  Inflation that year     3.00%"
+      "  Inflation that year                3.00%"
      ],
      "footer": null,
      "idx": 9,
@@ -11411,18 +11462,18 @@
       null
      ],
      "title": [
-      "Person 1      Age 72.8 · Living",
-      "Person 2      Age 70.8 · Living"
+      "Person 1                 Age 72.8 · Living",
+      "Person 2                 Age 70.8 · Living"
      ]
     },
     {
      "afterBody": [
-      "  Main (Person 1)          7.0%",
-      "  Trust (IDGT) (Person 2)  7.0%",
-      "  Pre-tax IRA (Person 1)   6.0%",
-      "  Roth IRA (Person 2)      6.0%",
+      "  Main (Person 1) (5-yr avg)          7.0%",
+      "  Trust (IDGT) (Person 2) (5-yr avg)  7.0%",
+      "  Pre-tax IRA (Person 1) (5-yr avg)   6.0%",
+      "  Roth IRA (Person 2) (5-yr avg)      6.0%",
       "",
-      "  Inflation that year     3.00%"
+      "  Inflation that year                3.00%"
      ],
      "footer": null,
      "idx": 19,
@@ -11433,8 +11484,8 @@
       null
      ],
      "title": [
-      "Person 1      Age 82.8 · Living",
-      "Person 2      Age 80.8 · Living"
+      "Person 1                 Age 82.8 · Living",
+      "Person 2                 Age 80.8 · Living"
      ]
     },
     {
@@ -27374,7 +27425,7 @@
         null
        ],
        "fill": false,
-       "label": "Plan inflation rate",
+       "label": "Scenario inflation rate",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,
@@ -27434,7 +27485,7 @@
       {
        "backgroundColor": "transparent",
        "borderColor": "#3B6FA0",
-       "borderWidth": 1.6,
+       "borderWidth": 3.6,
        "data": [
         7,
         7,
@@ -27477,7 +27528,7 @@
         null
        ],
        "fill": false,
-       "label": "Main (Person 1)",
+       "label": "Main (Person 1) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,
@@ -27488,7 +27539,7 @@
       {
        "backgroundColor": "transparent",
        "borderColor": "#0f6e56",
-       "borderWidth": 1.6,
+       "borderWidth": 3.6,
        "data": [
         7,
         7,
@@ -27531,7 +27582,7 @@
         null
        ],
        "fill": false,
-       "label": "Trust (IDGT) (Person 2)",
+       "label": "Trust (IDGT) (Person 2) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,
@@ -27542,7 +27593,7 @@
       {
        "backgroundColor": "transparent",
        "borderColor": "#c8860a",
-       "borderWidth": 1.6,
+       "borderWidth": 3.6,
        "data": [
         6,
         6,
@@ -27585,7 +27636,7 @@
         null
        ],
        "fill": false,
-       "label": "Pre-tax IRA (Person 1)",
+       "label": "Pre-tax IRA (Person 1) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,
@@ -27596,7 +27647,7 @@
       {
        "backgroundColor": "transparent",
        "borderColor": "#7a4fb5",
-       "borderWidth": 1.6,
+       "borderWidth": 3.6,
        "data": [
         6,
         6,
@@ -27639,7 +27690,7 @@
         null
        ],
        "fill": false,
-       "label": "Roth IRA (Person 2)",
+       "label": "Roth IRA (Person 2) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
        "pointRadius": 0,

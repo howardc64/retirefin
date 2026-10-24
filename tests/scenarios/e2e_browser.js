@@ -1,6 +1,6 @@
-// Real-browser check of the master plan list: loads the actual app in Chromium (Chart.js and xlsx replaced by recording stand-ins: the CDN is not reachable here),
-// loads a sample plan, runs the Stress test and Monte Carlo cards through their own buttons, then drives list_plans / get_plan / plShow / plDelete / the page effects.
-//   node tests/plans/e2e_browser.js [appRoot]   (default: this project); Chart.js and xlsx are replaced by stand-ins, so no network is needed
+// Real-browser check of the master scenario list: loads the actual app in Chromium (Chart.js and xlsx replaced by recording stand-ins: the CDN is not reachable here),
+// loads a sample plan, runs the Stress test and Monte Carlo cards through their own buttons, then drives list_scenarios / get_scenario / scShow / scDelete / the page effects.
+//   node tests/scenarios/e2e_browser.js [appRoot]   (default: this project); Chart.js and xlsx are replaced by stand-ins, so no network is needed
 const http=require('http'), fs=require('fs'), path=require('path');
 let pw; try{ pw=require('playwright-core'); }catch(e){ pw=require('playwright'); }   // needs playwright(-core) and a Chromium: CHROMIUM=/path/to/chrome
 const {chromium}=pw;
@@ -26,16 +26,16 @@ const XLSX_STUB='window.XLSX={utils:{},write(){},writeFile(){}};';
     return route.continue(); });
   await page.goto('http://127.0.0.1:'+port+'/index.html'); await page.waitForTimeout(500);
   ok(errors.length===0,'the page loads with no script errors'+(errors.length?': '+errors.slice(0,3).join(' | '):''));
-  ok(await page.evaluate(()=>typeof plList==='function'&&typeof plShow==='function'&&typeof apiCall==='function'&&typeof scnDeleteOther==='function'),'plan store, plShow, tools and scnDeleteOther are all defined in the page');
+  ok(await page.evaluate(()=>typeof scList==='function'&&typeof scShow==='function'&&typeof apiCall==='function'&&typeof scnDeleteOther==='function'),'plan store, scShow, tools and scnDeleteOther are all defined in the page');
   await page.evaluate(()=>loadSample('Couple_Heir.json')); await page.waitForTimeout(500);
   const ev=(fn,arg)=>page.evaluate(fn,arg);
   const call=(name,args)=>page.evaluate(([n,a])=>apiCall(n,a),[name,args||{}]);
 
   // scenarios: create B (a copy that spends more), go back to A
   await ev(()=>{ scnCreate(); state.living=state.living*1.3; scnSwitch('A'); });
-  let keys=await ev(()=>{ plSyncAll(); return plList().map(p=>p.key); });
+  let keys=await ev(()=>{ scSyncAll(); return scList().map(p=>p.key); });
   ok(keys.join()==='scn:A,scn:B','after creating B the list has scn:A and scn:B');
-  ok(await ev(()=>plGet('scn:B').input.state.living>plGet('scn:A').input.state.living),'scn:B holds B\'s own inputs');
+  ok(await ev(()=>scGet('scn:B').input.state.living>scGet('scn:A').input.state.living),'scn:B holds B\'s own inputs');
 
   // the cards, through their own buttons
   await ev(()=>{ document.getElementById('stRunBtn').click(); });
@@ -44,51 +44,51 @@ const XLSX_STUB='window.XLSX={utils:{},write(){},writeFile(){}};';
   await page.waitForFunction(()=>typeof mcResults!=='undefined'&&mcResults&&mcResults.results&&mcResults.results.length>=50,null,{timeout:120000});
   await ev(()=>{ document.getElementById('stRunMcBtn').click(); });
   await page.waitForFunction(()=>stResults&&stResults.mc&&stResults.mc.rows&&stResults.mc.rows.every(r=>r.res.length>=50),null,{timeout:240000});
-  let r=await call('list_plans',{}); const L=r.response.plans, ks=L.map(p=>p.ref);
-  ok(!r.isError&&['scn:A','scn:B','st:lost','st:stag','st:y1966'].every(k=>ks.includes(k)),'list_plans (in the page) lists scenarios and the Stress card rows: '+ks.length+' plans');
+  let r=await call('list_scenarios',{}); const L=r.response.plans, ks=L.map(p=>p.ref);
+  ok(!r.isError&&['scn:A','scn:B','st:lost','st:stag','st:y1966'].every(k=>ks.includes(k)),'list_scenarios (in the page) lists scenarios and the Stress card rows: '+ks.length+' plans');
   ok(ks.some(k=>/^mc:trial:\d+$/.test(k))&&ks.some(k=>/^stmc:\w+:\d+$/.test(k)),'…and exemplar trials of Monte Carlo and stress + Monte Carlo');
   ok(L.every(p=>!p.stale&&p.kpis&&p.kpis.finalTotal>0),'all current, all with headline numbers');
   ok(r.response.monteCarloRuns.some(g=>g.group==='mc:run'&&g.trials>=50),'Monte Carlo runs listed');
 
   // show in the charts
-  r=await ev(()=>plShow('scenario B')); ok(r.ok&&await ev(()=>scnActive==='B'),'plShow("scenario B") switches the screen to B');
-  r=await ev(()=>plShow('scenario A')); ok(r.ok&&await ev(()=>scnActive==='A'),'plShow("scenario A") switches back');
+  r=await ev(()=>scShow('scenario B')); ok(r.ok&&await ev(()=>scnActive==='B'),'scShow("scenario B") switches the screen to B');
+  r=await ev(()=>scShow('scenario A')); ok(r.ok&&await ev(()=>scnActive==='A'),'scShow("scenario A") switches back');
   await ev(()=>{ if(typeof mcTrialExit==='function'&&mcTrialView) mcTrialExit(); });
-  r=await ev(()=>plShow('stress Lost Decade')); ok(r.ok&&await ev(()=>!!mcTrialView&&mcTrialView.view==='D'),'plShow("stress Lost Decade") opens the D view');
-  r=await ev(()=>plShow('mc trial 3')); const t3=await ev(()=>({v:!!mcTrialView,trial:mcTrialView&&mcTrialView.trial,view:mcTrialView&&mcTrialView.view}));
-  ok(r.ok&&t3.v&&t3.trial===3,'plShow("mc trial 3") loads Monte Carlo trial 3 (view '+t3.view+')');
+  r=await ev(()=>scShow('stress Lost Decade')); ok(r.ok&&await ev(()=>!!mcTrialView&&mcTrialView.view==='D'),'scShow("stress Lost Decade") opens the D view');
+  r=await ev(()=>scShow('mc trial 3')); const t3=await ev(()=>({v:!!mcTrialView,trial:mcTrialView&&mcTrialView.trial,view:mcTrialView&&mcTrialView.view}));
+  ok(r.ok&&t3.v&&t3.trial===3,'scShow("mc trial 3") loads Monte Carlo trial 3 (view '+t3.view+')');
   const st7=await ev(()=>{ const row=stResults.mc.rows.find(x=>x.stressDef); return row?row.id:null; });
-  r=await ev(id=>plShow('stmc:'+id+':5'),st7); const t5=await ev(()=>({trial:mcTrialView&&mcTrialView.trial,view:mcTrialView&&mcTrialView.view}));
-  ok(r.ok&&t5.trial===5&&/^[EF]$/.test(t5.view),'plShow("stmc:'+st7+':5") loads that trial in the '+t5.view+' view');
-  r=await ev(()=>plShow('stmc:none:5')); ok(!r.ok&&/no stress/.test(r.why),'the no-stress row is refused with a reason');
+  r=await ev(id=>scShow('stmc:'+id+':5'),st7); const t5=await ev(()=>({trial:mcTrialView&&mcTrialView.trial,view:mcTrialView&&mcTrialView.view}));
+  ok(r.ok&&t5.trial===5&&/^[EF]$/.test(t5.view),'scShow("stmc:'+st7+':5") loads that trial in the '+t5.view+' view');
+  r=await ev(()=>scShow('stmc:none:5')); ok(!r.ok&&/no stress/.test(r.why),'the no-stress row is refused with a reason');
   await ev(()=>{ mcTrialExit(); });
   ok(await ev(()=>!mcTrialView||!mcTrialView.view),'Back to plan clears the trial view');
 
   // the effect paths: chat and the live bridge
-  const note=await ev(()=>chatApplyEffects([{type:'showPlan',ref:'st:stag'}])); ok(/Showing/.test(note[0]),'chat effect showPlan: '+note[0]);
-  const lb=await ev(()=>LB_EFFECTS.showPlan.apply({ref:'scn:A'})); ok(lb.status==='applied','bridge effect showPlan applies');
-  ok((await ev(()=>LB_EFFECTS.showPlan.apply({ref:'nope nope'}))).status==='error','bridge effect showPlan reports a ref it cannot find');
+  const note=await ev(()=>chatApplyEffects([{type:'showScenario',ref:'st:stag'}])); ok(/Showing/.test(note[0]),'chat effect showScenario: '+note[0]);
+  const lb=await ev(()=>LB_EFFECTS.showScenario.apply({ref:'scn:A'})); ok(lb.status==='applied','bridge effect showScenario applies');
+  ok((await ev(()=>LB_EFFECTS.showScenario.apply({ref:'nope nope'}))).status==='error','bridge effect showScenario reports a ref it cannot find');
   await ev(()=>{ if(mcTrialView) mcTrialExit(); });
 
   // a tool asks for a trial by number, then the page shows it
-  r=await call('get_plan',{ref:'mc trial 41',detail:'inputs'}); ok(!r.isError&&r.response.inputs.overlay.trial===41&&r.response.inputs.overlay.seed===7,'get_plan inputs for a trial asked by number: seed 7, trial 41');
+  r=await call('get_scenario',{ref:'mc trial 41',detail:'inputs'}); ok(!r.isError&&r.response.inputs.overlay.trial===41&&r.response.inputs.overlay.seed===7,'get_scenario inputs for a trial asked by number: seed 7, trial 41');
 
   // the Plans tab in the LLM card
   await ev(()=>{ openLlmCard('plans'); });
-  ok(await ev(()=>/Scenario B/.test(document.getElementById('llmCard').innerHTML)&&/llmPlanDelete/.test(document.getElementById('llmCard').innerHTML)),'Plans tab shows the plans with delete buttons');
+  ok(await ev(()=>/Scenario B/.test(document.getElementById('llmCard').innerHTML)&&/llmScenarioDelete/.test(document.getElementById('llmCard').innerHTML)),'Plans tab shows the plans with delete buttons');
   await ev(()=>{ closeLlmCard(); });
 
   // delete: the user's own path, then the tool's refusal
-  r=await call('delete_plan',{ref:'scenario B'}); ok(r.isError,'a tool cannot delete the user\'s scenario');
-  r=await ev(()=>plDelete('scn:A')); ok(!r.ok&&/on screen/.test(r.why),'the scenario on screen cannot be deleted: '+r.why);
-  r=await ev(()=>plDelete('scn:B')); ok(r.ok&&await ev(()=>scnOrder.join()==='A'&&!scnSnaps.B&&plGet('scn:B')===null),'the user can delete scenario B: it is gone from the scenario set and from the plan list');
-  ok(await ev(()=>{ plSyncAll(); return plList().filter(p=>p.input.baseKey).every(p=>!plIsStale(p)); }),'deleting B did not make the A-based plans stale');
-  r=await ev(()=>plDelete('st:stag')); ok(r.ok&&!(await ev(()=>plSyncAll()&&plGet('st:stag'))),'a stress row can be hidden from the plan list');
+  r=await call('delete_scenario',{ref:'scenario B'}); ok(r.isError,'a tool cannot delete the user\'s scenario');
+  r=await ev(()=>scDelete('scn:A')); ok(!r.ok&&/on screen/.test(r.why),'the scenario on screen cannot be deleted: '+r.why);
+  r=await ev(()=>scDelete('scn:B')); ok(r.ok&&await ev(()=>scnOrder.join()==='A'&&!scnSnaps.B&&scGet('scn:B')===null),'the user can delete scenario B: it is gone from the scenario set and from the plan list');
+  ok(await ev(()=>{ scSyncAll(); return scList().filter(p=>p.input.baseKey).every(p=>!scIsStale(p)); }),'deleting B did not make the A-based plans stale');
+  r=await ev(()=>scDelete('st:stag')); ok(r.ok&&!(await ev(()=>scSyncAll()&&scGet('st:stag'))),'a stress row can be hidden from the plan list');
   ok(await ev(()=>stResults.results.some(x=>x.id==='stag')),'…while the Stress card still shows it');
   // edit the plan: derived plans go stale; show refuses
   await ev(()=>{ state.living+=1000; recompute&&recompute(); });
-  r=await call('list_plans',{}); ok(r.response.plans.filter(p=>p.stale).length>=3,'after an edit the derived plans are stale ('+r.response.plans.filter(p=>p.stale).length+')');
-  r=await ev(()=>plShow('st:lost')); ok(!r.ok&&/edited/.test(r.why),'a stale plan is not shown: '+r.why);
+  r=await call('list_scenarios',{}); ok(r.response.plans.filter(p=>p.stale).length>=3,'after an edit the derived plans are stale ('+r.response.plans.filter(p=>p.stale).length+')');
+  r=await ev(()=>scShow('st:lost')); ok(!r.ok&&/edited/.test(r.why),'a stale plan is not shown: '+r.why);
 
   ok(errors.length===0,'no script errors during the whole run'+(errors.length?': '+errors.slice(0,3).join(' | '):''));
   await browser.close(); srv.close();
