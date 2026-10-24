@@ -131,6 +131,7 @@ function mcFinish(run,cfg,complete){
   if(run.results.length<50){ return; }
   mcResults={cfg, S:mcSummarize(run.results), R:mcFailureReasons(run.results), complete, results:run.results, cmp:(complete&&run.results2.length===cfg.trials)?mcSummarize(run.results2):null};
   mcRender();
+  if(complete&&typeof llmBridgeRunDone==='function') llmBridgeRunDone('mc',cfg,null);   // the live bridge's tools can then read this run
 }
 
 // Chart.js options shared by both charts. The app's own overlay plugins (LTC bar, IRMAA lines, labels…) are global, so switch them off here.
@@ -455,10 +456,11 @@ function mcShowBanner(keep){
 // A different plan is being loaded (file, sample) or the app is reset: the old results, the loaded trial and a run in progress belong to the old plan. Drop them.
 // `settings` (Reset to defaults only): also put the card's own settings (volatility, trials, seed ...) back to MC_DEFAULTS, collapsed; loading a file does the same (the settings are not part of a plan file, so a different plan starts from the defaults).
 function mcResetCard(settings){
+  if(typeof llmBridgeReplaced==='function') llmBridgeReplaced();   // the live bridge's server forgets the runs made on the old plan
   if(mcRun){ mcRun.cancel=true; mcRun.discard=true; mcRun=null; }   // a running chunk loop stops at its next tick
   if(mcTrialView) mcTrialClear();
   Object.keys(mcCharts).forEach(k=>{ if(mcCharts[k]){ mcCharts[k].destroy(); mcCharts[k]=null; } });
-  mcResults=null; mcStateAtRun=null;
+  mcResults=null; mcStateAtRun=null; if(typeof plMcClearPromoted==='function') plMcClearPromoted();   // master plan list: promoted trials belong to the old plan
   if(settings){ if(typeof state!=='undefined'&&state&&state.ui) state.ui.mcCfg=null; buildMcPanel(); return; }
   ['mcOut','mcStale'].forEach(id=>{ const e=mcEl(id); if(e) e.style.display='none'; });
   ['mcSummary','mcReasons','mcStudy','mcCaveats','mcProg'].forEach(id=>{ const e=mcEl(id); if(e){ if(id==='mcProg') e.textContent=''; else e.innerHTML=''; } });

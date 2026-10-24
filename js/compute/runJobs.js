@@ -88,6 +88,7 @@ function rjJobInfo(id){
   const j=RJ_JOBS.find(x=>x.id===id); if(!j) return null;
   const o={id:j.id,status:j.status,done:j.done,total:j.total,percent:j.total?Math.round(j.done/j.total*100):0,trialsPerRow:j.cfg.trials,rows:j.rows.map(r=>({id:r.id,label:r.label,trials:r.res.length})),withStress:j.withStress,source:j.source,elapsedSec:Math.round(((j.finishedAt||Date.now())-(j.startedAt||j.createdAt))/100)/10};
   if(j.error) o.error=j.error;
+  if(j.fromPage) o.reproducedFromPage='this is the run you did in the page, reproduced here from the same plan, settings and seed (the same trials)';
   if(j.status==='done'||j.status==='cancelled') o.runIds=j.rows.filter(r=>r.res.length).map(r=>'mcj:'+j.id+(r.id==='none'?'':':'+r.id));
   if(j.status==='cancelled') o.note='cancelled; the rows above hold the trials finished so far';
   return o;
@@ -127,16 +128,45 @@ function rjStartMc(cfg,opts,host){
   const total=rows.length*cfg.trials;
   if(cfg.trials>lim.trials) return {error:'trials must be at most '+lim.trials+' for this host'};
   if(total>lim.total) return {error:'this job would run '+total+' trials ('+rows.length+' rows × '+cfg.trials+'); the limit is '+lim.total+'. Lower trials or run without withStress.'};
-  const job={id:'j'+(++RJ_SEQ),cfg:rjClone(cfg),rows,ri:0,total,done:0,status:'queued',withStress:!!opts.withStress,planKey:rrPlanKey(),snapshot:rjClone(state),createdAt:Date.now(),source:src,note};
+  const job={id:'j'+(++RJ_SEQ),cfg:rjClone(cfg),sig:JSON.stringify([cfg,opts.withStress?(opts.stressCfg||null):null]),rows,ri:0,total,done:0,status:'queued',withStress:!!opts.withStress,planKey:rrPlanKey(),snapshot:rjClone(state),createdAt:Date.now(),source:src,note};
   RJ_JOBS.push(job); rjNext();
   return {job};
+}
+// A run the user did in the PAGE (its Run button): reproduce it here from the same plan, settings and seed, so the tools can read it. The page's own results are never sent (they
+// are the same numbers: the draws depend only on the plan, the settings and the seed). kind: 'mc' (Monte Carlo card), 'stress' (stress tests), 'stmc' (stress tests + Monte Carlo).
+// mcIn / stIn: the settings the page used, in the cards' own shape (a few page-only keys are dropped). Asking twice for the same run on the same plan does nothing.
+// → {job} | {stress:true} | {error}
+function rjFromPage(kind,mcIn,stIn){
+  if(kind!=='mc'&&kind!=='stress'&&kind!=='stmc') return {error:'unknown kind of run'};
+  const scrub=c=>{ const o=rjClone(c&&typeof c==='object'&&!Array.isArray(c)?c:{}); delete o.hidden; delete o.med; if(o.returns&&o.returns.panic) delete o.returns.panic.compare; return o; };
+  let cfg=null, scfg=null;
+  if(kind!=='stress'){ const v=rjValidateMc(scrub(mcIn),{base:'defaults',source:'mcp'}); if(v.errors.length) return {error:'Monte Carlo settings: '+v.errors.join('; ')}; cfg=v.cfg; }
+  if(kind!=='mc'){ const v=rjValidateStress(scrub(stIn),{base:'defaults'}); if(v.errors.length) return {error:'stress settings: '+v.errors.join('; ')}; scfg=v.cfg; }
+  if(scfg){ const key=rrPlanKey(); if(!(RJ_STRESS&&RJ_STRESS.planKey===key&&JSON.stringify(RJ_STRESS.cfg)===JSON.stringify(scfg))) rjRunStress(scfg); }
+  if(kind==='stress') return {stress:true};
+  const sig=JSON.stringify([cfg,kind==='stmc'?scfg:null]), key=rrPlanKey();
+  const same=RJ_JOBS.find(j=>j.planKey===key&&j.sig===sig&&(j.status==='queued'||j.status==='running'||j.status==='done'));
+  if(same) return {job:same,existing:true};
+  const r=rjStartMc(cfg,{withStress:kind==='stmc',stressCfg:scfg},{source:'mcp'}); if(r.error) return r;
+  r.job.fromPage=true; return r;
+}
+// A DIFFERENT plan was loaded in the page (file, sample, reset): everything made on the old plan goes: jobs (running ones are stopped), the stress run, the tool drafts, the what-ifs and
+// market what-ifs in the master plan list, the proposals and the promoted trials. Editing the same plan does not come here: those runs stay and are reported stale.
+// Job ids keep counting (a new "j3" is never an old "j3"). Saved market scenarios are not plan-specific and stay.
+function rjClearAll(){
+  RJ_JOBS.slice().forEach(j=>{ if(j.status==='running'||j.status==='queued') rjCancel(j.id); });
+  RJ_JOBS=[]; RJ_STRESS=null; RJ_DRAFT.stress=null; RJ_DRAFT.mc=null;
+  if(typeof RR_CACHE!=='undefined') RR_CACHE=new Map();
+  if(typeof RR_PROPOSALS!=='undefined') RR_PROPOSALS=[];
+  if(typeof plMcClearPromoted==='function') plMcClearPromoted();
+  if(typeof plReset==='function') plReset();
 }
 function rjCancel(id){ const j=RJ_JOBS.find(x=>x.id===id); if(!j) return null; if(j.status==='running'||j.status==='queued'){ j.status='cancelled'; j.finishedAt=Date.now(); rjNext(); } return rjJobInfo(id); }
 const rjLatest=()=>RJ_JOBS.length?RJ_JOBS[RJ_JOBS.length-1]:null;
 
 // Entries for the registry: the tool stress run, and every finished (or cancelled) job.
 rrRegisterSource((out,key,ph)=>{
-  if(RJ_STRESS) rrStressEntries({results:RJ_STRESS.results,cfg:RJ_STRESS.cfg,planKey:RJ_STRESS.planKey},'stl','llm',key,out);
+  // (the tool stress run is a set of plans in the master plan list: plans/jobsProducer.js; rrEntries lists them)
   RJ_JOBS.forEach(j=>{
     if(j.status!=='done'&&j.status!=='cancelled') return; const stale=j.planKey!==key;
     j.rows.forEach(row=>{

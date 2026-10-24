@@ -1,0 +1,85 @@
+{
+  "manifest_version": "0.2",
+  "name": "retirement-planner",
+  "display_name": "Retirement Income Planner",
+  "version": "0.3.0",
+  "description": "Lets Claude read, compare and stress-test your retirement plan with the planner's own engine, and (optionally) follow the plan open in your browser. Runs only on this computer; the plan is never changed.",
+  "long_description": "Claude gets the planner's tools: list and compare scenarios, run stress tests and Monte Carlo as background jobs, try what-ifs and market paths, and hand you proposals to review in the app (🤖 LLM). Choose a saved plan file, or turn on the live bridge (still in development) and connect the open planner page (🤖 LLM → Live bridge) so Claude works on the plan on your screen. Everything is calculated by the planner's engine in today's dollars; your plan is read-only and nothing leaves your computer except what Claude is shown in the chat.",
+  "icon": "icon.png",
+  "author": {
+    "name": "howardc64"
+  },
+  "license": "MIT",
+  "keywords": [
+    "retirement",
+    "planning",
+    "monte carlo",
+    "stress test"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "server/mcp.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/mcp.js"
+      ],
+      "env": {
+        "PLANNER_PLAN": "${user_config.plan_file}",
+        "PLANNER_NAMES": "${user_config.show_names}",
+        "PLANNER_BRIDGE": "${user_config.live_bridge}",
+        "PLANNER_BRIDGE_PORT": "${user_config.bridge_port}",
+        "PLANNER_BRIDGE_TOKEN": "${user_config.bridge_token}"
+      }
+    }
+  },
+  "user_config": {
+    "plan_file": {
+      "type": "file",
+      "title": "Plan file (optional)",
+      "description": "A plan you saved with Save in the planner. The file is only read, never changed. Leave empty to use only the live bridge.",
+      "required": false
+    },
+    "live_bridge": {
+      "type": "boolean",
+      "title": "Live bridge to the open planner page (in development)",
+      "description": "Lets Claude work on the plan on your screen. After installing, open the planner page, choose 🤖 LLM → Live bridge, and enter the port and pairing code (ask Claude: \"check bridge_status\").",
+      "default": true,
+      "required": false
+    },
+    "bridge_port": {
+      "type": "number",
+      "title": "Bridge port",
+      "description": "Local port for the live bridge (1024-65535).",
+      "default": 8765,
+      "min": 1024,
+      "max": 65535,
+      "required": false
+    },
+    "bridge_token": {
+      "type": "string",
+      "title": "Pairing code (optional)",
+      "description": "At least 12 letters or digits. Leave empty to get a random one that Claude can tell you.",
+      "sensitive": true,
+      "required": false
+    },
+    "show_names": {
+      "type": "boolean",
+      "title": "Show people's names to Claude",
+      "description": "Off: names appear as Person 1 / Person 2.",
+      "default": false,
+      "required": false
+    }
+  },
+  "tools": [],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

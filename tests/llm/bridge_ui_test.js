@@ -46,6 +46,11 @@ flush(); ok(sentOf(ws,'plan').length===2&&sentOf(ws,'plan')[1].plan.living===run
 run('autosave()'); flush(); ok(sentOf(ws,'plan').length===2,'an autosave with nothing changed sends nothing');
 run('state.living-=1235'); run('autosave()'); flush();
 
+// the server asks for the plan before each tool call
+const nS=ws.sent.length; ws.recv({type:'syncRequest',id:'y1'}); ok(ws.sent.length===nS+1&&ws.sent[nS].type==='synced'&&ws.sent[nS].id==='y1','syncRequest with nothing new → a tiny "synced" answer, no plan');
+run('state.living+=4321'); ws.recv({type:'syncRequest',id:'y2'}); const sp=ws.sent[ws.sent.length-1]; ok(sp.type==='plan'&&sp.syncId==='y2'&&sp.plan.living===run('state.living'),'syncRequest with an unsent edit → the plan itself, tagged with the request id');
+run('state.living-=4321'); run('autosave()'); flush(); const nP=sentOf(ws,'plan').length; run('state.living+=1; autosave()'); ws.recv({type:'syncRequest',id:'y3'}); const np=sentOf(ws,'plan').length; flush(); ok(np===nP+1&&sentOf(ws,'plan').length===np,'answering a syncRequest cancels the pending debounced send (the plan goes once)'); run('state.living-=1'); run('autosave()'); flush();
+const nB=ws.sent.length; ws.recv({type:'syncRequest'}); ws.recv({type:'syncRequest',id:5}); ok(ws.sent.length===nB,'a syncRequest without a usable id is ignored');
 // effects: first time asks
 const effPath={schema:'planner.market/1',id:'two-bad',label:'Two bad years <b>x</b>',note:'',source:'mcp',from:{mode:'retire'},returns:[-0.25,-0.1,0.06,0.08],inflation:null,tail:{returnPct:6,inflationPct:null},equityShare:100};
 const nBefore=ws.sent.length; ws.recv({type:'effect',id:'e1',effect:{type:'showMarketPath',path:effPath},why:'show the bad start'});
@@ -88,9 +93,21 @@ run('lbAllow("w1")'); ok(run('lbPending.length')===0&&sentOf(ws,'effectResult').
 run('llmClearAll()');
 // revoke
 run('lbRevoke("showProposals")'); ok(sentOf(ws,'approvals').pop().types.join()==='showMarketPath','Revoke removes the approval and tells the server');
+// a run finished in the page: the plan it ran on, then the settings it used (the results are not sent)
+{ const n0=ws.sent.length; run('llmBridgeRunDone("stmc",{trials:200,seed:9},{equityShare:100})'); const sent=ws.sent.slice(n0);
+  ok(sent.length===2&&sent[0].type==='plan'&&sent[1].type==='pageRun','a finished run sends the plan, then a pageRun message');
+  ok(sent[1].kind==='stmc'&&sent[1].mc.trials===200&&sent[1].mc.seed===9&&sent[1].stress.equityShare===100&&!('results' in sent[1]),'the pageRun carries the settings used, not the results');
+  const n1=ws.sent.length; run('llmBridgeRunDone("mc",{trials:50},null)'); ok(ws.sent.slice(n1).pop().stress===null,'a Monte Carlo-only run has no stress settings'); }
+// a different plan was loaded (not an edit): the next plan sent says so, once
+{ const n0=sentOf(ws,'plan').length; run('llmBridgeReplaced()'); flush();
+  const ps=sentOf(ws,'plan').slice(n0); ok(ps.length===1&&ps[0].replaced===true,'after a plan was replaced the next plan sent carries replaced:true even when its JSON is unchanged');
+  run('state.living+=7; autosave()'); flush(); const p2=sentOf(ws,'plan').pop(); ok(p2.replaced===undefined&&p2.plan.living===run('state.living'),'a later edit does not say replaced'); run('state.living-=7; autosave()'); flush();
+  run('llmBridgeReplaced()'); const nn=ws.sent.length; ws.recv({type:'syncRequest',id:'r1'}); const sp2=ws.sent.slice(nn).pop(); ok(sp2.type==='plan'&&sp2.replaced===true&&sp2.syncId==='r1','a syncRequest while a replacement is pending sends the plan (not "unchanged"), flagged replaced'); }
 // disconnect
 run('lbDisconnect()'); ok(ws.sent.some(m=>m.type==='bye')&&ws.closed===1000&&run('lbStatus')==='off'&&run('lbApproved.size')===0&&run('lbPending.length')===0,'Disconnect says bye, closes, and forgets every approval');
 const sc=sentOf(ws,'plan').length; run('state.living+=1; autosave()'); flush(); ok(sentOf(ws,'plan').length===sc,'after disconnecting edits are not sent'); run('state.living-=1');
+const nOff=ws.sent.length; ws.recv({type:'syncRequest',id:'y9'}); ok(ws.sent.length===nOff,'a syncRequest after disconnecting is not answered');
+run('llmBridgeRunDone("mc",{trials:50},null)'); ok(ws.sent.length===nOff,'a finished run after disconnecting sends nothing');
 // denied login
 run('openLlmCard("bridge")');
 run('lbSetField("token","WRONG-WRONG-WRO")'); run('lbConnect()'); const ws2=socks[1]; ws2.open(); ws2.recv({type:'denied',reason:'wrong pairing code'}); ws2.close(1008);

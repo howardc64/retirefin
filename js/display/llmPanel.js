@@ -145,6 +145,25 @@ function llmProposalHtml(p){
     '<button class="btn" onclick="llmAdd(\''+p.pid+'\')" title="'+(p.kind==='lever'?'Add it as a scenario of the 🆎 set without switching to it':'Save the path in your plan; it becomes a row of the Stress test card')+'">'+addLbl+'</button>'+
     '<button class="btn" onclick="llmCopyProposal(\''+p.pid+'\')">Copy JSON</button><button class="btn" onclick="llmDismiss(\''+p.pid+'\')">Dismiss</button></div></div>';
 }
+// Plans tab: the master plan list (plans/planStore.js), one row per plan with how it was made, a stale flag, headline numbers and a delete button.
+function llmPlansHtml(){
+  let rows=[]; try{ plSyncAll(); const fp=plFingerprint(state); rows=plList().map(p=>({p,stale:plIsStale(p,fp)})); }catch(e){ return '<div class="llm-err">Could not read the plans: '+llmEsc(e.message)+'</div>'; }
+  const h=rows.map(({p,stale})=>{
+    let sub=''; try{ if(!stale){ const sm=plEnsureSummary(p.id); if(sm&&sm.kpis) sub=' · final total '+llmMoney(sm.kpis.finalTotal); } }catch(e){}
+    return '<div class="llm-run"><span style="flex:1"><b>'+llmEsc(p.label)+'</b> <span class="llm-badge">'+llmEsc(p.origin.kind.replace(/_/g,' '))+'</span>'+(stale?' <span class="llm-badge warn">stale</span>':'')+
+      '<br><span class="llm-sub">'+llmEsc(plHow(p))+llmEsc(sub)+'</span></span>'+
+      '<button class="btn" '+(stale?'disabled ':'')+'onclick="llmPlanShow(\''+llmEsc(p.key)+'\')">Show</button>'+
+      '<button class="btn" onclick="llmPlanDelete(\''+llmEsc(p.key)+'\')">Delete</button></div>';
+  }).join('');
+  return '<div class="llm-note">Every plan the planner holds, however it was made. This is what an LLM refers to by name. Deleting a stress or Monte Carlo plan only hides it until that run is repeated; a scenario is removed for good.</div><div class="llm-runs" style="max-height:340px">'+(h||'<div class="llm-note">No plans yet.</div>')+'</div>';
+}
+function llmPlanShow(key){ const r=plShow(key); llmSay(r.ok?'Showing '+r.label+'.':r.why,!r.ok); }
+function llmPlanDelete(key){
+  const p=plGet(key); if(!p) return;
+  if(p.origin.kind==='scenario'&&!confirm('Delete '+p.label+'? This cannot be undone.')) return;
+  const r=plDelete(key); llmSay(r.ok?'Deleted '+p.label+'.':(r.why||'Not deleted.'),!r.ok);
+}
+
 function renderLlmCard(){
   const btn=document.getElementById('llmBtn'); if(btn) btn.classList.toggle('on',llmCardOpen);
   let card=document.getElementById('llmCard');
@@ -163,6 +182,8 @@ function renderLlmCard(){
       '<label><input type="checkbox" '+(llmOpts.names?'checked ':'')+'onchange="llmSetOpt(\'names\',this.checked)"> Include names</label></div>'+
       '<div class="llm-acts"><button class="btn btn-primary" onclick="llmDownload()">Download JSON</button><button class="btn" onclick="llmCopy()">Copy JSON</button><button class="btn" onclick="llmShowPreview()">Preview &amp; size</button></div>'+
       (llmPreview?'<pre class="llm-pre">'+llmEsc(llmPreview)+'</pre>':'');
+  } else if(llmTab==='plans'){
+    body+=llmPlansHtml();
   } else if(llmTab==='bridge'){
     body+=(typeof lbTabHtml==='function')?lbTabHtml():'<div class="llm-note">The live bridge is not loaded.</div>';
   } else {
@@ -175,6 +196,7 @@ function renderLlmCard(){
   clearTimeout(llmPollTimer); if(llmTab==='import'&&rrProposals().some(p=>p.job&&(p.job.status==='queued'||p.job.status==='running'))) llmPollTimer=setTimeout(()=>{ if(llmCardOpen) renderLlmCard(); },700);   // live progress of a proposed Monte Carlo run
   card.innerHTML='<div class="scn-head"><b>🤖 LLM</b><button class="chat-icon" onclick="closeLlmCard()" title="Close" aria-label="Close">✕</button></div>'+
     '<div class="llm-tabs"><button class="btn'+(llmTab==='export'?' on':'')+'" onclick="llmSetTab(\'export\')">Send to an LLM</button><button class="btn'+(llmTab==='import'?' on':'')+'" onclick="llmSetTab(\'import\')">Scenarios from an LLM'+(rrProposals().length?' ('+rrProposals().length+')':'')+'</button>'+
+      '<button class="btn'+(llmTab==='plans'?' on':'')+'" onclick="llmSetTab(\'plans\')">Plans</button>'+
       (typeof lbTabHtml==='function'?'<button class="btn'+(llmTab==='bridge'?' on':'')+'" onclick="llmSetTab(\'bridge\')">Live bridge'+(typeof lbStatus!=='undefined'&&lbStatus==='connected'?' ●':'')+(typeof lbPending!=='undefined'&&lbPending.length?' ('+lbPending.length+' waiting)':'')+'</button>':'')+'</div>'+
     (llmMsg?'<div class="'+(llmMsgErr?'llm-err':'llm-ok')+'">'+llmEsc(llmMsg)+'</div>':'')+body;
 }

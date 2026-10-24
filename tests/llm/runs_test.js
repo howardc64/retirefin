@@ -123,6 +123,20 @@ r=call('get_trial',{trial:String(ex.typicalSuccess.trial)}); const again=call('g
 ok(JSON.stringify(r.response)===JSON.stringify(again.response),'a trial replays identically (seeded), whether the number is a string or a number');
 ok(call('get_trial',{trial:'9999'}).isError&&call('get_trial',{trial:'bogus'}).isError,'get_trial rejects an out-of-range number and an unknown name');
 r=call('get_trial',{id:'stmc:'+st[0].id.slice(3),trial:'typicalSuccess'}); ok(!r.isError,'get_trial works on a stress + Monte Carlo row');
+// The app numbers trials from 1 (#N is trial N-1); the tools carry both numbers, accept the app's, and list every failure.
+{
+  const dsum=call('get_mc_summary',{}).response, fl=dsum.distribution.failures||[];
+  ok(Array.isArray(dsum.distribution.failures)&&fl.length===Math.min(200,dsum.distribution.failedTrials),'get_mc_summary lists every failed trial ('+fl.length+' of '+dsum.distribution.failedTrials+')');
+  ok(fl.every(f=>f.appTrial===f.trial+1),'each failed trial carries the app\'s number (trial + 1)');
+  if(ex.earliestFailure) ok(fl[0].trial===ex.earliestFailure.trial&&ex.earliestFailure.appTrial===ex.earliestFailure.trial+1,'the first listed failure is the earliest-failure exemplar, which carries appTrial');
+  ok(ex.typicalSuccess.appTrial===ex.typicalSuccess.trial+1,'the typical-success exemplar carries appTrial');
+  const tn=ex.typicalSuccess.trial, byApp=call('get_trial',{trial:'#'+(tn+1)}), byIdx=call('get_trial',{trial:String(tn)});
+  ok(!byApp.isError&&byApp.response.trial===tn&&byApp.response.appTrial===tn+1,'get_trial "#N" is the app\'s number: #'+(tn+1)+' is trial '+tn);
+  ok(JSON.stringify(byApp.response)===JSON.stringify(byIdx.response),'"#N" and the 0-based number N-1 replay identically');
+  ok(call('get_trial',{trial:'app #'+(tn+1)}).response.trial===tn,'"app #N" is accepted too');
+  ok(call('get_trial',{trial:'#0'}).isError&&call('get_trial',{trial:'#9999'}).isError,'"#0" and a "#N" past the end are refused');
+  ok(!call('get_trial',{trial:'0'}).isError&&call('get_trial',{trial:'0'}).response.appTrial===1,'a bare 0 is still trial 0 (the 0-based number is unchanged)');
+}
 r=call('get_stress_results',{}); ok(!r.isError&&r.response.stress.length===st.length&&r.response.stressPlusMonteCarlo.length===2,'get_stress_results: stress rows and the stress + Monte Carlo table');
 r=call('import_scenarios',{schema:'planner.scenarios/1',scenarios:[{kind:'lever',label:'via tool',why:'test',levers:[{lever:'living',pctChange:-5}]}]});
 ok(!r.isError&&r.response.accepted.length===1&&r.effects[0].type==='showProposals'&&/nothing in the plan has changed/.test(r.response.note),'import_scenarios stores a proposal and asks the host to show the list');

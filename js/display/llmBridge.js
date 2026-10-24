@@ -11,7 +11,7 @@
 // The pairing code is kept in memory only (never in storage, `state` or a file). Everything the server sends is untrusted: sizes capped, shapes re-validated, text escaped.
 // ═══════════════════════════════════════════════════════════════
 const LB_MAX_IN=2000000, LB_MAX_PENDING=5, LB_PORT_KEY='retirementPlannerBridgePort_v1';
-let lbSock=null, lbStatus='off', lbMsg='', lbMsgErr=false, lbSession=null, lbTimer=null, lbLastSent='';
+let lbSock=null, lbStatus='off', lbMsg='', lbMsgErr=false, lbSession=null, lbTimer=null, lbLastSent='', lbReplaced=false;
 let lbForm={port:'8765',token:''}, lbApproved=new Set(), lbPending=[], lbLog=[], lbSync={at:null,key:null,ok:null,error:null}, lbEverWelcomed=false;
 try{ const p=localStorage.getItem(LB_PORT_KEY); if(p&&/^\d{4,5}$/.test(p)) lbForm.port=p; }catch(e){}
 
@@ -34,6 +34,13 @@ const LB_EFFECTS={
       msSessionAdd(path);
       if(!mcLoadMarketPath(path.id)) return {status:'error',note:'the page could not show it (is a Monte Carlo run in progress?)'};
       return {status:'applied',note:'showing "'+path.label+'"'};
+    }},
+  showPlan:{
+    label:'Show a plan in the main charts',
+    what(e){ return 'the plan “'+lbClean(e&&e.ref,60)+'” replayed in all the charts like the B view. Your plan is not changed; Back to plan returns.'; },
+    apply(e){
+      if(typeof plShow!=='function') return {status:'error',note:'this page cannot show plans'};
+      const r=plShow(String(e&&e.ref||'')); return r.ok?{status:'applied',note:'showing "'+lbClean(r.label,60)+'"'}:{status:'error',note:r.why};
     }},
   showProposals:{
     label:'Add scenarios to the 🤖 LLM proposals list',
@@ -77,11 +84,28 @@ function lbRevoke(type){ lbApproved.delete(type); lbSendApprovals(); lbNote('rev
 // ── connection ───────────────────────────────────────────────────
 function lbRawSend(o){ try{ if(lbSock&&lbSock.readyState===1) lbSock.send(JSON.stringify(o)); }catch(e){} }
 function lbSendApprovals(){ lbRawSend({type:'approvals',types:Array.from(lbApproved)}); }
-function lbSendPlan(force){
+function lbSendPlan(force,syncId){
   if(lbStatus!=='connected'||!lbSock||lbSock.readyState!==1) return;
   let json; try{ json=JSON.stringify(state); }catch(e){ return; }
   if(!force&&json===lbLastSent) return;
-  lbLastSent=json; try{ lbSock.send('{"type":"plan","plan":'+json+'}'); }catch(e){ lbLastSent=''; }
+  const rep=lbReplaced; lbLastSent=json; try{ lbSock.send('{"type":"plan"'+(syncId?',"syncId":'+JSON.stringify(syncId):'')+(rep?',"replaced":true':'')+',"plan":'+json+'}'); lbReplaced=false; }catch(e){ lbLastSent=''; }
+}
+// A different plan was loaded (file, sample, reset), as opposed to edited: the next plan sent says so, and the server drops the runs it holds for the old one. Called by the cards' reset.
+function llmBridgeReplaced(){ if(lbStatus!=='connected') return; lbReplaced=true; lbLastSent=''; clearTimeout(lbTimer); lbTimer=setTimeout(()=>lbSendPlan(true),800); }
+// A run finished in the page (Monte Carlo, stress tests, or both): send the plan it ran on and then the settings it used, so the server can reproduce it and the LLM can read it.
+// The results themselves are not sent: the same plan, settings and seed give the same trials there. Called by the cards; does nothing without a connected bridge.
+function llmBridgeRunDone(kind,mcCfgUsed,stCfgUsed){
+  if(lbStatus!=='connected'||!lbSock||lbSock.readyState!==1) return;
+  lbSendPlan(true);
+  let msg; try{ msg=JSON.stringify({type:'pageRun',kind,mc:mcCfgUsed||null,stress:stCfgUsed||null}); }catch(e){ return; }
+  try{ lbSock.send(msg); }catch(e){}
+}
+// The server asks for the plan before each tool call, so a tool never runs on a plan that is still waiting for the debounce. Unchanged → a tiny answer, no plan.
+function lbOnSyncRequest(m){
+  const id=typeof m.id==='string'?m.id.slice(0,40):null; if(!id||lbStatus!=='connected') return;
+  let json; try{ json=JSON.stringify(state); }catch(e){ return; }
+  clearTimeout(lbTimer);
+  if(json===lbLastSent&&!lbReplaced) lbRawSend({type:'synced',id}); else lbSendPlan(true,id);
 }
 // Called by autosave() on every plan change; cheap when no bridge is connected.
 function llmBridgeNotify(){ if(lbStatus!=='connected') return; clearTimeout(lbTimer); lbTimer=setTimeout(()=>lbSendPlan(false),800); }
@@ -113,11 +137,12 @@ function lbOnMessage(ws,data){
   } else if(m.type==='planAck'){
     lbSync={at:Date.now(),key:m.key?lbClean(m.key,16):null,ok:!!m.ok,error:m.ok?null:lbClean(m.error,160)}; if(typeof renderLlmCard==='function') renderLlmCard();
   } else if(m.type==='effect'){ lbOnEffect(m); }
+  else if(m.type==='syncRequest'){ lbOnSyncRequest(m); }
   else if(m.type==='effectCancel'){ const n=lbPending.length; lbPending=lbPending.filter(p=>p.id!==m.id); if(lbPending.length!==n){ lbNote('the request timed out'); if(typeof renderLlmCard==='function') renderLlmCard(); } }
 }
 function lbClosed(ws,ev){
   if(ws!==lbSock) return;
-  const was=lbStatus; lbSock=null; lbSession=null; lbApproved=new Set(); lbPending=[]; lbForm.token=''; clearTimeout(lbTimer); lbLastSent='';
+  const was=lbStatus; lbSock=null; lbSession=null; lbApproved=new Set(); lbPending=[]; lbForm.token=''; clearTimeout(lbTimer); lbLastSent=''; lbReplaced=false;
   if(was==='denied') { /* message already set */ }
   else if(was==='connecting'&&!lbEverWelcomed){ lbMsg='Could not connect. Is the server running with --bridge, and are the port and the code right? (An https page may be blocked from ws://127.0.0.1 by the browser.)'; lbMsgErr=true; }
   else if(was==='connected'){ lbMsg='Disconnected.'; lbMsgErr=false; lbNote('disconnected'); }

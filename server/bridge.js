@@ -7,13 +7,16 @@
 //
 // Protocol (JSON text frames; the first frame from a page must be `hello`):
 //   page → server   {type:'hello', token, client?}               authenticate; anything else first, a bad token, or a silent socket is closed
-//                   {type:'plan', plan:{…}}                       the plan as the app's Save writes it (≤ maxPlanBytes)
+//                   {type:'plan', plan:{…}, syncId?, replaced?}   replaced:true = a different plan was loaded (not an edit): the server forgets the runs made on the old one              the plan as the app's Save writes it (≤ maxPlanBytes); syncId answers a syncRequest
+//                   {type:'pageRun', kind:'mc'|'stress'|'stmc', mc?, stress?}   a run finished in the page (sent right after the plan it ran on); the server reproduces it from the settings
+//                   {type:'synced', id}                           answer to a syncRequest when the plan has not changed since it was last sent
 //                   {type:'approvals', types:[…]}                 effect types the user has allowed on this connection (informational for the host)
 //                   {type:'effectResult', id, status, note?}      status: applied | denied | unsupported | error
 //   server → page   {type:'welcome', session, effects:[…]}        or {type:'denied', reason} and the socket is closed (code 1008)
 //                   {type:'planAck', ok, error?, key?}            after each plan
 //                   {type:'effect', id, effect:{type,…}, why?}    a request; the page may refuse it
 //                   {type:'effectCancel', id}                     the host stopped waiting (timeout)
+//                   {type:'syncRequest', id}                      "send your plan now" (asked before each tool call, so a tool never runs on a plan that is up to a second old)
 // Security: loopback bind; Host header must name a loopback host (DNS-rebinding guard); a pairing token compared in constant time; after MAX_FAILS wrong tokens the token is
 // replaced (so a page that guesses cannot keep guessing); unauthenticated sockets get 1 KB and 5 s; one authenticated page at a time (a newer authenticated page replaces it).
 const http=require('http'), crypto=require('crypto'), {EventEmitter}=require('events');
@@ -74,7 +77,7 @@ function makeBridge(opts){
   opts=opts||{};
   const ev=new EventEmitter(), log=opts.log||(()=>{}), maxPlan=opts.maxPlanBytes||8*1024*1024, effects=(opts.effects||[]).slice();
   let server=null, port=0, token=opts.token?String(opts.token):newToken(), fails=0, session=null, seq=0, pingTimer=null;
-  const pre=new Set(), pending=new Map();
+  const pre=new Set(), pending=new Map(), syncs=new Map();
   if(opts.token&&normToken(opts.token).length<12) throw new Error('the bridge token must have at least 12 letters or digits');
 
   const state=()=>({listening:!!server,port,connected:!!session,session:session&&session.id,planAt:session&&session.planAt||null,approvals:session?session.approvals.slice():[],client:session&&session.client||null});
@@ -90,6 +93,7 @@ function makeBridge(opts){
   function dropSession(why){
     const s=session; session=null; if(!s) return;
     pending.forEach((p,id)=>{ clearTimeout(p.timer); p.resolve({status:'disconnected',note:'the page disconnected before answering'}); }); pending.clear();
+    syncs.forEach(y=>{ clearTimeout(y.t); y.res({status:'disconnected'}); }); syncs.clear();
     log('page disconnected ('+why+')'); ev.emit('disconnect',why);
   }
   function onMessage(c,text){
@@ -108,7 +112,13 @@ function makeBridge(opts){
     }
     if(m.type==='plan'){
       if(!m.plan||typeof m.plan!=='object'||Array.isArray(m.plan)) return sendJson(c,{type:'planAck',ok:false,error:'plan must be an object'});
-      c.planAt=Date.now(); ev.emit('plan',m.plan,{reply:o=>sendJson(c,Object.assign({type:'planAck'},o))}); return;
+      c.planAt=Date.now(); ev.emit('plan',m.plan,{replaced:m.replaced===true,reply:o=>sendJson(c,Object.assign({type:'planAck'},o))}); settleSync(m.syncId); return;
+    }
+    if(m.type==='synced'){ settleSync(m.id); return; }
+    if(m.type==='pageRun'){   // the user ran something in the page: the server reproduces it (see rjFromPage); only small settings objects come in
+      const plain=o=>o&&typeof o==='object'&&!Array.isArray(o)&&JSON.stringify(o).length<20000?o:null;
+      if(m.kind==='mc'||m.kind==='stress'||m.kind==='stmc') ev.emit('pageRun',{kind:m.kind,mc:plain(m.mc),stress:plain(m.stress)});
+      return;
     }
     if(m.type==='approvals'){ c.approvals=Array.isArray(m.types)?m.types.filter(t=>typeof t==='string').slice(0,20).map(t=>t.slice(0,40)):[]; ev.emit('approvals',c.approvals.slice()); return; }
     if(m.type==='effectResult'){
@@ -119,6 +129,7 @@ function makeBridge(opts){
     if(m.type==='bye') return kill(c,1000,'bye');
     // anything else is ignored (a newer page may send more than this server knows)
   }
+  function settleSync(id){ if(id==null) return; const y=syncs.get(String(id)); if(!y) return; syncs.delete(String(id)); clearTimeout(y.t); y.res({status:'synced'}); }
   function onUpgrade(req,sock){
     const key=req.headers['sec-websocket-key'];
     const refuse=(code,msg)=>{ try{ sock.write('HTTP/1.1 '+code+' '+msg+'\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); }catch(e){} sock.destroy(); };
@@ -159,6 +170,7 @@ function makeBridge(opts){
     if(session) kill(session,1001,'server stopping');
     pre.forEach(c=>kill(c,1001,'server stopping'));
     pending.forEach(p=>{ clearTimeout(p.timer); p.resolve({status:'disconnected',note:'the bridge stopped'}); }); pending.clear();
+    syncs.forEach(y=>{ clearTimeout(y.t); y.res({status:'disconnected'}); }); syncs.clear();
     return new Promise(r=>{ if(!server) return r(); const s=server; server=null; s.close(()=>r()); setTimeout(r,300).unref(); });
   }
   // Ask the page to apply an effect. → Promise<{status, note}>; status: applied | denied | unsupported | error | timeout | noPage | disconnected | busy
@@ -174,7 +186,13 @@ function makeBridge(opts){
       sendJson(session,{type:'effect',id,effect,why:typeof o.why==='string'?o.why.slice(0,200):undefined});
     });
   }
-  Object.assign(ev,{start,close,requestEffect,state,rotate:()=>rotate('requested')});
+  // Ask the page for its plan right now. → Promise<{status:'synced'|'timeout'|'noPage'|'disconnected'}>; 'synced' means the page's plan has been delivered (and the 'plan' event handled) or is unchanged.
+  function requestSync(ms){
+    if(!session) return Promise.resolve({status:'noPage'});
+    const id='y'+(++seq);
+    return new Promise(res=>{ const t=setTimeout(()=>{ syncs.delete(id); res({status:'timeout'}); },ms||1000); syncs.set(id,{res,t}); sendJson(session,{type:'syncRequest',id}); });
+  }
+  Object.assign(ev,{start,close,requestEffect,requestSync,state,rotate:()=>rotate('requested')});
   Object.defineProperties(ev,{token:{get:()=>token},port:{get:()=>port}});     // live values (Object.assign would copy them once)
   return ev;
 }

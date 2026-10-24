@@ -20,7 +20,9 @@ function start(args){
   s.stop=()=>new Promise(r=>{ p.stdin.end(); setTimeout(()=>{ p.kill(); r(); },300); });
   return s;
 }
-const login=async(port,code,plan)=>{ const c=await connect(port); c.send({type:'hello',token:code}); const w=await c.waitFor(x=>x.type==='welcome'||x.type==='denied'); if(w.type==='welcome'&&plan){ c.send({type:'plan',plan:JSON.parse(plan)}); await c.waitFor(x=>x.type==='planAck'); } return {c,w}; };
+// a stand-in page answers the server's "send your plan now" with "unchanged" (these tests change the plan only by sending it themselves)
+const autoSync=c=>{ const iv=setInterval(()=>{ c.messages.filter(m=>m.type==='syncRequest'&&!m.__done).forEach(m=>{ m.__done=true; c.send({type:'synced',id:m.id}); }); },10); c.sock.on('close',()=>clearInterval(iv)); };
+const login=async(port,code,plan)=>{ const c=await connect(port); c.send({type:'hello',token:code}); autoSync(c); const w=await c.waitFor(x=>x.type==='welcome'||x.type==='denied'); if(w.type==='welcome'&&plan){ c.send({type:'plan',plan:JSON.parse(plan)}); await c.waitFor(x=>x.type==='planAck'); } return {c,w}; };
 // answers every effect request with the given status (and records them)
 const autoAnswer=(c,status,log)=>{ const iv=setInterval(()=>{ c.messages.filter(m=>m.type==='effect'&&!m.__done).forEach(m=>{ m.__done=true; log.push(m); c.send({type:'effectResult',id:m.id,status,note:status==='applied'?'ok':'declined'}); }); },20); return ()=>clearInterval(iv); };
 
@@ -81,12 +83,51 @@ const autoAnswer=(c,status,log)=>{ const iv=setInterval(()=>{ c.messages.filter(
   }catch(e){ fail++; console.log('ERR A',e&&e.stack||e,'\n',s.stderr.slice(0,800)); }
   await s.stop();
 
+  // ── C2. a run done in the page is reproduced on the server, so the tools can read it ──
+  s=start(['--bridge','--bridge-port','0','--bridge-token',CODE]);
+  try{
+    const port=await s.port();
+    await s.rpc('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'t',version:'0'}}); s.p.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');
+    const {c:page}=await login(port,CODE,coupleText);
+    const before=await s.tool('get_mc_summary'); ck('before the page runs anything, there is no Monte Carlo result and the error explains how it appears',before.r.isError&&/no Monte Carlo result/.test(before.j.error)&&/live bridge is connected/.test(before.j.error));
+    // what the page sends when its "stress tests + Monte Carlo" run finishes: the plan, then the settings it used (the card's own shape, with page-only keys)
+    const mc={trials:120,seed:4242,returns:{enabled:true,volEquity:18,volRE:8,rho:0.8,panic:{enabled:false,rhoPanic:0.9,trigger:-1.5,holdYears:1,includeRE:true,rhoRE:0.9,compare:false}},mortality:{enabled:true,mode:87,scale:10},ltc:{enabled:true,prob:0.5,medianYears:2,yearsSigma:0.6,costSigma:0.25,minStartAge:70},inflation:{enabled:true,sigma:1.2,phi:0.6,min:-2,max:12},inheritance:{enabled:true,haircutPct:0},hidden:false};
+    const st={start:{mode:'retire',years:0},equityShare:100,lost:{enabled:true,actualInflation:true},stag:{enabled:true,years:10,eqReturn:0,inflStart:6,inflEnd:11},y1966:{enabled:true},custom:{enabled:false},med:{enabled:false,who:0,fromAge:80,years:3,cost:100000,compare:true},hidden:false};
+    page.send({type:'plan',plan:JSON.parse(coupleText)}); page.send({type:'pageRun',kind:'stmc',mc,stress:st});
+    let job=null; for(let i=0;i<200&&!job;i++){ await sleep(150); const j=await s.tool('get_job'); if(!j.r.isError&&j.j.status==='done') job=j.j; }
+    ck('the server started a job for the page\'s run and it finished',!!job&&job.trialsPerRow===120&&job.withStress===true);
+    ck('the job says it is the page\'s run, reproduced',!!job&&/run you did in the page/.test(job.reproducedFromPage||''));
+    ck('with the settings the page used (120 trials, every stress row)',!!job&&job.rows.length>=2&&job.rows.every(r=>r.trials===120));
+    const sum=await s.tool('get_mc_summary',{id:'mcj:'+job.id}); ck('get_mc_summary now reads the run',!sum.r.isError&&sum.j.distribution&&sum.j.distribution.trials===120);
+    const rid=job.runIds.find(x=>/:stag$/.test(x)); const ss=await s.tool('get_mc_summary',{id:rid}); ck('and each stress row, with every failed trial listed',!ss.r.isError&&Array.isArray(ss.j.distribution.failures));
+    const nJobs=async()=>{ const t=await s.tool('get_job',{id:'j2'}); return !t.r.isError; };
+    page.send({type:'plan',plan:JSON.parse(coupleText)}); page.send({type:'pageRun',kind:'stmc',mc,stress:st}); await sleep(600);
+    ck('the same run reported again on the same plan does not start a second job',!(await nJobs()));
+    const mark=s.stderr.length; page.send({type:'pageRun',kind:'mc',mc:{trials:99999},stress:null}); await sleep(400);
+    ck('settings outside the limits are refused, said on stderr, and the server keeps working',/page run \(mc\): \{"error"/.test(s.stderr.slice(mark))&&!(await s.tool('list_runs')).r.isError);
+    page.send({type:'pageRun',kind:'bogus',mc:null,stress:null}); await sleep(200);
+    ck('an unknown kind of page run is ignored',!(await s.tool('list_runs')).r.isError);
+    // an EDIT of the same plan keeps the runs (they become stale); a DIFFERENT plan (replaced:true) clears them
+    const ed=JSON.parse(coupleText); ed.living=(ed.living||0)+3000; page.send({type:'plan',plan:ed}); await sleep(300);
+    const kept=await s.tool('list_plans'); ck('after an edit the runs are still there (reported stale)',kept.j.plans.some(p=>/^mcj:/.test(p.ref)&&p.stale===true)&&!(await s.tool('get_job',{id:job.id})).r.isError);
+    const mark2=page.messages.length; page.send({type:'plan',plan:JSON.parse(widowText),replaced:true}); const ack2=await page.waitFor(x=>x.type==='planAck'&&page.messages.indexOf(x)>=mark2);
+    ck('a different plan is acknowledged',ack2.ok===true);
+    const gone=await s.tool('list_plans'); ck('a different plan clears every run made on the old one: only the new plan is left',gone.j.plans.length===1&&gone.j.plans[0].kind==='scenario'&&gone.j.monteCarloRuns.length===0);
+    ck('no job, no stress run and no Monte Carlo result remains',(await s.tool('get_job')).r.isError&&(await s.tool('get_mc_summary')).r.isError&&((await s.tool('list_runs')).j.runs||[]).every(r=>!/^(mcj|stl)/.test(r.id)));
+    ck('and the server says so',/a different plan was loaded/.test(s.stderr));
+    page.send({type:'pageRun',kind:'mc',mc:{trials:60,seed:5},stress:null});
+    let nj=null; for(let i=0;i<100&&!nj;i++){ await sleep(100); const j=await s.tool('get_job'); if(!j.r.isError&&j.j.status==='done') nj=j.j; }
+    ck('a run done afterwards on the new plan works, with a fresh job id',!!nj&&nj.id!==job.id&&/^j\d+$/.test(nj.id));
+    page.close();
+  }catch(e){ fail++; console.log('ERR C2',e&&e.stack||e,'\n',s.stderr.slice(0,800)); }
+  await s.stop();
+
   // ── D. a plan file plus the bridge ──
   const planFile=path.join(tmp,'plan.json'); fs.writeFileSync(planFile,widowText);
   s=start(['--bridge','--bridge-port','0','--bridge-token',CODE,'--bridge-hide-code','--plan',planFile]);
   try{
     const port=await s.port(); await s.rpc('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'t',version:'0'}});
-    const planKpi=async()=>{ const r=await s.tool('get_run',{id:'plan'}); return JSON.stringify(r.j).slice(0,3000); };
+    const planKpi=async()=>{ const r=await s.tool('get_run',{id:'plan'}); const j=Object.assign({},r.j); delete j.planVersion; delete j.planChanged; delete j.pageSync; return JSON.stringify(j).slice(0,3000); };
     const fileKpi=await planKpi(); ck('with --plan the file is used until a page connects',!/No plan/.test(fileKpi)&&fileKpi.length>50);
     const st=await s.tool('bridge_status'); ck('--bridge-hide-code keeps the code out of the tool result',st.j.bridge.pairingCode===undefined&&!/TEST-PAIR/.test(JSON.stringify(st.j))&&st.j.bridge.planSource==='file');
     const {c:page}=await login(port,CODE,coupleText); await sleep(100);

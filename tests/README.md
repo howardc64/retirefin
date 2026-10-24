@@ -91,5 +91,15 @@ node tests/llm/mcp_test.js            # the MCP stdio server over a real pipe (n
 node tests/llm/bridge_test.js         # live bridge server: pairing code, rotation, Host guard, frames, effect round trip
 node tests/llm/bridge_mcp_test.js     # MCP server --bridge over a real pipe and a real WebSocket (page plan, stale runs, effects, noPage)
 node tests/llm/bridge_ui_test.js      # page side: connect, plan sync, per-kind effect approval, nothing without a click
+node tests/llm/sync_test.js          # staying in step: planVersion, planChanged once after an edit, sync before each tool call, silent page, plan file edits
+node tests/llm/mcpb_test.js          # the Claude Desktop extension: build, unpack into an empty folder, run; manifest agrees with the server
 node tests/llm/openai_test.js         # OpenAI-compatible chat provider: endpoint rules, request / stream mapping, a full tool round
 ```
+
+## Master plan list
+```
+PLANNER_ROOT=. node tests/plans/plan_store_test.js   # store, producers (scenarios, stress, Monte Carlo, stress + MC), staleness, tombstones
+PLANNER_ROOT=. node tests/plans/plan_tools_test.js   # list_plans / get_plan / compare_plans / show_plan / delete_plan, reference lookup, plShow dispatch
+node tests/plans/e2e_browser.js                       # the real app in Chromium (needs playwright + a Chromium; Chart.js / xlsx replaced by stand-ins)
+```
+`rrEntries()` is built from the store; to check a change to it, dump `rrListRuns()` plus every `get_run` / the bundle before and after and diff (the refactor that introduced it produced zero differences).

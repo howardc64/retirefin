@@ -66,6 +66,8 @@ function rrDist(S,res,detail){
   if(R){
     d.failureCauses=R.primary.map(x=>({cause:x.label,count:x.count,shareOfFailures:rr3(x.share),medianShortfall:q(x.medianShortfall)}));
     d.riskFactors=R.factors.map(f=>({factor:f.label,prevalence:rr3(f.prevalence),failRateWith:rr3(f.failRateWith),failRateWithout:rr3(f.failRateWithout)}));
+    // Every failed trial (earliest first), so none has to be found by probing. `trial` is 0-based (what get_trial takes); `appTrial` is the number the app shows as #N.
+    if(detail) d.failures=R.list.slice(0,200).map(x=>({trial:x.trial,appTrial:x.trial+1,failAge:rr1(x.failAge),shortfall:q(x.shortfall),cause:x.causeShort}));
   }
   if(detail&&S.fan&&S.fundedThrough){
     const a=[], f=[]; for(let k=0;k<S.fundedThrough.length;k+=5){ const age=Math.round(S.age0+k);
@@ -74,72 +76,69 @@ function rrDist(S,res,detail){
   }
   return d;
 }
-// The trials worth looking at, by trial number (0-based). `res` = the trial measures in trial order.
+// The trials worth looking at, by trial number (0-based; `appTrial` = trial+1 is the number the app shows as #N). `res` = the trial measures in trial order.
 function rrExemplars(res){
   if(!res||!res.length) return null;
   const R=rrReasons(res), list=R?R.list:[], out={};
-  const ref=(e)=>e?{trial:e.trial,failAge:rr1(e.failAge),shortfall:rrM(e.shortfall),cause:e.causeShort}:null;
+  const ref=(e)=>e?{trial:e.trial,appTrial:e.trial+1,failAge:rr1(e.failAge),shortfall:rrM(e.shortfall),cause:e.causeShort}:null;
   out.earliestFailure=ref(list[0]||null); out.medianFailure=ref(list.length?list[Math.floor(list.length/2)]:null);
   out.worstShortfall=ref(list.length?list.reduce((a,b)=>b.shortfall>a.shortfall?b:a):null);
   const ok=[]; res.forEach((r,i)=>{ if(r.failK<0) ok.push({trial:i,estate:r.estateFin+r.estateRe}); }); ok.sort((a,b)=>a.estate-b.estate);
-  out.typicalSuccess=ok.length?{trial:ok[Math.floor(ok.length/2)].trial,finalAssets:rrM(ok[Math.floor(ok.length/2)].estate)}:null;
+  out.typicalSuccess=ok.length?{trial:ok[Math.floor(ok.length/2)].trial,appTrial:ok[Math.floor(ok.length/2)].trial+1,finalAssets:rrM(ok[Math.floor(ok.length/2)].estate)}:null;
   return out;
 }
 
-// Stress rows of a result object {results, cfg, planKey} (the page's `stResults`, or a tool's run) as entries. `prefix` makes the ids ('st:lost', 'stl:lost'); `source` null = builtin / user by row.
-function rrStressEntries(sr,prefix,source,key,out){
-  const stale=sr.planKey!==key, cfg=sr.cfg;
-  sr.results.forEach(r=>{
-    const m=r.m, extra={startAge:rr1(m.age0+r.start),years:r.years,shareOfAssetsHitPct:rr1(r.share),investedAtEndOfShock:rrM(r.atEnd),planInvestedAtEndOfShock:rrM(r.planAtEnd),lowestInvestedAfterStart:rrM(r.low),lowestInvestedAge:rr1(r.lowAge),shockStartsWithinProjection:!!r.covered};
-    if(r.guard) extra.guardrail={firstCutAge:rr1(r.guard.firstCutAge),firstCutInvestedBalance:rrM(r.guard.firstCutBal),deepestCutPct:rr1((1-r.guard.minMult)*100),cutYears:r.guard.cutYears,spendingGivenUp:rrM(r.guard.cutTotal),
-      withoutGuardrail:{firstUnfundedAge:rr1(r.guard.off.failAge),shortfall:rrM(r.guard.off.shortfall),finalAssets:rrM(r.guard.off.estate)}};
-    out.push({run:{id:prefix+':'+r.id,kind:'stress',label:r.label,source:source||(r.custom?'user':'builtin'),spec:{stressConfig:cfg?{startMode:cfg.start&&cfg.start.mode,equityShare:cfg.equityShare}:null,scenario:r.id},planKey:rrHash(sr.planKey||''),stale,kpis:rrKpisFromMeasure(m,r.gapYears),stress:extra},
-      getRun:()=>stale?null:(()=>{ const rp=stReplay(cfg,r.id); return rp?{proj:rp.proj,m:rp.measure}:null; })()});
-  });
+// The stress-specific fields of a stress run, from the plan's `meta` (the card's row, kept raw so rounding follows the caller's RR_STEP).
+function rrStressExtra(meta){
+  const r=meta.row, extra={startAge:rr1(r.age0+r.start),years:r.years,shareOfAssetsHitPct:rr1(r.share),investedAtEndOfShock:rrM(r.atEnd),planInvestedAtEndOfShock:rrM(r.planAtEnd),lowestInvestedAfterStart:rrM(r.low),lowestInvestedAge:rr1(r.lowAge),shockStartsWithinProjection:!!r.covered};
+  if(r.guard) extra.guardrail={firstCutAge:rr1(r.guard.firstCutAge),firstCutInvestedBalance:rrM(r.guard.firstCutBal),deepestCutPct:rr1((1-r.guard.minMult)*100),cutYears:r.guard.cutYears,spendingGivenUp:rrM(r.guard.cutTotal),
+    withoutGuardrail:{firstUnfundedAge:rr1(r.guard.off.failAge),shortfall:rrM(r.guard.off.shortfall),finalAssets:rrM(r.guard.off.estate)}};
+  return extra;
 }
-// More sources of entries (compute/runJobs.js adds the tool-started stress run and Monte Carlo jobs): fn(out, planKey, planHash).
+// More sources of entries (compute/runJobs.js adds the tool-started Monte Carlo jobs): fn(out, planKey, planHash).
 const RR_SOURCES=[]; function rrRegisterSource(fn){ RR_SOURCES.push(fn); }
+// A plan's headline numbers from the master plan list (plans/planStore.js): its summary, computed once and kept; a stale plan that never got one has none.
+function rrKpisOf(p){ try{ const s=plEnsureSummary(p.id); return s?s.kpis:null; }catch(e){ return null; } }
 
-// ── the registry: every store as Runs ────────────────────────────
-// An entry is {run (the JSON-able Run), getRun()→{proj,m}|null (lazy full projection), res, cfg, stressDef (stochastic kinds)}.
+// ── the registry: every plan of the master plan list, and the Monte Carlo groups, as Runs ───
+// An entry is {run (the JSON-able Run), getRun()→{proj,m}|null (lazy full projection), res, cfg, stressDef (stochastic kinds), path (market)}.
+// Plans (the plan, the other scenarios, lever runs, market paths, stress rows) come from the store, in that order; Monte Carlo groups still come from their cards / jobs because a
+// group is a distribution (settings, percentiles, causes), not a plan; its exemplar and promoted trials are plans (list_plans) and are deliberately not listed here.
 function rrEntries(){
   const key=rrPlanKey(), ph=rrHash(key), out=[];
-  const hasScn=typeof scnOrder!=='undefined'&&scnOrder.length>1;
-  const planK=rrMemo('plan|'+ph,()=>{ const r=specRunScenario({levers:[]}); return specKpis(r.proj,r.m); });
-  const planRun=()=>specRunScenario({levers:[]});
-  out.push({run:{id:'plan',kind:'plan',label:'Your plan as entered'+(hasScn?' ('+scnLabel(scnActive)+')':''),source:'user',spec:null,planKey:ph,stale:false,kpis:planK},getRun:planRun});
-  // the other scenarios of the 🆎 set
-  if(hasScn) scnOrder.forEach(id=>{
-    if(id===scnActive||!scnSnaps[id]) return; const st=scnSnaps[id], sk=rrHash(JSON.stringify(Object.assign({},st,{ui:null})));
-    const getRun=()=>rrWithState(st,()=>specRunScenario({levers:[]}));
-    const k=rrMemo('user|'+id+'|'+sk,()=>{ const r=getRun(); return specKpis(r.proj,r.m); });
-    out.push({run:{id:'scn:'+id,kind:'user',label:scnLabel(id),source:'user',spec:{scenario:id},planKey:sk,stale:false,kpis:k},getRun});
-  });
+  plSyncAll();
+  const hasScn=typeof scnOrder!=='undefined'&&scnOrder.length>1, activeKey='scn:'+(typeof scnActive!=='undefined'?scnActive:'A');
+  const act=plGet(activeKey), runFull=p=>()=>plRunPlan(p);
+  if(act) out.push({run:{id:'plan',kind:'plan',label:'Your plan as entered'+(hasScn?' ('+scnLabel(scnActive)+')':''),source:'user',spec:null,planKey:ph,stale:false,kpis:rrKpisOf(act)},getRun:()=>specRunScenario({levers:[]})});
+  // the other scenarios of the 🆎 set, in the set's order
+  const scn=plFind({kind:'scenario'}).filter(p=>p.key!==activeKey);
+  if(typeof scnOrder!=='undefined') scn.sort((x,y)=>scnOrder.indexOf(x.origin.ref.scenarioId)-scnOrder.indexOf(y.origin.ref.scenarioId));
+  scn.forEach(p=>out.push({run:{id:p.key,kind:'user',label:p.label,source:'user',spec:{scenario:p.origin.ref.scenarioId},planKey:p.fingerprint,stale:false,kpis:rrKpisOf(p)},getRun:runFull(p)}));
   // lever scenarios run by a tool (the chat or another host)
-  Object.keys(apiRuns).forEach(id=>{
-    if(id==='base') return; const r=apiRuns[id]; if(!r||(r.market&&r.market.pathId)||!r.kpis) return;
-    out.push({run:{id:'lev:'+id,kind:'lever',label:r.label,source:'llm',spec:{levers:r.levers},planKey:rrHash(r.planKey||''),stale:r.planKey!==key,kpis:r.kpis},getRun:()=>r});
-  });
+  plFind({kind:'lever'}).forEach(p=>out.push({run:{id:p.key,kind:'lever',label:p.label,source:'llm',spec:{levers:p.input.overlay.levers},planKey:p.input.baseFingerprint,stale:plIsStale(p,ph),kpis:rrKpisOf(p)},
+    getRun:()=>{ const r=typeof apiRuns!=='undefined'&&apiRuns[p.origin.ref.runId]; return r||plRunPlan(p); }}));
   // market scenarios: saved in the plan, or defined in this session
-  msList().forEach(p=>{
-    const k=rrMemo('mkt|'+ph+'|'+rrHash(JSON.stringify(p)),()=>{ const r=apiMarketRun(p,null); return r.kpis; });
-    out.push({run:{id:'mkt:'+p.id,kind:'market',label:p.label,source:p.source||'user',spec:{pathId:p.id,describe:msDescribe(p)},planKey:ph,stale:false,kpis:k},getRun:()=>apiMarketRun(p,null),path:p});
-  });
-  // the Stress test card's results (page only)
+  plFind({kind:'market'}).forEach(p=>out.push({run:{id:p.key,kind:'market',label:p.label,source:p.meta.source,spec:{pathId:p.origin.ref.pathId,describe:p.meta.describe},planKey:ph,stale:false,kpis:rrKpisOf(p)},
+    getRun:runFull(p),path:p.input.overlay.path}));
+  // stress rows (the card's, then, after the Monte Carlo groups, the tool's)
+  const stressOf=gid=>plFind({kind:'stress',groupId:gid}).forEach(p=>{ const stale=plIsStale(p,ph);
+    out.push({run:{id:p.key,kind:'stress',label:p.label,source:p.meta.source,spec:{stressConfig:{startMode:p.meta.startMode,equityShare:p.meta.equityShare},scenario:p.origin.ref.scenarioId},planKey:p.input.baseFingerprint,stale,kpis:rrKpisOf(p),stress:rrStressExtra(p.meta)},
+      getRun:stale?()=>null:runFull(p)}); });
+  stressOf('st');
+  // stress + Monte Carlo rows and the Monte Carlo card (page only)
   if(typeof stResults!=='undefined'&&stResults&&stResults.results){
     const stale=stResults.planKey!==key;
-    rrStressEntries(stResults,'st',null,key,out);
     if(stResults.mc&&stResults.mc.rows) stResults.mc.rows.forEach(row=>{
       out.push({run:{id:'stmc:'+row.id,kind:'stress_mc',label:row.label,source:'builtin',spec:{settings:rrJson(stResults.mc.cfg),scenario:row.stress?row.id:null},planKey:rrHash(stResults.planKey||''),stale:stale,distribution:rrDist(row.S,row.res,false)},
         res:row.res,S:row.S,cfg:stResults.mc.cfg,stressDef:row.stressDef||null});
     });
   }
-  // the Monte Carlo card (page only)
   if(typeof mcResults!=='undefined'&&mcResults&&mcResults.S&&mcResults.results){
     const stale=typeof mcStateAtRun!=='undefined'&&typeof mcPlanKey==='function'&&mcStateAtRun!==mcPlanKey();
     out.push({run:{id:'mc:run',kind:'monte_carlo',label:'Monte Carlo ('+mcResults.S.N+' trials)'+(mcResults.complete===false?', partial':''),source:'user',spec:{settings:rrJson(mcResults.cfg)},planKey:ph,stale,distribution:rrDist(mcResults.S,mcResults.results,false)},
       res:mcResults.results,S:mcResults.S,cfg:mcResults.cfg,stressDef:null});
   }
+  stressOf('stl');
   RR_SOURCES.forEach(fn=>{ try{ fn(out,key,ph); }catch(e){} });
   return out;
 }
@@ -335,20 +334,21 @@ if(typeof apiRegister==='function'){
     description:'The Monte Carlo distribution of one stochastic run: funded share, percentile final assets, why trials failed (causes and risk factors), percentile bands by age and the trials worth replaying. id defaults to the Monte Carlo run on screen; stress + Monte Carlo rows have ids "stmc:<scenario>".',
     inputSchema:{type:'object',properties:{id:{type:'string'}}},
     handler(args){
-      const all=rrEntries().filter(e=>e.S); if(!all.length) return apiErr('no Monte Carlo result is available in this session (the user has not run one)');
+      const all=rrEntries().filter(e=>e.S); if(!all.length) return apiErr('no Monte Carlo result is available in this session (the user has not run one). A run done in the page appears here a few seconds after it finishes while the live bridge is connected (a run done before connecting does not: press Run again, or call run_monte_carlo).');
       const e=args.id==null?(all.find(x=>x.run.id==='mc:run')||all[0]):all.find(x=>x.run.id===String(args.id)); if(!e) return apiErr('unknown Monte Carlo run "'+args.id+'". Available: '+all.map(x=>x.run.id).join(', '));
       RR_STEP=1; RR_KEEP_NAMES=RR_TOOL_NAMES; try{ const r=rrRunOut(e,true); if(e.run.stale) r.warning='the plan was edited after this run'; return {isError:false,response:r}; } finally{ RR_KEEP_NAMES=false; }
     }});
   apiRegister({name:'get_trial',
-    description:'Replay one Monte Carlo trial (seeded; nothing is stored) and return its yearly values and what was drawn (passing ages, care years). trial is a 0-based trial number or one of earliestFailure, medianFailure, worstShortfall, typicalSuccess.',
-    inputSchema:{type:'object',properties:{id:{type:'string',description:'stochastic run id (default the Monte Carlo run)'},trial:{type:'string',description:'a trial number such as "17", or earliestFailure, medianFailure, worstShortfall, typicalSuccess'}},required:['trial']},
+    description:'Replay one Monte Carlo trial (seeded; nothing is stored) and return its yearly values and what was drawn (passing ages, care years). trial is a 0-based trial number (the app shows it as #N+1), "#N" for the number exactly as the app shows it ("#251" is trial 250), or one of earliestFailure, medianFailure, worstShortfall, typicalSuccess.',
+    inputSchema:{type:'object',properties:{id:{type:'string',description:'stochastic run id (default the Monte Carlo run)'},trial:{type:'string',description:'a 0-based trial number such as "17", "#18" for the app\'s own number (1-based, so "#18" is trial 17), or earliestFailure, medianFailure, worstShortfall, typicalSuccess'}},required:['trial']},
     handler(args){
       const all=rrEntries().filter(e=>e.S); if(!all.length) return apiErr('no Monte Carlo result is available in this session');
       const e=args.id==null?(all.find(x=>x.run.id==='mc:run')||all[0]):all.find(x=>x.run.id===String(args.id)); if(!e) return apiErr('unknown Monte Carlo run "'+args.id+'". Available: '+all.map(x=>x.run.id).join(', '));
       if(e.run.stale) return apiErr('the plan was edited after this run; replaying now would not match it. Ask the user to run it again.');
-      let t=args.trial; if(typeof t==='string'&&!/^\d+$/.test(t)){ const ex=rrExemplars(e.res)[t]; if(!ex) return apiErr('no trial matches "'+t+'" (earliestFailure, medianFailure, worstShortfall and typicalSuccess need such a trial to exist)'); t=ex.trial; }
-      t=Number(t); if(!Number.isInteger(t)||t<0||t>=e.res.length) return apiErr('trial must be between 0 and '+(e.res.length-1));
-      RR_STEP=1; try{ const r=rrReplayTrial(e,t); if(!r) return apiErr('the trial could not be replayed'); return {isError:false,response:{run:e.run.id,trial:t,failed:r.kpis.firstUnfundedAge!=null,kpis:rrKpiOut(r.kpis),drawn:r.draws,series:r.series}}; } finally{ RR_STEP=1; }
+      let t=args.trial; if(typeof t==='string'){ const um=/^\s*(?:#|app\s*#?)\s*(\d+)\s*$/i.exec(t); if(um) t=Number(um[1])-1; }
+      if(typeof t==='string'&&!/^\d+$/.test(t)){ const ex=rrExemplars(e.res)[t]; if(!ex) return apiErr('no trial matches "'+t+'" (earliestFailure, medianFailure, worstShortfall and typicalSuccess need such a trial to exist)'); t=ex.trial; }
+      t=Number(t); if(!Number.isInteger(t)||t<0||t>=e.res.length) return apiErr('trial must be between 0 and '+(e.res.length-1)+' (or #1 to #'+e.res.length+' as the app numbers them)');
+      RR_STEP=1; try{ const r=rrReplayTrial(e,t); if(!r) return apiErr('the trial could not be replayed'); return {isError:false,response:{run:e.run.id,trial:t,appTrial:t+1,failed:r.kpis.firstUnfundedAge!=null,kpis:rrKpiOut(r.kpis),drawn:r.draws,series:r.series}}; } finally{ RR_STEP=1; }
     }});
   apiRegister({name:'get_stress_results',
     description:'The Stress test card\'s results: for each scenario (Lost Decade, Stagflation, 1966 retiree, saved market paths) whether the money lasts, invested assets at the end of the shock and the lowest point, the guardrail effect if guardrails are on, and, if it was run, the stress + Monte Carlo table.',

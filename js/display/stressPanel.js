@@ -101,6 +101,7 @@ function stStart(withMc){
   stEl('stStale').style.display='none';
   stRender();
   if(withMc===true) stStartMc(cfg);
+  else if(typeof llmBridgeRunDone==='function') llmBridgeRunDone('stress',null,cfg);   // the live bridge's tools can then read this run
 }
 
 // "+ Monte Carlo": the Monte Carlo card's trials for "no stress" and for every market scenario, on the same random draws. Chunked (~40 ms of work, then yield) so the page stays responsive.
@@ -117,7 +118,7 @@ function stStartMc(cfg){
     if(run.discard) return;
     if(!ok){ stEl('stNote').textContent='Cancelled after '+done+' of '+total+' trials; the stress test table above is complete, the Monte Carlo part was dropped.'; return; }
     stEl('stNote').textContent=total+' trials in '+((Date.now()-t0)/1000).toFixed(1)+' s';
-    if(stResults&&stResults.planKey===planKey){ stResults.mc={cfg:mc, rows:jobs.map(j=>({id:j.id,label:j.label,stress:!!j.stress,stressDef:j.stress,res:j.res,S:mcSummarize(j.res)}))}; stMcRender(); stMarkStale(); }
+    if(stResults&&stResults.planKey===planKey){ stResults.mc={cfg:mc, rows:jobs.map(j=>({id:j.id,label:j.label,stress:!!j.stress,stressDef:j.stress,res:j.res,S:mcSummarize(j.res)}))}; stMcRender(); stMarkStale(); if(typeof llmBridgeRunDone==='function') llmBridgeRunDone('stmc',mc,cfg); }
   };
   (function chunk(){
     if(run.discard) return end(false);
@@ -168,8 +169,9 @@ function stRender(){
 
 // A different plan was loaded (or Reset to defaults): drop the old results. `settings` also restores the card's own defaults.
 function stResetCard(settings){
+  if(typeof llmBridgeReplaced==='function') llmBridgeReplaced();
   if(stMcRun) stMcRun.discard=true;
-  stResults=null; stStateAtRun=null;
+  stResults=null; stStateAtRun=null; if(typeof plMcClearPromoted==='function') plMcClearPromoted();
   if(settings){ if(typeof state!=='undefined'&&state&&state.ui) state.ui.stressCfg=null; buildStressPanel(); if(typeof cardStackReset==='function') cardStackReset(); return; }
   ['stOut','stStale'].forEach(id=>{ const e=stEl(id); if(e) e.style.display='none'; });
   ['stSummary','stMc','stCaveats'].forEach(id=>{ const e=stEl(id); if(e) e.innerHTML=''; });

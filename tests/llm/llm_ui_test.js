@@ -34,6 +34,11 @@ ok(run('state.ui.marketPaths.length')===0,'the market proposal is still not in t
 run('llmAdd('+JSON.stringify(pids[1])+')'); ok(run('state.ui.marketPaths.length')===1&&/Stress test card/.test(card()),'Add to Stress test card (a click) saves the path in the plan');
 run('llmShow('+JSON.stringify(pids[1])+')'); ok(run('!!mcTrialView&&mcTrialView.view==="D"'),'Show in main charts replays the market path (internal view D, shown as B)'); run('mcTrialExit()');
 run('llmDismiss('+JSON.stringify(pids[0])+')'); ok(run('rrProposals().length')===1,'Dismiss removes a proposal');
+// plans tab
+run('llmSetTab("plans")'); ok(/Plans/.test(card())&&/Scenario A/.test(card())&&/Lost Decade/.test(card())&&/llmPlanDelete/.test(card()),'Plans tab lists scenarios and stress rows with delete buttons');
+run('llmPlanDelete("st:stag")'); ok(!/Stagflation/.test(card().split('llm-runs')[1]||'')||run('plGet("st:stag")===null'),'deleting a stress plan hides it');
+ok(/Deleted/.test(card()),'delete reports');
+run('llmSetTab("import")');
 // staleness
 run('state.living+=1000'); run('renderLlmCard()'); ok(/plan edited since/.test(card()),'after a plan edit the remaining proposal is marked');
 run('state.living-=1000');

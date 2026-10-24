@@ -16,7 +16,7 @@ A browser-based retirement income and tax planner for a single person or a marri
 - **Inheritance** from another plan file, and **two plans linked live** (parent in one tab, heir in another).
 - **Scenarios** to create, switch, compare and delete variants of a plan; **Notes** for the whole plan and per scenario.
 - **Save / Load** plan files (JSON), **Export to Excel** with live formulas for the main tax chain, and a **Formulas** page documenting every equation.
-- **🤖 LLM button**: download every scenario and result (user scenarios, what-ifs, stress tests, Monte Carlo) as one file for any external LLM, and review the scenarios an LLM proposes before anything touches your plan. A live bridge (`node server/mcp.js --bridge`) lets an MCP host such as Claude Desktop work on the plan on your screen; the chat also accepts any OpenAI-compatible server.
+- **🤖 LLM button**: download every scenario and result (user scenarios, what-ifs, stress tests, Monte Carlo) as one file for any external LLM, and review the scenarios an LLM proposes before anything touches your plan. A Claude Desktop extension (`node server/build-mcpb.js`, then drag `dist/retirement-planner.mcpb` into Settings → Extensions) and a live bridge (`node server/mcp.js --bridge`) lets an MCP host such as Claude Desktop work on the plan on your screen (**the live bridge is still in development**: expect rough edges and changes; the file export, the saved-plan MCP server and the chat are not affected); the chat also accepts any OpenAI-compatible server.
 - **Optional chat** that answers questions about your plan and runs what-ifs through the app's own projection engine (you supply your own Google Gemini or Anthropic API key).
 
 ## Getting started

@@ -667,7 +667,7 @@ The chat box answers questions about your plan and can **run what-ifs and chart 
 
 ## Send results to an LLM, and scenarios from an LLM
 
-The **🤖 LLM** button opens a popup with three tabs (send to an LLM, scenarios from an LLM, live bridge). It works with any LLM you already use (Claude, ChatGPT, Gemini …): the app sends nothing anywhere by itself; you download a file or copy text and paste the answer back.
+The **🤖 LLM** button opens a popup with three tabs (send to an LLM, scenarios from an LLM, live bridge). The first two are stable. **The live bridge tab is still in development** (see *Live bridge* below). It works with any LLM you already use (Claude, ChatGPT, Gemini …): the app sends nothing anywhere by itself; you download a file or copy text and paste the answer back.
 
 ### Send to an LLM
 
@@ -711,7 +711,16 @@ Proposals are kept only until you reload the page, and are marked **plan edited 
 
 
 
-### Connecting an MCP host (Claude Desktop and others)
+### Claude Desktop: install the extension (no JSON editing)
+
+1. Build the extension file once: `node server/build-mcpb.js` (Node 18+). It writes `dist/retirement-planner.mcpb`.
+2. In Claude Desktop open **Settings → Extensions** and drag the file in (or double-click it), then press **Install**. Claude Desktop runs the server with its own Node, so nothing else needs installing.
+3. A settings form appears. Everything is optional: **Plan file** (a plan you saved with Save; leave empty to use only the live bridge), **Live bridge** (on by default), the bridge **port** and **pairing code** (leave the code empty for a random one), and **Show names**.
+4. To follow the plan on your screen (*live bridge, still in development*), open the planner page, choose **🤖 LLM → Live bridge**, and enter the port and the code. Ask Claude "check bridge_status" and it tells you both.
+
+Change the settings any time under Settings → Extensions → Retirement Income Planner. The file is unsigned, so Claude Desktop may show a warning on install. The older way, editing the config file by hand, is described next.
+
+### Connecting an MCP host by hand (Claude Desktop config file, other hosts)
 
 `server/mcp.js` is a small Node program (no packages) that gives an MCP host the same tools as the chat, plus background jobs, using a plan file you saved with **Save**:
 
@@ -748,6 +757,8 @@ In Claude Desktop add it to the MCP servers file as `{"command":"node","args":["
 
 ### Live bridge: let the MCP host see the plan on your screen
 
+> **Still in development.** The live LLM link works, but it is not finished: the messages, the approval prompts, the settings and the behaviour described here may change, and some cases (a busy page, reconnecting after sleep, several pages open at once) are not fully polished. It never changes your plan and the numbers come from the same engine as the rest of the app, but treat it as a preview. The other ways of working with an LLM (the downloaded file, pasted proposals, an MCP host reading a saved plan file) do not depend on it.
+
 Start the server with `--bridge` instead of (or as well as) a plan file:
 
 ```
@@ -756,7 +767,8 @@ node server/mcp.js --bridge
 
 It prints a port (8765 by default) and a pairing code. In the page open **🤖 LLM → Live bridge**, enter both and press **Connect**. Then:
 
-- The host works on **the plan as it is on screen**; it is sent again after each edit, and earlier results are marked stale. Disconnect stops it.
+- The host works on **the plan as it is on screen**. It is sent again after each edit, and before every tool call the server also asks the page for its latest plan, so a call never runs on a plan that is a moment old. Every result carries a `planVersion`; the first result after you edit the plan also carries `planChanged` (which inputs changed, and the plan's headline numbers before and after), so Claude knows its earlier numbers are out of date. Earlier results are marked stale. Disconnect stops it.
+- If the page is busy and does not answer within a second, the result says so (`pageSync`) and uses the last plan it has.
 - What is sent is your whole plan, the same content as Save (names and birth years included; the server still hides names from the LLM unless started with `--names`). The link never leaves this computer (127.0.0.1) and nothing is sent until you press Connect.
 - The host can ask the page to **show a market path in the charts** or to **put scenarios in your proposals list**. The first time it asks for each kind, the tab asks you: **Allow** (until you disconnect), **Allow once** or **Deny**. It can never change your plan.
 - The host can call `bridge_status` to see whether a page is connected; the pairing code is returned there unless you start with `--bridge-hide-code` (then read it from the server's log). A fixed code and port: `--bridge-port 8765 --bridge-token ABCD-EFGH-JKLM`.

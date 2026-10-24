@@ -110,6 +110,15 @@ function scnDelete(){
   scnActive=next; state=incoming;
   renderAll(); autosave();
 }
+// Delete a scenario that is NOT on screen, by id (master plan list: plDelete → plans/scenarioSetProducer.js). The one on screen and the last one are refused with a reason.
+function scnDeleteOther(id){
+  if(id===scnActive) return {ok:false,why:'Scenario '+id+' is on screen; switch to another scenario first, then delete it'};
+  if(!scnSnaps[id]||scnOrder.indexOf(id)<0) return {ok:false,why:'no such scenario "'+id+'"'};
+  if(scnOrder.length<2) return {ok:false,why:'the only scenario cannot be deleted'};
+  scnOrder.splice(scnOrder.indexOf(id),1); delete scnSnaps[id]; delete scnNames[id];
+  scnSave(); if(typeof renderScenarioCard==='function') renderScenarioCard(); if(typeof autosave==='function') autosave();
+  return {ok:true};
+}
 // Reset to defaults: every other scenario is removed and the plan on screen becomes the one scenario, A (called by resetState before it redraws).
 function scnReset(){
   scnOrder=['A']; scnActive='A'; scnSnaps={}; Object.keys(scnNames).forEach(k=>delete scnNames[k]);
