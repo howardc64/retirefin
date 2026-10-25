@@ -6,22 +6,53 @@
 // to the screen. Nothing here writes `state`, and nothing is added to the saved plan file: a scenario reaches the plan only by the user's click on a card
 // (Save as Scenario → scnAddFromState; Add to Stress test card → msSave).
 // ═══════════════════════════════════════════════════════════════
-const chatRuns=new Proxy({},{get:(t,k)=>apiRuns[k],has:(t,k)=>k in apiRuns,ownKeys:()=>Reflect.ownKeys(apiRuns),getOwnPropertyDescriptor:(t,k)=>Object.getOwnPropertyDescriptor(apiRuns,k)});   // read-only view of the API's run store (cards and tests read it)
-function chatToolDecls(){ return (typeof apiList==='function')?apiList('neutral'):[]; }
-function chatRunStale(run){ return apiRunStale(run); }
+const chatRuns = new Proxy(
+  {},
+  {
+    get: (t, k) => API_STORE.runs[k],
+    has: (t, k) => k in API_STORE.runs,
+    ownKeys: () => Reflect.ownKeys(API_STORE.runs),
+    getOwnPropertyDescriptor: (t, k) => Object.getOwnPropertyDescriptor(API_STORE.runs, k)
+  }
+); // read-only view of the API's run store (cards and tests read it)
+function chatToolDecls() {
+  return typeof apiList === 'function' ? apiList('neutral') : [];
+}
+function chatRunStale(run) {
+  return apiRunStale(run);
+}
 // → {isError, response (object for the model), cards:[descriptor], effects:[{type,…}]}
-function chatExecTool(name,args){ return apiCall(name,args,{source:'chat'}); }
-function chatClearRuns(){ apiClearRuns(); }
+function chatExecTool(name, args) {
+  return apiCall(name, args, {source: 'chat'});
+}
+function chatClearRuns() {
+  apiClearRuns();
+}
 
 // What a tool asked to change on screen. Unknown effect types are ignored (a newer API than this page). → list of short status strings for the chat
-function chatApplyEffects(effects){
-  const notes=[];
-  (effects||[]).forEach(e=>{
-    try{
-      if(e.type==='showProposals'&&typeof openLlmCard==='function'){ openLlmCard('import'); notes.push('Opened the 🤖 LLM panel: the proposed scenarios wait there for your review; nothing in your scenario has changed.'); }
-      else if(e.type==='showScenario'&&typeof scShow==='function'){ const r=scShow(String(e.ref||'')); notes.push(r.ok?'Showing "'+r.label+'" in the main charts. Use Back to scenario to return.':'Could not show that scenario: '+r.why); }
-      else if(e.type==='showMarketPath'&&typeof mcLoadMarketPath==='function'){ const ok=mcLoadMarketPath(e.id); notes.push(ok?'Showing "'+(apiPathById(e.id)||{label:e.id}).label+'" in the main charts (D view). Use Back to scenario to return.':'Could not show that scenario in the charts.'); }
-    }catch(err){ console.error('chat effect',err); }
+function chatApplyEffects(effects) {
+  const notes = [];
+  (effects || []).forEach(e => {
+    try {
+      if (e.type === 'showProposals' && typeof openLlmCard === 'function') {
+        openLlmCard('import');
+        notes.push('Opened the 🤖 LLM panel: the proposed scenarios wait there for your review; nothing in your scenario has changed.');
+      } else if (e.type === 'showScenario' && typeof scShow === 'function') {
+        const r = scShow(String(e.ref || ''));
+        notes.push(
+          r.ok ? 'Showing "' + r.label + '" in the main charts. Use Back to scenario to return.' : 'Could not show that scenario: ' + r.why
+        );
+      } else if (e.type === 'showMarketPath' && typeof mcLoadMarketPath === 'function') {
+        const ok = mcLoadMarketPath(e.id);
+        notes.push(
+          ok
+            ? 'Showing "' + (apiPathById(e.id) || {label: e.id}).label + '" in the main charts (D view). Use Back to scenario to return.'
+            : 'Could not show that scenario in the charts.'
+        );
+      }
+    } catch (err) {
+      console.error('chat effect', err);
+    }
   });
   return notes;
 }

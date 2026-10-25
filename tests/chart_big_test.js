@@ -10,7 +10,7 @@ const ctx={console,Math,JSON,Date,Number,String,Array,Object,Set,Map,Infinity,is
   alert(){ ctx.__alerts++; }, __alerts:0};
 ctx.window=ctx; vm.createContext(ctx);
 const load=f=>vm.runInContext(fs.readFileSync(path.join(root,'js',f),'utf8'),ctx,{filename:f});
-['core/constants.js','core/helpers.js','compute/socialSecurityCalc.js','compute/rmd.js','compute/tax.js','core/state.js'].forEach(load);
+['core/constants.js','core/helpers.js','compute/socialSecurityCalc.js','compute/rmd.js','compute/tax.js','core/planSlots.js','core/defaults.js','core/state.js','core/persistence.js'].forEach(load);
 vm.runInContext('function saveDebounced(){}',ctx);
 load('display/chartPanels.js');
 const run=c=>vm.runInContext(c,ctx);

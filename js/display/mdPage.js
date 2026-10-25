@@ -17,17 +17,23 @@
 // shows a clear explanation instead of failing silently.
 // ═══════════════════════════════════════════════════════════════
 
-async function openMdPage(file, label){
+async function openMdPage(file, label) {
   const name = file.split('/').pop();
   const win = window.open('', '_blank');
-  if(!win){ alert('Please allow pop-ups for this page to view the '+label.toLowerCase()+' in a new tab.'); return; }
-  try{
+  if (!win) {
+    alert('Please allow pop-ups for this page to view the ' + label.toLowerCase() + ' in a new tab.');
+    return;
+  }
+  try {
     const res = await fetch(file);
-    if(!res.ok) throw new Error('HTTP '+res.status);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const md = await res.text();
     win.document.write(mdPageHtml(name, mdToHtml(md), file, label));
-  }catch(err){
-    win.document.write(mdPageHtml(name, `
+  } catch (err) {
+    win.document.write(
+      mdPageHtml(
+        name,
+        `
       <p><strong>Couldn't load ${escHtml(file)} automatically.</strong></p>
       <p>If you opened this app directly as a local file (a <code>file://</code> address), browsers
       block a page from reading its own sibling files this way — this isn't something the app can
@@ -38,12 +44,16 @@ async function openMdPage(file, label){
         <li>Open <code>${escHtml(file)}</code> directly in a text editor or browser tab.</li>
       </ul>
       <p class="fp-src">Technical detail: ${err && err.message ? escHtml(err.message) : escHtml(String(err))}</p>
-    `, file, label));
+    `,
+        file,
+        label
+      )
+    );
   }
   win.document.close();
 }
 
-function mdPageHtml(title, bodyHtml, file, label){
+function mdPageHtml(title, bodyHtml, file, label) {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${escHtml(title)} — Retirement Income Planner</title>
 <style>
@@ -67,5 +77,9 @@ function mdPageHtml(title, bodyHtml, file, label){
 }
 
 // The two buttons. Usage (left of Save) shows misc/Usage.md; Tips (right of Formulas) shows misc/Note4User.md.
-function openUsagePage(){ return openMdPage('misc/Usage.md','Usage'); }
-function openNotesPage(){ return openMdPage('misc/Note4User.md','Tips'); }
+function openUsagePage() {
+  return openMdPage('misc/Usage.md', 'Usage');
+}
+function openNotesPage() {
+  return openMdPage('misc/Note4User.md', 'Tips');
+}

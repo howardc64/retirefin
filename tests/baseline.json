@@ -51,6 +51,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 64. Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 64",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -328,6 +329,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 66. Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 66",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -605,6 +607,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 68. Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 68",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -882,6 +885,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 70. Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 70",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -1162,6 +1166,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 67 (the start age currently selected on the Social Security card; dashed). Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 67 (selected start age)",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -1684,6 +1689,7 @@
         null
        ],
        "fill": true,
+       "info": "Pension income. Taxed as ordinary income.",
        "label": "Pension",
        "pointRadius": 0,
        "spanGaps": false,
@@ -1736,6 +1742,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable payout from an annuity. Taxed as ordinary income (and counted as net investment income for NIIT when the annuity is non-qualified).",
        "label": "Annuity payout (taxable)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -1788,6 +1795,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax-exempt part of an annuity payout (return of principal). It is cash income but is not taxed and, being a return of the owner's own premium, does not count toward provisional income or IRMAA MAGI.",
        "label": "Annuity payout (tax-exempt, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -1840,6 +1848,7 @@
         null
        ],
        "fill": true,
+       "info": "Wages or self-employment income. Taxed as ordinary income.",
        "label": "Wage",
        "pointRadius": 0,
        "spanGaps": false,
@@ -1892,6 +1901,7 @@
         null
        ],
        "fill": true,
+       "info": "The part of the annual pre-tax IRA/401(k) withdraw that is converted to a Roth IRA (\"Withdraw is Roth conversion\" ticked). It is taxed as ordinary income in the year it converts, so it counts toward AGI, MAGI (IRMAA), taxable Social Security and the ordinary tax brackets, but it moves into the Roth IRA and is not spendable. An inherited IRA cannot be converted.",
        "label": "Roth conversion (taxed as ordinary income)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -1944,6 +1954,7 @@
         null
        ],
        "fill": true,
+       "info": "Annual pre-tax IRA/401(k) withdrawal set on the IRA card (on top of the RMD), the part that is not a Roth conversion. Taxed as ordinary income and spendable as household cash.",
        "label": "Pre-tax IRA withdraw",
        "pointRadius": 0,
        "spanGaps": false,
@@ -1996,6 +2007,7 @@
         null
        ],
        "fill": true,
+       "info": "Required minimum distribution from a pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income.",
        "label": "IRA RMD",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2048,6 +2060,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.",
        "label": "Pre-tax IRA withdraw (for expenses)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2100,6 +2113,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable rental income, net of depreciation. Taxed as ordinary income.",
        "label": "Rental income",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2152,6 +2166,7 @@
         null
        ],
        "fill": true,
+       "info": "Non-cash depreciation on a rental property. It is cash you actually receive but is not taxed, so it is shown separately from the taxable rental income.",
        "label": "Rental depreciation (non-cash, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2204,6 +2219,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax-exempt income, e.g. municipal-bond interest paid out by a portfolio. Not taxed, but it counts toward household income, provisional income and IRMAA MAGI.",
        "label": "Tax-exempt income (untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2256,6 +2272,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from a Roth IRA to pay household expenses. Tax-free, so it adds nothing to AGI.",
        "label": "Roth IRA withdraw (tax-exempt, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2308,6 +2325,7 @@
         null
        ],
        "fill": true,
+       "info": "Withdrawal from a pre-tax IRA inherited through the Inheritance card. An inherited IRA must be emptied by the end of the 10th year after it was inherited. Taxed as ordinary income.",
        "label": "Inherited IRA withdraw (10-year rule)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2360,6 +2378,7 @@
         null
        ],
        "fill": true,
+       "info": "Withdrawal from a Roth IRA inherited through the Inheritance card. It must be emptied by the end of the 10th year after it was inherited. Tax-free, so it adds nothing to AGI or MAGI.",
        "label": "Inherited Roth IRA withdraw (10-year rule, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2412,6 +2431,7 @@
         null
        ],
        "fill": true,
+       "info": "Qualified dividends (QDIV) paid by your brokerage portfolios. Taxed at the preferential 0% / 15% / 20% rates, and part of net investment income.",
        "label": "Qual. dividends (QDIV)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2464,6 +2484,7 @@
         null
        ],
        "fill": true,
+       "info": "The non-qualified part of portfolio dividends (ordinary dividends minus qualified dividends). Taxed as ordinary income and part of net investment income.",
        "label": "Ordinary dividends (ODIV−QDIV)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2516,6 +2537,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gains realized when portfolio assets are sold (to pay expenses). Taxed at the preferential 0% / 15% / 20% rates, net of any short-term capital loss (SCGL) carry-forward used.",
        "label": "Long-term gains (LTCG)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2568,6 +2590,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts.",
        "label": "Person 1's Social Security (SS)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2620,6 +2643,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts.",
        "label": "Person 2's Social Security (SS) / survivor",
        "pointRadius": 0,
        "spanGaps": false,
@@ -2678,6 +2702,7 @@
        ],
        "fill": false,
        "halo": true,
+       "info": "The suspended capital-gain loss (SCGL) carryforward still unused at the end of the year, in today's dollars. Realized long-term gains use it up dollar for dollar before they are taxed, so the line falls as gains are realized and ends when it is used up.",
        "label": "SCGL remaining",
        "order": -1,
        "pointRadius": 0,
@@ -3110,6 +3135,7 @@
         null
        ],
        "fill": true,
+       "info": "Pension income. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Pension",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3162,6 +3188,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable payout from an annuity. Taxed as ordinary income (and counted as net investment income for NIIT when the annuity is non-qualified). This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Annuity payout (taxable)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3214,6 +3241,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax-exempt part of an annuity payout (return of principal). It is cash income but is not taxed and, being a return of the owner's own premium, does not count toward provisional income or IRMAA MAGI. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Annuity payout (tax-exempt, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3266,6 +3294,7 @@
         null
        ],
        "fill": true,
+       "info": "Wages or self-employment income. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Wage",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3318,6 +3347,7 @@
         null
        ],
        "fill": true,
+       "info": "The part of the annual pre-tax IRA/401(k) withdraw that is converted to a Roth IRA (\"Withdraw is Roth conversion\" ticked). It is taxed as ordinary income in the year it converts, so it counts toward AGI, MAGI (IRMAA), taxable Social Security and the ordinary tax brackets, but it moves into the Roth IRA and is not spendable. An inherited IRA cannot be converted. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Roth conversion (taxed as ordinary income)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3370,6 +3400,7 @@
         null
        ],
        "fill": true,
+       "info": "Annual pre-tax IRA/401(k) withdrawal set on the IRA card (on top of the RMD), the part that is not a Roth conversion. Taxed as ordinary income and spendable as household cash. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Pre-tax IRA withdraw",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3422,6 +3453,7 @@
         null
        ],
        "fill": true,
+       "info": "Required minimum distribution from a pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "IRA RMD",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3474,6 +3506,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Pre-tax IRA withdraw (for expenses)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3526,6 +3559,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable rental income, net of depreciation. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Rental income",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3578,6 +3612,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax-exempt income, e.g. municipal-bond interest paid out by a portfolio. Not taxed, but it counts toward household income, provisional income and IRMAA MAGI. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Tax-exempt income (untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3630,6 +3665,7 @@
         null
        ],
        "fill": true,
+       "info": "Withdrawal from a pre-tax IRA inherited through the Inheritance card. An inherited IRA must be emptied by the end of the 10th year after it was inherited. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Inherited IRA withdraw (10-year rule)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3682,6 +3718,7 @@
         null
        ],
        "fill": true,
+       "info": "Qualified dividends (QDIV) paid by your brokerage portfolios. Taxed at the preferential 0% / 15% / 20% rates, and part of net investment income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Qual. dividends (QDIV)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3734,6 +3771,7 @@
         null
        ],
        "fill": true,
+       "info": "The non-qualified part of portfolio dividends (ordinary dividends minus qualified dividends). Taxed as ordinary income and part of net investment income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Ordinary dividends (ODIV−QDIV)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3786,6 +3824,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gains realized when portfolio assets are sold (to pay expenses). Taxed at the preferential 0% / 15% / 20% rates, net of any short-term capital loss (SCGL) carry-forward used. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Long-term gains (LTCG)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3838,6 +3877,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Person 1's Social Security (SS) — taxable part",
        "pointRadius": 0,
        "spanGaps": false,
@@ -3890,6 +3930,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Person 2's Social Security (SS) / survivor — taxable part",
        "pointRadius": 0,
        "spanGaps": false,
@@ -4267,6 +4308,7 @@
         null
        ],
        "fill": true,
+       "info": "Pension income. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Pension",
        "order": 3,
        "pointRadius": 0,
@@ -4320,6 +4362,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable payout from an annuity. Taxed as ordinary income (and counted as net investment income for NIIT when the annuity is non-qualified). This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Annuity payout (taxable)",
        "order": 3,
        "pointRadius": 0,
@@ -4373,6 +4416,7 @@
         null
        ],
        "fill": true,
+       "info": "Wages or self-employment income. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Wage",
        "order": 3,
        "pointRadius": 0,
@@ -4426,6 +4470,7 @@
         null
        ],
        "fill": true,
+       "info": "The part of the annual pre-tax IRA/401(k) withdraw that is converted to a Roth IRA (\"Withdraw is Roth conversion\" ticked). It is taxed as ordinary income in the year it converts, so it counts toward AGI, MAGI (IRMAA), taxable Social Security and the ordinary tax brackets, but it moves into the Roth IRA and is not spendable. An inherited IRA cannot be converted. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Roth conversion (taxed as ordinary income)",
        "order": 3,
        "pointRadius": 0,
@@ -4479,6 +4524,7 @@
         null
        ],
        "fill": true,
+       "info": "Annual pre-tax IRA/401(k) withdrawal set on the IRA card (on top of the RMD), the part that is not a Roth conversion. Taxed as ordinary income and spendable as household cash. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Pre-tax IRA withdraw",
        "order": 3,
        "pointRadius": 0,
@@ -4532,6 +4578,7 @@
         null
        ],
        "fill": true,
+       "info": "Required minimum distribution from a pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "IRA RMD",
        "order": 3,
        "pointRadius": 0,
@@ -4585,6 +4632,7 @@
         null
        ],
        "fill": true,
+       "info": "Withdrawal from a pre-tax IRA inherited through the Inheritance card. An inherited IRA must be emptied by the end of the 10th year after it was inherited. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Inherited IRA withdraw (10-year rule)",
        "order": 3,
        "pointRadius": 0,
@@ -4638,6 +4686,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Pre-tax IRA withdraw (for expenses)",
        "order": 3,
        "pointRadius": 0,
@@ -4691,6 +4740,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable rental income, net of depreciation. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Rental income",
        "order": 3,
        "pointRadius": 0,
@@ -4744,6 +4794,7 @@
         null
        ],
        "fill": true,
+       "info": "The non-qualified part of portfolio dividends (ordinary dividends minus qualified dividends). Taxed as ordinary income and part of net investment income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Ordinary dividends (ODIV−QDIV)",
        "order": 3,
        "pointRadius": 0,
@@ -4797,6 +4848,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Person 1's Social Security (SS) — taxable part",
        "order": 3,
        "pointRadius": 0,
@@ -4850,6 +4902,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Person 2's Social Security (SS) / survivor — taxable part",
        "order": 3,
        "pointRadius": 0,
@@ -4903,6 +4956,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 12% (the limit for the filing status in force that year).",
        "label": "12%",
        "ordLabel": "12%",
        "order": 0,
@@ -4958,6 +5012,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 22% (the limit for the filing status in force that year).",
        "label": "22%",
        "ordLabel": "22%",
        "order": 0,
@@ -5013,6 +5068,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 24% (the limit for the filing status in force that year).",
        "label": "24%",
        "ordLabel": "24%",
        "order": 0,
@@ -5068,6 +5124,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 32% (the limit for the filing status in force that year).",
        "label": "32%",
        "ordLabel": "32%",
        "order": 0,
@@ -5123,6 +5180,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 35% (the limit for the filing status in force that year).",
        "label": "35%",
        "ordLabel": "35%",
        "order": 0,
@@ -5178,6 +5236,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 37% (the limit for the filing status in force that year).",
        "label": "37%",
        "ordLabel": "37%",
        "order": 0,
@@ -5274,6 +5333,7 @@
         null
        ],
        "fill": false,
+       "info": "Top of the gross ordinary income: the gap between the stack and this red line is the deduction (standard or itemized, plus the senior deduction) absorbed that year.",
        "label": "Deduction",
        "order": 0,
        "pointRadius": 0,
@@ -5662,6 +5722,7 @@
         null
        ],
        "fill": true,
+       "info": "Qualified dividends (QDIV) paid by your brokerage portfolios. Taxed at the preferential 0% / 15% / 20% rates, and part of net investment income.",
        "label": "Qual. dividends (QDIV)",
        "order": 3,
        "pointRadius": 0,
@@ -5715,6 +5776,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gains realized when portfolio assets are sold (to pay expenses). Taxed at the preferential 0% / 15% / 20% rates, net of any short-term capital loss (SCGL) carry-forward used.",
        "label": "Long-term gains (LTCG)",
        "order": 3,
        "pointRadius": 0,
@@ -5768,6 +5830,7 @@
         null
        ],
        "fill": false,
+       "info": "Qualified-income tax threshold: where the 15% rate starts. The bracket limit applies to total taxable income and qualified income sits on top of the taxable ordinary income (Qualified Dividends and Capital Gain Tax Worksheet), so this line is the limit minus that year's taxable ordinary income — it moves with the ordinary income. Qualified dividends and long-term gains stacked above it are taxed at 15%.",
        "label": "15%",
        "ordLabel": "15%",
        "order": 0,
@@ -5823,6 +5886,7 @@
         null
        ],
        "fill": false,
+       "info": "Qualified-income tax threshold: where the 20% rate starts. The bracket limit applies to total taxable income and qualified income sits on top of the taxable ordinary income (Qualified Dividends and Capital Gain Tax Worksheet), so this line is the limit minus that year's taxable ordinary income — it moves with the ordinary income. Qualified dividends and long-term gains stacked above it are taxed at 20%.",
        "label": "20%",
        "ordLabel": "20%",
        "order": 0,
@@ -5919,6 +5983,7 @@
         null
        ],
        "fill": false,
+       "info": "Qualified income before the deduction: the gap between the stack and this red line is the part of the deduction left over after ordinary income (e.g. itemized LTC costs), which shelters qualified income (LTCG first).",
        "label": "Deduction",
        "order": 0,
        "pointRadius": 0,
@@ -6242,6 +6307,7 @@
         null
        ],
        "fill": false,
+       "info": "Total Social Security (TSS): everything the household receives from Social Security that year, before any of it is taxed.",
        "label": "Total Social Security (TSS)",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -6296,6 +6362,7 @@
         null
        ],
        "fill": false,
+       "info": "Actual Social Security Tax (SST): the income tax actually due because of Social Security — the extra tax caused by the taxable part of the benefit (0%, up to 50% or up to 85% of it).",
        "label": "Actual Social Security Tax (SST)",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -6601,6 +6668,7 @@
         null
        ],
        "fill": true,
+       "info": "Federal tax on ordinary income (wages, pension, rental, taxable Social Security, IRA withdrawals, ordinary dividends…) after the standard/itemized and senior deductions, using the filing status' brackets.",
        "label": "Ordinary income tax",
        "order": 2,
        "pointRadius": 0,
@@ -6654,6 +6722,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 0% qualified-income bracket.",
        "label": "QDIV 0% tax",
        "order": 2,
        "pointRadius": 0,
@@ -6707,6 +6776,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 15% qualified-income bracket.",
        "label": "QDIV 15% tax",
        "order": 2,
        "pointRadius": 0,
@@ -6760,6 +6830,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 20% qualified-income bracket.",
        "label": "QDIV 20% tax",
        "order": 2,
        "pointRadius": 0,
@@ -6813,6 +6884,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 0% qualified-income bracket.",
        "label": "LTCG 0% tax",
        "order": 2,
        "pointRadius": 0,
@@ -6866,6 +6938,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 15% qualified-income bracket.",
        "label": "LTCG 15% tax",
        "order": 2,
        "pointRadius": 0,
@@ -6919,6 +6992,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 20% qualified-income bracket.",
        "label": "LTCG 20% tax",
        "order": 2,
        "pointRadius": 0,
@@ -6972,6 +7046,7 @@
         null
        ],
        "fill": true,
+       "info": "Net Investment Income Tax: 3.8% of the lesser of net investment income or MAGI above the threshold ($250,000 married / $200,000 single unless a future-law change is set).",
        "label": "NIIT (3.8% on net investment income)",
        "order": 2,
        "pointRadius": 0,
@@ -7029,6 +7104,7 @@
         null
        ],
        "fill": false,
+       "info": "Foreign tax credit, subtracted from income tax. It does not reduce the NIIT.",
        "label": "Foreign tax credit",
        "order": 2,
        "pointRadius": 0,
@@ -7083,6 +7159,7 @@
         null
        ],
        "fill": false,
+       "info": "Effective tax rate: total tax divided by AGI. Read it on the right-hand axis.",
        "label": "Effective tax rate",
        "order": 1,
        "pointHitRadius": 12,
@@ -7470,6 +7547,7 @@
         null
        ],
        "fill": true,
+       "info": "Federal tax on ordinary income (wages, pension, rental, taxable Social Security, IRA withdrawals, ordinary dividends…) after the standard/itemized and senior deductions, using the filing status' brackets.",
        "label": "Ordinary income tax",
        "order": 2,
        "pointRadius": 0,
@@ -7758,6 +7836,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 0% qualified-income bracket.",
        "label": "QDIV 0% tax",
        "order": 2,
        "pointRadius": 0,
@@ -7811,6 +7890,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 15% qualified-income bracket.",
        "label": "QDIV 15% tax",
        "order": 2,
        "pointRadius": 0,
@@ -7864,6 +7944,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 20% qualified-income bracket.",
        "label": "QDIV 20% tax",
        "order": 2,
        "pointRadius": 0,
@@ -7917,6 +7998,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 0% qualified-income bracket.",
        "label": "LTCG 0% tax",
        "order": 2,
        "pointRadius": 0,
@@ -7970,6 +8052,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 15% qualified-income bracket.",
        "label": "LTCG 15% tax",
        "order": 2,
        "pointRadius": 0,
@@ -8023,6 +8106,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 20% qualified-income bracket.",
        "label": "LTCG 20% tax",
        "order": 2,
        "pointRadius": 0,
@@ -8076,6 +8160,7 @@
         null
        ],
        "fill": true,
+       "info": "Net Investment Income Tax: 3.8% of the lesser of net investment income or MAGI above the threshold ($250,000 married / $200,000 single unless a future-law change is set).",
        "label": "NIIT (3.8% on net investment income)",
        "order": 2,
        "pointRadius": 0,
@@ -8392,6 +8477,7 @@
         null
        ],
        "fill": true,
+       "info": "Household living expenses you entered, in today's dollars (reduced to the amount set for after the first Long Term Care starts, when LTC is modeled).",
        "label": "Living expenses",
        "order": 2,
        "pointRadius": 0,
@@ -8445,6 +8531,7 @@
         null
        ],
        "fill": true,
+       "info": "Long Term Care cost for each person while care is needed, as set in the LTC panel. It is the only expense that can be itemized (the part above 7.5% of AGI).",
        "label": "Long Term Care",
        "order": 2,
        "pointRadius": 0,
@@ -8498,6 +8585,7 @@
         null
        ],
        "fill": true,
+       "info": "Income tax paid as an expense (\"tax drag\"): federal tax + NIIT + state tax, less any tax already paid out of a property sale. It is paid from income first, then dividends, asset sales or IRA withdrawals.",
        "label": "Income tax (tax drag)",
        "order": 2,
        "pointRadius": 0,
@@ -8551,6 +8639,7 @@
         null
        ],
        "fill": true,
+       "info": "Medicare Part B + D income-related surcharge, per person on Medicare, based on MAGI from two years earlier.",
        "label": "IRMAA surcharge",
        "order": 2,
        "pointRadius": 0,
@@ -8604,6 +8693,7 @@
         null
        ],
        "fill": true,
+       "info": "Assets-under-management fee charged on the balance of the portfolios marked as AUM, either a % of that balance or a fixed amount.",
        "label": "AUM fee",
        "order": 2,
        "pointRadius": 0,
@@ -8949,6 +9039,7 @@
         null
        ],
        "fill": true,
+       "info": "Value of this brokerage portfolio (stacked with the other accounts). It grows at its growth rate, pays dividends, and is drawn down by the expenses and taxes it is set to pay; sales realize capital gains.",
        "label": "Person 1 — Main",
        "order": 1,
        "pointRadius": 0,
@@ -9008,6 +9099,7 @@
         1667308.750525
        ],
        "fill": true,
+       "info": "Pre-tax IRA/401(k) balance. Withdrawals are taxed as ordinary income; RMDs start at the RMD age and Roth conversions move money out of it.",
        "label": "Person 1 — Pre-tax IRA/401(k)",
        "order": 1,
        "pointRadius": 0,
@@ -9067,6 +9159,7 @@
         765979.224475
        ],
        "fill": true,
+       "info": "Roth IRA balance. Withdrawals are tax-free; it grows by market growth plus any Roth conversions.",
        "label": "Person 2 — Roth IRA",
        "order": 1,
        "pointRadius": 0,
@@ -9171,6 +9264,7 @@
         null
        ],
        "fill": false,
+       "info": "Cost basis of this portfolio (dashed). The gap between the colored band and this line is the unrealized gain. Basis steps up to market value at the owner's passing.",
        "label": "Person 1 — Main cost basis",
        "order": 0,
        "pointRadius": 0,
@@ -9527,6 +9621,7 @@
         null
        ],
        "fill": true,
+       "info": "Value of this brokerage portfolio (stacked with the other accounts). It grows at its growth rate, pays dividends, and is drawn down by the expenses and taxes it is set to pay; sales realize capital gains.",
        "label": "Person 2 — Trust",
        "order": 1,
        "pointRadius": 0,
@@ -9631,6 +9726,7 @@
         null
        ],
        "fill": false,
+       "info": "Cost basis of this portfolio (dashed). The gap between the colored band and this line is the unrealized gain. Basis steps up to market value at the owner's passing.",
        "label": "Person 2 — Trust cost basis",
        "order": 0,
        "pointRadius": 0,
@@ -9940,6 +10036,7 @@
         null
        ],
        "fill": true,
+       "info": "Annual withdrawal from this person's pre-tax IRA, set on the IRA card (on top of the RMD). Taxed as ordinary income; it moves into their Roth IRA when \"Withdraw is Roth conversion\" is ticked, otherwise it is spendable cash.",
        "label": "Person 1 — Annual withdraw",
        "order": 2,
        "pointHitRadius": 12,
@@ -9995,6 +10092,7 @@
         null
        ],
        "fill": true,
+       "info": "Required minimum distribution from this person's pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income.",
        "label": "Person 1 — RMD",
        "order": 2,
        "pointHitRadius": 12,
@@ -10050,6 +10148,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from this person's pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.",
        "label": "Person 1 — Pre-tax IRA withdraw (for expenses)",
        "order": 2,
        "pointHitRadius": 12,
@@ -10362,6 +10461,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gain realized this year by selling shares of this brokerage portfolio (before any SCGL offset). The gain is the share of each sale above its cost basis.",
        "label": "Person 1 — Main",
        "order": 2,
        "pointHitRadius": 12,
@@ -10417,6 +10517,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gain realized this year by selling shares of this brokerage portfolio (before any SCGL offset). The gain is the share of each sale above its cost basis.",
        "label": "Person 2 — Trust (IDGT)",
        "order": 2,
        "pointHitRadius": 12,
@@ -10476,6 +10577,7 @@
         null
        ],
        "fill": false,
+       "info": "Long-term capital gain actually taxed (dashed): the realized gain after the Suspended Capital-Gain Loss (SCGL) carryforward has been used against it.",
        "label": "Net LTCG taxed (after SCGL)",
        "order": 1,
        "pointHitRadius": 12,
@@ -10789,6 +10891,7 @@
         null
        ],
        "fill": false,
+       "info": "The inflation rate the scenario assumes every year (the Inflation slider). Prices, tax thresholds that are indexed, and \"today's $\" amounts all follow it.",
        "label": "Scenario inflation rate",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -11081,6 +11184,7 @@
         null
        ],
        "fill": false,
+       "info": "Nominal yearly return of this asset in the years it is in the scenario: (1 + the growth rate the projection used) × (1 + that year's inflation) − 1, i.e. the rate you enter on its card (\"inflation + 4%\" shows as 7% at 3% inflation). In the scenario it is flat; in a Monte Carlo trial it follows that trial's market shocks (equity-like assets share one market, real estate has its own) and its inflation.",
        "label": "Main (Person 1) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -11135,6 +11239,7 @@
         null
        ],
        "fill": false,
+       "info": "Nominal yearly return of this asset in the years it is in the scenario: (1 + the growth rate the projection used) × (1 + that year's inflation) − 1, i.e. the rate you enter on its card (\"inflation + 4%\" shows as 7% at 3% inflation). In the scenario it is flat; in a Monte Carlo trial it follows that trial's market shocks (equity-like assets share one market, real estate has its own) and its inflation.",
        "label": "Trust (IDGT) (Person 2) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -11189,6 +11294,7 @@
         null
        ],
        "fill": false,
+       "info": "Nominal yearly return of this asset in the years it is in the scenario: (1 + the growth rate the projection used) × (1 + that year's inflation) − 1, i.e. the rate you enter on its card (\"inflation + 4%\" shows as 7% at 3% inflation). In the scenario it is flat; in a Monte Carlo trial it follows that trial's market shocks (equity-like assets share one market, real estate has its own) and its inflation.",
        "label": "Pre-tax IRA (Person 1) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -11243,6 +11349,7 @@
         null
        ],
        "fill": false,
+       "info": "Nominal yearly return of this asset in the years it is in the scenario: (1 + the growth rate the projection used) × (1 + that year's inflation) − 1, i.e. the rate you enter on its card (\"inflation + 4%\" shows as 7% at 3% inflation). In the scenario it is flat; in a Monte Carlo trial it follows that trial's market shocks (equity-like assets share one market, real estate has its own) and its inflation.",
        "label": "Roth IRA (Person 2) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -19980,6 +20087,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 64. Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 64",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -20257,6 +20365,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 66. Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 66",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -20534,6 +20643,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 68. Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 68",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -20814,6 +20924,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 70 (the start age currently selected on the Social Security card; dashed). Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 70 (selected start age)",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -21094,6 +21205,7 @@
         null
        ],
        "fill": false,
+       "info": "Cumulative household Social Security collected over time if the starting person claims at age 70 (the start age currently selected on the Social Security card; dashed). Where a later-claiming line crosses an earlier one is the break-even age.",
        "label": "Age 70 (selected start age)",
        "pointHitRadius": 8,
        "pointHoverRadius": 0,
@@ -21420,6 +21532,7 @@
         null
        ],
        "fill": true,
+       "info": "Pension income. Taxed as ordinary income.",
        "label": "Pension",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21472,6 +21585,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable payout from an annuity. Taxed as ordinary income (and counted as net investment income for NIIT when the annuity is non-qualified).",
        "label": "Annuity payout (taxable)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21524,6 +21638,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax-exempt part of an annuity payout (return of principal). It is cash income but is not taxed and, being a return of the owner's own premium, does not count toward provisional income or IRMAA MAGI.",
        "label": "Annuity payout (tax-exempt, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21576,6 +21691,7 @@
         null
        ],
        "fill": true,
+       "info": "Wages or self-employment income. Taxed as ordinary income.",
        "label": "Wage",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21628,6 +21744,7 @@
         null
        ],
        "fill": true,
+       "info": "The part of the annual pre-tax IRA/401(k) withdraw that is converted to a Roth IRA (\"Withdraw is Roth conversion\" ticked). It is taxed as ordinary income in the year it converts, so it counts toward AGI, MAGI (IRMAA), taxable Social Security and the ordinary tax brackets, but it moves into the Roth IRA and is not spendable. An inherited IRA cannot be converted.",
        "label": "Roth conversion (taxed as ordinary income)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21680,6 +21797,7 @@
         null
        ],
        "fill": true,
+       "info": "Annual pre-tax IRA/401(k) withdrawal set on the IRA card (on top of the RMD), the part that is not a Roth conversion. Taxed as ordinary income and spendable as household cash.",
        "label": "Pre-tax IRA withdraw",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21732,6 +21850,7 @@
         null
        ],
        "fill": true,
+       "info": "Required minimum distribution from a pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income.",
        "label": "IRA RMD",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21784,6 +21903,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.",
        "label": "Pre-tax IRA withdraw (for expenses)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21836,6 +21956,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable rental income, net of depreciation. Taxed as ordinary income.",
        "label": "Rental income",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21888,6 +22009,7 @@
         null
        ],
        "fill": true,
+       "info": "Non-cash depreciation on a rental property. It is cash you actually receive but is not taxed, so it is shown separately from the taxable rental income.",
        "label": "Rental depreciation (non-cash, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21940,6 +22062,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax-exempt income, e.g. municipal-bond interest paid out by a portfolio. Not taxed, but it counts toward household income, provisional income and IRMAA MAGI.",
        "label": "Tax-exempt income (untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -21992,6 +22115,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from a Roth IRA to pay household expenses. Tax-free, so it adds nothing to AGI.",
        "label": "Roth IRA withdraw (tax-exempt, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22044,6 +22168,7 @@
         null
        ],
        "fill": true,
+       "info": "Withdrawal from a pre-tax IRA inherited through the Inheritance card. An inherited IRA must be emptied by the end of the 10th year after it was inherited. Taxed as ordinary income.",
        "label": "Inherited IRA withdraw (10-year rule)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22096,6 +22221,7 @@
         null
        ],
        "fill": true,
+       "info": "Withdrawal from a Roth IRA inherited through the Inheritance card. It must be emptied by the end of the 10th year after it was inherited. Tax-free, so it adds nothing to AGI or MAGI.",
        "label": "Inherited Roth IRA withdraw (10-year rule, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22148,6 +22274,7 @@
         null
        ],
        "fill": true,
+       "info": "Qualified dividends (QDIV) paid by your brokerage portfolios. Taxed at the preferential 0% / 15% / 20% rates, and part of net investment income.",
        "label": "Qual. dividends (QDIV)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22200,6 +22327,7 @@
         null
        ],
        "fill": true,
+       "info": "The non-qualified part of portfolio dividends (ordinary dividends minus qualified dividends). Taxed as ordinary income and part of net investment income.",
        "label": "Ordinary dividends (ODIV−QDIV)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22252,6 +22380,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gains realized when portfolio assets are sold (to pay expenses). Taxed at the preferential 0% / 15% / 20% rates, net of any short-term capital loss (SCGL) carry-forward used.",
        "label": "Long-term gains (LTCG)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22304,6 +22433,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts.",
        "label": "Person 1's Social Security (SS)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22356,6 +22486,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts.",
        "label": "Person 2's Social Security (SS) / survivor",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22414,6 +22545,7 @@
        ],
        "fill": false,
        "halo": true,
+       "info": "The suspended capital-gain loss (SCGL) carryforward still unused at the end of the year, in today's dollars. Realized long-term gains use it up dollar for dollar before they are taxed, so the line falls as gains are realized and ends when it is used up.",
        "label": "SCGL remaining",
        "order": -1,
        "pointRadius": 0,
@@ -22516,6 +22648,7 @@
         null
        ],
        "fill": true,
+       "info": "Pension income. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Pension",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22568,6 +22701,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable payout from an annuity. Taxed as ordinary income (and counted as net investment income for NIIT when the annuity is non-qualified). This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Annuity payout (taxable)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22620,6 +22754,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax-exempt part of an annuity payout (return of principal). It is cash income but is not taxed and, being a return of the owner's own premium, does not count toward provisional income or IRMAA MAGI. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Annuity payout (tax-exempt, untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22672,6 +22807,7 @@
         null
        ],
        "fill": true,
+       "info": "Wages or self-employment income. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Wage",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22724,6 +22860,7 @@
         null
        ],
        "fill": true,
+       "info": "The part of the annual pre-tax IRA/401(k) withdraw that is converted to a Roth IRA (\"Withdraw is Roth conversion\" ticked). It is taxed as ordinary income in the year it converts, so it counts toward AGI, MAGI (IRMAA), taxable Social Security and the ordinary tax brackets, but it moves into the Roth IRA and is not spendable. An inherited IRA cannot be converted. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Roth conversion (taxed as ordinary income)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22776,6 +22913,7 @@
         null
        ],
        "fill": true,
+       "info": "Annual pre-tax IRA/401(k) withdrawal set on the IRA card (on top of the RMD), the part that is not a Roth conversion. Taxed as ordinary income and spendable as household cash. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Pre-tax IRA withdraw",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22828,6 +22966,7 @@
         null
        ],
        "fill": true,
+       "info": "Required minimum distribution from a pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "IRA RMD",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22880,6 +23019,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Pre-tax IRA withdraw (for expenses)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22932,6 +23072,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable rental income, net of depreciation. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Rental income",
        "pointRadius": 0,
        "spanGaps": false,
@@ -22984,6 +23125,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax-exempt income, e.g. municipal-bond interest paid out by a portfolio. Not taxed, but it counts toward household income, provisional income and IRMAA MAGI. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Tax-exempt income (untaxed)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -23036,6 +23178,7 @@
         null
        ],
        "fill": true,
+       "info": "Withdrawal from a pre-tax IRA inherited through the Inheritance card. An inherited IRA must be emptied by the end of the 10th year after it was inherited. Taxed as ordinary income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Inherited IRA withdraw (10-year rule)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -23088,6 +23231,7 @@
         null
        ],
        "fill": true,
+       "info": "Qualified dividends (QDIV) paid by your brokerage portfolios. Taxed at the preferential 0% / 15% / 20% rates, and part of net investment income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Qual. dividends (QDIV)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -23140,6 +23284,7 @@
         null
        ],
        "fill": true,
+       "info": "The non-qualified part of portfolio dividends (ordinary dividends minus qualified dividends). Taxed as ordinary income and part of net investment income. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Ordinary dividends (ODIV−QDIV)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -23192,6 +23337,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gains realized when portfolio assets are sold (to pay expenses). Taxed at the preferential 0% / 15% / 20% rates, net of any short-term capital loss (SCGL) carry-forward used. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Long-term gains (LTCG)",
        "pointRadius": 0,
        "spanGaps": false,
@@ -23244,6 +23390,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Person 1's Social Security (SS) — taxable part",
        "pointRadius": 0,
        "spanGaps": false,
@@ -23296,6 +23443,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts. This band is the part of this income source that goes into modified adjusted gross income (MAGI). Medicare IRMAA surcharges are set by the MAGI of two years earlier; the thin solid IRMAA lines mark where each surcharge tier starts.",
        "label": "Person 2's Social Security (SS) / survivor — taxable part",
        "pointRadius": 0,
        "spanGaps": false,
@@ -23397,6 +23545,7 @@
         null
        ],
        "fill": true,
+       "info": "Pension income. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Pension",
        "order": 3,
        "pointRadius": 0,
@@ -23450,6 +23599,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable payout from an annuity. Taxed as ordinary income (and counted as net investment income for NIIT when the annuity is non-qualified). This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Annuity payout (taxable)",
        "order": 3,
        "pointRadius": 0,
@@ -23503,6 +23653,7 @@
         null
        ],
        "fill": true,
+       "info": "Wages or self-employment income. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Wage",
        "order": 3,
        "pointRadius": 0,
@@ -23556,6 +23707,7 @@
         null
        ],
        "fill": true,
+       "info": "The part of the annual pre-tax IRA/401(k) withdraw that is converted to a Roth IRA (\"Withdraw is Roth conversion\" ticked). It is taxed as ordinary income in the year it converts, so it counts toward AGI, MAGI (IRMAA), taxable Social Security and the ordinary tax brackets, but it moves into the Roth IRA and is not spendable. An inherited IRA cannot be converted. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Roth conversion (taxed as ordinary income)",
        "order": 3,
        "pointRadius": 0,
@@ -23609,6 +23761,7 @@
         null
        ],
        "fill": true,
+       "info": "Annual pre-tax IRA/401(k) withdrawal set on the IRA card (on top of the RMD), the part that is not a Roth conversion. Taxed as ordinary income and spendable as household cash. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Pre-tax IRA withdraw",
        "order": 3,
        "pointRadius": 0,
@@ -23662,6 +23815,7 @@
         null
        ],
        "fill": true,
+       "info": "Required minimum distribution from a pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "IRA RMD",
        "order": 3,
        "pointRadius": 0,
@@ -23715,6 +23869,7 @@
         null
        ],
        "fill": true,
+       "info": "Withdrawal from a pre-tax IRA inherited through the Inheritance card. An inherited IRA must be emptied by the end of the 10th year after it was inherited. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Inherited IRA withdraw (10-year rule)",
        "order": 3,
        "pointRadius": 0,
@@ -23768,6 +23923,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Pre-tax IRA withdraw (for expenses)",
        "order": 3,
        "pointRadius": 0,
@@ -23821,6 +23977,7 @@
         null
        ],
        "fill": true,
+       "info": "Taxable rental income, net of depreciation. Taxed as ordinary income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Rental income",
        "order": 3,
        "pointRadius": 0,
@@ -23874,6 +24031,7 @@
         null
        ],
        "fill": true,
+       "info": "The non-qualified part of portfolio dividends (ordinary dividends minus qualified dividends). Taxed as ordinary income and part of net investment income. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Ordinary dividends (ODIV−QDIV)",
        "order": 3,
        "pointRadius": 0,
@@ -23927,6 +24085,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Person 1's Social Security (SS) — taxable part",
        "order": 3,
        "pointRadius": 0,
@@ -23980,6 +24139,7 @@
         null
        ],
        "fill": true,
+       "info": "Social Security benefit paid to this person. Only part of it is taxable (0%, up to 50% or up to 85%, depending on provisional income) — the taxable part is what appears on the MAGI and taxable ordinary income charts. This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.",
        "label": "Person 2's Social Security (SS) / survivor — taxable part",
        "order": 3,
        "pointRadius": 0,
@@ -24033,6 +24193,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 12% (the limit for the filing status in force that year).",
        "label": "12%",
        "ordLabel": "12%",
        "order": 0,
@@ -24088,6 +24249,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 22% (the limit for the filing status in force that year).",
        "label": "22%",
        "ordLabel": "22%",
        "order": 0,
@@ -24143,6 +24305,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 24% (the limit for the filing status in force that year).",
        "label": "24%",
        "ordLabel": "24%",
        "order": 0,
@@ -24198,6 +24361,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 32% (the limit for the filing status in force that year).",
        "label": "32%",
        "ordLabel": "32%",
        "order": 0,
@@ -24253,6 +24417,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 35% (the limit for the filing status in force that year).",
        "label": "35%",
        "ordLabel": "35%",
        "order": 0,
@@ -24308,6 +24473,7 @@
         null
        ],
        "fill": false,
+       "info": "Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at 37% (the limit for the filing status in force that year).",
        "label": "37%",
        "ordLabel": "37%",
        "order": 0,
@@ -24404,6 +24570,7 @@
         null
        ],
        "fill": false,
+       "info": "Top of the gross ordinary income: the gap between the stack and this red line is the deduction (standard or itemized, plus the senior deduction) absorbed that year.",
        "label": "Deduction",
        "order": 0,
        "pointRadius": 0,
@@ -24507,6 +24674,7 @@
         null
        ],
        "fill": true,
+       "info": "Qualified dividends (QDIV) paid by your brokerage portfolios. Taxed at the preferential 0% / 15% / 20% rates, and part of net investment income.",
        "label": "Qual. dividends (QDIV)",
        "order": 3,
        "pointRadius": 0,
@@ -24560,6 +24728,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gains realized when portfolio assets are sold (to pay expenses). Taxed at the preferential 0% / 15% / 20% rates, net of any short-term capital loss (SCGL) carry-forward used.",
        "label": "Long-term gains (LTCG)",
        "order": 3,
        "pointRadius": 0,
@@ -24613,6 +24782,7 @@
         null
        ],
        "fill": false,
+       "info": "Qualified-income tax threshold: where the 15% rate starts. The bracket limit applies to total taxable income and qualified income sits on top of the taxable ordinary income (Qualified Dividends and Capital Gain Tax Worksheet), so this line is the limit minus that year's taxable ordinary income — it moves with the ordinary income. Qualified dividends and long-term gains stacked above it are taxed at 15%.",
        "label": "15%",
        "ordLabel": "15%",
        "order": 0,
@@ -24668,6 +24838,7 @@
         null
        ],
        "fill": false,
+       "info": "Qualified-income tax threshold: where the 20% rate starts. The bracket limit applies to total taxable income and qualified income sits on top of the taxable ordinary income (Qualified Dividends and Capital Gain Tax Worksheet), so this line is the limit minus that year's taxable ordinary income — it moves with the ordinary income. Qualified dividends and long-term gains stacked above it are taxed at 20%.",
        "label": "20%",
        "ordLabel": "20%",
        "order": 0,
@@ -24764,6 +24935,7 @@
         null
        ],
        "fill": false,
+       "info": "Qualified income before the deduction: the gap between the stack and this red line is the part of the deduction left over after ordinary income (e.g. itemized LTC costs), which shelters qualified income (LTCG first).",
        "label": "Deduction",
        "order": 0,
        "pointRadius": 0,
@@ -24867,6 +25039,7 @@
         null
        ],
        "fill": false,
+       "info": "Total Social Security (TSS): everything the household receives from Social Security that year, before any of it is taxed.",
        "label": "Total Social Security (TSS)",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -24921,6 +25094,7 @@
         null
        ],
        "fill": false,
+       "info": "Actual Social Security Tax (SST): the income tax actually due because of Social Security — the extra tax caused by the taxable part of the benefit (0%, up to 50% or up to 85% of it).",
        "label": "Actual Social Security Tax (SST)",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -25024,6 +25198,7 @@
         null
        ],
        "fill": true,
+       "info": "Federal tax on ordinary income (wages, pension, rental, taxable Social Security, IRA withdrawals, ordinary dividends…) after the standard/itemized and senior deductions, using the filing status' brackets.",
        "label": "Ordinary income tax",
        "order": 2,
        "pointRadius": 0,
@@ -25077,6 +25252,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 0% qualified-income bracket.",
        "label": "QDIV 0% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25130,6 +25306,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 15% qualified-income bracket.",
        "label": "QDIV 15% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25183,6 +25360,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 20% qualified-income bracket.",
        "label": "QDIV 20% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25236,6 +25414,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 0% qualified-income bracket.",
        "label": "LTCG 0% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25289,6 +25468,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 15% qualified-income bracket.",
        "label": "LTCG 15% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25342,6 +25522,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 20% qualified-income bracket.",
        "label": "LTCG 20% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25395,6 +25576,7 @@
         null
        ],
        "fill": true,
+       "info": "Net Investment Income Tax: 3.8% of the lesser of net investment income or MAGI above the threshold ($250,000 married / $200,000 single unless a future-law change is set).",
        "label": "NIIT (3.8% on net investment income)",
        "order": 2,
        "pointRadius": 0,
@@ -25452,6 +25634,7 @@
         null
        ],
        "fill": false,
+       "info": "Foreign tax credit, subtracted from income tax. It does not reduce the NIIT.",
        "label": "Foreign tax credit",
        "order": 2,
        "pointRadius": 0,
@@ -25506,6 +25689,7 @@
         null
        ],
        "fill": false,
+       "info": "Effective tax rate: total tax divided by AGI. Read it on the right-hand axis.",
        "label": "Effective tax rate",
        "order": 1,
        "pointHitRadius": 12,
@@ -25611,6 +25795,7 @@
         null
        ],
        "fill": true,
+       "info": "Federal tax on ordinary income (wages, pension, rental, taxable Social Security, IRA withdrawals, ordinary dividends…) after the standard/itemized and senior deductions, using the filing status' brackets.",
        "label": "Ordinary income tax",
        "order": 2,
        "pointRadius": 0,
@@ -25713,6 +25898,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 0% qualified-income bracket.",
        "label": "QDIV 0% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25766,6 +25952,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 15% qualified-income bracket.",
        "label": "QDIV 15% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25819,6 +26006,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on qualified dividends that fall in the 20% qualified-income bracket.",
        "label": "QDIV 20% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25872,6 +26060,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 0% qualified-income bracket.",
        "label": "LTCG 0% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25925,6 +26114,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 15% qualified-income bracket.",
        "label": "LTCG 15% tax",
        "order": 2,
        "pointRadius": 0,
@@ -25978,6 +26168,7 @@
         null
        ],
        "fill": true,
+       "info": "Tax on long-term capital gains that fall in the 20% qualified-income bracket.",
        "label": "LTCG 20% tax",
        "order": 2,
        "pointRadius": 0,
@@ -26031,6 +26222,7 @@
         null
        ],
        "fill": true,
+       "info": "Net Investment Income Tax: 3.8% of the lesser of net investment income or MAGI above the threshold ($250,000 married / $200,000 single unless a future-law change is set).",
        "label": "NIIT (3.8% on net investment income)",
        "order": 2,
        "pointRadius": 0,
@@ -26133,6 +26325,7 @@
         null
        ],
        "fill": true,
+       "info": "Household living expenses you entered, in today's dollars (reduced to the amount set for after the first Long Term Care starts, when LTC is modeled).",
        "label": "Living expenses",
        "order": 2,
        "pointRadius": 0,
@@ -26186,6 +26379,7 @@
         null
        ],
        "fill": true,
+       "info": "Long Term Care cost for each person while care is needed, as set in the LTC panel. It is the only expense that can be itemized (the part above 7.5% of AGI).",
        "label": "Long Term Care",
        "order": 2,
        "pointRadius": 0,
@@ -26239,6 +26433,7 @@
         null
        ],
        "fill": true,
+       "info": "Income tax paid as an expense (\"tax drag\"): federal tax + NIIT + state tax, less any tax already paid out of a property sale. It is paid from income first, then dividends, asset sales or IRA withdrawals.",
        "label": "Income tax (tax drag)",
        "order": 2,
        "pointRadius": 0,
@@ -26292,6 +26487,7 @@
         null
        ],
        "fill": true,
+       "info": "Medicare Part B + D income-related surcharge, per person on Medicare, based on MAGI from two years earlier.",
        "label": "IRMAA surcharge",
        "order": 2,
        "pointRadius": 0,
@@ -26345,6 +26541,7 @@
         null
        ],
        "fill": true,
+       "info": "Assets-under-management fee charged on the balance of the portfolios marked as AUM, either a % of that balance or a fixed amount.",
        "label": "AUM fee",
        "order": 2,
        "pointRadius": 0,
@@ -26452,6 +26649,7 @@
         null
        ],
        "fill": true,
+       "info": "Value of this brokerage portfolio (stacked with the other accounts). It grows at its growth rate, pays dividends, and is drawn down by the expenses and taxes it is set to pay; sales realize capital gains.",
        "label": "Person 1 — Main",
        "order": 1,
        "pointRadius": 0,
@@ -26511,6 +26709,7 @@
         1667308.750525
        ],
        "fill": true,
+       "info": "Pre-tax IRA/401(k) balance. Withdrawals are taxed as ordinary income; RMDs start at the RMD age and Roth conversions move money out of it.",
        "label": "Person 1 — Pre-tax IRA/401(k)",
        "order": 1,
        "pointRadius": 0,
@@ -26570,6 +26769,7 @@
         765979.224475
        ],
        "fill": true,
+       "info": "Roth IRA balance. Withdrawals are tax-free; it grows by market growth plus any Roth conversions.",
        "label": "Person 2 — Roth IRA",
        "order": 1,
        "pointRadius": 0,
@@ -26674,6 +26874,7 @@
         null
        ],
        "fill": false,
+       "info": "Cost basis of this portfolio (dashed). The gap between the colored band and this line is the unrealized gain. Basis steps up to market value at the owner's passing.",
        "label": "Person 1 — Main cost basis",
        "order": 0,
        "pointRadius": 0,
@@ -26782,6 +26983,7 @@
         null
        ],
        "fill": true,
+       "info": "Value of this brokerage portfolio (stacked with the other accounts). It grows at its growth rate, pays dividends, and is drawn down by the expenses and taxes it is set to pay; sales realize capital gains.",
        "label": "Person 2 — Trust",
        "order": 1,
        "pointRadius": 0,
@@ -26886,6 +27088,7 @@
         null
        ],
        "fill": false,
+       "info": "Cost basis of this portfolio (dashed). The gap between the colored band and this line is the unrealized gain. Basis steps up to market value at the owner's passing.",
        "label": "Person 2 — Trust cost basis",
        "order": 0,
        "pointRadius": 0,
@@ -26989,6 +27192,7 @@
         null
        ],
        "fill": true,
+       "info": "Annual withdrawal from this person's pre-tax IRA, set on the IRA card (on top of the RMD). Taxed as ordinary income; it moves into their Roth IRA when \"Withdraw is Roth conversion\" is ticked, otherwise it is spendable cash.",
        "label": "Person 1 — Annual withdraw",
        "order": 2,
        "pointHitRadius": 12,
@@ -27044,6 +27248,7 @@
         null
        ],
        "fill": true,
+       "info": "Required minimum distribution from this person's pre-tax IRA/401(k), forced by the IRS from the RMD age onward. Taxed as ordinary income.",
        "label": "Person 1 — RMD",
        "order": 2,
        "pointHitRadius": 12,
@@ -27099,6 +27304,7 @@
         null
        ],
        "fill": true,
+       "info": "Money withdrawn from this person's pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.",
        "label": "Person 1 — Pre-tax IRA withdraw (for expenses)",
        "order": 2,
        "pointHitRadius": 12,
@@ -27203,6 +27409,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gain realized this year by selling shares of this brokerage portfolio (before any SCGL offset). The gain is the share of each sale above its cost basis.",
        "label": "Person 1 — Main",
        "order": 2,
        "pointHitRadius": 12,
@@ -27258,6 +27465,7 @@
         null
        ],
        "fill": true,
+       "info": "Long-term capital gain realized this year by selling shares of this brokerage portfolio (before any SCGL offset). The gain is the share of each sale above its cost basis.",
        "label": "Person 2 — Trust (IDGT)",
        "order": 2,
        "pointHitRadius": 12,
@@ -27317,6 +27525,7 @@
         null
        ],
        "fill": false,
+       "info": "Long-term capital gain actually taxed (dashed): the realized gain after the Suspended Capital-Gain Loss (SCGL) carryforward has been used against it.",
        "label": "Net LTCG taxed (after SCGL)",
        "order": 1,
        "pointHitRadius": 12,
@@ -27425,6 +27634,7 @@
         null
        ],
        "fill": false,
+       "info": "The inflation rate the scenario assumes every year (the Inflation slider). Prices, tax thresholds that are indexed, and \"today's $\" amounts all follow it.",
        "label": "Scenario inflation rate",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -27528,6 +27738,7 @@
         null
        ],
        "fill": false,
+       "info": "Nominal yearly return of this asset in the years it is in the scenario: (1 + the growth rate the projection used) × (1 + that year's inflation) − 1, i.e. the rate you enter on its card (\"inflation + 4%\" shows as 7% at 3% inflation). In the scenario it is flat; in a Monte Carlo trial it follows that trial's market shocks (equity-like assets share one market, real estate has its own) and its inflation.",
        "label": "Main (Person 1) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -27582,6 +27793,7 @@
         null
        ],
        "fill": false,
+       "info": "Nominal yearly return of this asset in the years it is in the scenario: (1 + the growth rate the projection used) × (1 + that year's inflation) − 1, i.e. the rate you enter on its card (\"inflation + 4%\" shows as 7% at 3% inflation). In the scenario it is flat; in a Monte Carlo trial it follows that trial's market shocks (equity-like assets share one market, real estate has its own) and its inflation.",
        "label": "Trust (IDGT) (Person 2) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -27636,6 +27848,7 @@
         null
        ],
        "fill": false,
+       "info": "Nominal yearly return of this asset in the years it is in the scenario: (1 + the growth rate the projection used) × (1 + that year's inflation) − 1, i.e. the rate you enter on its card (\"inflation + 4%\" shows as 7% at 3% inflation). In the scenario it is flat; in a Monte Carlo trial it follows that trial's market shocks (equity-like assets share one market, real estate has its own) and its inflation.",
        "label": "Pre-tax IRA (Person 1) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,
@@ -27690,6 +27903,7 @@
         null
        ],
        "fill": false,
+       "info": "Nominal yearly return of this asset in the years it is in the scenario: (1 + the growth rate the projection used) × (1 + that year's inflation) − 1, i.e. the rate you enter on its card (\"inflation + 4%\" shows as 7% at 3% inflation). In the scenario it is flat; in a Monte Carlo trial it follows that trial's market shocks (equity-like assets share one market, real estate has its own) and its inflation.",
        "label": "Roth IRA (Person 2) — 5-year average",
        "pointHitRadius": 12,
        "pointHoverRadius": 0,

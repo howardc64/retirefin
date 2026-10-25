@@ -5,8 +5,7 @@
 const fs=require('fs'), vm=require('vm'), path=require('path');
 
 const root=path.resolve(__dirname,'..','..');
-const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-const scripts=[...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m=>m[1]).filter(s=>!/^https?:/.test(s));
+const scripts=require('../../server/scripts.js').browserScripts(root);   // index.html order (server/scripts.js)
 const els={};
 function mkEl(id){
   const el={id, style:{setProperty(){},removeProperty(){}}, dataset:{}, children:[], value:'', textContent:'', innerHTML:'', className:'', checked:false,
@@ -77,6 +76,11 @@ inf=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, t:c.d
 const trialRows=run(`lastProjection.rows.length`);   // the line has one point per year of the trial, and a trial can end early (random lifespans), so compare with its own length
 ok(inf.n===3&&inf.t>=trialRows-1&&inf.t>=10&&inf.spread>0,'trial mode: inflation chart gets the trial\'s own varying rate line plus its thick 5-year average ('+inf.t+' points, spread '+inf.spread.toFixed(2)+' pts)');
 ok(run(`state.ui.chartYMax && Object.values(state.ui.chartYMax).every(v=>v===null || typeof v==='number')`),'trial scales are not written into the plan (captureChartYMax is skipped)');
+// Regression: the stress-test view (D) of the inflation chart once had no Chart Element text (its line names were not in chartInfo.js's table). Every line of every view must describe itself.
+{ const shown=run(`(()=>{ const out=[]; const chk=v=>{ const c=charts.inflation; out.push({view:v, n:c.data.datasets.length, ok:c.data.datasets.every((d,i)=>!!ciDescribe('inflation',d,i)), names:c.data.datasets.map(d=>d.label)}); };
+    chk(mcTrialView&&mcTrialView.view); const a=mcShowD('stag',1,'Stagflation'); chk(a?mcTrialView.view:'D failed'); return out; })()`);
+  ok(shown.length===2&&shown.every(x=>x.ok&&x.n===3),'every inflation line has Chart Element text on the Monte Carlo trial view and on the stress-test view ('+shown.map(x=>x.view+': '+x.names.join(' | ')).join(' ; ')+')');
+  ok(run(`charts.inflation.data.datasets[1].label`)==='Stress test inflation rate','the stress-test view names its inflation line "Stress test inflation rate"'); }
 // stays in trial mode on a recompute with the same plan; leaves it when the plan changes
 run(`recompute()`); ok(run(`!!mcTrialView`),'recompute with the same plan keeps the trial loaded (Rescale etc. work on it)');
 run(`state.living=(state.living||0)+1000; recompute()`);
@@ -219,7 +223,8 @@ ok(run(`(()=>{ REC_RATES=false; const pr=computeProjection(); REC_RATES=true; re
   ok(/3\.04%/.test(iv)&&!/\$/.test(iv),'Chart Element value on the inflation chart is a % ('+iv.replace('\u0001',' ')+')');
   ok(/7\.3%/.test(mv)&&!/\$/.test(mv),'Chart Element value on the market chart is a % ('+mv.replace('\u0001',' ')+')');
   ok(/\$250,000/.test(av),'dollar charts still show $');
-  ok(run(`!!ciDescribe('market',{label:'x'},0)&&!!ciDescribe('inflation',{label:'Scenario inflation rate'},0)`),'Chart Element descriptions exist for both new charts'); }
+  const missing=run(`Object.keys(charts).filter(k=>charts[k]).flatMap(k=>charts[k].data.datasets.filter((d,i)=>!ciDescribe(k,d,i)).map(d=>k+': '+d.label))`);
+  ok(missing.length===0,'Chart Element description exists for every line of every chart (carried on the dataset as ds.info, stamped by upsertLineChart)'+(missing.length?' — missing: '+missing.join('; '):'')); }
 run(`mcTrialExit()`);
 ok(run(`CHART_PANELS.some(p=>p.key==='inflation') && CHART_KEYS.includes('inflation') && defaultChartHidden().inflation===true`),'inflation panel is registered and hidden by default');
 // Loading another file / Reset to defaults clears the Monte Carlo card (results, trial view, running run) and puts its settings back to the defaults, collapsed

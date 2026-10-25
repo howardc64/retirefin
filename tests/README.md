@@ -67,6 +67,8 @@ For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`)
 
 `tests/chart_big_test.js` checks the Enlarge-a-chart layout model in 3×N (`node tests/chart_big_test.js`, no browser): 2×2 footprint, displaced charts, refusing overlapping blocks, drag clamping, row compaction, 2×N round trip, and that save → load keeps the flag. CSS sizing is not covered (check it in a browser).
 
+`tests/projection_golden_test.js` hashes the output of 77 projections (sample plans and variants) against `tests/projection_golden.json` and fails on any difference; run it (`PLANNER_ROOT=. node tests/projection_golden_test.js`) after any change to `projection.js`. Regenerate the file only for an intended change in results.
+
 `tests/unit/rmd_niit_test.js` (RMD start age, NIIT on rentals and property sales) and `tests/unit/ca_credit_phaseout_test.js` (California exemption-credit phase-out) need only Node: `node tests/unit/<file>`.
 
 `tests/mc/niit_withdraw_test.js` checks Portfolio withdraw's Accept NIIT checkbox (`PLANNER_ROOT=. PLAN=Samples/Couple_Heir.json node tests/mc/niit_withdraw_test.js`).
@@ -105,3 +107,6 @@ PLANNER_ROOT=. node tests/scenarios/scenario_tools_test.js   # list_scenarios / 
 node tests/scenarios/e2e_browser.js                       # the real app in Chromium (needs playwright + a Chromium; Chart.js / xlsx replaced by stand-ins)
 ```
 `rrEntries()` is built from the store; to check a change to it, dump `rrListRuns()` plus every `get_run` / the bundle before and after and diff (the refactor that introduced it produced zero differences).
+
+## Formatting
+`js/` and `server/` are formatted with Prettier 3.3.3 using `.prettierrc.json` (`npx prettier@3.3.3 --write "js/**/*.js" "server/**/*.js"`). After formatting, `tests/projection_golden_test.js` and `tests/check.js` must still report no differences.

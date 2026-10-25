@@ -5,11 +5,7 @@ process.env.PLANNER_ROOT=ROOT;
 const mc=require('../mc/mc_harness.js');
 function makeCtx(planFile){
   const ctx=mc.makeCtx();
-  vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/scenarioSpec.js'),'utf8'),ctx,{filename:'compute/scenarioSpec.js'});
-  vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/scenarioApi.js'),'utf8'),ctx,{filename:'compute/scenarioApi.js'});
-  vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/runRegistry.js'),'utf8'),ctx,{filename:'compute/runRegistry.js'});
-  vm.runInContext(fs.readFileSync(path.join(ROOT,'js/compute/runJobs.js'),'utf8'),ctx,{filename:'compute/runJobs.js'});
-  ['scenarios/scenarioRecord.js','scenarios/scenarioStore.js','scenarios/scenarioSetProducer.js','scenarios/stressProducer.js','scenarios/monteCarloProducer.js','scenarios/marketProducer.js','scenarios/leverProducer.js','scenarios/jobsProducer.js','scenarios/scenarioTools.js'].forEach(f=>{ const fp=path.join(ROOT,'js',f); if(fs.existsSync(fp)) vm.runInContext(fs.readFileSync(fp,'utf8'),ctx,{filename:f}); });
+  require('../../server/scripts.js').engineScripts(ROOT,['scenario']).forEach(f=>{ const fp=path.join(ROOT,'js',f); if(fs.existsSync(fp)) vm.runInContext(fs.readFileSync(fp,'utf8'),ctx,{filename:f}); });   // the scenario layer, in index.html order
   if(planFile) mc.loadPlan(ctx,JSON.parse(fs.readFileSync(path.join(ROOT,'Samples',planFile),'utf8')));
   return ctx;
 }

@@ -6,50 +6,72 @@
 // Reference-data tables are rendered live from js/core/constants.js
 // so this page can't silently drift out of sync with the real
 // brackets/tiers/tables the app actually computes with.
+// This file opens the page and assembles it; the stylesheet is in formulasCss.js and the text of each part in formulasSections.js.
 // ═══════════════════════════════════════════════════════════════
 
-function openFormulasPage(){
+function openFormulasPage() {
   const win = window.open('', '_blank');
-  if(!win){ alert('Please allow pop-ups for this page to view the formulas in a new tab.'); return; }
+  if (!win) {
+    alert('Please allow pop-ups for this page to view the formulas in a new tab.');
+    return;
+  }
   win.document.write(buildFormulasHtml());
   win.document.close();
 }
 
-function fpBracketTable(brackets, rateAsPct){
-  let prev=0;
-  const rows = brackets.map(b=>{
-    // Matches calcOrdTax/calcQualTax: each limit is the top of its bracket, and a dollar exactly at the limit is taxed at that bracket's rate.
-    const range = b.lim===Infinity ? `over ${fmt(prev)}` : prev===0 ? `up to ${fmt(b.lim)}` : `over ${fmt(prev)} up to ${fmt(b.lim)}`;
-    prev = b.lim;
-    return `<tr><td>${range}</td><td>${(b.r*100).toFixed(rateAsPct?1:0)}%</td></tr>`;
-  }).join('');
+function fpBracketTable(brackets, rateAsPct) {
+  let prev = 0;
+  const rows = brackets
+    .map(b => {
+      // Matches calcOrdTax/calcQualTax: each limit is the top of its bracket, and a dollar exactly at the limit is taxed at that bracket's rate.
+      const range = b.lim === Infinity ? `over ${fmt(prev)}` : prev === 0 ? `up to ${fmt(b.lim)}` : `over ${fmt(prev)} up to ${fmt(b.lim)}`;
+      prev = b.lim;
+      return `<tr><td>${range}</td><td>${(b.r * 100).toFixed(rateAsPct ? 1 : 0)}%</td></tr>`;
+    })
+    .join('');
   return `<table><thead><tr><th>Taxable amount in this bracket</th><th>Rate</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function fpIrmaaTable(tiers){
+function fpIrmaaTable(tiers) {
   // A tier applies once MAGI >= its threshold (see projection.js), up to (not including) the next tier's threshold.
   let rows = `<tr><td>Standard</td><td>under ${fmt(tiers[0].magi)}</td><td>$0/yr</td></tr>`;
-  tiers.forEach((t,i)=>{
-    const next = tiers[i+1];
+  tiers.forEach((t, i) => {
+    const next = tiers[i + 1];
     const range = next ? `${fmt(t.magi)} to under ${fmt(next.magi)}` : `${fmt(t.magi)} and over`;
     rows += `<tr><td>${t.label}</td><td>${range}</td><td>${fmt(t.surch)}/yr per enrolled person</td></tr>`;
   });
   return `<table><thead><tr><th>Tier</th><th>MAGI range (2-years-prior)</th><th>Part B+D surcharge</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function fpRmdTable(){
-  const ages = Object.keys(RMD_TABLE).map(Number).sort((a,b)=>a-b);
-  const cells = ages.map(a=>`<td>${a}<br><span class="fp-muted">${RMD_TABLE[a]}</span></td>`);
+function fpRmdTable() {
+  const ages = Object.keys(RMD_TABLE)
+    .map(Number)
+    .sort((a, b) => a - b);
+  const cells = ages.map(a => `<td>${a}<br><span class="fp-muted">${RMD_TABLE[a]}</span></td>`);
   // 10 ages per row so the table stays readable instead of one giant strip.
-  let rows='', row=[];
-  cells.forEach((c,i)=>{ row.push(c); if(row.length===10||i===cells.length-1){ rows+=`<tr>${row.join('')}</tr>`; row=[]; } });
+  let rows = '',
+    row = [];
+  cells.forEach((c, i) => {
+    row.push(c);
+    if (row.length === 10 || i === cells.length - 1) {
+      rows += `<tr>${row.join('')}</tr>`;
+      row = [];
+    }
+  });
   return `<table class="fp-rmd"><caption>Age (divisor)</caption><tbody>${rows}</tbody></table>`;
 }
 
-function fpSleTable(){
-  const cells=SLE_TABLE.map((f,a)=>`<td>${a}${a===120?'+':''}<br><span class="fp-muted">${f}</span></td>`);
-  let rows='', row=[];
-  cells.forEach((c,i)=>{ row.push(c); if(row.length===10||i===cells.length-1){ rows+=`<tr>${row.join('')}</tr>`; row=[]; } });
+function fpSleTable() {
+  const cells = SLE_TABLE.map((f, a) => `<td>${a}${a === 120 ? '+' : ''}<br><span class="fp-muted">${f}</span></td>`);
+  let rows = '',
+    row = [];
+  cells.forEach((c, i) => {
+    row.push(c);
+    if (row.length === 10 || i === cells.length - 1) {
+      rows += `<tr>${row.join('')}</tr>`;
+      row = [];
+    }
+  });
   return `<table class="fp-rmd"><caption>Age (factor)</caption><tbody>${rows}</tbody></table>`;
 }
 
@@ -57,68 +79,25 @@ function fpSleTable(){
 // eq(...) renders each argument as its own centered line; fr(n,d) stacks a fraction; pw(rows) renders a
 // piecewise definition (a big left brace, one "value  if condition" row per case). Names are set upright and
 // the operators are spaced, so an equation reads like a textbook display rather than a run of prose.
-function fpFr(n,d){ return `<span class="fp-fr"><span class="fp-n">${n}</span><span class="fp-d">${d}</span></span>`; }
-function fpEq(...lines){ return lines.map(l=>`<div class="fp-eq">${l}</div>`).join(''); }
-function fpPw(lhs, rows){
-  const r = rows.map(([v,c])=>`<tr><td class="fp-pv">${v}</td><td class="fp-pc">${c}</td></tr>`).join('');
+function fpFr(n, d) {
+  return `<span class="fp-fr"><span class="fp-n">${n}</span><span class="fp-d">${d}</span></span>`;
+}
+function fpEq(...lines) {
+  return lines.map(l => `<div class="fp-eq">${l}</div>`).join('');
+}
+function fpPw(lhs, rows) {
+  const r = rows.map(([v, c]) => `<tr><td class="fp-pv">${v}</td><td class="fp-pc">${c}</td></tr>`).join('');
   return `<div class="fp-eq"><span class="fp-lhs">${lhs} =</span><span class="fp-brace"></span><table class="fp-pw"><tbody>${r}</tbody></table></div>`;
 }
-function fpWhere(text){ return `<p class="fp-where">${text}</p>`; }
+function fpWhere(text) {
+  return `<p class="fp-where">${text}</p>`;
+}
 
-function buildFormulasHtml(){
-  const glossary = [
-    ['SS','Social Security'], ['SSA','Social Security Administration'],
-    ['FRA','Full Retirement Age'], ['PIA','Primary Insurance Amount (benefit at FRA)'],
-    ['COLA','Cost-of-Living Adjustment'], ['SSSBR','Social Security Spousal Benefit Rule'],
-    ['RMD','Required Minimum Distribution'], ['IRA','Individual Retirement Account'],
-    ['AGI','Adjusted Gross Income'], ['MAGI','Modified Adjusted Gross Income (AGI + tax-exempt interest for IRMAA; AGI for the senior deduction)'],
-    ['TI','Taxable Income'], ['TB','Tax Brackets'], ['TT','Total Tax'],
-    ['PI','Provisional Income'], ['TSS','Total Social Security income (the benefit itself)'],
-    ['SST','Social Security Tax (the tax generated by taxing SS, not the taxable-SS dollar amount)'],
-    ['NIIT','Net Investment Income Tax'], ['NII','Net Investment Income'],
-    ['TE','Tax-Exempt income (e.g. municipal-bond interest: untaxed, but part of household income, provisional income and IRMAA MAGI; the tax-free part of annuity payouts is household income but is not added to provisional income or MAGI)'], ['ODIV','Ordinary (non-qualified) Dividends'], ['QDIV','Qualified Dividends'],
-    ['LTCG','Long-Term Capital Gains'], ['SCGL','Suspended Capital-Gain Loss (carryforward)'],
-    ['IDGT','Intentionally Defective Grantor Trust'], ['LIFO','Last-in, first-out: annuity gain is treated as withdrawn (and taxed) before premium'], ['FTC','Foreign Tax Credit'],
-    ['IRMAA','Income-Related Monthly Adjustment Amount (Medicare Part B/D surcharge)']
-  ].map(([a,f])=>`<tr><td class="fp-acr">${a}</td><td>${f}</td></tr>`).join('');
-
+function buildFormulasHtml() {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Calculation Reference — Retirement Income Planner</title>
 <style>
-  body{font-family:Georgia,'Times New Roman',serif;max-width:900px;margin:32px auto;padding:0 20px;line-height:1.55;color:#1c1c1c;background:#fdfdfb;}
-  h1{font-size:26px;margin-bottom:4px;} h2{font-size:19px;margin-top:38px;border-bottom:1px solid #ccc;padding-bottom:4px;}
-  h3{font-size:15px;margin-top:22px;color:#333;}
-  table{border-collapse:collapse;margin:10px 0 18px;width:100%;font-size:13.5px;}
-  th,td{border:1px solid #ddd;padding:5px 9px;text-align:left;vertical-align:top;}
-  th{background:#f2f0ea;} caption{caption-side:top;text-align:left;font-size:11px;color:#777;margin-bottom:4px;}
-  .fp-acr{font-weight:700;white-space:nowrap;} .fp-muted{color:#888;font-size:11.5px;}
-  .fp-note{background:#f6f4ee;border-left:3px solid #b08a3e;padding:8px 12px;font-size:13px;margin:10px 0;}
-  .fp-rmd td{text-align:center;font-size:12.5px;}
-  code{background:#f2f0ea;padding:1px 5px;border-radius:3px;font-family:'SF Mono',Consolas,monospace;font-size:12.5px;}
-  ul{padding-left:20px;} li{margin-bottom:5px;}
-  .fp-src{color:#888;font-size:11.5px;}
-  /* display equations */
-  .fp-eq{margin:12px 0;text-align:center;font-family:'STIX Two Text','Cambria Math','Times New Roman',Georgia,serif;font-size:17px;line-height:2.1;overflow-x:auto;}
-  .fp-eq .fp-lhs{margin-right:6px;}
-  .fp-fr{display:inline-block;vertical-align:middle;text-align:center;margin:0 4px;line-height:1.35;}
-  .fp-fr .fp-n{display:block;padding:0 5px 2px;border-bottom:1px solid #1c1c1c;}
-  .fp-fr .fp-d{display:block;padding:2px 5px 0;}
-  .fp-brace{display:inline-block;vertical-align:middle;width:9px;height:4.6em;margin:0 6px 0 2px;border:1.5px solid #1c1c1c;border-right:none;border-radius:9px 0 0 9px;}
-  .fp-pw{display:inline-table;vertical-align:middle;border-collapse:collapse;margin:0;width:auto;font-size:inherit;}
-  .fp-pw td{border:none;padding:0 0 0 0;text-align:left;line-height:1.7;}
-  .fp-pw .fp-pv{padding-right:26px;white-space:nowrap;}
-  .fp-pw .fp-pc{font-size:14.5px;color:#333;white-space:nowrap;}
-  .fp-where{font-size:13px;color:#444;margin:-4px 0 14px;text-align:center;}
-  .fp-item{margin:0 0 4px;}
-  /* table of contents and back-links */
-  .fp-toc{background:#f6f4ee;border:1px solid #e3dfd2;border-radius:4px;padding:10px 18px 12px;margin:16px 0 8px;font-size:14px;}
-  .fp-toc ul{margin:2px 0 6px;padding-left:20px;} .fp-toc>ul{padding-left:0;list-style:none;} .fp-toc>ul>li{margin-top:8px;font-weight:700;}
-  .fp-toc ul ul{font-weight:400;columns:2;column-gap:28px;} .fp-toc ul ul li{margin-bottom:2px;break-inside:avoid;}
-  .fp-toc a{color:#1f4f8f;text-decoration:none;} .fp-toc a:hover{text-decoration:underline;}
-  a.fp-top{font-size:11px;font-weight:400;font-family:Arial,sans-serif;margin-left:10px;color:#999;text-decoration:none;white-space:nowrap;} a.fp-top:hover{color:#1f4f8f;text-decoration:underline;}
-  .fp-toc .fp-groups{columns:1;font-weight:700;list-style:none;padding-left:14px;} .fp-toc .fp-groups>li{margin-top:6px;} .fp-toc .fp-groups ul{columns:2;font-weight:400;padding-left:20px;list-style:disc;}
-  h2,h3{scroll-margin-top:12px;}
-  @media print{ a.fp-top{display:none;} }
+${fpCss()}
 </style></head>
 <body>
 <h1>Calculation Reference</h1>
@@ -144,564 +123,13 @@ function buildFormulasHtml(){
 <li><a href="#g-mc">Monte Carlo simulation and chart rates</a><ul><li><a href="#f-mkt">Market return and inflation charts</a></li><li><a href="#f-mc">Monte Carlo trials</a></li><li><a href="#f-panic">Systemic panic (correlation convergence)</a></li></ul></li><li><a href="#g-chat">Chat what-if scenarios</a><ul><li><a href="#f-chatrun">How a scenario is run</a></li><li><a href="#f-chatlev">How the levers change the scenario</a></li><li><a href="#f-chatkpi">Headline numbers</a></li><li><a href="#f-llm">Scenarios from an outside LLM and the live bridge</a></li></ul></li></ul></li>
 </ul></nav>
 
-<h2 id="glossary">Glossary <a class="fp-top" href="#toc">↑ contents</a></h2>
-<table><thead><tr><th>Acronym</th><th>Full name</th></tr></thead><tbody>${glossary}</tbody></table>
-
-<h2 id="reference">Reference Data (tax year ${THIS_YEAR}) <a class="fp-top" href="#toc">↑ contents</a></h2>
-
-<h3 id="r-ordmfj">Ordinary income tax brackets — Married Filing Jointly</h3>
-${fpBracketTable(MFJ_ORD)}
-<h3 id="r-ordsgl">Ordinary income tax brackets — Single</h3>
-${fpBracketTable(SGL_ORD)}
-<p>Standard deduction: <strong>${fmt(STD_MFJ)}</strong> married / <strong>${fmt(STD_SGL)}</strong> single, plus the additional amount for age 65 or older: <strong>${fmt(STD_AGE65_MFJ)}</strong> per living person 65+ on a joint return / <strong>${fmt(STD_AGE65_SGL)}</strong> for a single filer.</p>
-
-<h3 id="r-qmfj">Qualified dividend / long-term capital gains brackets — Married Filing Jointly</h3>
-${fpBracketTable(MFJ_QDIV, true)}
-<h3 id="r-qsgl">Qualified dividend / long-term capital gains brackets — Single</h3>
-${fpBracketTable(SGL_QDIV, true)}
-
-<h3 id="r-irmfj">IRMAA tiers (Medicare Part B/D surcharge) — Married Filing Jointly</h3>
-${fpIrmaaTable(IRMAA_MFJ)}
-<h3 id="r-irsgl">IRMAA tiers — Single</h3>
-${fpIrmaaTable(IRMAA_SGL)}
-
-<h3 id="r-niit">Net Investment Income Tax (NIIT)</h3>
-<p>Rate: <strong>${(NIIT_RATE*100).toFixed(1)}%</strong>. Exemption threshold (not indexed for inflation under current law):
-<strong>${fmt(NIIT_THRESH_MFJ)}</strong> married / <strong>${fmt(NIIT_THRESH_SGL)}</strong> single. These thresholds are deflated
-in the projection to reflect that they lose real value over time, since every other figure in the app is shown in today's
-dollars. The speculative future-threshold scenario (if enabled) overrides this with a fixed today's-dollar amount from its
-configured start year onward.</p>
-
-<h3 id="r-ult">IRA Required Minimum Distribution — IRS Uniform Lifetime Table divisor by age</h3>
-${fpRmdTable()}
-<p class="fp-src">Source: <a href="https://www.fidelity.com/bin-public/060_www_fidelity_com/documents/UniformLifetimeTable.pdf">IRS/Fidelity Uniform Lifetime Table</a>. Ages below 72 use a linear approximation for voluntary early withdrawals; ages above 105 use the age-105 divisor (4.6).</p>
-
-<h3 id="r-sle">IRA Required Minimum Distribution — IRS Single Life Expectancy Table (inherited IRAs)</h3>
-${fpSleTable()}
-<p class="fp-src">Source: IRS Publication 590-B, Table I (Treas. Reg. §1.401(a)(9)-9(c), for distribution calendar years beginning on or after Jan 1, 2022). Used for the annual RMDs of an inherited IRA, not the Uniform Lifetime Table.</p>
-
-<h2 id="formulas">Formulas <a class="fp-top" href="#toc">↑ contents</a></h2>
-<p class="fp-src">Grouped by topic: conventions, income sources, retirement accounts, taxes, expenses and funding, brokerage portfolios, real estate. Every heading has a ↑ link back to the contents.</p>
-
-<h2 id="g-conv">Conventions <a class="fp-top" href="#toc">↑ contents</a></h2>
-<h3 id="f-today">Today's-dollar convention <a class="fp-top" href="#toc">↑</a></h3>
-<p>Every figure in this app — inputs, intermediate values, and every chart — is expressed in today's dollars. An "Annual change" of <em>Fixed $ (no growth)</em> (worded <em>Fixed $ (no COLA)</em> on the Pension card) actually erodes in real terms by the inflation rate each year; <em>Tracks inflation</em> means 0% real growth; <em>Inflation ± X%</em> means a nominal rate of inflation + X%, so the real rate is X% ÷ (1 + inflation); <em>Custom annual %</em> is a nominal rate, so the real rate is (1 + rate) ÷ (1 + inflation) − 1.</p>
-
-<h3 id="f-filing">Filing status <a class="fp-top" href="#toc">↑</a></h3>
-<p>The moment either spouse has died, filing status becomes Single for every subsequent year — every bracket, the standard deduction, and every IRMAA/NIIT threshold for that year onward uses the Single tables.</p>
-<h2 id="g-inc">Income sources <a class="fp-top" href="#toc">↑ contents</a></h2>
-<h3 id="f-ss">Social Security benefits <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Full Retirement Age (FRA)</strong> by birth year: 65 for 1937 or earlier, rising 2 months per year through 66 (1943–1954), then rising again 2 months per year to 67 (1960 or later).</p>
-
-<p><strong>Own-benefit claiming factor.</strong> Claiming <em>m</em> months before FRA reduces PIA by 5/9% per month for the first 36 months early, then 5/12% per month beyond that:</p>
-${fpEq(`Benefit<sub>early</sub> = PIA × [ 1 − ${fpFr('5','9')}% × min(<em>m</em>, 36) − ${fpFr('5','12')}% × max(0, <em>m</em> − 36) ]`)}
-<p>Claiming after FRA (up to age 70) adds 8% per year of delay:</p>
-${fpEq(`Benefit<sub>delayed</sub> = PIA × [ 1 + 8% × (years past FRA) ]`)}
-
-<p><strong>Spousal-benefit claiming factor.</strong> The spousal benefit (up to 50% of the other spouse's PIA) uses a different early-claim rate — 25/36% per month for the first 36 months early, then 5/12% per month beyond — with no delayed-retirement credit past FRA:</p>
-${fpEq(`Spousal = 50% × PIA<sub>other</sub> × [ 1 − ${fpFr('25','36')}% × min(<em>m</em>, 36) − ${fpFr('5','12')}% × max(0, <em>m</em> − 36) ]`)}
-<p>Each spouse receives the higher of their own benefit or the spousal amount (SSSBR):</p>
-${fpEq(`SS benefit = max( own benefit, Spousal )`)}
-${fpWhere('This is a simplification of the SSA rule (own benefit + the excess of the spousal amount over own PIA, reduced for early claiming); the two agree when both are claimed at or after FRA. The spousal amount here starts at the spouse\'s own claim age, whether or not the other spouse has filed yet.')}
-
-<p><strong>Survivor benefit.</strong> When one spouse dies, the survivor's benefit becomes the larger of their own benefit or the deceased's benefit:</p>
-${fpEq(`Survivor benefit = max( own benefit, deceased's benefit )`)}
-
-<h3 id="f-ann">Annuities <a class="fp-top" href="#toc">↑</a></h3>
-<p>Each person can hold any number of annuities (Add / Remove on the Annuity card). An annuity is simulated year by year in today\'s dollars, independently of the tax calculation. Let <em>V</em> be the start-of-year account value; it is the amount plotted on the Asset Value chart. The credited growth is entered net of all fees, so there is no separate fee.</p>
-<p><strong>Payout and account value.</strong> Inside the Start–End age range (a contract that is <em>Joint owned with spouse</em> is judged at the owner\'s last living age):</p>
-${fpEq(
-  `Fixed $: Payout = min( fixed amount ÷ ( 1 + inflation )<sup>k</sup>, V ) &emsp;(a nominal amount with no inflation / COLA)`,
-  `% of value: Payout = min( payout % × V, V )`,
-  `V<sub>next</sub> = ( V − Payout ) × ( 1 + real credited growth )`
-)}
-${fpWhere('Payouts stop when the account is empty. The fixed amount is not adjusted for inflation, so in today\'s dollars it shrinks each year.')}
-<p><strong>Tax treatment of each payout</strong> (premium = the premium / cost basis entered, blank = account value; bookkeeping is done in nominal dollars and converted back):</p>
-${fpEq(
-  `Qualified: Taxable = Payout`,
-  `Non-qualified, withdrawals (LIFO): Taxable = min( Payout, max( 0, V − premium remaining ) ); Tax-free = the rest (premium returned)`,
-  `Non-qualified, annuitized: Exclusion ratio = min( 1, premium ÷ expected total payout ); Tax-free = min( ratio × Payout, premium remaining )`,
-  `Tax-exempt: Tax-free = Payout × tax-exempt %`
-)}
-${fpWhere('Expected total payout is the sum of the projected payouts, in nominal dollars, up to the owner\'s passing age. Once the premium is fully recovered, the exclusion-ratio treatment makes every further payout fully taxable.')}
-<p><strong>Passing benefit</strong> (paid to heirs when the contract ends: the owner\'s passing, or the surviving spouse\'s if it is <em>Joint owned with spouse</em>). It is shown for the legacy and is not household cash flow. Three options, none adjusted for inflation:</p>
-${fpEq(
-  `Fixed $: Benefit = the fixed amount`,
-  `Initial value: Benefit = the account value entered today`,
-  `Account value at passing: Benefit = V at the passing`
-)}
-<p>Its taxable and tax-exempt parts, for every option:</p>
-${fpEq(
-  `Qualified: Taxable = Benefit`,
-  `Non-qualified: Tax-free = min( Benefit, premium remaining ); Taxable = Benefit − Tax-free`,
-  `Tax-exempt: Tax-free = Benefit × tax-exempt %`
-)}
-<p>The taxable part of payouts is ordinary income (it enters AGI and the Ordinary income line above); for non-qualified treatments it is also net investment income for NIIT. The tax-free part is untaxed and never in AGI, and — being a return of the owner\'s own after-tax premium — is not added to provisional income (Social Security taxation) or MAGI (IRMAA); only tax-exempt interest from portfolios is. Both parts are household cash income, so they pay expenses first in the waterfall above. An annuity ends when its owner passes unless it is <em>Joint owned with spouse</em>; annuities have no step-up and no stretch.</p>
-
-<h3 id="f-rent">Rental income and depreciation <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Rental income and depreciation.</strong> A person can have any number of rental properties (Add / Remove on the Rental income card); each has its own name, on/off switch, age range, annual change and survivor setting, and the household figures below are the sums over every active property. Each property's annual amount is the taxable rental income (Schedule E net income, already reduced by depreciation). Annual depreciation is a non-cash expense, so it is the same as cash to the household but untaxed: it is added into household income, pays expenses ahead of dividends and asset sales, and any excess income left over is reinvested into the portfolios with <em>Reinvest excess income</em> checked, exactly like the other income:</p>
-${fpEq(
-  `Taxable rental income = Σ rental amount<sub>property</sub>`,
-  `Rental cash income = Σ ( rental amount + depreciation )<sub>property</sub>`,
-  `Household income = wages + Social Security + pension + rental cash income + tax-exempt income + IRA RMD`,
-  `Depreciation<sub>year k</sub> = annual depreciation ÷ (1 + inflation)<sup>k</sup>`
-)}
-${fpWhere('Depreciation uses the same age range, enable switch and survivor rule as the rental amount. Straight-line depreciation is a fixed dollar amount, so in today\'s dollars it shrinks with inflation (the same treatment as a fixed-dollar AUM fee). The Annual Household Income chart shows it as its own band, separate from taxable rental income, so the chart\'s taxable bands still add up to roughly AGI. Depreciation recapture on a sale and passive-loss limits are not modeled.')}
-<h2 id="g-ret">Retirement accounts (IRA, Roth IRA, inheritance) <a class="fp-top" href="#toc">↑ contents</a></h2>
-<h3 id="f-rmd">Required minimum distributions (RMD) <a class="fp-top" href="#toc">↑</a></h3>
-${fpEq(`RMD = ${fpFr('prior-year IRA balance','Uniform Lifetime Table divisor for the owner\'s age that year')}`)}
-<p>RMDs are required starting at age 70½ (born before July 1, 1949), 72 (July 1, 1949 – 1950), 73 (1951 – 1959) or 75 (1960 or later) under current law; an earlier voluntary withdrawal uses the same table with an approximated divisor. After an IRA owner passes, if the IRA is marked <em>Inherited by spouse</em>, the surviving spouse inherits the IRA and continues taking RMDs against their own age.</p>
-<h3 id="f-iraw">Pre-tax IRA annual withdraw and Roth conversion <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Pre-tax IRA annual withdraw</strong>: a separate, real withdrawal on top of the RMD — a flat today's-dollar amount each year the pre-tax IRA still has a balance, taxed exactly like the RMD as ordinary income. With <em>Withdraw is Roth conversion</em> ticked (the default) it is moved into the linked Roth IRA (a Roth conversion) and is not spendable; unticked, it is an ordinary withdrawal that becomes household cash income (it pays expenses first, and any excess is reinvested) and needs no Roth IRA. It starts at the later of the owner's current age and the <em>Withdraw start</em> — by default the <em>RMD start</em>, meaning the pre-tax IRA's own Start age (the RMD age unless that Start is changed), or Now, or a custom age. Three trigger starts are also available: <em>When tax bracket is below x%</em> (the household\'s taxable ordinary income, computed with no conversion, is at or below where the chosen bracket starts), <em>When itemized deductions &gt; a value</em> (the itemized deduction — the LTC cost above 7.5% of AGI — computed with no conversion exceeds the value entered, in today\'s $), and <em>When LTC starts</em> (the first LTC start age is reached; needs Long Term Care enabled). A trigger is tested each year until it is met; the withdraw then starts that year and continues every later year. As a Roth conversion it needs the Roth IRA card to be enabled; either way it stops when the owner passes. The slider runs from $0 to the pre-tax IRA's starting balance and starts at $0 (no withdraw).</p>
-${fpEq(
-  `Withdraw = min( annual withdraw amount, remaining pre-tax IRA balance )`,
-  `Roth balance<sub>next</sub> = ( Roth balance + Withdraw (if a Roth conversion) − Roth withdrawn for expenses ) × ( 1 + real growth )`
-)}
-<p><strong>Conversion below brackets</strong> (the second conversion option): instead of a flat amount, the projection finds the largest conversion <em>c</em> (no more than the balance left after the RMD) that keeps both limits satisfied (each slider means <em>below</em> the chosen bracket; 0 = no conversion, last stop = no limit):</p>
-${fpEq(
-  `ordinary taxable income( c ) ≤ start of the chosen ordinary bracket (the top of the bracket below it)`,
-  `MAGI( c ) &lt; MAGI threshold of the IRMAA line labeled with the chosen Part B % over standard`
-)}
-${fpWhere('Both measures rise with <em>c</em>, but a bigger conversion also raises taxable Social Security and the tax. The tax is itself an expense that is paid by selling assets, and those sales realize LTCG, which feeds back into MAGI — so the calculation is circular. It is solved by iteration: each trial <em>c</em> runs the full tax ↔ LTCG iteration, and the search over <em>c</em> (false position with bisection safeguards) repeats until the largest <em>c</em> under both limits is found to within a cent. A slider at 0 blocks conversions; a slider at its last stop is no limit (both at no limit = the whole balance converts). The 10% stop is a start of $0, so only the standard deduction is filled. IRMAA uses the MAGI of two years earlier, so the IRMAA limit applies to anyone alive and 63 or older (they will be on Medicare two years later) — it keeps applying through the last years instead of dropping away — and uses the filing status of the latest of the next two years in which someone is alive. If other income already exceeds a limit, nothing is converted that year. With two bracket-mode IRAs the first person converts first, then the second converts what is left.')}
-
-<h3 id="f-inh">Inherited assets and the 10-year rule <a class="fp-top" href="#toc">↑</a></h3>
-<p>An asset created from an imported plan file enters the scenario in its start year — the year after the last passing in the source plan, entered on the card as the beneficiary's age that year. Before then it has no balance. A portfolio or property arrives at its value then (today's $) with its basis stepped up to that value (an IDGT keeps its carryover basis %); after that it follows the normal portfolio / property formulas on this page.</p>
-<p><strong>Inherited IRA (10-year rule).</strong> The annual RMDs use the <a href="#r-sle">Single Life Expectancy table</a> (IRS Table I) — not the owner's Uniform Lifetime Table — by the fixed-term method for a non-spouse beneficiary: look the factor up once, for the holder's age in the first RMD year (the year after it is inherited), then subtract 1 each later year (never back to the table; the divisor is floored at 1). A pre-tax or Roth IRA must be empty by the end of the 10th year after its start year; the 10 years never extend, even when a spouse inherits it or it passes into another plan.</p>
-${fpEq(
-  `Withdraw<sub>year n</sub> = RMD<sub>n</sub> (only if the original owner had started RMDs; pre-tax only; years 1–9), plus any annual withdraw`,
-  `RMD<sub>n</sub> = ${fpFr('prior-year balance','F<sub>n</sub>')}, &nbsp; F<sub>1</sub> = Single Life Expectancy factor for the holder\'s age in year 1, &nbsp; F<sub>n</sub> = F<sub>n−1</sub> − 1`,
-  `Withdraw<sub>year 10</sub> = whatever balance is left`,
-  `Balance<sub>next</sub> = ( Balance − Withdraw ) × ( 1 + real growth )`
-)}
-${fpWhere('If the original owner had not started RMDs, and always for a Roth IRA, nothing is forced until year 10. A pre-tax withdraw is ordinary income, exactly like an RMD (it enters AGI, taxable Social Security, Total Tax and MAGI); a Roth withdraw is untaxed household cash and is not in MAGI. An inherited pre-tax IRA is never converted to a Roth IRA: its annual withdraw is always an ordinary taxable withdrawal. When the holder passes and <em>Inherited by spouse</em> is ticked, the spouse becomes the holder (RMDs by the spouse\'s age); the year-10 deadline does not move. Otherwise the account ends with its holder.')}
-
-
-<h2 id="g-tax">Taxes and Medicare surcharge <a class="fp-top" href="#toc">↑ contents</a></h2>
-<p><strong>Inheritance asset income (chart).</strong> The income the inherited assets pay in a year, in today's $, by component: inherited IRA RMD / final withdraw, inherited IRA annual withdraw, inherited Roth IRA withdraw (tax-free), ordinary (non-qualified) dividends, qualified dividends, tax-exempt income, realized LTCG and real estate sale gain. For an inherited portfolio, dividends = yield &times; balance, split by its qualified %, and the realized LTCG is its pre-SCGL gain; an inherited property adds only the gain realized when it is sold.</p>
-${fpEq(`Inheritance asset income = &Sigma; over inherited assets ( IRA withdraw + QDIV + ODIV<sub>non-qualified</sub> + tax-exempt income + LTCG + real estate sale gain )`)}
-<p><strong>IRA stretch note.</strong> The Asset value chart shows a warning when an enabled pre-tax or Roth IRA that holds money has <em>IRA stretch</em> unchecked: it is not forwarded to heirs, so its balance ends at the last passing instead of continuing for 10 more years.</p>
-<h3 id="f-tss">Taxable Social Security and Social Security tax (SST) <a class="fp-top" href="#toc">↑</a></h3>
-<p>Provisional income is all the non-Social-Security income that goes into AGI — ordinary income, qualified dividends and long-term capital gains — plus the tax-exempt income (untaxed, but it still counts here) plus half of total Social Security (TSS):</p>
-${fpEq(`PI = non-SS ordinary income + QDIV + LTCG<sub>net of SCGL</sub> + tax-exempt interest + 50% × TSS`)}
-${fpWhere('Because LTCG comes from the asset sales that pay the year\'s expenses and tax, taxable SS moves with it and is solved inside the same tax ↔ LTCG iteration described under Household expense funding.')}
-<p>Taxable SS is then calculated from PI against the statutory thresholds T<sub>1</sub> and T<sub>2</sub> ($25k / $34k single, $32k / $44k married — not indexed for inflation, so deflated here since everything is shown in today's dollars). For a single filer the base amount is $4,500; for a married couple filing jointly it is $6,000 (deflated the same way):</p>
-${fpPw('Taxable SS',[
-  ['0','PI ≤ T<sub>1</sub>'],
-  ['min( 50% × (PI − T<sub>1</sub>),&ensp;50% × TSS )','T<sub>1</sub> &lt; PI ≤ T<sub>2</sub>'],
-  ['min( min( 50% × TSS,&ensp;base amount ) + 85% × (PI − T<sub>2</sub>),&ensp;85% × TSS )','PI &gt; T<sub>2</sub>']
-])}
-${fpWhere('The base is the amount taxable from the first tier, which is capped at 50% of TSS: base = min( 50% × TSS,&ensp;$6,000 married / $4,500 single ), the $6,000 / $4,500 (deflated like the thresholds) being 50% of the T<sub>1</sub>–T<sub>2</sub> span. The cap matters only for small benefits (below $12,000 married / $9,000 single); for ordinary benefits the base is the full $6,000 / $4,500.')}
-<p><strong>SST</strong> is <em>not</em> the taxable-SS dollar amount — it's the incremental tax that including taxable SS actually generates, holding non-SS income, filing status and qualified income fixed:</p>
-${fpEq(`SST = Tax<sub>actual</sub> − Tax<sub>no SS taxed</sub>`)}
-${fpWhere('Tax here is ordinary tax + qualified tax only, before the foreign tax credit and without NIIT, so a change in NIIT or FTC is never counted as tax on Social Security. The marginal rate below uses the same basis.')}
-<p><strong>Marginal rate on ordinary income / "torpedo effect".</strong> The true marginal rate on the next dollar of ordinary income is a small numerical derivative — add $100 of ordinary income, then re-run the taxable-SS and tax calculations:</p>
-${fpEq(`Marginal rate<sub>ordinary income</sub> = ${fpFr('Tax(ordinary income + $100) − Tax(ordinary income)','$100')}`)}
-${fpWhere('Each re-run recomputes provisional income (which includes QDIV, LTCG and tax-exempt income) and the enhanced senior deduction at the higher income, so the marginal rate also picks up the extra 6% per eligible person while the senior deduction is phasing out. The Excel export carries both the SST and the marginal-rate hypotheticals as live formulas (the no-SS and +$100 columns next to Qualified tax), using the same equations.')}
-<p>Because an extra dollar of income can push more Social Security into taxability — and that newly-taxable SS is itself taxed — this marginal rate can run meaningfully above the statutory bracket rate. The marginal rate can also exceed the top ordinary bracket rate for another reason: qualified income is stacked on top of ordinary income, so an extra dollar of ordinary income pushes a dollar of QDIV/LTCG up into the next tier (0% → 15% or 15% → 20%), adding that 5–15% to the bracket rate (for example a 32% bracket + 5% = 37%). The Total Income Tax popup shows the two parts separately. This is the marginal rate on ordinary income only; the rate on the next dollar of qualified income (QDIV or LTCG) is not calculated here — it is the 0% / 15% / 20% tier that income ends in, plus any NIIT. This compounding effect is what's meant by the "torpedo effect."</p>
-
-<h3 id="f-tt">Total tax (TT): ordinary and qualified income <a class="fp-top" href="#toc">↑</a></h3>
-<p>Income is built up in stages:</p>
-${fpEq(
-  `Ordinary income = wages + pension + rental + taxable annuity payouts + IRA RMD + pre-tax IRA withdraw + pre-tax IRA withdraw (for expenses) + (ODIV − QDIV)`,
-  `AGI = ordinary income + taxable SS + QDIV + LTCG<sub>net of SCGL</sub>`,
-  `Taxable ordinary income = max( 0,&ensp;ordinary income + taxable SS − max(standard deduction, itemized deductions) − enhanced senior deduction )`,
-  `Taxable qualified income = max( 0,&ensp;ordinary income + taxable SS + QDIV + LTCG<sub>net of SCGL</sub> − deductions ) − taxable ordinary income`,
-  `TI = taxable ordinary income + taxable qualified income`
-)}
-${fpWhere('The standard deduction is the married or single amount, based on that year\'s filing status; itemized deductions are the Long Term Care cost above 7.5% of AGI, and whichever is larger is used. The enhanced senior deduction (next paragraph) is taken on top of either one and lowers taxable income but not AGI. Rental in the ordinary-income line is the taxable rental income as entered (see <a href="#f-rent">Rental income and depreciation</a>, above).')}
-<h3 id="f-ded">Additional standard deduction (65+) and senior deduction <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Additional standard deduction for age 65 or older.</strong> Each living person who is 65 by the end of the tax year (birth year + 65 ≤ the tax year) adds to the standard deduction: $1,650 on a joint return, $2,050 for a single filer (tax year 2026, Rev. Proc. 2025-32; indexed like the basic amount, so held in today\'s dollars). It follows the filing status in force, so a surviving spouse gets the single amount, and it is separate from, and in addition to, the enhanced senior deduction below. It is replaced by the itemized deduction only when that is larger, and the extra amount for blindness is not modeled.</p>
-<p><strong>Enhanced deduction for seniors (Schedule 1-A, Part V).</strong> Under current law (tax years 2025 through 2028 only) each person who is 65 or older by the end of the tax year — for 2025 that means born before January 2, 1961, for 2026 before January 2, 1962, and so on — gets up to $6,000, taken whether or not deductions are itemized. It is reduced by 6% of modified AGI (MAGI, taken as AGI) above $75,000 single / $150,000 married filing jointly, and never below $0. On a joint return each eligible spouse gets the same reduced amount:</p>
-${fpEq(
-  `Reduced amount = max( 0, $6,000 − 6% × max( 0, MAGI − threshold ) )`,
-  `Senior deduction = number of eligible living people × Reduced amount`
-)}
-${fpWhere('Threshold is $75,000 (single) or $150,000 (married filing jointly) for that year\'s filing status, so it drops to the single amount once one spouse has passed and only the survivor counts. One eligible person reaches $0 at MAGI $175,000 single or $250,000 joint; two eligible spouses each lose the same 6%, so the joint deduction also reaches $0 at $250,000. The $6,000 and both thresholds are fixed by law, not indexed, so like the Social Security thresholds they are scaled by 1/(1+inflation)<sup>k</sup> to stay in today\'s dollars. The model knows birth year and month only, so eligibility is tested as birth year + 65 ≤ tax year (a January 1 birthday exactly 65 years earlier is not picked up). The deduction ends after 2028 unless law changes. Because it depends on AGI, it is solved inside the same tax/LTCG iteration as the rest of the return, and the marginal tax rate reflects the extra 6% per eligible person while the deduction is phasing out. The additional standard deduction for age 65+ is not modeled.')}
-<h3 id="f-scgl">Suspended capital-gain loss (SCGL) <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Suspended Capital-Gain Loss (SCGL).</strong> Available SCGL shields realized LTCG dollar-for-dollar, before tax, each year until the pool is exhausted — only the amount left over is taxed:</p>
-${fpEq(
-  `LTCG<sub>net</sub> = max( 0, LTCG − SCGL<sub>available</sub> )`,
-  `SCGL<sub>remaining</sub> = max( 0, SCGL<sub>available</sub> − LTCG )`
-)}
-
-<h3 id="f-ftc">Foreign tax credit (FTC) <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Foreign Tax Credit (FTC).</strong> For each brokerage portfolio — always active, independent of that portfolio's AUM box or IDGT flag:</p>
-${fpEq(`FTC = portfolio balance × foreign asset % × foreign tax credit %`)}
-<p>It is summed across every portfolio and subtracted from the ordinary + qualified tax total (floored at $0) — a nonrefundable credit against regular tax, not against NIIT.</p>
-
-<h3 id="f-niit">Net investment income tax (NIIT) <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Net Investment Income Tax (NIIT).</strong> 3.8% of the lesser of net investment income or MAGI (~AGI) over the threshold above — calculated on the pre-credit ordinary + qualified tax basis, since the foreign tax credit doesn't offset NIIT:</p>
-${fpEq(
-  `NII = (ODIV − QDIV) + QDIV + LTCG<sub>net of SCGL</sub> + taxable payouts of non-qualified annuities + net rental income (passive rentals)`,
-  `NIIT = 3.8% × min( NII,&ensp;max(0, MAGI − threshold) )`
-)}
-<p>LTCG includes the taxable gain on a property sold that year (after its home-sale exclusion), except a property marked <em>used in an active trade or business</em>. Net rental income counts unless that rental is marked <em>active trade or business</em>; the entered rental amount is already net of depreciation and expenses, and rental losses are not modeled.</p>
-
-<p>Putting it together:</p>
-${fpEq(
-  `TT = max( 0,&ensp;ordinary tax + qualified tax − FTC ) + NIIT`,
-  `Effective tax rate = ${fpFr('TT','AGI')}&ensp;(0 when AGI ≤ 0)`
-)}
-
-<h3 id="f-state">State income tax <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>State income tax</strong> (Tax &amp; Optimizations panel, off by default). Choose <em>California</em> or <em>Washington</em>; the result is the household's state tax for the year.</p>
-<p><em>California</em> taxes capital gains as ordinary income and does not tax Social Security:</p>
-${fpEq(
-  `AGI<sub>CA</sub> = max( 0,&ensp;AGI − taxable SS )`,
-  `Std = $11,412 (married) &ensp;|&ensp; $5,706 (single)`,
-  `Med = max( 0,&ensp;LTC − 7.5% × AGI<sub>CA</sub> )`,
-  `TI<sub>CA</sub> = max( 0,&ensp;AGI<sub>CA</sub> − max( Std, Med ) )`,
-  `Bracket tax = &Sigma;<sub><em>k</em></sub> <em>r</em><sub><em>k</em></sub> × max( 0,&ensp;min( TI<sub>CA</sub>, <em>L</em><sub><em>k</em></sub> ) − <em>L</em><sub><em>k</em>−1</sub> )`,
-  `Tax<sub>CA</sub> = max( 0,&ensp;Bracket tax &ensp;+&ensp; 1% × max( 0, TI<sub>CA</sub> − $1,000,000 × <em>f</em> ) &ensp;−&ensp; max( 0, ${fmt(CA_PERSONAL_CREDIT)} − <em>R</em> ) × <em>N</em> &ensp;−&ensp; max( 0, ${fmt(CA_SENIOR_CREDIT)} − <em>R</em> ) × <em>N</em><sub>65+</sub> )`
-)}
-${fpWhere('AGI<sub>CA</sub> is federal AGI less the taxable Social Security. Med is the medical itemized deduction, which here is the Long Term Care cost (LTC) above 7.5% of AGI<sub>CA</sub>; the larger of Med and the standard deduction (Std) is used. <em>r</em><sub><em>k</em></sub> and <em>L</em><sub><em>k</em></sub> are the rate and the upper limit of California bracket <em>k</em> in the table below (<em>L</em><sub>0</sub> = 0). The 1% term is the Mental Health Services surcharge; <em>f</em> = (1 + inflation)<sup>−years</sup> holds its un-indexed $1,000,000 threshold in today\'s dollars. <em>N</em> is the number of people alive that year and <em>N</em><sub>65+</sub> the number of them aged 65 or older (the $158 personal and senior exemption credits, 2026). <em>R</em> = $6 × <em>f</em> × ⌈(federal AGI − ${fmt(CA_CREDIT_PHASEOUT_SGL)}) ÷ ($2,500 × <em>f</em>)⌉ is the phase-out taken off each credit, and zero at or below the threshold (${fmt(CA_CREDIT_PHASEOUT_MFJ)} if married); federal AGI, not AGI<sub>CA</sub>, sets it. The thresholds are FTB\'s 2025 figures raised by the 2026 inflation rate (FTB publishes the official 2026 ones in late December); the $2,500 step and $6 are fixed in statute, so they shrink with <em>f</em>.')}
-<p>California brackets, tax year 2026 (Single; Married limits are exactly double). Standard deduction $5,900 single / $11,800 married (FTB, 2026 indexing):</p>
-${fpBracketTable(CA_ORD_SGL, true)}
-<p><em>Washington</em> has no income tax, only a capital-gains excise tax on realized long-term gains from portfolio sales (real estate and retirement accounts are exempt):</p>
-${fpEq(
-  `Gain<sub>WA</sub> = max( 0,&ensp;LTCG<sub>portfolio, net of SCGL</sub> − $278,000 )`,
-  `Tax<sub>WA</sub> = 7% × min( Gain<sub>WA</sub>,&ensp;$1,000,000 × <em>f</em> ) &ensp;+&ensp; 9.9% × max( 0,&ensp;Gain<sub>WA</sub> − $1,000,000 × <em>f</em> )`
-)}
-${fpWhere('One $278,000 deduction applies per household (the state indexes it, so it is held flat in today\'s dollars); the 9.9% rate applies to the part of the taxable gain above $1,000,000, deflated by <em>f</em> as above.')}
-<p>The state tax is paid as a household expense together with federal tax, but it is not part of Total Tax (TT) or the effective tax rate; on the chart it is a cyan dotted line at <em>tax stack + state tax</em> (the IRMAA line, when shown, sits above it). The Excel export carries it as live formulas (the State income tax rows, with the California and Washington tables on the Tax tables sheet and the on/off and state choice on the Inputs sheet). Long Term Care periods are marked on every time-based chart by a grey bar (anyone on LTC) that turns black where two LTC periods overlap; this is display only.</p>
-
-<h3 id="f-irmaa">IRMAA (Medicare Part B/D surcharge) <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>IRMAA as an expense</strong> (always a household expense):</p>
-${fpEq(
-  `MAGI = AGI + tax-exempt interest`,
-  `IRMAA<sub>household</sub> = surcharge( tier reached by MAGI<sub>year − 2</sub> ) × N<sub>65+</sub>`
-)}
-${fpWhere('N<sub>65+</sub> is the number of living people age 65 or older, and the tier table (joint or single) is the one for the filing status of the year the MAGI comes from (year − 2), carried with that MAGI — so after a spouse dies the survivor is still looked up in the joint table until the lookback year is itself a single return. SSA\'s life-changing-event request to use a newer, lower-income single return is not modeled (this is the default determination). The tax-free part of an annuity payout is not part of MAGI. Years 0 and 1 are $0 because the model has no MAGI from before the projection starts.')}
-<p>Using the MAGI from two years earlier mirrors IRMAA's real 2-year look-back, and it also avoids a circularity (this year's AGI depends on LTCG, which depends on asset sales, which fund this surcharge). The tier table is indexed, so it is used in today's dollars as-is. It is charged once per household and paid through the same funding waterfall (income → dividends → asset sales → pre-tax IRA → Roth IRA) as every other expense, so selling shares to cover it can realize LTCG.</p>
-
-<p><strong>IRMAA on the charts.</strong> The MAGI chart beside Annual Household Income stacks this year's MAGI by source:</p>
-${fpEq(
-  `MAGI = wages + pension + rental + annuity + IRA withdrawals + Roth conversions + pre-tax IRA withdraw (for expenses) + ODIV + taxable SS + QDIV + LTCG + tax-exempt interest`
-)}
-${fpWhere('Rental counts after depreciation is excluded (it is untaxed) and Social Security counts only its taxable part, split between the two people by benefit share. The dashed lines sit at the IRMAA bracket MAGI amounts for that year\'s filing status. Each is labeled with the Part B premium increase over standard: the standard premium is 25% of the Part B cost and tiers 1–5 are 35%, 50%, 65%, 80% and 85%, so the premium is +40%, +100%, +160%, +220% and +240% higher.')}
-<p>The taxable ordinary income chart beside it stacks the income the ordinary tax brackets are applied to. Qualified income (QDIV and LTCG) is not on it, because it is taxed at its own rates, but it is part of total taxable income:</p>
-${fpEq(
-  `Taxable ordinary income = max( 0, ( wages + pension + rental + annuity + IRA withdrawals + Roth conversions + pre-tax IRA withdraw (for expenses) + ODIV + taxable SS ) − deduction )`,
-  `Total taxable income = taxable ordinary income + QDIV + LTCG<sub>net of SCGL</sub>`
-)}
-${fpWhere('The deduction is the standard or itemized deduction plus the senior deduction. On the chart it is taken off the bottom of the stack, so each ordinary band is that source\'s taxable part and those bands add up to the taxable ordinary income; The dashed lines are the ordinary tax brackets: each marks where a bracket starts and is labeled with the rate that applies above it, so the stack can be read against them directly. A red dashed line above the stack marks taxable ordinary income + the deduction absorbed, i.e. ordinary income before the deduction, so the gap between the stack and the red line is the deduction. The Roth conversion "below ordinary bracket" limit tests this same taxable ordinary income. QDIV and LTCG are taxed at their own rates, stacked on top of it in the qualified tax calculation; total taxable income is shown in the main income popup (Show Details) and in the Excel export.')}
-<p>The taxable qualified income chart (bottom right of Annual Household Income) stacks only the qualified income, QDIV and LTCG<sub>net of SCGL</sub> in their usual colors. Ordinary income is not drawn. When the deduction is larger than the ordinary income, the excess shelters qualified income and a red dashed line marks the qualified income before that deduction. The two lines show where the 15% and the 20% rates start, for that year\'s filing status, as the room left after the year\'s taxable ordinary income:</p>
-${fpEq(
-  `Qualified income = QDIV + LTCG<sub>net of SCGL</sub>`,
-  `Taxable qualified income = max( 0,&ensp;ordinary income + qualified income − deductions ) − taxable ordinary income`,
-  `Qualified tax = 0% / 15% / 20% of the taxable qualified income that falls in each qualified bracket, stacked on top of taxable ordinary income`,
-  `Line<sub>15%</sub> = max( 0,&ensp;0% bracket limit − taxable ordinary income )&emsp;&emsp;Line<sub>20%</sub> = max( 0,&ensp;15% bracket limit − taxable ordinary income )`
-)}
-${fpWhere('This follows the IRS Qualified Dividends and Capital Gain Tax Worksheet. The bracket limits above (today\'s dollars, MFJ until the filing-status switch, Single after) apply to total taxable income, and qualified income sits on top of taxable ordinary income, so each line is its limit minus that year\'s taxable ordinary income (never below 0): the room left for qualified income before the rate steps up. The lines therefore move from year to year as ordinary income changes. The deduction takes ordinary income first; if it is larger than the ordinary income, the excess shelters qualified income (the LTCG part first, then QDIV), so only the taxable qualified income is stacked and taxed. A line above the chart\'s scale is not drawn. The amount actually taxed at each rate is on the Excel Projection by year sheet.')}
-<p>On the Total Income Tax chart, <em>view IRMAA as tax</em> adds the household IRMAA surcharge paid that year (the expense above) on top of the tax stack, so the dashed line is <em>Total tax + IRMAA surcharge</em>. It is a display option only and never changes the projection.</p>
-<h2 id="g-exp">Expenses and how they are funded <a class="fp-top" href="#toc">↑ contents</a></h2>
-<h3 id="f-ltc">Long-term care (LTC) expense <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Long Term Care (LTC).</strong> Each person's LTC starts when they reach their own LTC start age (and is skipped if they pass before it); their LTC cost (entered in today's $) is an extra household expense for each year they are alive after that, paid by the same funding order as other expenses (household income, then dividends, then asset sales, then pre-tax IRA, then Roth IRA):</p>
-${fpEq(`LTC expense = Σ LTC cost<sub>person</sub> &ensp;(each person started and alive)`)}
-${fpPw('Living expenses',[
-  ['Living expenses','before any LTC has started'],
-  ['1st LTC living expenses','after the 1st LTC start'],
-  ['2nd LTC living expenses','after the 2nd LTC start']
-])}
-${fpWhere('Living expenses switch to the 1st LTC amount once the first person\'s LTC has started, and to the 2nd LTC amount once the second person\'s has started. A single person only has the 1st amount. Defaults: single $7,500; married 1st = the original living expenses (it follows that field until edited) and 2nd = $15,000; all in today\'s $ and editable.')}
-<p>The LTC cost is also the itemized deduction, limited by the 7.5% of AGI floor and compared with the standard deduction each year:</p>
-${fpEq(
-  `Itemized = max( 0, LTC expense − 7.5% × AGI )`,
-  `Deduction = max( standard deduction, Itemized )`
-)}
-${fpWhere('AGI includes realized LTCG, which depends on the asset sales that pay the year\'s expenses and tax, so the deduction and the tax are solved together by iteration.')}
-<p>Ordinary tax on TI comes from the bracket table above; QDIV and LTCG are taxed separately at their own bracket rates, stacked on top of ordinary TI.</p>
-
-<h3 id="f-med">Late-life medical shock <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Late-life medical shock.</strong> An extra medical cost for a few years late in life, for one chosen person. It is added to the Long Term Care cost, so every rule above and below that applies to the LTC cost applies to it:</p>
-${fpPw('Medical shock<sub>k</sub>',[
-  ['cost','the person is alive and their age is from the start age up to, but not including, start age + years'],
-  ['0','every other year']
-])}
-${fpEq(`LTC expense = Σ LTC cost<sub>person</sub> + Medical shock`,`Itemized = max( 0, LTC expense − 7.5% × AGI )`)}
-${fpWhere('The cost is in today\'s dollars. Living expenses do not switch to the LTC amount because of the shock. The shock is paid by the household expense funding waterfall below; selling taxable holdings to pay it raises realized LTCG and so AGI, which lowers the itemized deduction, and the deduction and the tax are solved together by iteration. The Stress tests card compares the scenario with and without the shock: the extra tax is the difference of the two runs\' income tax (federal plus state) over the shock years, and over the shock years plus two.')}
-
-<h3 id="f-grd">Spending guardrails <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Spending guardrails.</strong> A rule applied at the end of every year that sets the next year\'s discretionary spending. Living expenses are split into an essential part, which never changes, and a discretionary part (the chosen share), which is multiplied by m<sub>k</sub> (1 at the start):</p>
-${fpEq(
-  `Living expenses<sub>k</sub> = Base<sub>k</sub> × ( 1 − share × ( 1 − m<sub>k</sub> ) )`,
-  `Draw<sub>k</sub> = max( 0, Expenses<sub>k</sub> − wages − Social Security − pension − rental − annuity income )`,
-  `WR<sub>k</sub> = ${fpFr('Draw<sub>k</sub>','B<sub>k</sub>')}`
-)}
-${fpWhere('Base is the living expenses entered (or the Long Term Care living amount once care has started), share the discretionary share, B the invested balance at the start of year k (portfolios, pre-tax and Roth IRAs and inherited IRAs) and Expenses all household expenses (living, LTC, IRMAA, AUM fee and income tax). The starting rate IWR is WR in the first year without wages, or the target rate entered. With the option set, the LTC cost is left out of Draw.')}
-${fpPw('m<sub>k+1</sub>',[
-  ['m<sub>k</sub> × ( 1 − cut )','WR<sub>k</sub> > IWR × ( 1 + band )'],
-  ['min( 1, m<sub>k</sub> × ( 1 + raise ) )','prosperity rule on, and WR<sub>k</sub> < IWR × ( 1 − band ), and m<sub>k</sub> < 1'],
-  ['m<sub>k</sub>','otherwise, and always within the last N years of the projection']
-])}
-<p>The <strong>tripwire</strong> of year k is the start-of-year balance below which the same spending would trigger a cut next year:</p>
-${fpEq(`Tripwire<sub>k</sub> = ${fpFr('Draw<sub>k</sub>','IWR × ( 1 + band )')}`)}
-${fpWhere('A cut is decided exactly when B<sub>k</sub> is below the tripwire. The planner works in today\'s dollars, so a cut is a real-dollar cut; no inflation rule is needed. A trial or scenario counts as unfunded only when even the essential spending cannot be paid.')}
-
-<h3 id="f-wf">Household expense funding waterfall <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Household expense funding waterfall.</strong> The household's expenses are:</p>
-${fpEq(`Expenses = living expenses + LTC expense + IRMAA surcharge + AUM fee + income tax`)}
-${fpWhere('Living expenses is a flat today\'s-dollar amount (it switches to the 1st / 2nd LTC living expenses as each LTC starts). The LTC expense is the sum of the LTC costs (today\'s $) of each person whose LTC has started and who is still living; it is paid like every other expense. The IRMAA surcharge and income tax (tax drag: the year\'s Total Tax, plus state income tax when that assumption is on) are always household expenses. The AUM fee is charged on the portfolios whose AUM box is checked (below); the whole AUM fee is a household expense like the rest, so it is paid only by <em>Living expense &amp; income</em> portfolios.')}
-<p>They are paid in this order: (1) household income (wages, Social Security, pension, rental and its depreciation add-back, tax-exempt income, annuity payouts, IRA RMDs, portfolio withdraw); (2) the dividends (ODIV) of the <em>Living expense &amp; income</em> portfolios, shared pro rata, with any dividend not needed reinvested; (3) selling those portfolios\' assets, shared pro rata to balance; (4) if the portfolios are exhausted, withdrawing from pre-tax IRA, shared pro rata to the IRA balances; (5) then withdrawing from the Roth IRA, shared pro rata to the Roth balances, for whatever is still left. Each brokerage portfolio has a <em>Portfolio type</em>: <em>Living expense &amp; income</em> (the default) pays household expenses and receives excess income; an <em>IDGT</em> contributes neither dividends nor sales to household expenses, receives no excess income and reinvests all its dividends. Steps (3)–(5) are the built-in order; the <em>Expense shortfall withdrawal order</em> assumption replaces them with your own list (below).</p>
-${fpEq(
-  `Paid by income = min( Expenses, household income )`,
-  `Paid by dividends = min( Σ( ODIV + Distributed LTCG ), Expenses − Paid by income )`,
-  `Paid by asset sales = min( portfolio balances, Expenses − Paid by income − Paid by dividends )`,
-  `Paid by pre-tax IRA = min( pre-tax IRA balances, remaining expenses )`,
-  `Paid by Roth IRA = min( Roth IRA balances, remaining expenses )`,
-  `Shortfall = Expenses − Paid by income − Paid by dividends − Paid by asset sales − Paid by pre-tax IRA − Paid by Roth IRA`,
-  `Reinvested = max( 0, ODIV + Distributed LTCG − dividends used )`
-)}
-
-<h3 id="f-order">Expense shortfall withdrawal order <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Expense shortfall withdrawal order</strong> (Expenses panel, off by default). When it is on, steps (1) and (2) are unchanged, and steps (3)–(5) are replaced by your list of steps, tried top to bottom. Each step names one asset and takes what is still needed from it, never more than it can give; an asset that is not listed is never drawn on, and the shortfall left when the list is exhausted is unfunded. Tax follows the asset:</p>
-${fpEq(
-  `Need<sub>0</sub> = Expenses − Paid by income − Paid by dividends`,
-  `Portfolio step: sold = min( Need, balance after dividends and tax-exempt income )&emsp;→&emsp;LTCG = sold × gain share`,
-  `Pre-tax IRA step: withdrawn = min( Need, balance − RMD − conversion )&emsp;→&emsp;ordinary income`,
-  `Roth IRA step: withdrawn = min( Need, balance + conversion )&emsp;→&emsp;tax-free`,
-  `Property step (if Need &gt; 0): sell the whole property, proceeds = V<sub>start of year</sub>&emsp;→&emsp;gain = max( 0, V − exemption − basis ) is LTCG`,
-  `Need<sub>next step</sub> = Need − amount taken`
-)}
-${fpWhere('A property is sold whole, at the start of the year at its start-of-year value V, with the basis stepped up first if its owner has passed. The proceeds pay the shortfall, so the property step can cover more than is needed; what is left over (proceeds − Need) moves to the property\'s designated portfolio at a 100% basis and is in its balance from next year (with no portfolio able to take it, it leaves the model). The tax on the gain is an ordinary household expense, paid by the same waterfall and solved in the same tax ↔ LTCG iteration below. The gain is realized LTCG that year, so it uses the SCGL, the qualified brackets, NIIT and taxable Social Security like any other LTCG. A property whose own scheduled sale (age / LTC / passing) falls in the same year is left to that sale. An IDGT portfolio never pays expenses, so a step on one is skipped.')}
-<h3 id="f-last">Pre-tax IRA and Roth IRA as last resorts <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Pre-tax IRA and Roth IRA as last resorts.</strong> (This is the built-in order; see above for a custom one.) Only when household income, dividends and portfolio sales together cannot cover the year\'s expenses, the model withdraws from pre-tax IRA first and then from the Roth IRA. Each step is shared across the people\'s accounts pro rata to balance, and can never exceed what the account holds that year (the start-of-year balance after the RMD; a Roth conversion that year leaves the pre-tax IRA and arrives in the Roth IRA, so it is netted from the one and added to the other). It applies to accounts the household still holds: the owner\'s own account while alive, or an account inherited by the living spouse (not an account held by heirs under IRA stretch). The pre-tax IRA withdraw is ordinary income, taxed like the RMD, so it raises the tax expense and therefore the amount that has to be sold (the same fixed-point iteration below grosses it up). The Roth IRA withdraw is tax-free and does not enter AGI or MAGI; it is shown on the Annual Household Income chart as a tax-exempt band. Neither amount is household cash income, so neither can create excess income. The balances then roll forward as shown. No early-withdrawal penalty or age limit is modeled.</p>
-${fpEq(
-  `Pre-tax IRA withdraw<sub><em>j</em></sub> = remaining expenses × ${fpFr('(balance<sub><em>j</em></sub> − conversion<sub><em>j</em></sub>)','Σ (balance − conversion)')}&ensp;(never more than the account holds)`,
-  `Roth withdrawn<sub><em>j</em></sub> = remaining expenses × ${fpFr('(balance<sub><em>j</em></sub> + conversion<sub><em>j</em></sub>)','Σ (balance + conversion)')}`,
-  `pre-tax IRA balance<sub>next</sub> = ( balance − RMD − conversion − Pre-tax IRA withdraw ) × ( 1 + real growth )`,
-  `Roth IRA balance<sub>next</sub> = ( balance + conversion − Roth withdrawn ) × ( 1 + real growth )`
-)}
-
-<h3 id="f-pw">Portfolio withdraw <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Portfolio withdraw</strong> (Tax &amp; Optimizations panel, off by default). When enabled, every <em>Living expense &amp; income</em> portfolio (never an IDGT) sells each year as much as fits with taxable income staying within the LTCG bracket chosen on one slider (0%, 15%, or 20% = no limit). There are no start or end ages: a portfolio is used for as long as it is inside its own age range. The portfolios are taken in order, so a later one only gets the room an earlier one left. It is a sale whose proceeds are household cash income, so they are counted in step (1) of the funding order above, ahead of dividends and asset sales, and any excess is reinvested as below. The sale realizes LTCG on the portfolio's gain share exactly like any other sale. The qualified rates stack on top of ordinary income (IRC §1(h)), so ordinary taxable income and QDIV use up the 0% room first. It is solved after the Roth conversions, inside the same tax ↔ LTCG iteration.</p>
-${fpEq(
-  `Withdraw = largest W (at most balance after growth − tax-exempt income − other withdraws) such that&ensp;taxable ordinary income + taxable qualified income (QDIV + net LTCG) ≤ top of chosen LTCG bracket&ensp;(20% = no limit)`,
-  `Household income = wages + Social Security + pension + rental cash income + tax-exempt income + annuity payouts + IRA RMD + Σ withdraws`,
-  `LTCG realized = ( Sold + Withdraw ) × gain share`
-)}
-${fpWhere('Withdraw proceeds pay expenses before dividends or asset sales are touched, so a withdraw lowers the sales needed for expenses; when the proceeds exceed the year\'s expenses the difference is excess income and is reinvested at a 100% basis (into the same portfolio if it is the one reinvesting), which raises its cost basis. Dividends can only be used up to what the withdraw leaves in the portfolio.')}
-
-<h3 id="f-reinv">Reinvest excess income <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Reinvest excess income.</strong> When household income alone covers every expense, the part left over is <em>excess income</em>. It is reinvested at year-end into the <em>Living expense &amp; income</em> portfolios that are inside their age range, shared pro rata to their start-of-year balances. Because excess exists only when income covered all expenses, it never occurs in a year when dividends were used or shares sold. Only household cash income counts (wages, Social Security, pension, rental with its depreciation add-back, tax-exempt income, annuity payouts, IRA RMDs); the Roth-conversion amount is excluded because it moves to the Roth IRA. It is computed after the tax and expense calculation settles, so it does not change that year\'s tax. If there is no such portfolio, the excess simply leaves the model.</p>
-${fpEq(
-  `Excess income = max( 0, household income − Expenses )`,
-  `Reinvested into portfolio <em>j</em> = Excess income × ${fpFr('balance<sub><em>j</em></sub>','Σ balance of the Living expense &amp; income portfolios')}`,
-  `balance<sub>next</sub> = balance × ( 1 + real growth ) − dividends used − Sold − Tax-exempt income + Reinvested into portfolio`
-)}
-${fpWhere('Reinvested dividends and reinvested excess income are both after-tax money put in, so both add cost basis (see the roll-forward below). The money goes in at year-end, so it starts earning growth the following year, the same timing as the asset sales it mirrors.')}
-
-<h3 id="f-aum">AUM fee <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>AUM fee.</strong> The AUM balance is the sum of the start-of-year balances of every enabled, funded Living expense &amp; income brokerage portfolio inside its age range, and of every pre-tax IRA, Roth IRA and inherited IRA the household holds that year (an IRA is counted before that year\'s RMD or forced withdrawal), whose AUM box is checked (IDGT portfolios are never charged). The fee is a percentage of it, or a fixed dollar amount:</p>
-${fpEq(
-  `AUM balance = Σ balance<sub>i</sub> &ensp;(AUM box checked; Living expense &amp; income portfolios, IRAs, Roth IRAs, inherited IRAs)`,
-  `AUM fee = AUM balance × fee %&emsp;or&emsp;Fixed $ ÷ (1 + inflation)<sup>k</sup>`,
-  `share<sub>i</sub> = AUM fee × ${fpFr('balance<sub>i</sub>','AUM balance')}`
-)}
-<p>A fixed fee is entered in today\'s dollars for year 0 and held flat in nominal terms, so it shrinks in today\'s dollars as inflation compounds. The fee is split across the AUM accounts pro rata to balance, but it is one household expense: it is paid through the waterfall above, by the portfolios with <em>Pay expenses</em> checked — not by the account it is charged on unless that account also pays expenses (an IRA is never debited for it).</p>
-
-<h2 id="g-pf">Brokerage portfolios <a class="fp-top" href="#toc">↑ contents</a></h2>
-<h3 id="f-bal">Annual balance change <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Annual balance change.</strong></p>
-${fpEq(
-  `Δ balance = growth − ( dividends used + shares sold )`
-)}
-<p>Household income pays expenses first, so a portfolio is only drawn down when income falls short. A portfolio outside its age range just compounds: it pays no dividends and is not sold.</p>
-
-<h3 id="f-div">Dividends <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Dividends.</strong></p>
-${fpEq(
-  `ODIV = portfolio balance × ODIV yield %`,
-  `QDIV = ODIV × QDIV % of ODIV`
-)}
-<p><strong>Distributed LTCG.</strong> Each portfolio can also distribute capital gains (<em>Distributed LTCG</em>: a % of the balance, default 0%, or a fixed amount in today's $, which is already inflation-adjusted). It is realized long-term capital gain every year, whether or not shares are sold, so it is added to the LTCG that is taxed (before the SCGL shield). Like a dividend it is cash the portfolio pays out, so it is counted with the dividends in the funding waterfall: it can pay expenses, and what is not used is reinvested and adds cost basis.</p>
-${fpEq(
-  `Distributed LTCG = min( balance, balance × Distributed LTCG % )&emsp;or&emsp;min( balance, fixed amount )`,
-  `LTCG<sub>gross</sub> = &Sigma; portfolios ( shares sold × gain share + Distributed LTCG ) + property-sale gain`
-)}
-<h3 id="f-tex">Tax-exempt income <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Tax-exempt income.</strong> Each portfolio has a <em>Tax-exempt yield %</em> (default 0), e.g. municipal-bond interest. It is a share of the portfolio's total return that is paid out to the household every year while the portfolio is in its age range. The paid-out amount is untaxed — it is never part of AGI — but it is household income, so it is counted in total household income, pays expenses ahead of dividends and asset sales, and any excess is reinvested into the portfolios with <em>Reinvest excess income</em> checked, like the other income:</p>
-${fpEq(
-  `Tax-exempt income = portfolio balance × tax-exempt yield %`,
-  `balance<sub>next</sub> = balance × ( 1 + real growth ) − dividends used − Sold − Withdrawn − Tax-exempt income + Reinvested into portfolio`
-)}
-${fpWhere('Growth is total return, so, like dividends, the tax-exempt income is carved out of it: paying it out lowers the portfolio balance by the same amount (and it is capped at what the portfolio holds). It does not change cost basis. Unlike ODIV, an unspent amount is not automatically left in the portfolio — it is kept only if some portfolio has Reinvest excess income checked. Tax-exempt income is added to the provisional income used to tax Social Security and to the MAGI used for IRMAA (MAGI = AGI + tax-exempt income), as the tax rules require; it is not part of AGI, taxable income or the senior-deduction MAGI (which is AGI).')}
-
-<h3 id="f-b0">Starting cost basis <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Starting cost basis.</strong> The cost basis is entered as a percentage of the portfolio's start balance; a blank basis is treated as no unrealized gain today (100%):</p>
-${fpEq(`basis<sub>0</sub> = basis % × start balance`)}
-
-<h3 id="f-broll">Cost basis roll-forward, today's-dollar conversion and step-up at death <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Cost basis roll-forward.</strong> A cost basis is a fixed <em>nominal</em> dollar amount, but every figure here is in today's dollars, so each year the basis is first updated for what was sold and reinvested, then divided by ( 1 + inflation ). With <em>f</em> the gain fraction above, evaluated on the start-of-year value and basis:</p>
-${fpEq(
-  `Basis removed = ( Sold + Withdrawn ) × ( 1 − <em>f</em> ) = ( Sold + Withdrawn ) × ${fpFr('basis','value')}`,
-  `Basis added = Reinvested dividends + Reinvested excess income`,
-  `basis<sub>next</sub> = min( balance<sub>next</sub>,&ensp;max( 0,&ensp;${fpFr('basis − Basis removed + Basis added','1 + inflation')} ) )`
-)}
-${fpWhere('Sales remove basis in proportion to cost share (expenses paid from income or dividends remove none); reinvested dividends and excess income are after-tax money put in, so they add basis; the result is kept between $0 and the balance.')}
-<p><em>Today's-dollar conversion.</em> If <em>B</em><sub><em>t</em></sub> is the nominal basis in year <em>t</em> (a fixed amount that only changes by the sales and reinvestments above), the basis shown is:</p>
-${fpEq(
-  `basis<sub><em>t</em></sub> = ${fpFr('<em>B</em><sub><em>t</em></sub>','( 1 + inflation )<sup><em>t</em></sup>')}`,
-  `so one year later:&ensp;basis<sub><em>t</em>+1</sub> = ${fpFr('basis<sub><em>t</em></sub> − Basis removed + Basis added','1 + inflation')}`
-)}
-${fpWhere('The balance, in contrast, grows at the <em>real</em> growth rate (nominal growth deflated by inflation), so a portfolio that only grows with inflation keeps its balance flat in today\'s dollars while its basis shrinks by 1 ÷ ( 1 + inflation ) each year. That is why the unrealized gain share of a portfolio tends to rise over time.')}
-<p><em>Step-up at death.</em> At the start of the year, for a tracked portfolio that has not been stepped up before (it happens once):</p>
-${fpPw('basis',[
-  ['value','if the step-up applies'],
-  ['basis','otherwise (always for an IDGT)']
-])}
-${fpWhere('The step-up applies in the first year that the owner has passed and the portfolio continues to the surviving spouse (<em>Joint owned with spouse</em>), or the portfolio is jointly owned and the spouse has passed first. An IDGT keeps its original carryover basis.')}
-${fpWhere('For a jointly owned portfolio the whole balance is stepped up at either spouse\'s passing (as for community property; non-community joint tenancy would step up only half). A portfolio that does not continue to a spouse is gone when its owner passes. Property still held at the last passing is stepped up to value for the legacy years; its basis then erodes with inflation:')}
-${fpEq(
-  `value<sub><em>n</em></sub> = <em>V</em> × ( 1 + <em>g</em> )<sup><em>n</em></sup>`,
-  `basis<sub><em>n</em></sub> = min( value<sub><em>n</em></sub>,&ensp;${fpFr('<em>V</em> × ( 1 + <em>g</em> )','( 1 + inflation )<sup><em>n</em>−1</sup>')} )`
-)}
-${fpWhere('<em>V</em> is the balance at the last passing, <em>g</em> the portfolio\'s real growth rate and <em>n</em> = 1, 2, … the legacy years after it.')}
-<h3 id="f-ltcg">Realized long-term capital gains (LTCG) <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Realized LTCG</strong> (automatic, for every portfolio). Selling shares to cover the shortfall realizes the portfolio's unrealized-gain share:</p>
-${fpEq(
-  `gain fraction <em>f</em> = max( 0,&ensp;${fpFr('value − basis','value')} )`,
-  `LTCG = ( Sold + Withdrawn ) × <em>f</em>`
-)}
-<h3 id="f-circ">Tax ↔ LTCG circularity <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Tax ↔ LTCG circularity.</strong> Income tax is an expense, so selling shares to pay it realizes more LTCG, which raises the tax. The model solves this by fixed-point iteration each year: start from last year's tax (federal + state), run the waterfall, recompute the tax, and repeat until the tax moves by less than half a cent (at most 60 rounds; typically 6–8):</p>
-${fpEq(
-  `T<sub>0</sub> = prior-year Total Tax`,
-  `T<sub>n+1</sub> = Tax( LTCG, IRA withdraw ( Waterfall( living + LTC + IRMAA + AUM fee + T<sub>n</sub> ) ) )`,
-  `stop when |T<sub>n+1</sub> − T<sub>n</sub>| &lt; $0.005`
-)}
-<p>Each extra dollar of tax creates well under a dollar of new tax (only the gain share of a sale is LTCG, taxed at no more than about 24% with NIIT; a pre-tax IRA dollar is taxed at the ordinary rate, plus the Social Security torpedo, which stays below 100%), so the map is a contraction and converges. When pre-tax IRA is being withdrawn it converges more slowly, which is why the cap is 60 rounds. The Suspended Capital-Gain Loss (SCGL) pool is drawn down once, after the iteration settles.</p>
-
-<h3 id="f-swap">Asset / basis swap <a class="fp-top" href="#toc">↑</a></h3>
-<p><em>Asset / basis swap</em> (Tax &amp; Optimizations panel, off by default). A living-expense portfolio and an IDGT trade assets of equal value; the basis moves in proportion to the assets traded, so total basis and both balances are unchanged:</p>
-${fpEq(
-  `<em>S</em> = min( <em>V</em><sub>L</sub>,&ensp;<em>V</em><sub>I</sub> )&emsp;&emsp;<em>r</em><sub>L</sub> = ${fpFr('basis<sub>L</sub>','<em>V</em><sub>L</sub>')}&emsp;&emsp;<em>r</em><sub>I</sub> = ${fpFr('basis<sub>I</sub>','<em>V</em><sub>I</sub>')}`,
-  `basis<sub>L</sub> ← basis<sub>L</sub> − <em>S</em> × ( <em>r</em><sub>L</sub> − <em>r</em><sub>I</sub> )`,
-  `basis<sub>I</sub> ← basis<sub>I</sub> + <em>S</em> × ( <em>r</em><sub>L</sub> − <em>r</em><sub>I</sub> )`
-)}
-${fpWhere('<em>V</em><sub>L</sub> and <em>V</em><sub>I</sub> are the values of the living portfolio and the IDGT; the swap is made only where <em>r</em><sub>I</sub> &lt; <em>r</em><sub>L</sub> (the IDGT\'s assets have the lower basis %), lowest-basis IDGT first. It is done at the start of the year (A) after the first passing, when a living portfolio\'s basis has just stepped up (married; no setting), and (B) the number of years you enter before the last passing (single or married). A swap is between portfolios held by the same person: a portfolio is held by its owner while alive and, once the owner has passed, by the spouse if its <em>Joint owned with spouse</em> box is checked (otherwise it is gone and cannot be swapped). The living portfolio then holds the low-basis assets (which step up at the last passing) and realizes more gain if it sells to pay expenses. The asset charts report the unrealized gain remaining at the end of the scenario.')}
-<h3 id="f-adisp">Asset Value chart withdraw cost (display only) <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Asset Value chart withdraw cost (display only).</strong> Two slider pairs shrink the plotted bands toward an after-tax value; they never change the projection. The first pair applies to the years up to the last passing, the second pair to the stretch years after it; all four default to 0%:</p>
-${fpEq(
-  `brokerage band = balance − LTCG withdraw cost % × unrealized gain`,
-  `pre-tax IRA band = balance × ( 1 − ordinary income withdraw cost % )`,
-  `annuity band = balance − ordinary income withdraw cost % × taxable part of the balance`,
-  `Roth IRA band = balance   (no withdraw cost)`,
-  `real estate band = value   (no withdraw cost slider is applied)`
-)}
-<p>Because the withdraw cost removes a share of the gain but leaves basis untouched, a 100% LTCG withdraw cost puts the top of the brokerage band exactly at cost basis. Each brokerage portfolio has its own dashed cost-basis line inside its band (a portfolio\'s basis steps up when its own owner passes, or when the spouse passes if it is jointly owned, so each line steps at its own time). The dashed cost-basis line is therefore drawn only in years where the applicable LTCG withdraw cost is 0%; at any LTCG withdraw cost above 0% the line is removed (and so is its legend key).</p>
-
-<h2 id="g-re">Real estate <a class="fp-top" href="#toc">↑ contents</a></h2>
-<h3 id="f-re">Real estate <a class="fp-top" href="#toc">↑</a></h3>
-<p>Each person can hold any number of properties (Add / Remove on the Real estate card). A property is a passive asset: it has no dividends, tax-exempt income, foreign tax credit, AUM fee or portfolio type, is never sold to pay expenses unless the <em>Expense shortfall withdrawal order</em> assumption lists it, and so has no effect on income, expenses or tax until it is sold (the optional Sell setting, below, or a shortfall sale). Its value is entered in today's dollars; the app computes no tax on it unless it is sold. Let <em>V</em> be the start-of-year value, the amount plotted on the Asset Value chart:</p>
-${fpEq(
-  `V<sub>0</sub> = value entered`,
-  `V<sub>next</sub> = V × ( 1 + real growth )`
-)}
-${fpWhere('Real growth follows the Annual change setting, in today\'s dollars: Tracks inflation = 0%; Inflation ± X% = X% ÷ ( 1 + inflation ); Custom annual % = ( 1 + X% ) ÷ ( 1 + inflation ) − 1; Fixed $ = 1 ÷ ( 1 + inflation ) − 1. The default is Tracks inflation, so the value stays flat in today\'s dollars.')}
-<p><strong>Cost basis.</strong> The basis is entered in today's dollars (a blank basis is treated as no unrealized gain today, and a basis above the value is capped at the value). Like a portfolio's basis it is a fixed nominal amount, so it erodes with inflation, and the unrealized gain and the basis % shown in the Asset Value popup follow from it:</p>
-${fpEq(
-  `basis<sub>0</sub> = cost basis entered   (blank = <em>V</em><sub>0</sub>;&ensp;at most <em>V</em><sub>0</sub>)`,
-  `basis<sub>next</sub> = ${fpFr('basis','1 + inflation')}`,
-  `unrealized gain = max( 0,&ensp;<em>V</em> − basis )`,
-  `basis % = ${fpFr('basis','<em>V</em>')}`
-)}
-<p>When the owner passes and the property is <em>Joint owned with spouse</em>, the surviving spouse keeps it and its basis steps up to its value (gain becomes $0); a jointly owned property also steps up when the spouse passes first (full step-up); otherwise the property leaves the scenario at that point. A property still held at the last passing carries on through the post-passing years like a non-IDGT portfolio: its basis is stepped up to value at the passing and then erodes with inflation.</p>
-<p><strong>Selling a property (optional).</strong> Each property has a Sell setting: <em>Never</em> (default), <em>When the last person starts LTC</em> (the year the later of the people\'s LTC start ages is reached; never if long-term care is off), <em>At the last person\'s passing</em> (sold at the start of the final year, already stepped up), or <em>At an age</em> (the first year the owner is at least that age). A sale follows three steps, in this order:</p>
-${fpEq(
-  `1. Basis = V if the owner has passed, or the spouse has passed and the property is jointly owned (stepped up at that passing), else the cost basis`,
-  `2. Gain = max( 0,&ensp;V − exemption × owners alive − basis ) is realized LTCG that year;&ensp;Sale tax = (TT + state tax)<sub>with the gain</sub> − (TT + state tax)<sub>without it</sub>&ensp;(the state part is 0 unless State income tax is on; California taxes the gain as ordinary income, Washington\'s capital-gains tax excludes real estate, so it adds nothing there)`,
-  `3. Forwarded to the designated portfolio: V − Sale tax, with a cost basis of the same amount (100%)`
-)}
-${fpWhere('V is the value at the sale. The exemption is the per-owner amount entered on the property (for example the $250,000 home-sale exclusion). It is a fixed nominal amount, so like the cost basis it erodes with inflation in today\'s dollars (the amount entered ÷ (1 + inflation)<sup>years</sup>), and it is counted for each owner alive that year: the owner, plus the spouse when the property is jointly owned. The gain goes through the household\'s tax like portfolio LTCG (SCGL shield first, then the qualified brackets, NIIT and the Social Security effect), so the sale tax is the extra tax it causes; that tax is paid out of the sale, not by household expenses. An age or LTC sale is made at the end of its year at that year\'s end value, so the portfolio has the money from the next year; a passing sale is at the start of the final year with no gain. The designated portfolio is the one chosen on the property, else the owner\'s first non-IDGT portfolio, then the spouse\'s (if none can receive it, the property is kept). A jointly owned property is sold only while the owner or the spouse is alive.')}
-<p><strong>Asset Value chart.</strong> Real estate is stacked above the brokerage portfolios and below the IRAs. It is not reduced by either withdraw cost slider. The dotted cost-basis line inside each property's band plots at:</p>
-${fpEq(`line height = top of everything stacked below the band + basis`)}
-<p>so it sits at the basis % of the way up the band, and the part of the band above it is the unrealized gain.</p>
-
-<h2 id="g-mc">Monte Carlo simulation and chart rates <a class="fp-top" href="#toc">↑ contents</a></h2>
-<h3 id="f-mkt">Market return and inflation charts <a class="fp-top" href="#toc">↑</a></h3>
-<p>The projection works in today's dollars, so each asset grows at a <em>real</em> rate. The <strong>Market return %</strong> chart converts it back to the nominal return you would see on a statement, for every portfolio, IDGT, pre-tax IRA, Roth IRA, inherited IRA and property in the years it is in the scenario.</p>
-${fpEq(
-  `nominal return<sub>k</sub> = ( 1 + real growth<sub>k</sub> ) × ( 1 + inflation<sub>k</sub> ) − 1`
-)}
-${fpWhere('Real growth<sub>k</sub> is the growth rate the projection actually used in year k. In the scenario it is flat (for example "inflation + 4%" at 3% inflation shows as 7.1%); in a Monte Carlo trial it includes that year\'s market shock, and inflation<sub>k</sub> is the trial\'s drawn rate. The <strong>Inflation rate</strong> chart shows inflation<sub>k</sub>: the scenario\'s constant rate, and the trial\'s yearly rate while a trial is loaded.')}
-<p><strong>5-year centred average</strong> (thick lines on both charts).</p>
-${fpEq(
-  `average<sub>k</sub> = ${fpFr('1','n<sub>k</sub>')} × Σ<sub>j = k−2 … k+2</sub> value<sub>j</sub>`
-)}
-${fpWhere('The sum runs over the years j in that window that have a value and are inside the projection, and n<sub>k</sub> is how many there are (5 in the middle, fewer in the first and last two years, or where an asset is not in the scenario). With all assets shown, the Market return chart draws only these averages; with one asset it draws that asset\'s yearly return too. The Inflation chart draws the trial\'s average beside its yearly line. The averages are display only: nothing in the projection uses them.')}
-<h3 id="f-mc">Monte Carlo trials <a class="fp-top" href="#toc">↑</a></h3>
-<p>The Monte Carlo card re-runs the whole projection many times on a private copy of the scenario. Every trial is derived from the seed and the trial number, so the same seed gives the same trials; a part switched off uses the scenario\'s own figure. With every part off a trial equals the scenario exactly. Nothing here changes the scenario\'s own calculations.</p>
-<p><strong>Returns.</strong> Every growth rate is multiplied each year by a lognormal factor whose average is exactly 1, so the average return is the one entered and only the spread is added.</p>
-${fpEq(
-  `factor = exp( σ × z − σ² ÷ 2 )`,
-  `z = √ρ × z<sub>market</sub> + √( 1 − ρ ) × z<sub>own</sub>&emsp;(equity-like assets);&emsp;z = z<sub>real estate</sub>&emsp;(property)`
-)}
-${fpWhere('σ is the equity volatility (or the real estate volatility for property), ρ the correlation of each portfolio with the market shock, and each z an independent standard normal draw per year.')}
-<p><strong>Lifespans.</strong> Each person\'s passing age is drawn from a Gompertz survival curve conditional on being alive today, capped at 110; it replaces the "passes at age" setting.</p>
-${fpEq(
-  `P( alive at age t | alive at age a ) = exp( − e<sup>(a − m) ÷ b</sup> × ( e<sup>(t − a) ÷ b</sup> − 1 ) )`
-)}
-${fpWhere('m is the modal age at death and b the spread (years), both set in the card.')}
-<p><strong>Long Term Care.</strong> A person needs care with the entered probability, not before 65 and only if they live past the start. Years of care are lognormal around the entered median and end at passing; the annual cost is the scenario\'s cost times a mean-1 lognormal factor. This replaces every LTC card, including an inheritance source\'s.</p>
-<p><strong>Inflation.</strong> Yearly inflation follows an AR(1) process around the scenario\'s rate, limited to the range −2% to 12%:</p>
-${fpEq(
-  `inflation<sub>k</sub> = scenario rate + φ × ( inflation<sub>k−1</sub> − scenario rate ) + σ<sub>π</sub> × z<sub>k</sub>`
-)}
-${fpWhere('φ is the persistence and σ<sub>π</sub> the yearly volatility (percentage points). Because the projection is in today\'s dollars and Social Security COLA and indexed brackets follow inflation, this moves only what is fixed in nominal dollars: a pension without COLA, un-indexed tax thresholds, cost basis, depreciation, a home-sale exclusion and any growth entered as a fixed or custom nominal rate. Growth entered as "inflation ± X%" keeps its real rate.')}
-<p><strong>Inheritance.</strong> Each source plan gets its own lifespan, care and the household\'s market shocks, using the table of that plan\'s asset values stored at import. The asset arrives in the year that plan\'s last person passes, scaled by (value from the table ÷ the plan\'s own value), then reduced by the haircut %.</p>
-<p><strong>Result.</strong> A trial <em>stays funded</em> when no year has more than $1 of unpaid expenses (the same condition as the UNFUNDED tag). Success rate = trials that stayed funded ÷ all trials. Each failure is given one main cause, by a fixed order of priority, and the risk-factor table compares the failure rate with and without each factor. Not random: Social Security and pension amounts, and tax law.</p>
-
-<h3 id="f-panic">Systemic panic (correlation convergence) <a class="fp-top" href="#toc">↑</a></h3>
-<p><strong>Systemic panic</strong> (optional). In a <em>panic year</em> the correlation between assets rises. A year is a panic year when its market shock is below the trigger t (for example −1.5), or when one of the previous H − 1 years was (H is how long the panic lasts):</p>
-${fpEq(
-  `ρ<sub>k</sub> = max( ρ, ρ<sub>panic</sub> ) &ensp;(panic year);&emsp;ρ<sub>k</sub> = ρ &ensp;(other years)`,
-  `z = √ρ<sub>k</sub> × z<sub>market</sub> + √( 1 − ρ<sub>k</sub> ) × z<sub>own</sub>`
-)}
-${fpWhere('With the option set, property uses ρ<sub>re</sub> instead of 0 in a panic year (z = √ρ<sub>re</sub> × z<sub>market</sub> + √( 1 − ρ<sub>re</sub> ) × z<sub>re</sub>) and 0 otherwise. ρ here is the correlation of the factor model; measured only inside crash years it looks lower, because a large market drop leaves less market variance to share.')}
-<p>Because ρ now depends on the market shock, z is no longer a standard normal and the factor above would no longer average 1. The factor is therefore divided by its exact average, so the average return stays the one entered:</p>
-${fpEq(
-  `factor = ${fpFr('exp( σ × z )','M<sub>k</sub>')}`,
-  `M<sub>k</sub> = e<sup>σ² ÷ 2</sup> × [ u × ( Φ( t − σ√ρ<sub>panic</sub> ) + 1 − Φ( t − σ√ρ ) ) + ( 1 − u ) ]`
-)}
-${fpWhere('Φ is the standard normal distribution function and u = ( 1 − Φ(t) )<sup>min( k, H − 1 )</sup> the chance that no earlier year of the window was a panic year. With the option off, M = e<sup>σ² ÷ 2</sup> and the factor is the one above.')}
-
-<h2 id="g-chat">Chat what-if scenarios <a class="fp-top" href="#toc">↑ contents</a></h2>
-<h3 id="f-chatrun">How a scenario is run <a class="fp-top" href="#toc">↑</a></h3>
-<p>The chat model never calculates. It names <em>levers</em> (for example "Person 1 claims Social Security at 70"); the app applies them to a private copy of your scenario and runs the same projection as the main charts. Your scenario as entered is run alongside for comparison, and your inputs are not touched. A lever is shown as <strong>ignored</strong> when it cannot apply (for example the person already collects Social Security, or has no pre-tax IRA to convert) and as <strong>no effect</strong> when it applied but none of the following changed against your scenario, in any year: total tax, total expenses, Social Security, IRA distributions, Roth conversions, MAGI, unfunded expenses, dividends, realized gains, investable assets, real estate. With several levers in one scenario each lever is also tested alone.</p>
-<h3 id="f-chatlev">How the levers change the scenario <a class="fp-top" href="#toc">↑</a></h3>
-<p>Each lever sets every field the planner needs together, so it cannot be silently ignored. The arithmetic ones:</p>
-${fpEq(
-  `living<sub>new</sub> = living × ( 1 + p ÷ 100 ) &ensp;(a percent change p)`,
-  `growth<sub>new</sub> = growth + Δ &ensp;(returns lever, Δ in percentage points)`
-)}
-${fpWhere('The returns lever adds Δ to each enabled asset\'s growth setting: "inflation" becomes "inflation + Δ", "inflation ± x" becomes "inflation ± ( x + Δ )", "custom" x % becomes ( x + Δ ) %, and a flat setting becomes Δ %. All assets are shifted unless the lever names a type.')}
-<p><strong>Roth conversion lever.</strong> A fixed amount sets the IRA's mode to fixed and the amount in today's dollars a year, turns the Roth IRA on if the conversion needs it, and, if given, sets the start age; bracket mode sets the ordinary-bracket and IRMAA limits (snapped to the stops the card offers). There is no end age: conversions continue while the IRA has a balance.</p>
-<p><strong>Market stress lever.</strong> The planner works in today's dollars, so a nominal return r in a year with inflation π enters as the real rate, and a share s of each asset (not real estate) takes the stress path while the rest keeps the scenario's own nominal rate:</p>
-${fpEq(
-  `real return = ${fpFr('1 + nominal','1 + π')} − 1`,
-  `nominal = s × r<sub>stress</sub> + ( 1 − s ) × nominal<sub>scenario</sub>`
-)}
-${fpWhere('The path starts in the first year without wages (or now). Lost Decade is the actual S&amp;P 500 total return 2000 to 2009, 1966 retiree is 1966 to 1981 with actual CPI, stagflation is flat nominal stocks with inflation rising linearly, and custom is the list of yearly returns you give.')}
-<p><strong>Market path and the combined run.</strong> A market path is a list of yearly nominal stock returns r<sub>k</sub> (and optionally yearly inflation π<sub>k</sub>) placed on the projection from its start row. A year with no inflation of its own uses the scenario's inflation; after the list the optional long-run return and inflation apply to the end of the scenario, and without them the scenario's own rates do. Each asset except real estate earns nominal = s × r<sub>k</sub> + ( 1 − s ) × nominal<sub>scenario</sub> with s the equity share, exactly the lever above. In <em>Run stress tests + Monte Carlo</em> a trial inside the path's years takes r<sub>k</sub> (and π<sub>k</sub> where the path sets one) in place of the random draw; outside those years, for property, and for lifespans, Long Term Care and inheritance the trial's own random draws stand. With every random group off the trial equals the plain stress test.</p>
-<h3 id="f-chatkpi">Headline numbers <a class="fp-top" href="#toc">↑</a></h3>
-<p>All amounts are in today's dollars; a difference is scenario minus your scenario.</p>
-<table><thead><tr><th>Number</th><th>Definition (year k = 1 … last projected year)</th></tr></thead><tbody>
-<tr><td>Assets at the end</td><td>Investable assets in the last year (portfolios, IDGT, pre-tax IRA, Roth IRA and inherited IRAs, positive balances) plus real estate, after tax counting exempt gains</td></tr>
-<tr><td>Lifetime federal income tax</td><td>Σ TT<sub>k</sub>, the federal income tax including NIIT; state tax and the IRMAA surcharge are not included</td></tr>
-<tr><td>Federal tax + IRMAA per year (chart)</td><td>TT<sub>k</sub> + IRMAA surcharge<sub>k</sub>; the cumulative chart is the running sum</td></tr>
-<tr><td>Highest IRMAA surcharge</td><td>The largest yearly IRMAA surcharge</td></tr>
-<tr><td>Moved by IRA withdraws and conversions</td><td>Σ Roth conversions and annual IRA withdraws<sub>k</sub> (not RMDs)</td></tr>
-<tr><td>Lifetime Social Security</td><td>Σ household Social Security<sub>k</sub> (before tax)</td></tr>
-<tr><td>Expenses left unfunded</td><td>Σ of the expenses no source could pay; <em>years</em> counts years above $1; <em>first age</em> is the first such year</td></tr>
-<tr><td>Lowest total assets</td><td>The minimum over k of investable assets plus real estate, and the age it occurs</td></tr>
-</tbody></table>
-<p class="fp-src">Ages in these charts are the older person's age, as in the main charts.</p>
-<h3 id="f-llm">Scenarios from an outside LLM and the live bridge <a class="fp-top" href="#toc">↑</a></h3>
-<p>An outside LLM (a file you pasted, an MCP host such as Claude Desktop, or the chat with any provider) never calculates either. Every scenario it proposes is checked against the same limits as the chat's levers and market paths (unknown names, extra fields and out-of-range numbers are refused), run by the same projection on a private copy of your scenario, and listed as a <strong>proposal</strong> with the change against your scenario in the headline numbers above. Nothing reaches the scenario until you click a button on it. The words the exported file uses for the numbers (funded, final assets, lifetime tax, IRMAA, stress, Monte Carlo, scenario version) are the definitions on this page.</p>
-<p><strong>Scenario version and "stale".</strong> A short fingerprint of the scenario (inputs only, not the card settings) is stored with every result. When the scenario changes, results made earlier are marked <em>stale</em> and are not replayed as if they matched. Every tool result also carries the current version, and the first result after an edit lists which inputs changed (paths only, no values) with the scenario's headline numbers before and after, so the LLM does not keep quoting figures from the old scenario.</p>
-<p><strong>Live bridge</strong> (<em>still in development</em>; the wording of its messages and prompts may change, the arithmetic does not). While connected, the MCP server receives your whole plan (the same content as Save) after each edit and calculates on that copy, so its numbers are the ones this page would show for the scenario on screen. It can only ask the page to show a market path in the charts or to add proposals; each kind asks you first. Showing a path replays it like the stress test view, with the same arithmetic as <em>Market path and the combined run</em> above.</p>
-
+${fpSecReference()}
+${fpSecIncome()}
+${fpSecRetirement()}
+${fpSecTax()}
+${fpSecExpenses()}
+${fpSecPortfolio()}
+${fpSecSimulation()}
 <hr style="margin:32px 0;border:none;border-top:1px solid #ddd;">
 <p class="fp-src">This page is a snapshot — it does not update if you keep changing inputs in the main app tab. Close and reopen it (via the Formulas button) any time you want a fresh copy.</p>
 </body></html>`;

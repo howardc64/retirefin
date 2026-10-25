@@ -2,8 +2,7 @@
 //   node tests/xlsx_e2e/write_workbook.js <plan.json> <out.xlsx> ['{"guardrail":{...},"medShock":{...}}']     (needs: npm i xlsx, e.g. NODE_PATH=/tmp/xl/node_modules)
 const fs=require('fs'), vm=require('vm'), path=require('path');
 const root=path.resolve(__dirname,'..','..'), XLSX=require('xlsx');
-const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-const scripts=[...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m=>m[1]).filter(s=>!/^https?:/.test(s));
+const scripts=require('../../server/scripts.js').browserScripts(root);   // index.html order (server/scripts.js)
 const src=fs.readFileSync(path.join(root,'tests/mc/xlsx_trial_test.js'),'utf8');
 const i0=src.indexOf('const els={};'), i1=src.indexOf('const colL=');
 const i2=src.indexOf('const store={};'), i3=src.indexOf('vm.createContext(ctx);');

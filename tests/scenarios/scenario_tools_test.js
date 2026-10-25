@@ -104,7 +104,7 @@ ok(!sh('lev:r1').ok,'scShow: a what-if run is refused');
 ok(call('delete_scenario',{ref:'scenario B'}).isError&&/user's own/.test(call('delete_scenario',{ref:'scenario B'}).response.error),'a tool cannot delete the user\'s scenario');
 run(ctx,"state.ui=state.ui||{}; state.ui.marketPaths=[msClone(msList()[0])]; state.ui.marketPaths[0].id='saved-one'; state.ui.marketPaths[0].label='Saved one'; state.ui.marketPaths[0].source='user';");
 ok(call('delete_scenario',{ref:'market Saved one'}).isError,'a tool cannot delete the user\'s saved market scenario');
-ok(!call('delete_scenario',{ref:'lev:r1'}).isError&&!J('Object.keys(apiRuns)').includes('r1')&&!J('rrListRuns().map(r=>r.id)').includes('lev:r1')&&!call('list_scenarios',{}).response.scenarios.some(p=>p.ref==='lev:r1'),'deleting a what-if run forgets it everywhere');
+ok(!call('delete_scenario',{ref:'lev:r1'}).isError&&!J('Object.keys(API_STORE.runs)').includes('r1')&&!J('rrListRuns().map(r=>r.id)').includes('lev:r1')&&!call('list_scenarios',{}).response.scenarios.some(p=>p.ref==='lev:r1'),'deleting a what-if run forgets it everywhere');
 ok(!call('delete_scenario',{ref:'st:stag'}).isError&&!call('list_scenarios',{}).response.scenarios.some(p=>p.ref==='st:stag')&&J('rrListRuns().map(r=>r.id)').includes('st:stag')===false,'deleting a stress row hides it from the plan list and the run list');
 ok(J('stResults.results.some(r=>r.id==="stag")'),'…without touching the card\'s own results');
 ok(!call('delete_scenario',{ref:'mc earliestFailure'}).isError&&call('list_scenarios',{}).response.scenarios.filter(p=>p.kind==='mc_trial').length===call('list_scenarios',{kinds:['mc_trial']}).response.scenarios.length,'deleting an exemplar trial hides it');

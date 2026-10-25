@@ -5,11 +5,13 @@
 // a given person. The UI for editing this spec lives in input/controls.js.
 // ═══════════════════════════════════════════════════════════════
 // where "now"->current age, "passing"->that person's passing age, "rmd"->that person's RMD age.
-function resolveAgeRange(ar, person){
-  const start = ar.startMode==='now' ? currentAge(person)
-    : ar.startMode==='rmd' ? rmdAgeForBirthYear(person.birthYear, person.birthMonth)
-    : ar.startVal;
-  const end = ar.endMode==='passing' ? state.passing[person.id]
-    : ar.endVal;
-  return[start,end];
+function resolveAgeRange(ar, person) {
+  const start =
+    ar.startMode === 'now'
+      ? currentAge(person)
+      : ar.startMode === 'rmd'
+        ? rmdAgeForBirthYear(person.birthYear, person.birthMonth)
+        : ar.startVal;
+  const end = ar.endMode === 'passing' ? state.passing[person.id] : ar.endVal;
+  return [start, end];
 }

@@ -98,7 +98,7 @@ const specs=J('rrProposals().map(rrProposalSpec)'); ok(specs.map(s=>s.kind).join
 run(ctx,'rrProposalsClear()'); ir=imp({schema:'planner.scenarios/1',scenarios:specs}); ok(ir.accepted.length===2,'the converted specs import again (round trip)');
 ir=imp({schema:'planner.scenarios/1',scenarios:[{kind:'stress',label:'bad',config:{med:{enabled:true}}},{kind:'stress',label:'x',config:{equityShare:'a lot'}},{kind:'montecarlo',label:'big',config:{trials:9000}},{kind:'montecarlo',label:'extra',nope:1},{kind:'stress',label:'allOff',config:{lost:{enabled:false},stag:{enabled:false},y1966:{enabled:false},custom:{enabled:false}}}]});
 ok(ir.accepted.length===0&&ir.rejected.length===5,'invalid stress / Monte Carlo imports are rejected with reasons: '+ir.rejected.map(x=>x.errors[0]).join(' | ').slice(0,200));
-run(ctx,'rrProposalsClear()'); await waitFor(()=>J('RJ_JOBS.every(j=>j.status!=="running"&&j.status!=="queued")'));
+run(ctx,'rrProposalsClear()'); await waitFor(()=>J('RJ.jobs.every(j=>j.status!=="running"&&j.status!=="queued")'));
 const b=J("rrBuildBundle({tier:'summary'})"); ok(b.settingsCatalog&&b.settingsCatalog.montecarlo.some(x=>/returns\.volEquity/.test(x))&&/"kind":"stress"/.test(b.instructions)&&/montecarlo/.test(b.instructions),'the analysis file documents the stress and Monte Carlo settings and import kinds for the LLM');
 ok(b.runs.some(x=>x.id.startsWith('mcj:')),'tool-started jobs are included in the export');
 ok(run(ctx,'JSON.stringify(state)')===before,'after all of the above the plan is byte-identical');

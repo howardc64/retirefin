@@ -7,14 +7,19 @@
 
 // Real (today's-dollar) annual growth rate implied by a "change" spec.
 // change = {mode:'fixed'|'inflation'|'offset'|'custom', value:number(percent)}
-function realGrowth(change, inflation){
-  if(!change) return 0;
-  switch(change.mode){
-    case 'fixed': return 1/(1+inflation)-1; // nominal 0% growth, so it erodes with inflation
-    case 'inflation': return 0;
-    case 'offset': return (change.value||0)/100/(1+inflation); // nominal = inflation + offset
-    case 'custom': return (1+(change.value||0)/100)/(1+inflation)-1;
-    default: return 0;
+function realGrowth(change, inflation) {
+  if (!change) return 0;
+  switch (change.mode) {
+    case 'fixed':
+      return 1 / (1 + inflation) - 1; // nominal 0% growth, so it erodes with inflation
+    case 'inflation':
+      return 0;
+    case 'offset':
+      return (change.value || 0) / 100 / (1 + inflation); // nominal = inflation + offset
+    case 'custom':
+      return (1 + (change.value || 0) / 100) / (1 + inflation) - 1;
+    default:
+      return 0;
   }
 }
 
@@ -23,1351 +28,2760 @@ function realGrowth(change, inflation){
 // identical to before. During a Monte Carlo trial it is set to f(g, key, k) -> the real growth rate for
 // that asset (`key`) in year row `k`. It MUST be a pure function of (key, k) within one trial: the engine
 // evaluates the same year's growth several times (tax <-> LTCG iterations).
-let MC_HOOK=null;
+let MC_HOOK = null;
 // REC_RATES / GROWTH_REC: computeProjection() also records the real growth rate every asset actually got in each year (proj.rates[k][key]) for the Market return chart.
 // Monte Carlo trials switch recording off (mcRunTrial) except a replay, so thousands of trials do not pay for it.
-let REC_RATES=true, GROWTH_REC=null;
-function gk(g,key,k,ch){ const v=MC_HOOK?MC_HOOK(g,key,k,ch):g; if(GROWTH_REC){ (GROWTH_REC[k]||(GROWTH_REC[k]={}))[key]=v; } return v; }   // ch = the Change spec the rate came from (the hook re-prices 'fixed' / 'custom' nominal rates by the year's actual inflation)
+let REC_RATES = true,
+  GROWTH_REC = null;
+function gk(g, key, k, ch) {
+  const v = MC_HOOK ? MC_HOOK(g, key, k, ch) : g;
+  if (GROWTH_REC) {
+    (GROWTH_REC[k] || (GROWTH_REC[k] = {}))[key] = v;
+  }
+  return v;
+} // ch = the Change spec the rate came from (the hook re-prices 'fixed' / 'custom' nominal rates by the year's actual inflation)
 // MC_INFL = null normally. In a Monte Carlo trial: {pi: inflation rate of year k, cpi: price level at the START of year k (cpi[0]=1)}.
 // cpiAt/infAt replace every `(1+inflation)^k` and per-year `/(1+inflation)` in the engine, so fixed-dollar items (no-COLA pension, un-indexed
 // thresholds, cost basis, depreciation, fixed AUM fee, home-sale exemption) follow the random price level. With MC_INFL=null they equal the old constant-rate formulas.
-let MC_INFL=null;
+let MC_INFL = null;
 // withEngineHooks(hook, infl, record, fn): the ONE way to run computeProjection() under a market / inflation overlay. Sets MC_HOOK / MC_INFL / REC_RATES, runs fn(), and always puts them
 // back (MC_HOOK and MC_INFL to null, REC_RATES to true), so a stress test, a Monte Carlo trial, a chat scenario or an outside (MCP) client can never leave a hook behind.
-function withEngineHooks(hook, infl, record, fn){
-  MC_HOOK=hook||null; MC_INFL=infl||null; REC_RATES=!!record;
-  try{ return fn(); } finally{ MC_HOOK=null; MC_INFL=null; REC_RATES=true; }
-}
-function cpiAt(k,inflation){ return MC_INFL?MC_INFL.cpi[k]:Math.pow(1+inflation,k); }
-function infAt(k,inflation){ return MC_INFL?MC_INFL.pi[k]:inflation; }
-// Today's-$ multiplier of an amount after k years for a Change spec; nominal-fixed modes ('fixed', 'custom') follow the actual price level.
-function growIdx(change,g,k,inflation){
-  if(MC_INFL&&change){
-    if(change.mode==='fixed') return 1/cpiAt(k,inflation);
-    if(change.mode==='custom') return Math.pow(1+(change.value||0)/100,k)/cpiAt(k,inflation);
+function withEngineHooks(hook, infl, record, fn) {
+  MC_HOOK = hook || null;
+  MC_INFL = infl || null;
+  REC_RATES = !!record;
+  try {
+    return fn();
+  } finally {
+    MC_HOOK = null;
+    MC_INFL = null;
+    REC_RATES = true;
   }
-  return Math.pow(1+g,k);
+}
+function cpiAt(k, inflation) {
+  return MC_INFL ? MC_INFL.cpi[k] : Math.pow(1 + inflation, k);
+}
+function infAt(k, inflation) {
+  return MC_INFL ? MC_INFL.pi[k] : inflation;
+}
+// Today's-$ multiplier of an amount after k years for a Change spec; nominal-fixed modes ('fixed', 'custom') follow the actual price level.
+function growIdx(change, g, k, inflation) {
+  if (MC_INFL && change) {
+    if (change.mode === 'fixed') return 1 / cpiAt(k, inflation);
+    if (change.mode === 'custom') return Math.pow(1 + (change.value || 0) / 100, k) / cpiAt(k, inflation);
+  }
+  return Math.pow(1 + g, k);
 }
 
 // Share of a portfolio's value that is unrealized gain (average-cost method): 0 when basis >= value.
-function pfGainFraction(bal, basis){ return bal>0 ? Math.max(0,(bal-basis)/bal) : 0; }
+function pfGainFraction(bal, basis) {
+  return bal > 0 ? Math.max(0, (bal - basis) / bal) : 0;
+}
 
 // Years an IRA keeps compounding after the household's last passing (see the stretch block at the end).
-const STRETCH_YEARS=10;
+const STRETCH_YEARS = 10;
 // Inherited IRAs (Inheritance card): the account must be emptied by the end of the 10th year after it is inherited (SECURE Act 10-year rule).
-const INH_IRA_YEARS=10;
+const INH_IRA_YEARS = 10;
 // Row (0 = this year) in which an inherited asset enters the scenario, from its `startYear` (calendar year of the last passing in the scenario it comes from).
-function inhStartRow(item){ const y=Number(item&&item.startYear); return (item&&item.inh&&Number.isFinite(y))?Math.max(0,Math.round(y-THIS_YEAR)):0; }
+function inhStartRow(item) {
+  const y = Number(item && item.startYear);
+  return item && item.inh && Number.isFinite(y) ? Math.max(0, Math.round(y - THIS_YEAR)) : 0;
+}
 // Tax↔LTCG fixed-point iteration (see computeProjection): stop when the tax moves less than TAX_TOL dollars, at most TAX_MAX_ITERS rounds.
-const TAX_TOL=0.005, TAX_MAX_ITERS=60;
-function computeProjection(){
-  const inflation=state.inflation;
-  GROWTH_REC=REC_RATES?[]:null;
-  const married=state.filingStatus==='married';
-  const people=married?state.people:[state.people[0]];
-  const curAges=people.map(p=>currentAge(p));
-  const passAges=people.map(p=>state.passing[p.id]!=null?state.passing[p.id]:95);
-  const idxP0 = married ? (curAges[0]>=curAges[1]?0:1) : 0;
-  const yearsToProject=Math.max(1,Math.ceil(Math.max(...people.map((p,i)=>passAges[i]-curAges[i]))));
-
-  // ── Social Security: own/spousal amount at claim, per person (monthly, today's $) ──
-  const ssMonthly=people.map((p,i)=>{
-    const s=p.ss;
-    if(!s.enabled) return {own:0, claimAgeEff:Infinity};
-    if(s.started) return {own:s.pia, claimAgeEff:curAges[i]};
-    const own=s.pia*ssOwnFactor(s.claimAge, s.fra);
-    return {own, pia:s.pia, fra:s.fra, claimAgeEff:s.claimAge};
+const TAX_TOL = 0.005,
+  TAX_MAX_ITERS = 60;
+// Social Security: each person's own / spousal monthly amount at claim (today's $), {own, claimAgeEff, …}[] by person.
+function projSocialSecurity({married, people, curAges}) {
+  const ssMonthly = people.map((p, i) => {
+    const s = p.ss;
+    if (!s.enabled) return {own: 0, claimAgeEff: Infinity};
+    if (s.started) return {own: s.pia, claimAgeEff: curAges[i]};
+    const own = s.pia * ssOwnFactor(s.claimAge, s.fra);
+    return {own, pia: s.pia, fra: s.fra, claimAgeEff: s.claimAge};
   });
-  if(married && people.length===2){
-    for(let i=0;i<2;i++){
-      const other=1-i, s=people[i].ss, so=people[other].ss;
-      if(s.enabled && !s.started && so.enabled){
+  if (married && people.length === 2) {
+    for (let i = 0; i < 2; i++) {
+      const other = 1 - i,
+        s = people[i].ss,
+        so = people[other].ss;
+      if (s.enabled && !s.started && so.enabled) {
         const otherPIA = so.pia;
-        const spousalFRA=0.5*otherPIA;
-        const spousalAtClaim=spousalFRA*ssSpousalFactor(s.claimAge, s.fra);
-        ssMonthly[i].own=Math.max(ssMonthly[i].own, spousalAtClaim);
+        const spousalFRA = 0.5 * otherPIA;
+        const spousalAtClaim = spousalFRA * ssSpousalFactor(s.claimAge, s.fra);
+        ssMonthly[i].own = Math.max(ssMonthly[i].own, spousalAtClaim);
       }
     }
   }
+  return {ssMonthly};
+}
 
-  // ── Pre-tax IRA / 401(k) RMD schedule, plus optional annual withdraw (optionally a Roth conversion) ──
-  // The "annual Roth conversion" settings are an annual WITHDRAW from the pre-tax IRA (all parameters unchanged). `ira.convToRoth` (default true): checked = the
-  // withdrawn amount is a Roth conversion (it moves into the holder's Roth IRA, which must be enabled); unchecked = it is an ordinary withdrawal (taxed the same
-  // way, but it becomes household cash income and needs no Roth IRA). Internally the names conv* / rothConv* still mean "this annual withdraw".
-  // Continue RMDs after an owner's death by transferring the remaining
-  // balance to the spouse when the IRA is marked to continue to spouse.
-  // A Roth conversion moves money out of the pre-tax IRA and into this person's Roth IRA each year the pre-tax IRA still has a
-  // balance (from the conversion start age, independent of the RMD/withdrawal age window) as long as the Roth IRA below is enabled;
-  // the converted amount is added to ordinary income for tax purposes (§9.4). Two modes (`ira.convMode`):
-  //   'fixed'   — a flat today's-$ amount per year (spec §4.4), capped at the balance left after the RMD.
-  //   'bracket' — as much as fits under the IRMAA % and ordinary-bracket % entered. That depends on the year's other income, taxable
-  //               Social Security, realized LTCG and the tax itself, so it is solved inside the year loop (see "Roth conversion
-  //               solve" below); the IRA / Roth balances are therefore advanced one year at a time: pre(k) = RMD and start-of-year
-  //               balances, post(k, conv) = apply the conversion and grow. Every other mode behaves exactly as when the whole
-  //               schedule was simulated up front.
-  const iraW=people.map(()=>({})), iraBal=people.map(()=>({})), iraConv=people.map(()=>({}));
-  const iraSim=people.map((p,i)=>{
-    const sim={bal:0, done:true, open:false, room:0, fixed:0, mode:'fixed', trigger:null, started:false, startedK:null, live:false, rothOk:false, toRoth:true, convAmt:0, pre(){}, post(){}};
-    if(!p.ira.enabled) return sim;
-    sim.bal=Number(p.ira.balance)||0; sim.done=false;
-    const [startAge,ownerEndAge]=resolveAgeRange(p.ira.ar,p);
-    const g=realGrowth(p.ira.growth,inflation);
-    const toRoth=p.ira.convToRoth!==false;
-    const rothOk=toRoth?!!(p.roth&&p.roth.enabled):true;   // an annual withdraw is possible: a Roth conversion needs the Roth IRA on; a plain withdraw does not
-    sim.toRoth=toRoth;
-    sim.mode=(rothOk&&p.ira.convMode==='bracket')?'bracket':'fixed';
-    const convAmt=(rothOk&&sim.mode==='fixed')?Math.max(0,Number(p.ira.conv)||0):0;
+// Pre-tax IRA / 401(k) simulators, one per person: RMD schedule plus the optional annual withdraw / Roth conversion, stepped a year at a time with pre(k) then post(k, conv, draw). Also returns the per-person withdrawal and balance records the year loop reads.
+//
+// The "annual Roth conversion" settings are an annual WITHDRAW from the pre-tax IRA (all parameters unchanged). `ira.convToRoth` (default true): checked = the
+// withdrawn amount is a Roth conversion (it moves into the holder's Roth IRA, which must be enabled); unchecked = it is an ordinary withdrawal (taxed the same
+// way, but it becomes household cash income and needs no Roth IRA). Internally the names conv* / rothConv* still mean "this annual withdraw".
+// Continue RMDs after an owner's death by transferring the remaining
+// balance to the spouse when the IRA is marked to continue to spouse.
+// A Roth conversion moves money out of the pre-tax IRA and into this person's Roth IRA each year the pre-tax IRA still has a
+// balance (from the conversion start age, independent of the RMD/withdrawal age window) as long as the Roth IRA below is enabled;
+// the converted amount is added to ordinary income for tax purposes (§9.4). Two modes (`ira.convMode`):
+//   'fixed'   — a flat today's-$ amount per year (spec §4.4), capped at the balance left after the RMD.
+//   'bracket' — as much as fits under the IRMAA % and ordinary-bracket % entered. That depends on the year's other income, taxable
+//               Social Security, realized LTCG and the tax itself, so it is solved inside the year loop (see "Roth conversion
+//               solve" below); the IRA / Roth balances are therefore advanced one year at a time: pre(k) = RMD and start-of-year
+//               balances, post(k, conv) = apply the conversion and grow. Every other mode behaves exactly as when the whole
+//               schedule was simulated up front.
+function projIraSims({inflation, married, people, curAges, passAges}) {
+  const iraW = people.map(() => ({})),
+    iraBal = people.map(() => ({})),
+    iraConv = people.map(() => ({}));
+  const iraSim = people.map((p, i) => {
+    const sim = {
+      bal: 0,
+      done: true,
+      open: false,
+      room: 0,
+      fixed: 0,
+      mode: 'fixed',
+      trigger: null,
+      started: false,
+      startedK: null,
+      live: false,
+      rothOk: false,
+      toRoth: true,
+      convAmt: 0,
+      pre() {},
+      post() {}
+    };
+    if (!p.ira.enabled) return sim;
+    sim.bal = Number(p.ira.balance) || 0;
+    sim.done = false;
+    const [startAge, ownerEndAge] = resolveAgeRange(p.ira.ar, p);
+    const g = realGrowth(p.ira.growth, inflation);
+    const toRoth = p.ira.convToRoth !== false;
+    const rothOk = toRoth ? !!(p.roth && p.roth.enabled) : true; // an annual withdraw is possible: a Roth conversion needs the Roth IRA on; a plain withdraw does not
+    sim.toRoth = toRoth;
+    sim.mode = rothOk && p.ira.convMode === 'bracket' ? 'bracket' : 'fixed';
+    const convAmt = rothOk && sim.mode === 'fixed' ? Math.max(0, Number(p.ira.conv) || 0) : 0;
     // Conversion start: 'rmd' (default) = the IRA's own Start age (the RMD start), 'now' = today, 'custom' = ira.convStart.
     // Never earlier than the owner's current age.
     // Trigger starts ('bracket' | 'itemized' | 'ltc') are not age based: the year loop below decides, once that year's tax picture is known,
     // whether the trigger is met; from then on (`started`) the IRA converts every year like 'now' would.
-    const cMode=p.ira.convStartMode||'rmd';
-    sim.trigger=(cMode==='bracket'||cMode==='itemized'||cMode==='ltc')?cMode:null;
-    sim.rothOk=rothOk; sim.convAmt=convAmt;
-    const convStartAge=Math.max(curAges[i], cMode==='custom'?(Number(p.ira.convStart)||0):((cMode==='now'||sim.trigger)?0:startAge));
+    const cMode = p.ira.convStartMode || 'rmd';
+    sim.trigger = cMode === 'bracket' || cMode === 'itemized' || cMode === 'ltc' ? cMode : null;
+    sim.rothOk = rothOk;
+    sim.convAmt = convAmt;
+    const convStartAge = Math.max(
+      curAges[i],
+      cMode === 'custom' ? Number(p.ira.convStart) || 0 : cMode === 'now' || sim.trigger ? 0 : startAge
+    );
     // Start of year k: AUM balance, RMD, and the room left for a conversion. `open` = a conversion decision is pending (post() finishes the year).
-    sim.pre=function(k){
-      sim.open=false; sim.room=0; sim.fixed=0; sim.live=false;
-      if(sim.done) return;
-      const ownerAge=curAges[i]+k;
-      const ownerAlive=ownerAge<passAges[i];
-      const otherIdx=1-i;
-      const spouseAge=(married&&people.length===2)?curAges[otherIdx]+k:Infinity;
-      const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
+    sim.pre = function (k) {
+      sim.open = false;
+      sim.room = 0;
+      sim.fixed = 0;
+      sim.live = false;
+      if (sim.done) return;
+      const ownerAge = curAges[i] + k;
+      const ownerAlive = ownerAge < passAges[i];
+      const otherIdx = 1 - i;
+      const spouseAge = married && people.length === 2 ? curAges[otherIdx] + k : Infinity;
+      const spouseAlive = married && people.length === 2 && spouseAge < passAges[otherIdx];
 
       // While the owner is alive, use the owner's RMD schedule and the
       // owner's configured end age.  Once the owner passes, an IRA marked
       // for spouse continuation becomes an inherited IRA and keeps paying
       // RMDs while the spouse is alive.  Crucially, the owner's passing age
       // is NOT reused as the inherited IRA's end age. Conversions stop at death.
-      if(!ownerAlive){
-        iraConv[i][k]=0;
-        if(!(p.ira.bene&&spouseAlive)){
+      if (!ownerAlive) {
+        iraConv[i][k] = 0;
+        if (!(p.ira.bene && spouseAlive)) {
           // Not (or no longer) inherited by a living spouse. Normally the account ends here; with the
           // "IRA stretch" box checked it is instead held by heirs: no RMDs/withdrawals, still compounding
           // (through the last passing here, then STRETCH_YEARS more in the stretch block at the end).
-          if(!p.ira.stretch){ sim.done=true; return; }
-          iraW[i][k]=0;
-          sim.bal=sim.bal*(1+gk(g,'ira:'+p.id,k,p.ira.growth));
-          iraBal[i][k]=sim.bal;
+          if (!p.ira.stretch) {
+            sim.done = true;
+            return;
+          }
+          iraW[i][k] = 0;
+          sim.bal = sim.bal * (1 + gk(g, 'ira:' + p.id, k, p.ira.growth));
+          iraBal[i][k] = sim.bal;
           return;
         }
-        if(sim.bal<=0){ iraW[i][k]=0; iraBal[i][k]=0; return; }
-        const div=rmdDivisor(spouseAge);
-        const wd=div?Math.min(sim.bal/div,sim.bal):0;
-        iraW[i][k]=wd;
-        sim.bal=Math.max(0,sim.bal-wd);
-        sim.open=true;   // growth is applied in post(), after any draw to pay household expenses (no conversion: room and fixed stay 0)
+        if (sim.bal <= 0) {
+          iraW[i][k] = 0;
+          iraBal[i][k] = 0;
+          return;
+        }
+        const div = rmdDivisor(spouseAge);
+        const wd = div ? Math.min(sim.bal / div, sim.bal) : 0;
+        iraW[i][k] = wd;
+        sim.bal = Math.max(0, sim.bal - wd);
+        sim.open = true; // growth is applied in post(), after any draw to pay household expenses (no conversion: room and fixed stay 0)
         return;
       }
 
-      if(ownerAge>=ownerEndAge){
-        iraW[i][k]=0;
-      }else if(ownerAge>=startAge&&sim.bal>0){
-        const div=rmdDivisor(ownerAge), wd=div?Math.min(sim.bal/div,sim.bal):0;
-        iraW[i][k]=wd;
-        sim.bal=Math.max(0,sim.bal-wd);
-      }else{
-        iraW[i][k]=0;
+      if (ownerAge >= ownerEndAge) {
+        iraW[i][k] = 0;
+      } else if (ownerAge >= startAge && sim.bal > 0) {
+        const div = rmdDivisor(ownerAge),
+          wd = div ? Math.min(sim.bal / div, sim.bal) : 0;
+        iraW[i][k] = wd;
+        sim.bal = Math.max(0, sim.bal - wd);
+      } else {
+        iraW[i][k] = 0;
       }
-      sim.open=true; sim.live=true;
-      sim.room=(sim.trigger?sim.started:ownerAge>=convStartAge)?sim.bal:0;       // the most that could be converted this year
-      sim.fixed=Math.min(convAmt,sim.room);              // 'fixed' mode amount (0 for 'bracket' mode)
+      sim.open = true;
+      sim.live = true;
+      sim.room = (sim.trigger ? sim.started : ownerAge >= convStartAge) ? sim.bal : 0; // the most that could be converted this year
+      sim.fixed = Math.min(convAmt, sim.room); // 'fixed' mode amount (0 for 'bracket' mode)
     };
     // `draw` = pre-tax IRA withdrawn this year to pay household expenses once the portfolios are exhausted (expense funding waterfall below).
-    sim.post=function(k,conv,draw){
-      if(!sim.open) return;
-      iraConv[i][k]=conv;
-      sim.bal=Math.max(0,sim.bal-conv-(draw||0))*(1+gk(g,'ira:'+p.id,k,p.ira.growth));
-      iraBal[i][k]=sim.bal;
+    sim.post = function (k, conv, draw) {
+      if (!sim.open) return;
+      iraConv[i][k] = conv;
+      sim.bal = Math.max(0, sim.bal - conv - (draw || 0)) * (1 + gk(g, 'ira:' + p.id, k, p.ira.growth));
+      iraBal[i][k] = sim.bal;
     };
     return sim;
   });
+  return {iraW, iraBal, iraSim};
+}
 
-  // ── Roth IRA: tax-free growth, funded by its starting balance plus any Roth conversion
-  // amount converted from the matching pre-tax IRA above this year. No RMDs are modeled; the only
-  // withdrawal is the last-resort draw that pays household expenses once the portfolios and the
-  // pre-tax IRA are exhausted. It otherwise grows until its owner (or, if "continues to spouse", the
-  // surviving spouse) passes. Stepped like the pre-tax IRA: pre(k) then post(k, conv).
-  const rothBal=people.map(()=>({}));
-  const rothSim=people.map((p,i)=>{
-    const sim={bal:0, done:true, open:false, pre(){}, post(){}};
-    if(!(p.roth&&p.roth.enabled)) return sim;
-    sim.bal=Number(p.roth.balance)||0; sim.done=false;
-    const g=realGrowth(p.roth.growth,inflation);
-    sim.pre=function(k){
-      sim.open=false;
-      if(sim.done) return;
-      const ownerAge=curAges[i]+k;
-      const ownerAlive=ownerAge<passAges[i];
-      const otherIdx=1-i;
-      const spouseAge=(married&&people.length===2)?curAges[otherIdx]+k:Infinity;
-      const spouseAlive=married&&people.length===2&&spouseAge<passAges[otherIdx];
+// Roth IRA simulators, one per person, stepped like the pre-tax IRA (pre(k) then post(k, conv, draw)).
+//
+// amount converted from the matching pre-tax IRA above this year. No RMDs are modeled; the only
+// withdrawal is the last-resort draw that pays household expenses once the portfolios and the
+// pre-tax IRA are exhausted. It otherwise grows until its owner (or, if "continues to spouse", the
+// surviving spouse) passes. Stepped like the pre-tax IRA: pre(k) then post(k, conv).
+function projRothSims({inflation, married, people, curAges, passAges}) {
+  const rothBal = people.map(() => ({}));
+  const rothSim = people.map((p, i) => {
+    const sim = {bal: 0, done: true, open: false, pre() {}, post() {}};
+    if (!(p.roth && p.roth.enabled)) return sim;
+    sim.bal = Number(p.roth.balance) || 0;
+    sim.done = false;
+    const g = realGrowth(p.roth.growth, inflation);
+    sim.pre = function (k) {
+      sim.open = false;
+      if (sim.done) return;
+      const ownerAge = curAges[i] + k;
+      const ownerAlive = ownerAge < passAges[i];
+      const otherIdx = 1 - i;
+      const spouseAge = married && people.length === 2 ? curAges[otherIdx] + k : Infinity;
+      const spouseAlive = married && people.length === 2 && spouseAge < passAges[otherIdx];
 
-      if(!ownerAlive){
-        if(!(p.roth.bene&&spouseAlive)){
+      if (!ownerAlive) {
+        if (!(p.roth.bene && spouseAlive)) {
           // Same "IRA stretch" rule as the pre-tax IRA above: held by heirs and still compounding.
-          if(!p.roth.stretch){ sim.done=true; return; }
-          sim.bal=sim.bal*(1+gk(g,'roth:'+p.id,k,p.roth.growth));
-          rothBal[i][k]=sim.bal;
+          if (!p.roth.stretch) {
+            sim.done = true;
+            return;
+          }
+          sim.bal = sim.bal * (1 + gk(g, 'roth:' + p.id, k, p.roth.growth));
+          rothBal[i][k] = sim.bal;
           return;
         }
-        sim.open=true;   // inherited by the living spouse: growth is applied in post(), after any draw to pay household expenses
+        sim.open = true; // inherited by the living spouse: growth is applied in post(), after any draw to pay household expenses
         return;
       }
-      sim.open=true;
+      sim.open = true;
     };
-    sim.post=function(k,conv,draw){
-      if(!sim.open) return;
-      sim.bal=Math.max(0,sim.bal+conv-(draw||0))*(1+gk(g,'roth:'+p.id,k,p.roth.growth));
-      rothBal[i][k]=sim.bal;
+    sim.post = function (k, conv, draw) {
+      if (!sim.open) return;
+      sim.bal = Math.max(0, sim.bal + conv - (draw || 0)) * (1 + gk(g, 'roth:' + p.id, k, p.roth.growth));
+      rothBal[i][k] = sim.bal;
     };
     return sim;
   });
+  return {rothBal, rothSim};
+}
 
-  // ── Inherited IRAs (Inheritance card: pre-tax IRA / Roth IRA from another plan) ──
-  // Each arrives in its start row with its balance (today's $), grows at its own real rate, and must be emptied by the end of the 10th year after it
-  // arrived (the original owner's passing). The schedule is automatic — there is no withdraw option:
-  //   • the deceased had already started RMDs (`rmdStarted`, set from the source plan on import; pre-tax only): from the year after arrival the current holder takes
-  //     an RMD every year, by the HOLDER's own age (rmdDivisor). If the holder passes and the spouse inherits (`bene`), the spouse continues the RMDs by the
-  //     spouse's age; the year-10 deadline never moves. Year 10 takes whatever is left.
-  //   • otherwise (RMDs not started, and always for a Roth IRA) nothing is forced until year 10, which takes all of it.
-  // A pre-tax withdrawal is ordinary income (added to the person's IRA distributions, so it flows into AGI, tax and cash
-  // income); a Roth withdrawal is untaxed household cash. The account ends with its heir's passing.
-  // It carries the same parameters as the Pre-tax IRA / Roth IRA cards:
-  //   • (pre-tax, when the deceased had started RMDs) an RMD is taken every year from the year after arrival to year 10, by the holder's current age. There is no
-  //     start / end age to choose: everything starts when it is inherited and is over by year 10.
-  //   • Roth conversion (pre-tax): converts into the holder's Roth IRA exactly like the Pre-tax IRA card ('fixed' $/yr or 'bracket'; any start mode), from what is
-  //     left after that year's withdrawal. It is solved in the "Roth conversion solve" below together with the people's own IRAs.
-  //   • `bene`: when its holder passes with the spouse alive, the spouse becomes the holder (same schedule and the same year-10 deadline, the spouse's age and Roth IRA).
-  //   • There is no stretch: the 10 years never extend, whoever inherits it next. With no spouse taking over, the account ends with its holder's passing.
-  // `sm.bal` is the start-of-year balance after this year's withdrawal while a conversion is pending (`open`); post-step growth is applied after the conversion.
-  const inhSim=people.map((p,i)=>(p.inhIras||[]).map(x=>{
-    const bal0=Math.max(0,Number(x&&x.balance)||0);
-    const kind=(x&&x.kind==='roth')?'roth':'ira';
-    const cMode=(x&&x.convStartMode)||'rmd';
-    return {on:!!x&&x.enabled!==false&&bal0>0, kind, rmdOn:kind==='ira'&&!(x&&x.rmdStarted===false), kS:inhStartRow(x||{inh:1}), bal0, bal:0,
-            g:realGrowth(x&&x.growth,inflation), gch:x&&x.growth, wd:0, eoy:0, live:false, done:false, name:(x&&x.name&&x.name.trim())||'',
-            holder:i, bene:!!(x&&x.bene), sle:null,
-            // conversion state (pre-tax only), same names as iraSim's so the conversion solve treats both alike
-            open:false, room:0, fixed:0, mode:'fixed', trigger:(cMode==='bracket'||cMode==='itemized'||cMode==='ltc')?cMode:null, cMode, started:false, startedK:null, rothOk:false, toRoth:false, convAmt:0};
-  }));
+// Inherited pre-tax / Roth IRAs (Inheritance card): one simulator per inherited account, emptied by the 10th year after it arrives.
+//
+// Each arrives in its start row with its balance (today's $), grows at its own real rate, and must be emptied by the end of the 10th year after it
+// arrived (the original owner's passing). The schedule is automatic — there is no withdraw option:
+//   • the deceased had already started RMDs (`rmdStarted`, set from the source plan on import; pre-tax only): from the year after arrival the current holder takes
+//     an RMD every year, by the HOLDER's own age (rmdDivisor). If the holder passes and the spouse inherits (`bene`), the spouse continues the RMDs by the
+//     spouse's age; the year-10 deadline never moves. Year 10 takes whatever is left.
+//   • otherwise (RMDs not started, and always for a Roth IRA) nothing is forced until year 10, which takes all of it.
+// A pre-tax withdrawal is ordinary income (added to the person's IRA distributions, so it flows into AGI, tax and cash
+// income); a Roth withdrawal is untaxed household cash. The account ends with its heir's passing.
+// It carries the same parameters as the Pre-tax IRA / Roth IRA cards:
+//   • (pre-tax, when the deceased had started RMDs) an RMD is taken every year from the year after arrival to year 10, by the holder's current age. There is no
+//     start / end age to choose: everything starts when it is inherited and is over by year 10.
+//   • Roth conversion (pre-tax): converts into the holder's Roth IRA exactly like the Pre-tax IRA card ('fixed' $/yr or 'bracket'; any start mode), from what is
+//     left after that year's withdrawal. It is solved in the "Roth conversion solve" below together with the people's own IRAs.
+//   • `bene`: when its holder passes with the spouse alive, the spouse becomes the holder (same schedule and the same year-10 deadline, the spouse's age and Roth IRA).
+//   • There is no stretch: the 10 years never extend, whoever inherits it next. With no spouse taking over, the account ends with its holder's passing.
+// `sm.bal` is the start-of-year balance after this year's withdrawal while a conversion is pending (`open`); post-step growth is applied after the conversion.
+function projInheritedIras({inflation, people}) {
+  const inhSim = people.map((p, i) =>
+    (p.inhIras || []).map(x => {
+      const bal0 = Math.max(0, Number(x && x.balance) || 0);
+      const kind = x && x.kind === 'roth' ? 'roth' : 'ira';
+      const cMode = (x && x.convStartMode) || 'rmd';
+      return {
+        on: !!x && x.enabled !== false && bal0 > 0,
+        kind,
+        rmdOn: kind === 'ira' && !(x && x.rmdStarted === false),
+        kS: inhStartRow(x || {inh: 1}),
+        bal0,
+        bal: 0,
+        g: realGrowth(x && x.growth, inflation),
+        gch: x && x.growth,
+        wd: 0,
+        eoy: 0,
+        live: false,
+        done: false,
+        name: (x && x.name && x.name.trim()) || '',
+        holder: i,
+        bene: !!(x && x.bene),
+        sle: null,
+        // conversion state (pre-tax only), same names as iraSim's so the conversion solve treats both alike
+        open: false,
+        room: 0,
+        fixed: 0,
+        mode: 'fixed',
+        trigger: cMode === 'bracket' || cMode === 'itemized' || cMode === 'ltc' ? cMode : null,
+        cMode,
+        started: false,
+        startedK: null,
+        rothOk: false,
+        toRoth: false,
+        convAmt: 0
+      };
+    })
+  );
+  return {inhSim};
+}
 
-  // ── Annuities (per person, any number) ──
-  // Simulated up front, year by year, in today's $ — an annuity's path does not depend on the tax calculation, so it is
-  // computed once here and the projection loop below just reads it. Per year (V = start-of-year account value):
-  //   • Payout (inside the Start–End age range): either a fixed nominal $ amount (no inflation / COLA, so it shrinks in
-  //     today's $) or a % of the account value that year; never more than the account holds.
-  //   • V(next) = (V − payout) × (1 + credited growth) — the credited growth is already net of all fees.
-  //   • Passing benefit: paid to heirs when the contract ends (the owner's passing, or the surviving spouse's if the contract
-  //     continues to the spouse): a fixed nominal $ amount, the initial account value (nominal), or the account value then.
-  //     It is information for the legacy (not household cash flow); its taxable / tax-exempt split is computed below.
-  // Tax treatment of the payout (nominal $ bookkeeping, results converted back to today's $):
-  //   taxable   — qualified / IRA annuity: 100% ordinary income.
-  //   lifo      — non-qualified deferred: withdrawals come out gain first (taxable), then return of premium (tax-free).
-  //   exclusion — non-qualified annuitized: tax-free share = premium ÷ expected total payout (to the owner's passing age),
-  //               until the premium is recovered, then fully taxable.
-  //   exempt    — a fixed % of every payout is tax-exempt (e.g. a Roth or tax-free contract).
-  // Passing benefit tax: qualified → all taxable; non-qualified → taxable above the remaining premium (premium returned
-  // tax-free); exempt → the exempt % is tax-free.
-  function simulateAnnuity(a, i){
-    const none={on:false, yr:[]};
-    if(!a||a.enabled===false) return none;
-    const V0=Math.max(0,Number(a.value)||0);
-    if(!(V0>0)) return none;
-    const hasPrem=a.premium!=null&&a.premium!==''&&Number.isFinite(Number(a.premium));
-    const prem0=Math.max(0, hasPrem?Number(a.premium):V0);
-    const g=realGrowth(a.growth,inflation);
-    const byPct=a.payoutMode==='pct', fixedNom=Math.max(0,Number(a.payout)||0), pct=clamp(Number(a.payoutPct)||0,0,100)/100;
-    let V=V0, endK=null;
-    const yr=[];
-    for(let k=0;k<=yearsToProject;k++){
-      const ownerAge=curAges[i]+k, ownerAlive=ownerAge<passAges[i];
-      const spouseAlive=married&&people.length===2&&(curAges[1-i]+k<passAges[1-i]);
-      if(!(ownerAlive||(a.bene&&spouseAlive))){ endK=k; break; }   // the contract ends with its owner unless it continues to the spouse
-      const [sA,eA]=resolveAgeRange(a.ar,people[i]);
-      const rangeAge=ownerAlive?ownerAge:passAges[i]-1;
-      const inWindow=rangeAge>=sA&&rangeAge<eA;
-      let payout=0;
-      if(inWindow&&V>0) payout=byPct?V*pct:Math.min(fixedNom/cpiAt(k,inflation), V);
-      yr[k]={bal:V, payout, fromV:payout};
-      V=Math.max(0,V-payout)*(1+g);
+// Annuities (per person, any number), simulated up front year by year: payout, account value, passing benefit and the payout's taxable / tax-exempt split. Returns annuityRun[person][index].
+//
+// Simulated up front, year by year, in today's $ — an annuity's path does not depend on the tax calculation, so it is
+// computed once here and the projection loop below just reads it. Per year (V = start-of-year account value):
+//   • Payout (inside the Start–End age range): either a fixed nominal $ amount (no inflation / COLA, so it shrinks in
+//     today's $) or a % of the account value that year; never more than the account holds.
+//   • V(next) = (V − payout) × (1 + credited growth) — the credited growth is already net of all fees.
+//   • Passing benefit: paid to heirs when the contract ends (the owner's passing, or the surviving spouse's if the contract
+//     continues to the spouse): a fixed nominal $ amount, the initial account value (nominal), or the account value then.
+//     It is information for the legacy (not household cash flow); its taxable / tax-exempt split is computed below.
+// Tax treatment of the payout (nominal $ bookkeeping, results converted back to today's $):
+//   taxable   — qualified / IRA annuity: 100% ordinary income.
+//   lifo      — non-qualified deferred: withdrawals come out gain first (taxable), then return of premium (tax-free).
+//   exclusion — non-qualified annuitized: tax-free share = premium ÷ expected total payout (to the owner's passing age),
+//               until the premium is recovered, then fully taxable.
+//   exempt    — a fixed % of every payout is tax-exempt (e.g. a Roth or tax-free contract).
+// Passing benefit tax: qualified → all taxable; non-qualified → taxable above the remaining premium (premium returned
+// tax-free); exempt → the exempt % is tax-free.
+function projAnnuities({inflation, married, people, curAges, passAges, yearsToProject}) {
+  function simulateAnnuity(a, i) {
+    const none = {on: false, yr: []};
+    if (!a || a.enabled === false) return none;
+    const V0 = Math.max(0, Number(a.value) || 0);
+    if (!(V0 > 0)) return none;
+    const hasPrem = a.premium != null && a.premium !== '' && Number.isFinite(Number(a.premium));
+    const prem0 = Math.max(0, hasPrem ? Number(a.premium) : V0);
+    const g = realGrowth(a.growth, inflation);
+    const byPct = a.payoutMode === 'pct',
+      fixedNom = Math.max(0, Number(a.payout) || 0),
+      pct = clamp(Number(a.payoutPct) || 0, 0, 100) / 100;
+    let V = V0,
+      endK = null;
+    const yr = [];
+    for (let k = 0; k <= yearsToProject; k++) {
+      const ownerAge = curAges[i] + k,
+        ownerAlive = ownerAge < passAges[i];
+      const spouseAlive = married && people.length === 2 && curAges[1 - i] + k < passAges[1 - i];
+      if (!(ownerAlive || (a.bene && spouseAlive))) {
+        endK = k;
+        break;
+      } // the contract ends with its owner unless it continues to the spouse
+      const [sA, eA] = resolveAgeRange(a.ar, people[i]);
+      const rangeAge = ownerAlive ? ownerAge : passAges[i] - 1;
+      const inWindow = rangeAge >= sA && rangeAge < eA;
+      let payout = 0;
+      if (inWindow && V > 0) payout = byPct ? V * pct : Math.min(fixedNom / cpiAt(k, inflation), V);
+      yr[k] = {bal: V, payout, fromV: payout};
+      V = Math.max(0, V - payout) * (1 + g);
     }
     // Tax split of each payout.
-    const mode=a.tax||'lifo', exPct=clamp(Number(a.exemptPct!=null?a.exemptPct:100)||0,0,100)/100;
-    let premRem=prem0, expTotalNom=0;
-    yr.forEach((y,k)=>{ expTotalNom+=y.payout*cpiAt(k,inflation); });
-    const ER=expTotalNom>0?Math.min(1,prem0/expTotalNom):0;
-    yr.forEach((y,k)=>{
-      const nk=cpiAt(k,inflation), payNom=y.payout*nk, vNom=y.bal*nk;
-      let taxNom=payNom, freeNom=0, embedded=y.bal;
-      if(mode==='exempt'){ freeNom=payNom*exPct; taxNom=payNom-freeNom; embedded=y.bal*(1-exPct); }
-      else if(mode==='exclusion'){
-        embedded=Math.max(0,vNom-premRem)/nk;
-        freeNom=Math.min(ER*payNom, premRem); premRem-=freeNom; taxNom=payNom-freeNom;
-      }else if(mode==='lifo'){
-        const gain=Math.max(0,vNom-premRem), fromVNom=y.fromV*nk;
-        const taxFromV=Math.min(fromVNom,gain), ret=fromVNom-taxFromV;
-        embedded=gain/nk; premRem=Math.max(0,premRem-ret);
-        freeNom=ret; taxNom=taxFromV;
+    const mode = a.tax || 'lifo',
+      exPct = clamp(Number(a.exemptPct != null ? a.exemptPct : 100) || 0, 0, 100) / 100;
+    let premRem = prem0,
+      expTotalNom = 0;
+    yr.forEach((y, k) => {
+      expTotalNom += y.payout * cpiAt(k, inflation);
+    });
+    const ER = expTotalNom > 0 ? Math.min(1, prem0 / expTotalNom) : 0;
+    yr.forEach((y, k) => {
+      const nk = cpiAt(k, inflation),
+        payNom = y.payout * nk,
+        vNom = y.bal * nk;
+      let taxNom = payNom,
+        freeNom = 0,
+        embedded = y.bal;
+      if (mode === 'exempt') {
+        freeNom = payNom * exPct;
+        taxNom = payNom - freeNom;
+        embedded = y.bal * (1 - exPct);
+      } else if (mode === 'exclusion') {
+        embedded = Math.max(0, vNom - premRem) / nk;
+        freeNom = Math.min(ER * payNom, premRem);
+        premRem -= freeNom;
+        taxNom = payNom - freeNom;
+      } else if (mode === 'lifo') {
+        const gain = Math.max(0, vNom - premRem),
+          fromVNom = y.fromV * nk;
+        const taxFromV = Math.min(fromVNom, gain),
+          ret = fromVNom - taxFromV;
+        embedded = gain / nk;
+        premRem = Math.max(0, premRem - ret);
+        freeNom = ret;
+        taxNom = taxFromV;
       }
-      y.taxable=taxNom/nk; y.taxFree=freeNom/nk; y.taxableEmbedded=embedded;
-      y.nonQual=(mode==='lifo'||mode==='exclusion');
-      y.passing=null;
+      y.taxable = taxNom / nk;
+      y.taxFree = freeNom / nk;
+      y.taxableEmbedded = embedded;
+      y.nonQual = mode === 'lifo' || mode === 'exclusion';
+      y.passing = null;
     });
     // Passing benefit, recorded on the contract's last live year.
-    if(endK!==null&&endK>=1&&yr[endK-1]){
-      const nk=cpiAt(endK,inflation), opt=a.pb||'value';
-      const bNom=opt==='fixed'?Math.max(0,Number(a.pbFixed)||0):(opt==='initial'?V0:V*nk);
-      let tax=bNom, free=0;
-      if(mode==='exempt'){ free=bNom*exPct; tax=bNom-free; }
-      else if(mode!=='taxable'){ free=Math.min(bNom,premRem); tax=bNom-free; }
-      yr[endK-1].passing={amount:bNom/nk, taxable:tax/nk, taxFree:free/nk, option:opt};
+    if (endK !== null && endK >= 1 && yr[endK - 1]) {
+      const nk = cpiAt(endK, inflation),
+        opt = a.pb || 'value';
+      const bNom = opt === 'fixed' ? Math.max(0, Number(a.pbFixed) || 0) : opt === 'initial' ? V0 : V * nk;
+      let tax = bNom,
+        free = 0;
+      if (mode === 'exempt') {
+        free = bNom * exPct;
+        tax = bNom - free;
+      } else if (mode !== 'taxable') {
+        free = Math.min(bNom, premRem);
+        tax = bNom - free;
+      }
+      yr[endK - 1].passing = {amount: bNom / nk, taxable: tax / nk, taxFree: free / nk, option: opt};
     }
-    return {on:true, yr, mode};
+    return {on: true, yr, mode};
   }
-  const annuityRun=people.map((p,i)=>(p.annuities||[]).map(a=>simulateAnnuity(a,i)));
+  const annuityRun = people.map((p, i) => (p.annuities || []).map(a => simulateAnnuity(a, i)));
+  return {annuityRun};
+}
 
-  // ── Pension / rental: always per-person ──
-  // `depreciation` = true returns the item's annual depreciation instead of its income amount (same on/off rules and age range).
-  function personAgedItemActive(item, ownerIdx, k, depreciation){
-    if(!item.enabled) return 0;
-    const owner=people[ownerIdx];
-    const age=curAges[ownerIdx]+k;
-    const ownerAlive = age<passAges[ownerIdx];
-    if(!ownerAlive){
+// Returns personAgedItemActive(item, i, k): whether an age-ranged income item (wage, pension, rental) is paying for person i in year row k.
+//
+// `depreciation` = true returns the item's annual depreciation instead of its income amount (same on/off rules and age range).
+function projPersonAgedItemActive({inflation, married, people, curAges, passAges}) {
+  function personAgedItemActive(item, ownerIdx, k, depreciation) {
+    if (!item.enabled) return 0;
+    const owner = people[ownerIdx];
+    const age = curAges[ownerIdx] + k;
+    const ownerAlive = age < passAges[ownerIdx];
+    if (!ownerAlive) {
       // Owner has passed: this income only continues if it's marked as
       // going to the spouse on passing, we're married, and the spouse
       // is still alive; otherwise it stops.
-      if(!married || !item.bene) return 0;
-      const otherIdx=1-ownerIdx;
-      if(!(curAges[otherIdx]+k<passAges[otherIdx])) return 0;
+      if (!married || !item.bene) return 0;
+      const otherIdx = 1 - ownerIdx;
+      if (!(curAges[otherIdx] + k < passAges[otherIdx])) return 0;
     }
-    const [sA,eA]=resolveAgeRange(item.ar, owner);
+    const [sA, eA] = resolveAgeRange(item.ar, owner);
     // Judge the owner's age range at the owner's LAST living year once they've passed, so a
     // survivor benefit isn't cut off by an end age of "passing" (= the owner's own passing age).
-    const rangeAge = ownerAlive ? age : passAges[ownerIdx]-1;
-    if(rangeAge<sA||rangeAge>=eA) return 0;
-    if(depreciation){
+    const rangeAge = ownerAlive ? age : passAges[ownerIdx] - 1;
+    if (rangeAge < sA || rangeAge >= eA) return 0;
+    if (depreciation) {
       // Straight-line depreciation is a fixed nominal dollar amount, so in today's $ it shrinks by inflation each year
       // (same convention as the fixed-$ AUM fee). Entered in today's $ for year 0.
-      return Math.max(0,Number(item.depreciation)||0)/cpiAt(k,inflation);
+      return Math.max(0, Number(item.depreciation) || 0) / cpiAt(k, inflation);
     }
-    const g=realGrowth(item.change, inflation);
-    return item.amount*growIdx(item.change,g,k,inflation);
+    const g = realGrowth(item.change, inflation);
+    return item.amount * growIdx(item.change, g, k, inflation);
   }
+  return {personAgedItemActive};
+}
 
-  // ── Brokerage portfolio balances (today's $) ──
-  // Balances are simulated year by year. Change per year = growth − (dividends used for expenses + shares sold).
-  // ALL expenses — the household living expenses (state.living), the household IRMAA surcharge, the AUM fee on the
-  // AUM-checked portfolios and IRAs, and the year's income tax — are pooled and funded in this order (spec §4.6):
-  //   (1) household income (wages, Social Security, pension, rental, IRA RMDs), then
-  //   (2) portfolio dividends (ODIV) — any dividend not needed is reinvested (adds cost basis), then
-  //   (3) portfolio asset sales for whatever is left, which realize LTCG from the tracked cost basis.
-  // Only portfolios with "Pay expenses" checked (IDGT or not) supply dividends and asset sales to that pool; no portfolio pays
-  // any expense on its own account, so the AUM fee is paid by the pay-expenses portfolios, not by the portfolio it is charged on.
-  // Cost basis is tracked in today's $ alongside every portfolio's balance: `basis` starts at the entered cost
-  // basis % × start balance (blank = no unrealized gain today, i.e. basis = balance), clamped to [0, balance].
-  // `stepped` marks that the owner-death step-up has been considered; `steppedNow` flags the year it applied.
-  // Asset / basis swap timing: row of the last passing (first row with nobody alive) minus `basisSwapYears` (at least 1), not before row 0.
-  const lastPassRow=Math.max(...people.map((p,i)=>Math.max(0,Math.ceil(passAges[i]-curAges[i]-1e-9))));
-  const swapRow=Math.max(0,lastPassRow-Math.max(1,Math.round(Number(state.basisSwapYears)||BASIS_SWAP_YEARS_DEFAULT)));
-  const pfState=people.map(p=>(p.brokerage||[]).map(b=>{
-    const bal0=Number(b&&b.balance)||0, tracked=pfTracksBasis(b);
-    const bas0=tracked?clamp(pfBasisEntered(b)?bal0*Number(b.basisPct)/100:bal0, 0, bal0):0;
-    // An inherited portfolio enters the scenario in its start row (`pendK`): until then it has no balance; then it arrives at `bal0` with cost basis `bas0`.
-    const pendK=inhStartRow(b);
-    return {bal:pendK>0?0:bal0, bal0, bas0, pendK:pendK>0?pendK:null, dead:false, tracked, basis:pendK>0?0:bas0, stepped:false, steppedNow:false, swapAmt:0};
-  }));
+// Starting state of every brokerage portfolio and property (balance, basis, flags), plus the rows of the last passing and the basis-swap year.
+//
+// Balances are simulated year by year. Change per year = growth − (dividends used for expenses + shares sold).
+// ALL expenses — the household living expenses (state.living), the household IRMAA surcharge, the AUM fee on the
+// AUM-checked portfolios and IRAs, and the year's income tax — are pooled and funded in this order (spec §4.6):
+//   (1) household income (wages, Social Security, pension, rental, IRA RMDs), then
+//   (2) portfolio dividends (ODIV) — any dividend not needed is reinvested (adds cost basis), then
+//   (3) portfolio asset sales for whatever is left, which realize LTCG from the tracked cost basis.
+// Only portfolios with "Pay expenses" checked (IDGT or not) supply dividends and asset sales to that pool; no portfolio pays
+// any expense on its own account, so the AUM fee is paid by the pay-expenses portfolios, not by the portfolio it is charged on.
+// Cost basis is tracked in today's $ alongside every portfolio's balance: `basis` starts at the entered cost
+// basis % × start balance (blank = no unrealized gain today, i.e. basis = balance), clamped to [0, balance].
+// `stepped` marks that the owner-death step-up has been considered; `steppedNow` flags the year it applied.
+// Asset / basis swap timing: row of the last passing (first row with nobody alive) minus `basisSwapYears` (at least 1), not before row 0.
+function projPortfolioState({people, curAges, passAges}) {
+  const lastPassRow = Math.max(...people.map((p, i) => Math.max(0, Math.ceil(passAges[i] - curAges[i] - 1e-9))));
+  const swapRow = Math.max(0, lastPassRow - Math.max(1, Math.round(Number(state.basisSwapYears) || BASIS_SWAP_YEARS_DEFAULT)));
+  const pfState = people.map(p =>
+    (p.brokerage || []).map(b => {
+      const bal0 = Number(b && b.balance) || 0,
+        tracked = pfTracksBasis(b);
+      const bas0 = tracked ? clamp(pfBasisEntered(b) ? (bal0 * Number(b.basisPct)) / 100 : bal0, 0, bal0) : 0;
+      // An inherited portfolio enters the scenario in its start row (`pendK`): until then it has no balance; then it arrives at `bal0` with cost basis `bas0`.
+      const pendK = inhStartRow(b);
+      return {
+        bal: pendK > 0 ? 0 : bal0,
+        bal0,
+        bas0,
+        pendK: pendK > 0 ? pendK : null,
+        dead: false,
+        tracked,
+        basis: pendK > 0 ? 0 : bas0,
+        stepped: false,
+        steppedNow: false,
+        swapAmt: 0
+      };
+    })
+  );
   // Real estate: a passive asset (no income, no expenses paid from it, never sold). Value grows at its own real rate; cost basis (blank = no
   // unrealized gain today) is a fixed nominal amount, so in today's $ it erodes by inflation, and it steps up to value when the owner passes
   // (a property not jointly owned leaves the scenario at that point, like a brokerage portfolio).
-  const reState=people.map(p=>(p.realEstate||[]).map(r=>{
-    const bal0=Math.max(0,Number(r&&r.balance)||0);
-    const bas0=clamp(reBasisEntered(r)?Number(r.basis):bal0, 0, bal0);   // dollars, today's $; blank = no unrealized gain
-    const pendK=inhStartRow(r);   // an inherited property enters the scenario in its start row (see pfState above)
-    return {bal:pendK>0?0:bal0, bal0, bas0, pendK:pendK>0?pendK:null, dead:false, basis:pendK>0?0:bas0, stepped:false, steppedNow:false, sold:false};
-  }));
+  const reState = people.map(p =>
+    (p.realEstate || []).map(r => {
+      const bal0 = Math.max(0, Number(r && r.balance) || 0);
+      const bas0 = clamp(reBasisEntered(r) ? Number(r.basis) : bal0, 0, bal0); // dollars, today's $; blank = no unrealized gain
+      const pendK = inhStartRow(r); // an inherited property enters the scenario in its start row (see pfState above)
+      return {
+        bal: pendK > 0 ? 0 : bal0,
+        bal0,
+        bas0,
+        pendK: pendK > 0 ? pendK : null,
+        dead: false,
+        basis: pendK > 0 ? 0 : bas0,
+        stepped: false,
+        steppedNow: false,
+        sold: false
+      };
+    })
+  );
+  return {lastPassRow, swapRow, pfState, reState};
+}
+
+// Rows where events happen: the last row of the projection, and the row of each property's age / LTC / passing sale.
+//
+//   'age'     — the first row the OWNER is at least `sellAge` (row 0 if already past it);
+//   'ltc'     — the row the LAST person to start long-term care starts it (the latest start row among the people whose LTC starts; never if LTC is off);
+//   'passing' — the last row of the scenario, the year the last person passes.
+// Order of a sale: (1) the basis is adjusted for a passing — stepped up to value if the owner has passed (a 'passing' sale is made at the passing, so it is
+// always stepped up first); (2) any taxable gain (value − basis) is realized LTCG that year, so it goes through the household's tax like portfolio LTCG
+// (SCGL shield, qualified brackets, NIIT, taxable Social Security); the tax it adds is paid out of the sale; (3) the remaining value (value − that tax) and
+// a 100% after-tax basis are forwarded to the designated portfolio. An 'age' / 'ltc' sale is made at the END of its year at that year's end value (so
+// the tax is known and the property's band runs to the end of its last year); the portfolio has the money from the next year. A 'passing' sale is at
+// the start of the last year, already stepped up, so it has no gain and no tax.
+function projEventRows({people, curAges, passAges, lastPassRow}) {
+  const lastRowK = Math.max(0, lastPassRow - 1);
+  const ltcStartRows =
+    state.ltc && state.ltc.enabled
+      ? people
+          .map((p, j) => {
+            const L = (state.ltc.people && state.ltc.people[j]) || {},
+              sAge = Number(L.startAge) || 0;
+            return sAge < passAges[j] ? Math.max(0, Math.ceil(sAge - curAges[j] - 1e-9)) : null;
+          })
+          .filter(v => v != null)
+      : [];
+  const reSaleRow = people.map((p, i) =>
+    (p.realEstate || []).map(r => {
+      const mode = (r && r.sellMode) || 'never';
+      if (mode === 'age') {
+        const a = Number(r.sellAge);
+        return a > 0 ? Math.max(0, Math.ceil(a - curAges[i] - 1e-9)) : null;
+      }
+      if (mode === 'ltc') return ltcStartRows.length ? Math.max(...ltcStartRows) : null;
+      if (mode === 'passing') return lastRowK;
+      return null;
+    })
+  );
+  return {lastRowK, reSaleRow};
+}
+
+// The user's expense-shortfall withdrawal order (Expenses panel) as a list of asset references, or null when the built-in order is used.
+//
+// Off (default): the built-in order — pay-expenses portfolios pro rata, then the pre-tax IRAs, then the Roth IRAs. On: the user's steps
+// are tried one at a time in order, each drawing what is still needed from its one asset; an asset that is not listed is never drawn on.
+// Asset keys: 'pf:<portfolio id>', 'ira:<person id>', 'roth:<person id>', 're:<property id>'. A key that no longer exists (or belongs to a
+// person not in the household) is skipped, as is a repeat.
+function projWithdrawOrder({people}) {
+  const woIdx = {};
+  people.forEach((p, i) => {
+    (p.brokerage || []).forEach((b, bi) => {
+      if (b && b.id != null) woIdx['pf:' + b.id] = {t: 'pf', i, bi};
+    });
+    woIdx['ira:' + p.id] = {t: 'ira', i};
+    woIdx['roth:' + p.id] = {t: 'roth', i};
+    (p.realEstate || []).forEach((r, ri) => {
+      if (r && r.id != null) woIdx['re:' + r.id] = {t: 're', i, ri};
+    });
+  });
+  const woSteps =
+    state.withdrawOrder && state.withdrawOrder.enabled
+      ? (() => {
+          const seen = {},
+            out = [];
+          (state.withdrawOrder.steps || []).forEach(s => {
+            const key = s && s.asset;
+            if (key && woIdx[key] && !seen[key]) {
+              seen[key] = 1;
+              out.push(woIdx[key]);
+            }
+          });
+          return out;
+        })()
+      : null;
+  return {woSteps};
+}
+
+// Start of the year: the IRA / Roth / inherited-IRA simulators step to this year (RMDs, start-of-year balances, AUM balances, forced inherited withdrawals) and the invested balance the guardrail rate is measured against.
+function projYearAccounts(c, k, m, head) {
+  const {G, inhSim, iraSim, iraW, married, people, pfState, reState, rothSim} = c;
+  const {ages, alive} = head;
+  // Start-of-year IRA / Roth state (RMDs, AUM balances, room to convert); the conversion itself is decided below, after the year's other income is known.
+  // AUM: the start-of-year balance (BEFORE this year's RMD) of a pre-tax / Roth IRA whose AUM box is checked and that the household still holds this year (`open` after pre()).
+  const iraBal0 = people.map((p, i) => iraSim[i].bal),
+    rothBal0 = people.map((p, i) => rothSim[i].bal);
+  people.forEach((p, i) => {
+    iraSim[i].pre(k);
+    rothSim[i].pre(k);
+  });
+  const aumIra = people.map((p, i) => (p.ira && p.ira.aum && iraSim[i].open && iraBal0[i] > 0 ? iraBal0[i] : 0));
+  const aumRoth = people.map((p, i) => (p.roth && p.roth.aum && rothSim[i].open && rothBal0[i] > 0 ? rothBal0[i] : 0));
+  // Inherited assets arriving this year (a portfolio / property that is not yet there has no balance).
+  people.forEach((p, i) => {
+    pfState[i].forEach(t => {
+      if (t.pendK != null && k >= t.pendK) {
+        t.bal = t.bal0;
+        t.basis = t.bas0;
+        t.pendK = null;
+      }
+    });
+    reState[i].forEach(t => {
+      if (t.pendK != null && k >= t.pendK) {
+        t.bal = t.bal0;
+        t.basis = t.bas0;
+        t.pendK = null;
+      }
+    });
+  });
+  // Inherited IRAs: this year's forced withdrawal (see inhSim above). Pre-tax ones join their holder's IRA distributions.
+  const inhIraWdByPerson = people.map(() => 0),
+    inhRothWdByPerson = people.map(() => 0);
+  people.forEach((p, i) =>
+    inhSim[i].forEach((sm, ii) => {
+      sm.wd = 0;
+      sm.eoy = 0;
+      sm.live = false;
+      sm.open = false;
+      sm.room = 0;
+      sm.fixed = 0;
+      sm.aumB = 0;
+      if (!sm.on || sm.done) return;
+      if (!alive[sm.holder]) {
+        const o = 1 - sm.holder;
+        if (sm.bene && sm.holder === i && married && people.length === 2 && alive[o])
+          sm.holder = o; // inherited by the surviving spouse: same schedule and deadline, the spouse's age and Roth IRA
+        else {
+          sm.done = true;
+          sm.bal = 0;
+          return;
+        } // otherwise it ends (the 10 years never extend, even to another plan)
+      }
+      if (k < sm.kS) return;
+      if (k === sm.kS) sm.bal = sm.bal0;
+      sm.live = true;
+      const h = sm.holder,
+        age = ages[h],
+        holderP = people[h];
+      let w = 0;
+      if (k > sm.kS) {
+        const lastK = sm.kS + INH_IRA_YEARS;
+        if (k >= lastK)
+          w = sm.bal; // year 10: whatever is left
+        else if (sm.rmdOn && sm.bal > 0) {
+          // RMDs had started: an annual RMD in years 1–9, by the Single Life Expectancy table (IRS Table I), not the owner's Uniform Lifetime Table
+          // Fixed-term method (non-spouse beneficiary): look the factor up once, for the holder's age in the first RMD year, then subtract 1 each later year (never back to the table).
+          // A spouse who takes over after the holder passes continues the same schedule (a successor beneficiary uses the remaining period of the original).
+          if (sm.sle == null) sm.sle = sleFactor(age); // k = kS+1 here: the first RMD year
+          const div = Math.max(1, sm.sle - (k - sm.kS - 1));
+          w = Math.min(sm.bal / div, sm.bal);
+        }
+      }
+      w = Math.min(w, sm.bal);
+      sm.wd = w;
+      sm.aumB = p.inhIras[ii] && p.inhIras[ii].aum ? sm.bal : 0; // AUM: this inherited IRA's start-of-year balance (before the withdrawal) when its AUM box is checked
+      sm.bal -= w;
+      sm.open = true;
+      if (sm.kind === 'roth') inhRothWdByPerson[h] += w;
+      else {
+        inhIraWdByPerson[h] += w;
+        iraW[h][k] = (iraW[h][k] || 0) + w;
+      }
+      if (sm.kind === 'ira') {
+        // room to convert into the holder's Roth IRA this year
+        const x = p.inhIras[ii],
+          hr = holderP.roth;
+        sm.toRoth = false; // an inherited IRA cannot be converted to a Roth IRA: its annual withdraw is always an ordinary taxable withdrawal (older saves that had it ticked are ignored)
+        sm.rothOk = sm.toRoth ? !!(hr && hr.enabled) : true;
+        sm.mode = sm.rothOk && x.convMode === 'bracket' ? 'bracket' : 'fixed';
+        sm.convAmt = sm.rothOk && sm.mode === 'fixed' ? Math.max(0, Number(x.conv) || 0) : 0;
+        const startAge = sm.cMode === 'custom' ? Number(x.convStart) || 0 : 0; // 'rmd' (older saves) and 'now' = when inherited; the triggers decide for themselves
+        sm.room = (sm.trigger ? sm.started : age >= startAge) ? sm.bal : 0;
+        sm.fixed = Math.min(sm.convAmt, sm.room);
+      }
+    })
+  );
+  const inhRothWd = inhRothWdByPerson.reduce((a, b) => a + b, 0),
+    inhIraWd = inhIraWdByPerson.reduce((a, b) => a + b, 0);
+  // Start-of-year balances (after the RMD) that could be sold to pay expenses if the portfolios run out. Captured now because post() below
+  // advances the balances. A conversion leaves the pre-tax IRA and lands in the Roth IRA the same year, so it is netted/added in runWaterfall.
+  const iraStart = people.map((p, i) => (iraSim[i].open ? Math.max(0, iraSim[i].bal) : 0));
+  const rothStart = people.map((p, i) => (rothSim[i].open ? Math.max(0, rothSim[i].bal) : 0));
+  // Invested balance at the START of this year (same set of accounts as mcMeasure's `fin`): the denominator of the guardrail withdrawal rate.
+  m.gBal0 = 0;
+  if (G) {
+    pfState.forEach(l =>
+      l.forEach(t => {
+        if (t.bal > 0) m.gBal0 += t.bal;
+      })
+    );
+    iraStart.forEach(v => {
+      m.gBal0 += v;
+    });
+    rothStart.forEach(v => {
+      m.gBal0 += v;
+    });
+    inhSim.forEach(l =>
+      l.forEach(sm => {
+        if (sm.open && sm.bal > 0) m.gBal0 += sm.bal;
+      })
+    );
+  }
+  return {aumIra, aumRoth, inhIraWdByPerson, inhRothWdByPerson, inhRothWd, inhIraWd, iraStart, rothStart};
+}
+
+// This year's income sources per person: wages, Social Security, pension, rental (and its depreciation add-back, NIIT part) and annuity payouts.
+function projYearIncome(c, k, head) {
+  const {annuityRun, inflation, married, people, personAgedItemActive, ssMonthly, sumArr} = c;
+  const {ages, alive} = head;
+  // wages
+  const wageByPerson = people.map((p, i) => {
+    if (!p.wage.enabled || !alive[i]) return 0;
+    const [sA, eA] = resolveAgeRange(p.wage.ar, p);
+    if (ages[i] < sA || ages[i] >= eA) return 0;
+    const g = realGrowth(p.wage.change, inflation);
+    return p.wage.amount * growIdx(p.wage.change, g, k, inflation);
+  });
+
+  // social security (with survivor switch-over)
+  const ssByPerson = people.map((p, i) => {
+    if (!alive[i] || !p.ss.enabled) return 0;
+    if (ages[i] < ssMonthly[i].claimAgeEff) return 0;
+    let amt = ssMonthly[i].own * 12;
+    if (married && people.length === 2) {
+      const other = 1 - i;
+      if (!alive[other] && people[other].ss.enabled) {
+        const deceasedAmt = ssMonthly[other].own * 12;
+        amt = Math.max(amt, deceasedAmt);
+      }
+    }
+    return amt;
+  });
+  const totalSS = ssByPerson.reduce((a, b) => a + b, 0);
+
+  // pension / rental — always per person
+  const pensionByPerson = people.map((p, i) => personAgedItemActive(p.pension, i, k));
+  const pension = pensionByPerson.reduce((a, b) => a + b, 0);
+
+  // Rental properties: any number per person; each has its own on/off, age range, annual change and survivor flag.
+  const rentalByPerson = people.map((p, i) => (p.rentals || []).reduce((a, r) => a + personAgedItemActive(r, i, k), 0));
+  const rental = rentalByPerson.reduce((a, b) => a + b, 0);
+  // Rental depreciation: a non-cash expense already deducted in the entered (taxable) rental income, so it is added back to the
+  // household's cash income stream but is never taxed (it is not part of `nonSSOrdinary` / AGI).
+  const rentalDepByPerson = people.map((p, i) => (p.rentals || []).reduce((a, r) => a + personAgedItemActive(r, i, k, true), 0));
+  const rentalDep = rentalDepByPerson.reduce((a, b) => a + b, 0);
+  // Net investment income from rentals (NIIT): the entered amount is already net of depreciation and expenses (Schedule E). A rental classed 'business' (a trade or
+  // business the owner materially participates in) is excluded; every other rental is passive, so its net income is NII. The amount cannot be negative, so there
+  // is no rental loss to offset other NII.
+  const rentalNII = people.reduce(
+    (a, p, i) => a + (p.rentals || []).reduce((b, r) => b + (r && r.niitStatus === 'business' ? 0 : personAgedItemActive(r, i, k)), 0),
+    0
+  );
+
+  // Annuity payouts this year (see simulateAnnuity). The taxable part is ordinary income; the tax-exempt part is untaxed but is
+  // household cash income, but it is a return of the owner's own after-tax premium, so — unlike tax-exempt interest (`teIncome`) — it is NOT added to
+  // provisional income (SS taxation) or to MAGI (IRMAA).
+  // Non-qualified taxable payouts are also net investment income (NIIT).
+  const annuitiesByPerson = people.map((p, i) =>
+    (p.annuities || []).map((a, ai) => {
+      const run = annuityRun[i][ai],
+        y = run && run.on ? run.yr[k] : null;
+      const nm = (a && a.name && a.name.trim()) || 'Annuity ' + (ai + 1);
+      if (!y)
+        return {
+          id: a && a.id,
+          name: nm,
+          balance: 0,
+          payout: 0,
+          taxable: 0,
+          taxFree: 0,
+          taxableEmbedded: 0,
+          passing: null,
+          nonQual: false,
+          live: false
+        };
+      return {
+        id: a.id,
+        name: nm,
+        balance: y.bal,
+        payout: y.payout,
+        taxable: y.taxable,
+        taxFree: y.taxFree,
+        taxableEmbedded: y.taxableEmbedded,
+        passing: y.passing,
+        nonQual: y.nonQual,
+        live: true
+      };
+    })
+  );
+  const annuityByPerson = annuitiesByPerson.map(l => sumArr(l.map(e => e.taxable)));
+  const annuityTEByPerson = annuitiesByPerson.map(l => sumArr(l.map(e => e.taxFree)));
+  const annuity = sumArr(annuityByPerson),
+    annuityTE = sumArr(annuityTEByPerson);
+  const annuityNII = sumArr(annuitiesByPerson.map(l => sumArr(l.map(e => (e.nonQual ? e.taxable : 0)))));
+  const annuityBalance = sumArr(annuitiesByPerson.map(l => sumArr(l.map(e => e.balance))));
+  return {
+    wageByPerson,
+    ssByPerson,
+    totalSS,
+    pensionByPerson,
+    pension,
+    rentalByPerson,
+    rental,
+    rentalDepByPerson,
+    rentalDep,
+    rentalNII,
+    annuitiesByPerson,
+    annuityByPerson,
+    annuityTEByPerson,
+    annuity,
+    annuityTE,
+    annuityNII,
+    annuityBalance
+  };
+}
+
+// Brokerage portfolios at the start of the year: balances (dead / alive), property sales made at the passing, the asset / basis swap with an IDGT.
+function projYearPortfolios(c, k, head) {
+  const {curAges, married, passAges, people, pfState, reSaleRow, reState, swapRow} = c;
+  const {alive} = head;
+  // Brokerage portfolio income — each portfolio produces ODIV and QDIV (and a foreign tax credit).
+  // Realized LTCG is NOT computed here: it comes from the household expense waterfall below (asset sales).
+  // `active` = the portfolio is inside its age range (or continuing to a surviving spouse); an inactive
+  // portfolio just compounds — it produces no dividends and is not touched to fund expenses.
+  const NOPF = {odiv: 0, qdiv: 0, ftc: 0, te: 0, cgd: 0, active: false};
+  function brokerageValues(portfolio, ownerIdx, k, bal) {
+    if (!portfolio || !portfolio.enabled || !(bal > 0)) return NOPF;
+
+    const ownerAge = curAges[ownerIdx] + k;
+    const ownerAlive = ownerAge < passAges[ownerIdx];
+    const otherIdx = 1 - ownerIdx;
+    const spouseAlive = married && people.length === 2 && curAges[otherIdx] + k < passAges[otherIdx];
+
+    // Before the owner passes, use the portfolio's configured age range.
+    if (ownerAlive) {
+      const [sA, eA] = resolveAgeRange(portfolio.ar, people[ownerIdx]);
+      if (ownerAge < sA || ownerAge >= eA) return NOPF;
+    } else {
+      // If inheritance is enabled, the portfolio continues for the spouse
+      // after the owner passes. Do not re-apply the deceased owner's
+      // "end age = passing" check, which would otherwise stop the income.
+      if (!(portfolio.bene && spouseAlive)) return NOPF;
+    }
+
+    // `bal` is this year's starting balance from the running simulation above;
+    // spouse continuation therefore keeps the same projected portfolio.
+    const odiv = Math.max(0, (bal * (Number(portfolio.yield) || 0)) / 100);
+    const qdiv = (odiv * clamp(Number(portfolio.qdivPct) || 0, 0, 100)) / 100;
+    // Foreign tax credit (spec §4.4, §9.4): always active, independent of the AUM box
+    // and the IDGT flag. Subtracted from the household's Total Tax, not added to income.
+    const ftc = (((bal * clamp(Number(portfolio.foreignPct) || 0, 0, 100)) / 100) * clamp(Number(portfolio.ftcPct) || 0, 0, 100)) / 100;
+    // Tax-exempt income (e.g. municipal-bond interest): a yield on the start-of-year balance, paid out of the portfolio's total
+    // return to the household. It is untaxed (never in AGI) but counts as household cash income (see cashIncome below).
+    const te = Math.max(0, (bal * (Number(portfolio.teYield) || 0)) / 100);
+    // Distributed LTCG (a fund's capital-gain distribution): a % of the start-of-year balance, or a fixed amount in today's $ (the projection is in today's $, so
+    // that already tracks inflation). It is realized LTCG this year whether or not shares are sold (taxOn), and — like a dividend — cash the household can spend
+    // (x.odiv below); what is not spent is reinvested and adds cost basis.
+    const cgd = Math.min(
+      bal,
+      Math.max(0, portfolio.cgdMode === 'amt' ? Number(portfolio.cgdAmt) || 0 : (bal * (Number(portfolio.cgdPct) || 0)) / 100)
+    );
+    return {odiv, qdiv, ftc, te, cgd, active: true};
+  }
+  // Real estate sales, part 1 — a 'passing' sale (start of the last year): the basis is stepped up to value first, so there is no gain and no tax; the whole
+  // value, at a 100% basis, goes to the designated portfolio. (Sales on an age / LTC date are made at year-end, below, because they are taxed.)
+  // The designated portfolio: the one chosen on the property (`sellTo`), else the owner's first non-IDGT portfolio, else the spouse's; it must be enabled and held.
+  const pfHeldAt = (ti, b, aliveArr) => {
+    const st = pfState[ti][(people[ti].brokerage || []).indexOf(b)];
+    return (
+      !!b && b.enabled !== false && !!st && !st.dead && (aliveArr[ti] || (b.bene && married && people.length === 2 && aliveArr[1 - ti]))
+    );
+  };
+  const pickSaleTarget = (i, r, aliveArr) => {
+    const cands = [];
+    people.forEach((q, ti) =>
+      (q.brokerage || []).forEach((b, bi) => {
+        if (b && !b.idgt) cands.push({ti, bi, b});
+      })
+    );
+    return (
+      (r.sellTo && cands.find(c => c.b.id === r.sellTo && pfHeldAt(c.ti, c.b, aliveArr))) ||
+      cands.find(c => c.ti === i && pfHeldAt(c.ti, c.b, aliveArr)) ||
+      cands.find(c => pfHeldAt(c.ti, c.b, aliveArr)) ||
+      null
+    );
+  };
+  const saleLabel = (r, ri) => (r.name || '').trim() || 'Property ' + (ri + 1);
+  people.forEach((p, i) =>
+    (p.realEstate || []).forEach((r, ri) => {
+      const st = reState[i][ri];
+      if (!r || r.enabled === false || r.sellMode !== 'passing' || st.dead || st.sold || !(st.bal > 0) || reSaleRow[i][ri] !== k) return;
+      const spouseAlive = married && people.length === 2 && alive[1 - i];
+      if (!alive[i] && !(r.bene && spouseAlive)) return; // already gone with its owner; the normal path below marks it dead
+      const pick = pickSaleTarget(i, r, alive);
+      if (!pick) return;
+      const T = pfState[pick.ti][pick.bi],
+        value = st.bal;
+      T.bal += value;
+      T.basis += value; // basis stepped up at the passing, then carried at 100%
+      T.saleIn = (T.saleIn || []).concat([{name: saleLabel(r, ri), value, basis: value, gain: 0, tax: 0}]);
+      st.sold = true;
+      st.dead = true;
+      st.bal = 0;
+      st.basis = 0;
+    })
+  );
+  // Start-of-year balance for every portfolio. A portfolio stops existing once its owner has
+  // passed unless it is marked to continue to a surviving spouse.
+  const pfBalNow = people.map((p, i) =>
+    (p.brokerage || []).map((b, bi) => {
+      const st = pfState[i][bi];
+      if (!b || !b.enabled) return 0;
+      const spouseAlive = married && people.length === 2 && alive[1 - i];
+      if (!alive[i] && !(b.bene && spouseAlive)) st.dead = true;
+      // Step-up in basis (spec §4.6, cost basis): the year the owner has passed and the portfolio continues to
+      // the surviving spouse, a tracked, non-IDGT portfolio's basis resets to its value (unrealized
+      // gain → 0). IDGT assets are outside the owner's estate, so they keep their carryover basis.
+      st.steppedNow = false;
+      st.swapAmt = 0;
+      // A jointly owned portfolio ("Joint owned with spouse") also steps up when the SPOUSE passes first (the owner is still alive): the
+      // whole balance is treated as jointly held, so the survivor gets a full step-up at either passing (community-property style).
+      const jointSpousePassed = !!b.bene && married && people.length === 2 && alive[i] && !alive[1 - i];
+      if ((!alive[i] || jointSpousePassed) && !st.dead && st.tracked && !st.stepped) {
+        st.stepped = true;
+        if (!b.idgt) {
+          st.basis = st.bal;
+          st.steppedNow = true;
+        }
+      }
+      return st.dead ? 0 : st.bal;
+    })
+  );
+  // Asset / basis swap (Tax & Optimizations panel, off by default). The IDGT's swap power lets the household trade assets of equal value with the IDGT, so the
+  // low-basis assets end up in the owner's estate (stepped up at the last passing) and the high-basis assets in the IDGT (carryover basis).
+  // A swap of `S` of value moves the basis in proportion to the assets traded: the living portfolio gives up S × its basis ratio and takes S × the
+  // IDGT's basis ratio, the IDGT the reverse, so total basis is unchanged and so are both balances (growth/dividends are unaffected).
+  // It happens at the start of the year, (A) when a living-expense portfolio's basis steps up after the first passing (married; no setting), and
+  // (B) `basisSwapYears` years before the last passing (single or married). Done only when it helps and is possible: the living portfolio and the
+  // IDGT both exist (not dead), are funded and track cost basis, and the IDGT's basis ratio is lower than the living portfolio's. A swap is between
+  // assets held by the same person: a portfolio is held by its owner while alive and, after the owner passes, by the spouse if its "Joint owned
+  // with spouse" box is checked (otherwise it is gone, `dead`, and cannot be swapped).
+  // IDGTs with the lowest basis % are used first, the living portfolios with the highest basis % first; S = min(value left, IDGT value left).
+  if (state.basisSwap) {
+    // Current holder of a portfolio: its owner while alive; once the owner has passed, the spouse if "Joint owned with spouse" is checked.
+    const holder = (i, b) => (alive[i] ? i : b && b.bene && married && people.length === 2 && alive[1 - i] ? 1 - i : -1);
+    const swapWith = living => {
+      const idgts = [];
+      people.forEach((p, j) =>
+        (p.brokerage || []).forEach((b, bj) => {
+          const t = pfState[j][bj];
+          const own = holder(j, b); // who holds it now (-1 = nobody: it has gone)
+          if (b && b.enabled && b.idgt && !t.dead && own >= 0 && t.tracked && t.bal > 0.005) idgts.push({s: t, cap: t.bal, own});
+        })
+      );
+      if (!idgts.length || !living.length) return;
+      living.sort((x, y) => y.t.basis / y.t.bal - x.t.basis / x.t.bal);
+      living.forEach(Lx => {
+        const L = Lx.t;
+        let left = L.bal;
+        idgts.sort((x, y) => x.s.basis / x.s.bal - y.s.basis / y.s.bal);
+        idgts.forEach(g => {
+          if (!(left > 0.005) || !(g.cap > 0.005) || g.own !== Lx.own) return; // a swap is between assets held by the same person
+          const rL = L.basis / L.bal,
+            rI = g.s.basis / g.s.bal;
+          if (!(rI < rL - 1e-9)) return; // nothing to gain: the IDGT's assets do not have a lower basis %
+          const amt = Math.min(left, g.cap),
+            shift = amt * (rL - rI);
+          L.basis -= shift;
+          g.s.basis += shift;
+          L.swapAmt += amt;
+          g.s.swapAmt += amt;
+          left -= amt;
+          g.cap -= amt;
+        });
+      });
+    };
+    const livingStates = pick => {
+      const out = [];
+      people.forEach((p, i) =>
+        (p.brokerage || []).forEach((b, bi) => {
+          const t = pfState[i][bi];
+          if (b && b.enabled && !b.idgt && !t.dead && t.tracked && t.bal > 0.005 && pick(t)) {
+            const own = holder(i, b);
+            if (own >= 0) out.push({t, own});
+          }
+        })
+      );
+      return out;
+    };
+    swapWith(livingStates(t => t.steppedNow)); // (A) after the first passing (the stepped-up portfolio)
+    if (k === swapRow) swapWith(livingStates(() => true)); // (B) N years before the last passing
+  }
+  // Dividends / foreign tax credit per portfolio (independent of expenses).
+  const pfVals = people.map((p, i) => (p.brokerage || []).map((b, bi) => brokerageValues(b, i, k, pfBalNow[i][bi])));
+  return {pickSaleTarget, saleLabel, pfBalNow, pfVals};
+}
+
+// The household's IRMAA surcharge (from the AGI two years back) and the AUM fee charged on the checked accounts.
+function projYearIrmaaAum(c, k, head, acct, pfv) {
+  const {inflation, inhSim, people, pfState, rows} = c;
+  const {ages, alive} = head;
+  const {aumIra, aumRoth} = acct;
+  const {pfBalNow, pfVals} = pfv;
+  // Household IRMAA surcharge for this year (today's $; the tier tables are indexed, so they aren't deflated):
+  // the tier reached by the MAGI (AGI + tax-exempt income) from TWO years earlier (IRMAA's real look-back: the premium for year Y is set from the
+  // tax return for year Y−2; it also means this year's AGI — which depends on this year's LTCG, which depends on asset
+  // sales, which fund this surcharge — is never needed, so there is no circularity) × the number of living people age 65+.
+  // Years 0 and 1 have no projected AGI two years back (the model has no pre-projection history), so they are $0.
+  // The tier table (joint or single) is the one for the filing status of the SAME year's return that the MAGI comes from (rows[k-2].filing), not this
+  // year's: after a spouse dies, the premium of the next two years is still set from the earlier joint return, so the survivor is looked up in the joint
+  // table (SSA's "life-changing event" request to use a newer, single-filer return is not modeled — this keeps the conservative, default determination).
+  // IRMAA's MAGI = AGI + tax-exempt interest, so the tax-exempt income of that year counts toward the tier. (The tax-free part of annuity payouts is not added.)
+  const priorAGI = k >= 2 && rows[k - 2] ? (rows[k - 2].agi || 0) + (rows[k - 2].teIncome || 0) : 0;
+  const irmaaEnrolled = people.reduce((n, p, i) => n + (alive[i] && ages[i] >= 65 ? 1 : 0), 0);
+  const irmaaFiling = k >= 2 && rows[k - 2] ? rows[k - 2].filing : 'single'; // filing status of the return the MAGI comes from
+  const irmaaTier = (irmaaFiling === 'married' ? IRMAA_MFJ : IRMAA_SGL)
+    .slice()
+    .reverse()
+    .find(t => priorAGI >= t.magi);
+  const irmaaSurcharge = irmaaTier ? irmaaTier.surch * irmaaEnrolled : 0;
+  // The IRMAA surcharge is always a household expense (no per-portfolio opt-in); it is paid by the pool below.
+  // AUM fee (spec §4.6): a household assumption (`state.aumFee`) charged on the AUM balance = the start-of-year
+  // balances of every non-IDGT portfolio whose AUM box is checked (and that is enabled, inside its age range and funded), plus every pre-tax IRA, Roth IRA and inherited IRA whose AUM box is checked (its balance BEFORE the year's RMD / forced withdrawal; held by the household that year). IDGTs are never charged.
+  // '% AUM balance' × that sum, or a fixed $/yr (entered in today's $ for year 0, flat nominal, so it shrinks with inflation).
+  // The charge is split across the checked accounts pro rata to balance (for display); the whole fee is a household expense
+  // paid by the pool below — i.e. only by portfolios with "Pay expenses" checked.
+  const aumMode = state.aumFee && state.aumFee.mode === 'fixed' ? 'fixed' : 'pct';
+  const aumVal = state.aumFee && state.aumFee.enabled === false ? 0 : Math.max(0, Number(state.aumFee && state.aumFee.value) || 0); // unchecked Enable → no fee
+  const aumBase = people.map((p, i) =>
+    (p.brokerage || []).map((b, bi) =>
+      b && b.aum && !b.idgt && pfVals[i][bi].active && !pfState[i][bi].dead && pfBalNow[i][bi] > 0 ? pfBalNow[i][bi] : 0
+    )
+  );
+  const aumBalPf = aumBase.reduce((a, row) => a + row.reduce((x, y) => x + y, 0), 0);
+  const aumBalIra = aumIra.reduce((a, v) => a + v, 0),
+    aumBalRoth = aumRoth.reduce((a, v) => a + v, 0),
+    aumBalInh = inhSim.reduce((a, l) => a + l.reduce((x, sm) => x + (sm.aumB || 0), 0), 0);
+  const aumBalance = aumBalPf + aumBalIra + aumBalRoth + aumBalInh;
+  const aumFee = aumBalance > 0 ? (aumMode === 'pct' ? (aumBalance * aumVal) / 100 : aumVal / cpiAt(k, inflation)) : 0;
+  return {irmaaSurcharge, aumBase, aumBalPf, aumBalIra, aumBalRoth, aumBalInh, aumBalance, aumFee};
+}
+
+// Household cash income and the per-portfolio working entries the expense waterfall uses (tax-exempt income, dividends, withdraw sizing).
+function projYearPools(c, k, m, acct, income, pfv, aumG) {
+  const {inflation, iraW, people, pfState, sumArr} = c;
+  const {inhRothWd} = acct;
+  const {wageByPerson, totalSS, pension, rental, rentalDep, annuity, annuityTE} = income;
+  const {pfBalNow, pfVals} = pfv;
+  const {aumBase, aumBalance, aumFee} = aumG;
+  // ── Household expense funding waterfall (spec §4.6) ──
+  // Expenses = household living expenses (today's $, flat in real terms) + the household IRMAA surcharge + the
+  // AUM fee + THIS YEAR'S INCOME TAX (tax drag is an expense). Funded by, in order: (1) household
+  // income, (2) portfolio dividends (leftovers are reinvested), (3) portfolio asset sales (each sale realizes
+  // LTCG = amount sold × the portfolio's unrealized-gain fraction), then — only once the portfolios are exhausted —
+  // (4) pre-tax IRA withdraw (ordinary income, so it adds to the tax that is itself an expense) and (5) Roth IRA withdrawn (tax-free).
+  // Circularity: tax ← LTCG ← asset sales ← expenses ← tax. It is resolved by fixed-point iteration (see the
+  // solver below): guess the tax, run the waterfall, recompute the tax, repeat until it stops changing.
+  // Household cash income: wages, Social Security, pension, rental (+ its depreciation add-back), tax-exempt income and IRA RMDs. The Roth-conversion
+  // amount is excluded (it moves to the Roth IRA, it isn't spendable). Gross — the tax it triggers is itself
+  // one of the expenses it pays for.
+  // Tax-exempt income per person (portfolio `teYield` × start-of-year balance, capped at what the portfolio can pay out). It is
+  // untaxed — never in AGI — but is household cash income, so it pays expenses and any excess can be reinvested.
+  const teByPerson = people.map((p, i) =>
+    (p.brokerage || []).reduce((a, b, bi) => {
+      const v = pfVals[i][bi];
+      if (!v.active || pfState[i][bi].dead) return a;
+      const avail = Math.max(0, pfBalNow[i][bi] * (1 + gk(realGrowth(b.growth, inflation), 'pf:' + b.id, k, b.growth)));
+      return a + Math.min(v.te || 0, avail);
+    }, 0)
+  );
+  const teIncome = teByPerson.reduce((a, b) => a + b, 0);
+  const cashBase =
+    sumArr(wageByPerson) +
+    totalSS +
+    pension +
+    rental +
+    rentalDep +
+    teIncome +
+    annuity +
+    annuityTE +
+    inhRothWd +
+    people.reduce((a, p, i) => a + (iraW[i][k] || 0), 0);
+  m.cashIncome = cashBase; // + this year's brokerage withdraws and non-Roth pre-tax IRA annual withdraw (set at the top of every waterfall pass, see runWaterfall)
+  m.convCash = 0; // this year's annual pre-tax IRA withdraw that is NOT a Roth conversion: taxed as ordinary income, spendable household cash (set by syncConv below)
+  // Per-portfolio working entries. Only live, funded portfolios have one.
+  const pfx = people.map(() => []);
+  const poolPf = []; // portfolios inside their age range with "Pay expenses" checked — the only sources for household expenses
+  people.forEach((p, i) =>
+    (p.brokerage || []).forEach((b, bi) => {
+      const st = pfState[i][bi],
+        bal = pfBalNow[i][bi];
+      if (st.dead || !(bal > 0)) return;
+      const v = pfVals[i][bi];
+      const g = gk(realGrowth(b.growth, inflation), 'pf:' + b.id, k, b.growth),
+        avail = Math.max(0, bal * (1 + g));
+      const feeShare = aumBalance > 0 ? (aumFee * aumBase[i][bi]) / aumBalance : 0; // this portfolio's share of the AUM fee
+      const feeD = feeShare; // informational: the AUM fee charged on this balance (paid by the pool, not by this portfolio)
+      const x = {
+        active: v.active,
+        idgt: !!b.idgt,
+        payExp: !!b.payExp,
+        reinvest: !!b.reinvest,
+        feeShare,
+        bal,
+        g,
+        avail,
+        feeD,
+        odiv: v.odiv + (v.cgd || 0),
+        cgd: v.cgd || 0,
+        te: Math.min(v.te || 0, avail),
+        f: st.tracked ? pfGainFraction(bal, st.basis) : 0,
+        divUsed: 0,
+        sold: 0,
+        wd: 0,
+        ltcg: 0,
+        excessIn: 0
+      };
+      pfx[i][bi] = x;
+      // Only portfolios with "Pay expenses" checked contribute dividends and asset sales to household expenses.
+      if (x.active && x.payExp) poolPf.push(x);
+    })
+  );
+  // Portfolio withdraw (Tax & Optimizations panel): when enabled, every live (enabled, in its own age range, funded), non-IDGT portfolio sells each year as much as
+  // fits with taxable income (ordinary + qualified: QDIV + net LTCG) staying within the chosen LTCG bracket (`state.pfWithdraw.ltcgPct`; 20 = no limit), sized by the
+  // bracket solve below, in portfolio order (a later portfolio only gets what room is left). There is no age window beyond the portfolio's own range. The proceeds are
+  // household cash income (they pay expenses first; any excess is reinvested like other excess income) and the sale realizes LTCG on the portfolio's gain share.
+  const wdList = [];
+  const pfw = state.pfWithdraw;
+  if (pfw && pfw.enabled) {
+    const pctW = Number.isFinite(Number(pfw.ltcgPct)) ? Number(pfw.ltcgPct) : 0;
+    people.forEach((p, i) =>
+      (p.brokerage || []).forEach((b, bi) => {
+        const x = pfx[i][bi];
+        if (!x || !x.active || x.idgt) return;
+        wdList.push({x, i, bi, wi: 0, mode: 'bracket', amt: 0, want: 0, pct: pctW});
+      })
+    );
+  }
+  // Share of a portfolio's tax-exempt-reserved balance still free for withdraws: what it holds after growth, less its tax-exempt payout and other withdraws.
+  const wdRoom = e => Math.max(0, e.x.avail - e.x.te - wdList.reduce((a, o) => a + (o !== e && o.x === e.x ? o.amt : 0), 0));
+  function setWd(e, v) {
+    e.amt = Math.min(Math.max(0, v), wdRoom(e));
+    e.x.wd = wdList.reduce((a, o) => a + (o.x === e.x ? o.amt : 0), 0);
+  }
+  wdList.forEach(e => {
+    if (e.mode === 'amount') setWd(e, e.want);
+  });
+  return {teByPerson, teIncome, cashBase, pfx, poolPf, wdList, wdRoom, setWd};
+}
+
+// The year's tax inputs and expenses: dividends, foreign tax credit, IRA totals, filing status and deductions, Long Term Care and medical-shock costs, bracket tables, living expenses (guardrail-adjusted), IRMAA and AUM expense.
+function projYearTaxInputs(c, k, m, carry, head, income, pfv, aumG) {
+  const {G, inflation, iraW, married, passAges, people} = c;
+  const {ages, alive} = head;
+  const {wageByPerson, pension, rental, annuity} = income;
+  const {pfVals} = pfv;
+  const {irmaaSurcharge, aumFee} = aumG;
+  // Dividends / foreign tax credit per person — independent of the waterfall and of LTCG.
+  const brokerageByPerson = people.map((p, i) => {
+    let odiv = 0,
+      qdiv = 0,
+      ftc = 0;
+    (p.brokerage || []).forEach((b, bi) => {
+      const v = pfVals[i][bi];
+      odiv += v.odiv;
+      qdiv += v.qdiv;
+      ftc += v.ftc;
+    });
+    return {odiv, qdiv, ftc};
+  });
+  const odivByPerson = brokerageByPerson.map(v => v.odiv);
+  const qdivByPerson = brokerageByPerson.map(v => v.qdiv);
+  const odivNQByPerson = people.map((p, i) => Math.max(0, odivByPerson[i] - qdivByPerson[i]));
+  const odiv = odivByPerson.reduce((a, b) => a + b, 0),
+    qdiv = qdivByPerson.reduce((a, b) => a + b, 0);
+  const odivNQ = odivNQByPerson.reduce((a, b) => a + b, 0);
+  // Foreign tax credit (spec §4.4, §9.4): summed across every brokerage portfolio (both people),
+  // then subtracted from Total Tax below — a nonrefundable credit against regular income tax,
+  // not against NIIT (mirrors how the real-world credit doesn't offset the investment surtax).
+  const ftcByPerson = brokerageByPerson.map(v => v.ftc);
+  const foreignTaxCredit = ftcByPerson.reduce((a, b) => a + b, 0);
+
+  // IRA withdrawals, plus any Roth conversion amount (taxed as ordinary income, spec §4.4)
+  const iraByPerson = people.map((p, i) => iraW[i][k] || 0);
+
+  const wageTotal = wageByPerson.reduce((a, b) => a + b, 0);
+  const iraTotal = iraByPerson.reduce((a, b) => a + b, 0);
+
+  // Ordinary side of the return that does not depend on LTCG, computed once outside the iteration. (Taxable Social Security does
+  // depend on LTCG — provisional income includes QDIV and LTCG — so it is computed inside taxOn() below.)
+  const filing = married && alive[0] && alive[1] ? 'married' : 'single';
+  const ssThresholdFactor = 1 / cpiAt(k, inflation); // un-indexed SS-tax thresholds, in today's $
+  const nonSSBase = wageTotal + pension + rental + annuity + iraTotal + odivNQ; // + the Roth conversion (decided below) = nonSSOrdinary
+  // Standard deduction = the basic amount + the additional amount for age 65 or older, per living person who is 65 by the end of the tax year (birth year
+  // + 65 ≤ year, the same rule as the senior deduction below; the additional amount for blindness is not modeled). The additional amount is $1,650 per person
+  // on a joint return and $2,050 for a single filer, so it follows the filing status in force (the survivor gets the single amount). Indexed, like the basic amount.
+  const taxYear = THIS_YEAR + k;
+  const age65N = people.reduce((n, p, i) => n + (alive[i] && (Number(p.birthYear) || 0) + 65 <= taxYear ? 1 : 0), 0);
+  const std = filing === 'married' ? STD_MFJ + STD_AGE65_MFJ * age65N : STD_SGL + STD_AGE65_SGL * age65N;
+  // Long Term Care: from the LTC start age (older person's age) the LTC cost is an extra expense and the household
+  // living expense switches to the post-LTC amount. Both are today's $ (flat in real terms = inflating in future $).
+  // Per person: triggered once that person (alive at the start) reaches their own LTC start age; the cost runs while they are alive.
+  // The household living expense becomes the 1st-LTC amount once the first LTC has started, and the 2nd-LTC amount once the second has.
+  const ltc = state.ltc || {};
+  m.expLtc = 0;
+  m.ltcStarted = 0;
+  const ltcCostByPerson = people.map(() => 0);
+  if (ltc.enabled)
+    people.forEach((p, i) => {
+      const L = (ltc.people && ltc.people[i]) || {},
+        sAge = Number(L.startAge) || 0;
+      if (!(sAge < passAges[i]) || ages[i] < sAge) return;
+      m.ltcStarted++;
+      if (alive[i]) {
+        ltcCostByPerson[i] = Math.max(0, Number(L.cost) || 0);
+        m.expLtc += ltcCostByPerson[i];
+      }
+    });
+  // Late-life medical shock (state.medShock; off = nothing here changes). Counted inside the Long Term Care cost (expLtc / ltcCostByPerson) so the itemized deduction,
+  // California medical deduction, expense chart and Excel sheet all see it, but ltcStarted is untouched: household living expenses do not switch to the care amount.
+  let expMed = 0;
+  {
+    const M = state.medShock;
+    if (M && M.enabled) {
+      const mi = M.person === 1 && people.length > 1 ? 1 : 0,
+        a0 = Number(M.age) || 0,
+        yrs = Math.max(1, Math.round(Number(M.years) || 1));
+      if (alive[mi] && ages[mi] >= a0 && ages[mi] < a0 + yrs) {
+        expMed = Math.max(0, Number(M.cost) || 0);
+        ltcCostByPerson[mi] += expMed;
+        m.expLtc += expMed;
+      }
+    }
+  }
+  const ltcLiving =
+    m.ltcStarted >= 2
+      ? Math.max(0, Number(ltc.living2) || 0)
+      : m.ltcStarted === 1
+        ? Math.max(0, Number(ltc.living1 != null ? ltc.living1 : ltcLiving1Default(married)) || 0)
+        : null;
+  const ltcActive = ltcLiving !== null;
+  // Itemized deduction = LTC cost above the 7.5%-of-AGI floor; AGI includes realized LTCG, so it is computed inside taxOn() below.
+  // Enhanced deduction for seniors (Schedule 1-A Part V): each living person who is 65 by the end of this tax year (birth year
+  // + 65 ≤ year; the model tracks birth year and month only, so a Jan 1 birthday exactly 65 years earlier is not picked up),
+  // for tax years 2025–2028 only. The amount depends on AGI, so it is evaluated inside taxOn() and in the SST/marginal helper.
+  const seniorN =
+    taxYear >= SENIOR_FIRST_YEAR && taxYear <= SENIOR_LAST_YEAR
+      ? people.reduce((n, p, i) => n + (alive[i] && (Number(p.birthYear) || 0) + 65 <= taxYear ? 1 : 0), 0)
+      : 0;
+  const seniorOf = agiX => computeSeniorDeduction(seniorN, agiX, filing, ssThresholdFactor);
+  const ordBrk = filing === 'married' ? MFJ_ORD : SGL_ORD;
+  // State income tax (Tax & Optimizations panel): off unless enabled. Paid like federal tax (a household expense funded by the waterfall),
+  // but kept apart from Total Tax (TT) so the Total Income Tax chart can stack it on top as its own line.
+  const stCode = state.stateTax && state.stateTax.enabled ? state.stateTax.state : null;
+  const stN = people.reduce((n, p, i) => n + (alive[i] ? 1 : 0), 0),
+    stSenior = people.reduce((n, p, i) => n + (alive[i] && ages[i] >= 65 ? 1 : 0), 0);
+  const qBrk = filing === 'married' ? MFJ_QDIV : SGL_QDIV;
+  const baseLiving = Math.max(0, Number(ltcActive ? ltcLiving : state.living) || 0);
+  const gUsed = carry.gMult,
+    gDisc = G ? (baseLiving * Math.max(0, Math.min(100, Number(G.discPct) || 0))) / 100 : 0; // the discretionary part and the multiplier this year runs with
+  const expLiving = baseLiving - gDisc * (1 - gUsed);
+  const expIrmaa = irmaaSurcharge;
+  // The whole AUM fee is a household expense (paid by the pay-expenses portfolios via the waterfall).
+  const expAum = aumFee;
+  return {
+    odivByPerson,
+    qdivByPerson,
+    odivNQByPerson,
+    odiv,
+    qdiv,
+    odivNQ,
+    ftcByPerson,
+    foreignTaxCredit,
+    iraByPerson,
+    wageTotal,
+    iraTotal,
+    filing,
+    ssThresholdFactor,
+    nonSSBase,
+    age65N,
+    std,
+    ltcCostByPerson,
+    expMed,
+    seniorN,
+    seniorOf,
+    ordBrk,
+    stCode,
+    stN,
+    stSenior,
+    qBrk,
+    gUsed,
+    gDisc,
+    expLiving,
+    expIrmaa,
+    expAum
+  };
+}
+
+// Properties sold at the end of this year (age / LTC date): their realized gain, which joins the household's LTCG.
+function projYearPropertySales(c, k, head, pfv) {
+  const {inflation, lastRowK, married, passAges, people, reSaleRow, reState} = c;
+  const {ages, alive} = head;
+  const {pickSaleTarget, saleLabel} = pfv;
+  // Real estate sales, part 2 — taxed sales on an age / LTC date, made at the END of this year at the year-end value. (1) The basis steps up to value if the
+  // owner has already passed (the property continues only with a surviving spouse, if jointly owned); (2) the gain over the (inflation-eroded) basis is realized
+  // LTCG this year (value − exemption × owners alive − basis), added to the portfolio sales' LTCG in the waterfall below; (3) after the tax it adds, the rest goes to the designated portfolio (which must
+  // still be held next year) at a 100% basis. The last year of the scenario is excluded (the owner's passing then steps the basis up anyway).
+  const aliveNext = people.map((p, i) => ages[i] + 1 < passAges[i]);
+  const reSales = [];
+  people.forEach((p, i) =>
+    (p.realEstate || []).forEach((r, ri) => {
+      const st = reState[i][ri];
+      if (
+        !r ||
+        r.enabled === false ||
+        r.sellMode === 'passing' ||
+        st.dead ||
+        st.sold ||
+        !(st.bal > 0) ||
+        reSaleRow[i][ri] !== k ||
+        k >= lastRowK
+      )
+        return;
+      const spouseAlive = married && people.length === 2 && alive[1 - i];
+      if (!alive[i] && !(r.bene && spouseAlive)) return;
+      const pick = pickSaleTarget(i, r, aliveNext);
+      if (!pick) return;
+      const valEnd = st.bal * (1 + gk(realGrowth(r.growth, inflation), 're:' + r.id, k, r.growth));
+      const jointSpouseGone = !!r.bene && married && people.length === 2 && alive[i] && !alive[1 - i];
+      const basisNow = (!alive[i] || jointSpouseGone) && !st.stepped ? st.bal : st.basis; // (1) stepped up on the owner's passing (or the spouse's, if jointly owned)
+      const basEnd = clamp(basisNow / (1 + infAt(k, inflation)), 0, valEnd);
+      // Exemption per living owner (this property's owner, plus the spouse when it is jointly owned). It is a fixed nominal amount, so like the cost basis it
+      // erodes with inflation in today's $: the amount entered, divided by (1 + inflation) for each year up to this year's end.
+      const ownersAlive = (alive[i] ? 1 : 0) + (r.bene && married && people.length === 2 && alive[1 - i] ? 1 : 0);
+      const exempt = (Math.max(0, Number(r.exempt) || 0) / cpiAt(k + 1, inflation)) * ownersAlive;
+      reSales.push({
+        i,
+        ri,
+        ti: pick.ti,
+        bi: pick.bi,
+        name: saleLabel(r, ri),
+        valEnd,
+        basEnd,
+        ownersAlive,
+        exempt,
+        gain: Math.max(0, valEnd - exempt - basEnd),
+        niitExcl: r.niitStatus === 'business',
+        tax: 0,
+        net: valEnd
+      });
+    })
+  );
+  const reGainTotal = reSales.reduce((a, x) => a + x.gain, 0);
+  const reGainNiitExcl = reSales.reduce((a, x) => a + (x.niitExcl ? x.gain : 0), 0);
+  return {aliveNext, reSales, reGainTotal, reGainNiitExcl};
+}
+
+// The year's tax solve: the solver's building blocks (a property sold to cover a shortfall, one pass of the expense funding waterfall, the tax for a given realized LTCG, the tax <-> LTCG fixed-point iteration), then the Roth conversion solve (bracket / itemized / LTC triggers included), the LTCG-bracket brokerage withdraws and the final tax pass. Advances the IRA / Roth balances with this year's draws.
+function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp, resales) {
+  const {curAges, inflation, inhSim, iraSim, married, passAges, people, reState, rothSim, rows, woSteps} = c;
+  const {alive} = head;
+  const {iraStart, rothStart} = acct;
+  const {totalSS, rentalNII, annuityNII} = income;
+  const {pickSaleTarget, saleLabel} = pfv;
+  const {teIncome, cashBase, pfx, poolPf, wdList, wdRoom, setWd} = pools;
+  const {
+    qdiv,
+    odivNQ,
+    foreignTaxCredit,
+    filing,
+    ssThresholdFactor,
+    nonSSBase,
+    std,
+    seniorOf,
+    ordBrk,
+    stCode,
+    stN,
+    stSenior,
+    qBrk,
+    expLiving,
+    expIrmaa,
+    expAum
+  } = taxInp;
+  const {aliveNext, reSales, reGainTotal, reGainNiitExcl} = resales;
+  // Real estate sold to cover an expense shortfall (a 'sell' step in the withdrawal order). The whole property is sold at the START of this year at its
+  // start-of-year value, so the proceeds are available for this year's expenses: (1) the basis is stepped up to value if the owner has passed; (2) the gain
+  // over the (inflation-eroded) basis and the exemption is realized LTCG this year, taxed with everything else (the tax is an ordinary household expense,
+  // paid by the same waterfall); (3) what the shortfall does not use goes to the designated portfolio at a 100% basis (it is in the balance from next year;
+  // with no portfolio to take it, it leaves the model). A property with a scheduled sale this year (age / LTC / passing) is left to that sale.
+  function reShortInfo(i, ri) {
+    const r = (people[i].realEstate || [])[ri],
+      st = reState[i][ri];
+    if (!r || r.enabled === false || st.dead || st.sold || !(st.bal > 0)) return null;
+    const spouseAlive = married && people.length === 2 && alive[1 - i];
+    if (!alive[i] && !(r.bene && spouseAlive)) return null;
+    if (reSales.some(x => x.i === i && x.ri === ri)) return null;
+    const jointSpouseGone = !!r.bene && married && people.length === 2 && alive[i] && !alive[1 - i];
+    const value = st.bal,
+      basis = clamp((!alive[i] || jointSpouseGone) && !st.stepped ? st.bal : st.basis, 0, value);
+    const ownersAlive = (alive[i] ? 1 : 0) + (r.bene && married && people.length === 2 && alive[1 - i] ? 1 : 0);
+    const exempt = (Math.max(0, Number(r.exempt) || 0) / cpiAt(k, inflation)) * ownersAlive;
+    const pick = pickSaleTarget(i, r, aliveNext);
+    return {
+      i,
+      ri,
+      ti: pick ? pick.ti : null,
+      bi: pick ? pick.bi : null,
+      name: saleLabel(r, ri),
+      value,
+      basis,
+      exempt,
+      ownersAlive,
+      gain: Math.max(0, value - exempt - basis),
+      niitExcl: r.niitStatus === 'business'
+    };
+  }
+  // One pass of the funding waterfall for a given income-tax expense `taxExp`. Resets and refills every pool
+  // portfolio's divUsed / sold / ltcg and returns the funding split.
+  function runWaterfall(taxExp) {
+    const expTotal = expLiving + m.expLtc + expIrmaa + expAum + taxExp;
+    poolPf.forEach(x => {
+      x.divUsed = 0;
+      x.sold = 0;
+      x.ltcg = 0;
+    });
+    const wdCash = wdList.reduce((a, e) => a + e.amt, 0);
+    m.cashIncome = cashBase + wdCash + m.convCash; // withdraw proceeds (brokerage, and the pre-tax IRA's non-Roth annual withdraw) are household cash income
+    const expFromIncome = Math.min(expTotal, m.cashIncome);
+    let expNeed = expTotal - expFromIncome;
+    // (2) dividends, shared pro rata to each portfolio's ODIV
+    const divRoom = x => Math.max(0, Math.min(x.odiv, x.avail - x.te - x.wd)); // a withdraw leaves less than the full dividend to take
+    const poolOdiv = poolPf.reduce((a, x) => a + divRoom(x), 0);
+    const expFromDiv = Math.min(poolOdiv, expNeed);
+    if (poolOdiv > 0)
+      poolPf.forEach(x => {
+        x.divUsed = (expFromDiv * divRoom(x)) / poolOdiv;
+      });
+    expNeed -= expFromDiv;
+    // (3) asset sales, shared pro rata to balance; a portfolio that runs out hands its remainder to the others
+    const needBeforeSales = expNeed;
+    let cand = woSteps ? [] : poolPf.filter(x => x.avail - x.divUsed - x.te - x.wd > 0.005),
+      guard = 0; // (with a withdrawal order, the steps below do the selling)   // tax-exempt income is paid out of the same total return, so it is reserved before any sale
+    while (expNeed > 0.005 && cand.length && guard++ < 8) {
+      const B = cand.reduce((a, x) => a + x.bal, 0);
+      let given = 0;
+      const next = [];
+      cand.forEach(x => {
+        const room = Math.max(0, x.avail - x.divUsed - x.te - x.wd - x.sold),
+          amt = Math.min((expNeed * x.bal) / B, room);
+        x.sold += amt;
+        given += amt;
+        if (room - amt > 0.005) next.push(x);
+      });
+      expNeed -= given;
+      cand = next;
+    }
+    // (4) pre-tax IRA, then (5) Roth IRA, for what the portfolios could not cover. Each is shared pro rata to balance across the
+    // people's accounts. A pre-tax IRA withdraw is ordinary income (taxOn adds it, and the tax-expense iteration grosses it up); a Roth IRA
+    // sale is tax-free. Withdrawn dollars have left the pre-tax IRA; the ones that are a Roth conversion sit in the Roth IRA the same year.
+    const iraAvail = iraStart.map((b, i) => Math.max(0, b - (convMainByPerson[i] || 0)));
+    const rothAvail = rothStart.map((b, i) => b + (convRothByPerson[i] || 0));
+    const drawPro = (avail, need) => {
+      const tot = avail.reduce((a, b) => a + b, 0),
+        amt = Math.min(Math.max(0, need), tot);
+      return avail.map(v => (tot > 0 ? (amt * v) / tot : 0));
+    };
+    let expFromSales,
+      iraExpByPerson,
+      rothExpByPerson,
+      expFromIra,
+      expFromRoth,
+      expFromRe = 0,
+      reShort = [];
+    if (!woSteps) {
+      expFromSales = needBeforeSales - Math.max(0, expNeed);
+      iraExpByPerson = drawPro(iraAvail, expNeed);
+      expFromIra = iraExpByPerson.reduce((a, b) => a + b, 0);
+      expNeed -= expFromIra;
+      rothExpByPerson = drawPro(rothAvail, expNeed);
+      expFromRoth = rothExpByPerson.reduce((a, b) => a + b, 0);
+      expNeed -= expFromRoth;
+    } else {
+      // The user's withdrawal order replaces (3)–(5) and the pro-rata sharing: the shortfall that dividends left is taken from the listed assets one at a
+      // time, in order, each as far as it can go. Tax follows the asset: a portfolio sale realizes LTCG on its gain share (and must be a Living expense & income portfolio — payExp, as
+      // always); a pre-tax IRA draw is ordinary income; a Roth IRA draw is tax-free; a property is sold whole (see reShortInfo).
+      poolPf.forEach(x => {
+        x.sold = 0;
+      });
+      expNeed = needBeforeSales;
+      iraExpByPerson = people.map(() => 0);
+      rothExpByPerson = people.map(() => 0);
+      let sales = 0;
+      for (const s of woSteps) {
+        if (!(expNeed > 0.005)) break;
+        if (s.t === 'pf') {
+          const x = pfx[s.i][s.bi];
+          if (!x || !x.active || !x.payExp) continue;
+          const amt = Math.min(expNeed, Math.max(0, x.avail - x.divUsed - x.te - x.wd - x.sold));
+          x.sold += amt;
+          sales += amt;
+          expNeed -= amt;
+        } else if (s.t === 'ira') {
+          const amt = Math.min(expNeed, iraAvail[s.i]);
+          iraExpByPerson[s.i] += amt;
+          expNeed -= amt;
+        } else if (s.t === 'roth') {
+          const amt = Math.min(expNeed, rothAvail[s.i]);
+          rothExpByPerson[s.i] += amt;
+          expNeed -= amt;
+        } else {
+          const c = reShortInfo(s.i, s.ri);
+          if (!c) continue;
+          const applied = Math.min(expNeed, c.value);
+          expNeed -= applied;
+          expFromRe += applied;
+          reShort.push(Object.assign({}, c, {applied, excess: c.value - applied}));
+        }
+      }
+      expFromSales = sales;
+      expFromIra = iraExpByPerson.reduce((a, b) => a + b, 0);
+      expFromRoth = rothExpByPerson.reduce((a, b) => a + b, 0);
+    }
+    const expUnfunded = Math.max(0, expNeed);
+    // Realized LTCG = sold × gain fraction, for every portfolio (IDGT included, on its own sales).
+    pfx.forEach(list =>
+      list.forEach(x => {
+        if (x) x.ltcg = (x.sold + x.wd) * x.f + (x.cgd || 0);
+      })
+    ); // a withdraw is a sale like any other; + the distributed LTCG (taxed whether or not anything is sold)
+    const reShortGain = reShort.reduce((a, x) => a + x.gain, 0),
+      reShortNiitExcl = reShort.reduce((a, x) => a + (x.niitExcl ? x.gain : 0), 0);
+    let ltcgGross = reGainTotal + reShortGain;
+    pfx.forEach(list =>
+      list.forEach(x => {
+        if (x) ltcgGross += x.ltcg;
+      })
+    ); // portfolio sales' LTCG + the gain on a property sold this year (step 2)
+    return {
+      wdCash,
+      expTotal,
+      expFromIncome,
+      expFromDiv,
+      expFromSales,
+      expFromIra,
+      expFromRoth,
+      expFromRe,
+      expUnfunded,
+      ltcgGross,
+      iraExpByPerson,
+      rothExpByPerson,
+      reShort,
+      reShortGain,
+      reShortNiitExcl
+    };
+  }
+  // The year's tax given gross realized LTCG. Spec §8.3: available SCGL (suspended capital-gain loss
+  // carryforward) eliminates realized LTCG dollar-for-dollar, before tax, so only the net-of-SCGL amount is taxed.
+  // Pure (does not consume the SCGL pool) — the pool is drawn down once, after the iteration converges.
+  // `reNiitExcl` = the part of the property-sale gain in this call (`reGainAll`) that is not net investment income (see `niitStatus` on a property); 0 when omitted.
+  function taxOn(ltcgGross, conv, iraExp, reGainAll, reNiitExcl) {
+    const nonSSOrdinary = nonSSBase + conv + (iraExp || 0); // ordinary income excluding Social Security, including this year's Roth conversion and any pre-tax IRA withdraw for expenses
+    const scglUsed = Math.min(carry.scglRemaining, Math.max(0, ltcgGross));
+    const ltcg = Math.max(0, ltcgGross - scglUsed); // net-of-SCGL LTCG — what's actually taxed/displayed
+    const qualIncome = qdiv + ltcg;
+    // Provisional income = ALL non-SS income in AGI (ordinary, QDIV, net LTCG) + tax-exempt income + 50% of SS, so taxable SS
+    // moves with the realized LTCG and is solved inside the same tax ↔ LTCG iteration.
+    const {taxableSS, provisional} = computeTaxableSS(nonSSOrdinary + qdiv + ltcg + teIncome, totalSS, filing, ssThresholdFactor);
+    const ordIncome = nonSSOrdinary + taxableSS;
+    const agi = nonSSOrdinary + taxableSS + qdiv + ltcg;
+    const agiFloor = 0.075 * Math.max(0, agi);
+    const itemized = Math.max(0, m.expLtc - agiFloor);
+    const usedItemized = itemized > std;
+    const ded = Math.max(std, itemized);
+    const seniorDed = seniorOf(agi); // on top of the standard/itemized deduction; does not reduce AGI
+    const ordTI = Math.max(0, ordIncome - ded - seniorDed);
+    const ordTax = calcOrdTax(ordTI, ordBrk);
+    const qualTaxable = qualTaxableAmt(ordIncome, qualIncome, ded + seniorDed); // the deduction's excess over ordinary income shelters qualified income (worksheet)
+    const {qdiv: qdivT, ltcg: ltcgT} = qualTaxableSplit(qdiv, ltcg, qualTaxable);
+    const qualTax = calcQualTax(ordTI, qualTaxable, qBrk);
+    const incomeTax = ordTax + qualTax; // ordinary + qualified only — the SST hypothetical below mirrors this basis
+    // §9.4 NIIT: 3.8% of the lesser of net investment income (ODIV−QDIV + QDIV + LTCG) or MAGI (~AGI)
+    // over the un-indexed threshold. Added on top of ordinary + qualified tax for Total Tax (TT).
+    // Also in NII: net rental income of passive rentals (rentalNII), and the gain on a property sold this year (it is inside `ltcg`) except the part from property used in a
+    // business the owner materially participates in. The home-sale exclusion (`exempt`) is already out of that gain.
+    const niiIncome = odivNQ + qdiv + Math.max(0, ltcg - (reNiitExcl || 0)) + annuityNII + rentalNII;
+    const niit = computeNIIT(niiIncome, agi, filing, ssThresholdFactor, state.futureTax, THIS_YEAR + k);
+    // §9.4: foreign tax credit offsets the ordinary+qualified tax (not NIIT), floored at 0.
+    const totalTax = Math.max(0, incomeTax - foreignTaxCredit) + niit;
+    // State tax (not part of totalTax). Washington taxes only portfolio gains, so a property sale's gain (and the SCGL it uses first) is left out.
+    const stateTax = stCode
+      ? computeStateTax(stCode, {
+          agi,
+          taxableSS,
+          expLtc: m.expLtc,
+          ltcgPortfolio: Math.max(0, ltcgGross - (reGainAll == null ? reGainTotal : reGainAll) - scglUsed),
+          filing,
+          nAlive: stN,
+          nSenior: stSenior,
+          f: ssThresholdFactor
+        })
+      : 0;
+    return {
+      stateTax,
+      scglUsed,
+      ltcg,
+      qualIncome,
+      qualTaxable,
+      qdivT,
+      ltcgT,
+      qualTax,
+      taxableSS,
+      provisional,
+      ordIncome,
+      agi,
+      incomeTax,
+      niiIncome,
+      niit,
+      totalTax,
+      agiFloor,
+      itemized,
+      usedItemized,
+      ded,
+      seniorDed,
+      ordTI,
+      ordTax
+    };
+  }
+
+  // ── Tax ↔ LTCG fixed-point iteration ──
+  // T_{n+1} = Tax( LTCG( Waterfall( living + IRMAA + AUM fee + T_n ) ) ). More tax → more expenses → more shares
+  // sold → more LTCG → more tax, but each extra tax dollar creates well under a dollar of new tax (LTCG is
+  // taxed at ≤ ~24% including NIIT, and only the gain share of a sale is LTCG), so the map is a contraction:
+  // the error shrinks ~4× per round and a few rounds settle it to the cent. Warm-started from last year's tax
+  // (and, during the conversion search below, from the previous trial).
+  let taxIn = k > 0 && rows[k - 1] ? (rows[k - 1].totalTax || 0) + (rows[k - 1].stateTax || 0) : 0;
+  function solveTax(convTotal) {
+    let it = 0,
+      ok = false,
+      w,
+      t,
+      saleTax = 0;
+    while (it < TAX_MAX_ITERS) {
+      w = runWaterfall(taxIn);
+      t = taxOn(w.ltcgGross, convTotal, w.expFromIra, reGainTotal + w.reShortGain, reGainNiitExcl + w.reShortNiitExcl);
+      it++;
+      // The tax a property sale adds (this year's tax with the gain minus without it) is paid out of the sale, so the waterfall funds only the rest.
+      // (A property sold to cover a shortfall is not netted here: its tax is an ordinary expense, paid by the same waterfall.)
+      saleTax =
+        reGainTotal > 0
+          ? Math.max(
+              0,
+              t.totalTax +
+                t.stateTax -
+                (() => {
+                  const u = taxOn(w.ltcgGross - reGainTotal, convTotal, w.expFromIra, w.reShortGain, w.reShortNiitExcl);
+                  return u.totalTax + u.stateTax;
+                })()
+            )
+          : 0;
+      const funded = t.totalTax + t.stateTax - saleTax;
+      if (Math.abs(funded - taxIn) < TAX_TOL) {
+        ok = true;
+        break;
+      }
+      taxIn = funded;
+    }
+    return {wf: w, tx: t, saleTax, iters: it, converged: ok};
+  }
+
+  // ── Roth conversion solve ──
+  // 'fixed' IRAs convert their flat amount. 'bracket' IRAs convert as much as fits under BOTH limits entered (AND — the stricter limit
+  // sets the amount), one person at a time in person order (each given the conversions already settled): the largest amount c in
+  // [0, room after RMD] with
+  //   • taxable ordinary income stays BELOW the chosen ordinary bracket, i.e. ≤ where that bracket starts (stop 0 = nothing converts;
+  //     the first bracket's start is $0, which fills just the standard deduction; no-limit stop = no ceiling), and
+  //   • MAGI (AGI + tax-exempt interest; the tax-free part of an annuity payout is not added) stays BELOW the IRMAA line labeled with the chosen Part B % (stop 0 = nothing converts; no-limit
+  //     stop = no ceiling). IRMAA looks back two years, so this year's MAGI sets the premium of year k+2: it applies to anyone alive
+  //     now and 63+ (on Medicare by then), using this year's filing status (the return that sets that premium).
+  // Both measures rise with c, but c also moves taxable Social Security, the tax, the asset sales that fund it and so the realized LTCG
+  // — a circular dependence — so each trial c runs the full tax ↔ LTCG iteration above, and the search over c is iterated too
+  // (false position with bisection safeguards) until the largest feasible c is pinned to a few cents.
+  // Conversion units: each person's own pre-tax IRA first, then every inherited pre-tax IRA still pending this year (converted by its current holder).
+  // A unit has the conversion state the solve reads (live, rothOk, bal, trigger, started, room, fixed, mode) and `par`, the object holding its limits / trigger values.
+  const convUnits = people.map((p, i) => ({i, main: true, sim: iraSim[i], par: p.ira}));
+  people.forEach((p, i) =>
+    inhSim[i].forEach((sm, ii) => {
+      if (sm.open && sm.kind === 'ira') convUnits.push({i: sm.holder, main: false, sim: sm, par: p.inhIras[ii]});
+    })
+  );
+  const convByUnit = convUnits.map(() => 0);
+  const convByPerson = people.map(() => 0),
+    convMainByPerson = people.map(() => 0),
+    convRothByPerson = people.map(() => 0); // every annual withdraw by its holder (taxed) / the part that leaves the person's own IRA / the part that is a Roth conversion (enters the holder's Roth IRA)
+  const syncConv = () => {
+    convByPerson.fill(0);
+    convMainByPerson.fill(0);
+    convRothByPerson.fill(0);
+    m.convCash = 0;
+    convUnits.forEach((u, ui) => {
+      const v = convByUnit[ui];
+      convByPerson[u.i] += v;
+      if (u.main) convMainByPerson[u.i] += v;
+      if (u.sim.toRoth) convRothByPerson[u.i] += v;
+      else m.convCash += v;
+    });
+  };
+  const convTotalOf = () => convByPerson.reduce((a, b) => a + b, 0);
+  // Trigger starts: an IRA whose conversion start is 'bracket' / 'itemized' / 'ltc' and has not started yet checks its trigger against this year's
+  // tax with NO conversion (everyone's conversion held at 0, so the test is on the household's own income and deductions). Once met it stays started.
+  //   bracket  — taxable ordinary income stays at or below where the chosen bracket starts (same reading as the "below bracket" limit).
+  //   itemized — the itemized deduction (LTC cost above the 7.5%-of-AGI floor), in today's $, exceeds the entered value.
+  //   ltc      — the first LTC start has been reached (needs Long Term Care enabled).
+  const trigPending = u => {
+    const s = u.sim;
+    return !!(s.trigger && !s.started && s.live && s.rothOk && s.bal > 0);
+  };
+  let noConvOrdTI = null,
+    noConvItemized = null; // the no-conversion tax picture the triggers test (exported for reference)
+  // Solved whenever a Roth conversion is possible this year (any start mode), so the export always shows the no-conversion picture.
+  const trigLive = convUnits.some(u => u.sim.live && u.sim.rothOk && u.sim.bal > 0);
+  if (trigLive) {
+    const r0 = solveTax(0);
+    noConvOrdTI = r0.tx.ordTI;
+    noConvItemized = r0.tx.itemized;
+    convUnits.forEach(u => {
+      if (!trigPending(u)) return;
+      const sim = u.sim;
+      let go = false;
+      if (sim.trigger === 'ltc') go = m.ltcStarted >= 1;
+      else if (sim.trigger === 'bracket') {
+        const b = Number(u.par.convStartBracket);
+        go = r0.tx.ordTI <= convOrdTop(Number.isFinite(b) ? b : 24, ordBrk) + 0.005;
+      } else go = r0.tx.itemized > (Number(u.par.convStartItemized) || 0);
+      if (go) {
+        sim.started = true;
+        sim.startedK = k;
+        sim.room = sim.bal;
+        sim.fixed = Math.min(sim.convAmt, sim.room);
+      }
+    });
+  }
+  convUnits.forEach((u, ui) => {
+    convByUnit[ui] = u.sim.fixed || 0;
+  });
+  syncConv();
+  m.convTrials = 0;
+  function convLimits(par) {
+    const num = v => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+    const ordIn = num(par.convOrdPct),
+      irmIn = num(par.convIrmaaPct);
+    let ordTop = Infinity,
+      magiCap = Infinity,
+      ordOn = false,
+      magiOn = false;
+    if (ordIn != null) {
+      ordOn = true;
+      ordTop = convOrdTop(ordIn, ordBrk);
+    }
+    if (irmIn != null) {
+      // This year's MAGI sets the IRMAA premium of year k+2, for anyone who will be on Medicare (65+) then. A person alive now and 63+ is
+      // exposed whether or not they live to k+2 — so the limit keeps applying right up to the last years (no end-of-plan conversion
+      // spike). The tier table is the one for THIS year's filing status, since this year's return is the one that sets that premium.
+      const exposed = people.some((q, j) => curAges[j] + k < passAges[j] && curAges[j] + k + 2 >= 65);
+      if (exposed) {
+        magiCap = convMagiCap(irmIn, filing === 'married' ? IRMAA_MFJ : IRMAA_SGL);
+        magiOn = true;
+      }
+    }
+    return {ordTop, magiCap, ordOn, magiOn};
+  }
+  convUnits.forEach((u, ui) => {
+    const sim = u.sim;
+    if (sim.mode !== 'bracket' || !(sim.room > 0)) return;
+    const lim = convLimits(u.par);
+    if (!lim.ordOn && !lim.magiOn) {
+      convByUnit[ui] = sim.room;
+      syncConv();
+      return;
+    } // no limit applies (both sliders at "no limit", or only an IRMAA limit and nobody is IRMAA-exposed yet): convert it all
+    // Headroom under the stricter active limit when person i converts c (negative = over a limit). Non-increasing in c.
+    const slack = c => {
+      convByUnit[ui] = c;
+      syncConv();
+      m.convTrials++;
+      const r = solveTax(convTotalOf());
+      const so = lim.ordOn ? lim.ordTop - r.tx.ordTI : Infinity,
+        sm = lim.magiOn ? lim.magiCap - (r.tx.agi + teIncome) : Infinity;
+      return Math.min(so, sm);
+    };
+    const hi = sim.room;
+    let a = 0,
+      fa = slack(0);
+    if (fa < 0) {
+      convByUnit[ui] = 0;
+      syncConv();
+      return;
+    } // already over a limit before converting anything
+    let b = hi,
+      fb = slack(b);
+    if (fb >= 0) {
+      convByUnit[ui] = hi;
+      syncConv();
+      return;
+    } // the whole balance fits
+    let side = 0;
+    for (let n = 0; n < 60 && b - a > 0.01; n++) {
+      let c = a + ((b - a) * fa) / (fa - fb); // false position
+      if (!(c > a && c < b) || n % 4 === 3) c = (a + b) / 2; // safeguard: bisect now and then / if the interpolation misbehaves
+      const fc = slack(c);
+      if (fc >= 0) {
+        a = c;
+        fa = fc;
+        if (side === 1) fb /= 2;
+        side = 1;
+        if (fc < 0.005) break;
+      } else {
+        b = c;
+        fb = fc;
+        if (side === -1) fa /= 2;
+        side = -1;
+      }
+    }
+    convByUnit[ui] = a;
+    syncConv(); // the largest amount known to fit
+  });
+  const rothConvByPerson = convByPerson.slice(); // the annual pre-tax IRA withdraw per holder (Roth conversion or not)
+  const rothInByPerson = convRothByPerson.slice(); // the part of it that enters the holder's Roth IRA
+  const iraConvByPerson = convMainByPerson.slice(); // the part of it that leaves each person's own pre-tax IRA (the rest leaves an inherited IRA, below)
+  const rothConvTotal = convTotalOf();
+  // ── Brokerage withdraws sized by an LTCG bracket ──
+  // After the Roth conversions are settled, each 'bracket' withdraw (in portfolio order) sells the largest amount w for which the year's taxable income
+  // (ordinary taxable income + qualified income: QDIV + net LTCG) stays within the top of the chosen LTCG bracket (0% / 15%; 20% = no limit = sell all that is
+  // free). Like the conversion search, every trial w runs the full tax ↔ LTCG iteration, because w moves the LTCG, the tax, and the asset sales that tax funds.
+  wdList.forEach(e => {
+    if (e.mode !== 'bracket') return;
+    const j = e.pct >= 20 ? -1 : e.pct >= 15 ? 1 : 0,
+      top = j < 0 ? Infinity : qBrk[j].lim;
+    const hi = wdRoom(e);
+    if (!(hi > 0)) return;
+    // "Accept NIIT" unchecked (default): the sale must also keep MAGI (AGI) at or under the NIIT threshold, so it adds no Net Investment Income Tax. A portfolio with no
+    // unrealized gain realizes nothing (no new net investment income), so it is not capped by NIIT.
+    const niitTop =
+      !state.pfWithdraw.acceptNiit && e.x.f > 0 ? niitThreshold(filing, ssThresholdFactor, state.futureTax, THIS_YEAR + k) : Infinity;
+    // "Accept Social Security tax torpedo" unchecked (default): the sale must not raise this year's taxable Social Security above what it is before this portfolio sells
+    // (a sale's LTCG is in provisional income, so inside the 50% / 85% phase-in each extra dollar makes up to 85c of Social Security taxable). Taxable SS only rises with the sale,
+    // so the limit is the value at w = 0. Once taxable SS is already at its cap (85%), or provisional income is under the base threshold, there is room up to that point.
+    const noTorpedo = !state.pfWithdraw.acceptTorpedo && totalSS > 0;
+    if (!isFinite(top) && !isFinite(niitTop) && !noTorpedo) {
+      setWd(e, hi);
+      return;
+    }
+    let ssTop = Infinity;
+    if (noTorpedo) {
+      setWd(e, 0);
+      ssTop = solveTax(rothConvTotal).tx.taxableSS + 0.01;
+    }
+    const slack = w => {
+      setWd(e, w);
+      const r = solveTax(rothConvTotal);
+      return Math.min(
+        isFinite(top) ? top - (r.tx.ordTI + r.tx.qualTaxable) : Infinity,
+        isFinite(niitTop) ? niitTop - r.tx.agi : Infinity,
+        ssTop - r.tx.taxableSS
+      );
+    };
+    let a = 0,
+      fa = slack(0);
+    if (fa < 0) {
+      setWd(e, 0);
+      return;
+    } // already over the bracket before selling anything
+    let b = hi,
+      fb = slack(b);
+    if (fb >= 0) {
+      setWd(e, hi);
+      return;
+    } // everything free fits
+    let side = 0;
+    for (let n = 0; n < 60 && b - a > 0.01; n++) {
+      let c = a + ((b - a) * fa) / (fa - fb);
+      if (!(c > a && c < b) || n % 4 === 3) c = (a + b) / 2;
+      const fc = slack(c);
+      if (fc >= 0) {
+        a = c;
+        fa = fc;
+        if (side === 1) fb /= 2;
+        side = 1;
+        if (fc < 0.005) break;
+      } else {
+        b = c;
+        fb = fc;
+        if (side === -1) fa /= 2;
+        side = -1;
+      }
+    }
+    setWd(e, a); // the largest amount known to fit
+  });
+  const fin = solveTax(rothConvTotal);
+  const wf = fin.wf,
+    tx = fin.tx,
+    taxIters = fin.iters,
+    taxConverged = fin.converged,
+    reSaleTax = fin.saleTax;
+  // Advance the IRA / Roth balances one year now that this year's expense draws are known (conversion and draw both leave the pre-tax IRA;
+  // the conversion enters the Roth IRA, and the Roth draw leaves it).
+  people.forEach((p, i) => {
+    iraSim[i].post(k, iraConvByPerson[i], wf.iraExpByPerson[i]);
+    rothSim[i].post(k, rothInByPerson[i], wf.rothExpByPerson[i]);
+  });
+  // Inherited IRAs: take this year's conversion out of what is left after the withdrawal, then grow it.
+  convUnits.forEach((u, ui) => {
+    if (!u.main) u.sim.convOut = convByUnit[ui];
+  });
+  inhSim.forEach(list =>
+    list.forEach(sm => {
+      if (!sm.open) return;
+      sm.bal = Math.max(0, sm.bal - (sm.convOut || 0)) * (1 + gk(sm.g, 'inh:' + sm.holder + ':' + sm.name, k, sm.gch));
+      sm.convOut = 0;
+      sm.eoy = sm.bal;
+      if (k >= sm.kS + INH_IRA_YEARS) sm.done = true;
+    })
+  );
+  const iraExpByPerson = wf.iraExpByPerson,
+    iraExpTotal = wf.expFromIra,
+    rothExpByPerson = wf.rothExpByPerson,
+    rothExpTotal = wf.expFromRoth;
+  const nonSSOrdinary = nonSSBase + rothConvTotal + iraExpTotal;
+  // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
+  const expTax = taxIn;
+  const {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded} = wf;
+  return {
+    taxOn,
+    convMainByPerson,
+    noConvOrdTI,
+    noConvItemized,
+    rothConvByPerson,
+    rothInByPerson,
+    rothConvTotal,
+    wf,
+    tx,
+    taxIters,
+    taxConverged,
+    reSaleTax,
+    iraExpByPerson,
+    iraExpTotal,
+    rothExpByPerson,
+    rothExpTotal,
+    nonSSOrdinary,
+    expTax,
+    expTotal,
+    expFromIncome,
+    expFromDiv,
+    expFromSales,
+    expFromIra,
+    expFromRoth,
+    expFromRe,
+    expUnfunded
+  };
+}
+
+// The year's tax result, the guardrail decision for next year and the SCGL carry-forward.
+function projYearTaxResult(c, k, m, carry, income, taxInp, solved) {
+  const {G, lastRowK} = c;
+  const {totalSS, pension, rental, rentalDep, annuity, annuityTE} = income;
+  const {wageTotal, gUsed, gDisc} = taxInp;
+  const {wf, tx, expTotal} = solved;
+  // Guardrail decision for NEXT year. Portfolio-funded spending = all expenses (living, LTC, IRMAA, AUM fee, tax) less income that does not come out of the
+  // portfolios (wages, Social Security, pension, rental, annuity); tax-exempt interest and IRA / Roth / portfolio distributions are portfolio money. It is
+  // independent of which account paid, so it is not distorted by planned withdraws or Roth conversions.
+  let guard = null;
+  if (G) {
+    const nonPf = wageTotal + totalSS + pension + rental + rentalDep + annuity + annuityTE;
+    const draw = Math.max(0, expTotal - (G.excludeLtc ? m.expLtc : 0) - nonPf);
+    const wr = m.gBal0 > 0 ? draw / m.gBal0 : draw > 0 ? Infinity : 0,
+      band = Math.max(0, Number(G.band) || 0) / 100;
+    if (carry.gIwr == null && wageTotal < 0.5 && draw > 0 && isFinite(wr)) carry.gIwr = wr; // the first year without wages that draws on the portfolios sets the baseline
+    let move = 0;
+    if (carry.gIwr != null && k + 1 <= lastRowK - Math.max(0, Math.round(Number(G.sunsetYears) || 0))) {
+      if (wr > carry.gIwr * (1 + band)) {
+        carry.gMult = Math.max(0, carry.gMult * (1 - Math.max(0, Number(G.cutPct) || 0) / 100));
+        move = -1;
+        carry.gCutYears++;
+      } else if (G.prosperity && wr < carry.gIwr * (1 - band) && carry.gMult < 1) {
+        carry.gMult = Math.min(1, carry.gMult * (1 + Math.max(0, Number(G.raisePct) || 0) / 100));
+        move = 1;
+      }
+    }
+    // tripwire: the invested balance at the start of next year below which that year's rate (at this year's spending) passes the cut line
+    guard = {
+      mult: gUsed,
+      nextMult: carry.gMult,
+      wr,
+      iwr: carry.gIwr,
+      bandPct: band * 100,
+      draw,
+      bal0: m.gBal0,
+      move,
+      cutAmt: gDisc * (1 - gUsed),
+      tripwire: carry.gIwr != null ? draw / (carry.gIwr * (1 + band)) : null,
+      cutYears: carry.gCutYears
+    };
+  }
+  const {
+    scglUsed,
+    ltcg,
+    qualIncome,
+    qualTaxable,
+    qdivT,
+    ltcgT,
+    qualTax,
+    taxableSS,
+    provisional,
+    ordIncome,
+    agi,
+    incomeTax,
+    niiIncome,
+    niit,
+    totalTax,
+    stateTax,
+    agiFloor,
+    itemized,
+    usedItemized,
+    ded,
+    seniorDed,
+    ordTI,
+    ordTax
+  } = tx;
+  const ltcgGross = wf.ltcgGross;
+  carry.scglRemaining = Math.max(0, carry.scglRemaining - scglUsed);
+  return {
+    guard,
+    scglUsed,
+    ltcg,
+    qualIncome,
+    qualTaxable,
+    qdivT,
+    ltcgT,
+    qualTax,
+    taxableSS,
+    provisional,
+    ordIncome,
+    agi,
+    incomeTax,
+    niiIncome,
+    niit,
+    totalTax,
+    stateTax,
+    agiFloor,
+    itemized,
+    usedItemized,
+    ded,
+    seniorDed,
+    ordTI,
+    ordTax,
+    ltcgGross
+  };
+}
+
+// Excess income reinvested, LTCG by person, and the marginal rates.
+function projYearExcessAndMarginal(c, m, income, pools, taxInp, resales, solved, taxRes) {
+  const {people} = c;
+  const {totalSS} = income;
+  const {teIncome, pfx} = pools;
+  const {qdiv, filing, ssThresholdFactor, seniorOf, ordBrk, qBrk} = taxInp;
+  const {reSales} = resales;
+  const {wf, nonSSOrdinary, expTotal} = solved;
+  const {scglUsed, ltcg, qualTax, incomeTax, ded, ltcgGross} = taxRes;
+  // Excess income: household cash income left after ALL expenses (living, LTC, IRMAA, AUM fee and this year's tax) are paid.
+  // It is only positive when income alone covered every expense, so no dividends were used and no shares sold that year.
+  // It is reinvested at year-end into the live, in-range portfolios with \"Reinvest excess income\" checked, shared pro rata to
+  // start-of-year balance. With no such portfolio the excess simply leaves the model (as before this option existed).
+  const excessIncome = Math.max(0, m.cashIncome - expTotal);
+  const reinvPf = [];
+  pfx.forEach(list =>
+    list.forEach(x => {
+      if (x && x.active && x.reinvest) reinvPf.push(x);
+    })
+  );
+  const reinvBase = reinvPf.reduce((a, x) => a + x.bal, 0);
+  if (excessIncome > 0 && reinvBase > 0)
+    reinvPf.forEach(x => {
+      x.excessIn = (excessIncome * x.bal) / reinvBase;
+    });
+  const excessReinvested = reinvBase > 0 ? excessIncome : 0;
+  // Per-person gross LTCG, then prorate the SCGL shield across people/portfolios so the per-person breakdown
+  // (used by the income chart's tooltip) still sums to the net total above.
+  const ltcgByPersonGross = people.map((p, i) => {
+    let t = 0;
+    pfx[i].forEach(x => {
+      if (x) t += x.ltcg;
+    });
+    reSales.forEach(x => {
+      if (x.i === i) t += x.gain;
+    });
+    wf.reShort.forEach(x => {
+      if (x.i === i) t += x.gain;
+    });
+    return t;
+  });
+  const shieldFrac = ltcgGross > 0 ? scglUsed / ltcgGross : 0;
+  const ltcgByPerson = ltcgByPersonGross.map(v => v * (1 - shieldFrac));
+  const {sst, marginalRate, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mQT, mTax, sstQT} = computeSSTAndMarginal(
+    nonSSOrdinary,
+    totalSS,
+    filing,
+    qdiv,
+    ltcg,
+    ded,
+    ordBrk,
+    qBrk,
+    incomeTax,
+    ssThresholdFactor,
+    seniorOf,
+    teIncome
+  );
+
+  // Split of the marginal rate: the part from the ordinary brackets (incl. the SS torpedo) and the part from ordinary income pushing qualified income into a higher tier.
+  const marginalQual = Math.max(0, (calcQualTax(mTI, mQT, qBrk) - qualTax) / 100),
+    marginalOrd = marginalRate - marginalQual;
+  return {
+    excessIncome,
+    excessReinvested,
+    ltcgByPerson,
+    sst,
+    marginalRate,
+    sstOrdTI,
+    sstTaxNoSS,
+    mProv,
+    mTSS,
+    mTI,
+    mQT,
+    mTax,
+    sstQT,
+    marginalQual,
+    marginalOrd
+  };
+}
+
+// End-of-year portfolio entries and the cost-basis bookkeeping.
+function projYearPortfolioEnd(c, pfv, resales, solved) {
+  const {people, pfState} = c;
+  const {pfBalNow} = pfv;
+  const {reSales, reGainTotal} = resales;
+  const {reSaleTax} = solved;
+  // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
+  const portfoliosByPerson = people.map((p, i) =>
+    (p.brokerage || []).map((b, bi) => {
+      const st = pfState[i][bi],
+        bal = pfBalNow[i][bi],
+        tracked = !!st.tracked && bal > 0;
+      return {
+        id: b.id,
+        name: (b.name && b.name.trim()) || 'Portfolio ' + (bi + 1),
+        balance: bal,
+        idgt: !!b.idgt,
+        aum: !!b.aum && !b.idgt,
+        payExp: !!b.payExp,
+        feeDrag: 0,
+        ltcg: 0,
+        // Cost-basis tracking (spec §4.6, cost basis) — start-of-year values, after any step-up this year.
+        tracked,
+        basis: tracked ? st.basis : null,
+        unrealizedGain: tracked ? Math.max(0, bal - st.basis) : null,
+        steppedUp: tracked && !!st.steppedNow,
+        swapAmt: tracked ? st.swapAmt || 0 : 0,
+        reSaleIn: st.saleIn || [], // properties sold into this portfolio (value after the sale tax, and its basis), received at the start of this year
+        divUsed: 0,
+        divReinvested: 0,
+        sold: 0,
+        withdrawn: 0,
+        excessReinvested: 0,
+        taxExempt: 0,
+        reinvest: !!b.reinvest // expense waterfall (filled in the roll-forward below): dividends used, dividends reinvested, shares sold
+      };
+    })
+  );
+  pfState.forEach(list =>
+    list.forEach(t => {
+      t.saleIn = [];
+    })
+  ); // consumed above; sales made at the end of this year are added below and show up next year
+  // Share the sale tax across this year's sales by gain, and set what each forwards: value after tax (step 3).
+  reSales.forEach(x => {
+    x.tax = reGainTotal > 0 ? (reSaleTax * x.gain) / reGainTotal : 0;
+    x.net = x.valEnd - x.tax;
+  });
+  return {portfoliosByPerson};
+}
+
+// Embedded gains, short-fall property sales, real estate balances and the sales' tax: closes the year's books.
+function projYearCloseBooks(c, k, m, head, pfv, pools, resales, solved, taxRes, pfEnd) {
+  const {inflation, married, people, pfState, reState} = c;
+  const {alive} = head;
+  const {pfBalNow} = pfv;
+  const {pfx} = pools;
+  const {reSales, reGainTotal, reGainNiitExcl} = resales;
+  const {taxOn, rothConvTotal, wf, tx} = solved;
+  const {ltcgGross} = taxRes;
+  const {portfoliosByPerson} = pfEnd;
+  // Household embedded (unrealized) gain across tracked portfolios, split by whether basis steps up at death.
+  m.embeddedGain = 0;
+  m.embeddedGainIdgt = 0;
+  portfoliosByPerson.forEach(list =>
+    list.forEach(e => {
+      if (e.tracked) {
+        if (e.idgt) m.embeddedGainIdgt += e.unrealizedGain;
+        else m.embeddedGain += e.unrealizedGain;
+      }
+    })
+  );
+
+  // Roll each brokerage balance forward one year: growth − (dividends used for expenses + shares sold), from the
+  // household waterfall above. Basis (average-cost method): sales remove basis in proportion to cost share
+  // (1 − gain fraction); dividends not needed for expenses are reinvested (already-taxed income, adds basis);
+  // and because everything is in today's $ while basis is a fixed nominal amount, basis erodes by inflation.
+  // Growth is total return, so dividends used vs. shares sold move the balance identically; only basis and
+  // realized gain differ.
+  people.forEach((p, i) =>
+    (p.brokerage || []).forEach((b, bi) => {
+      const st = pfState[i][bi],
+        bal = pfBalNow[i][bi],
+        x = pfx[i][bi];
+      if (st.dead || !(bal > 0) || !x) {
+        st.bal = 0;
+        st.basis = 0;
+        return;
+      }
+      st.bal = Math.max(0, x.avail - x.divUsed - x.sold - x.wd - x.te + x.excessIn); // tax-exempt income is paid out to the household   // excess income is added at year-end, like the sales come out
+      const reinvested = Math.max(0, x.odiv - x.divUsed);
+      // Reinvested dividends and reinvested excess income are after-tax money put in, so both add cost basis.
+      if (st.tracked)
+        st.basis = clamp((st.basis - (x.sold + x.wd) * (1 - x.f) + reinvested + x.excessIn) / (1 + infAt(k, inflation)), 0, st.bal);
+      const entry = portfoliosByPerson[i][bi];
+      entry.feeDrag = x.feeD;
+      entry.growthPct = x.g * 100;
+      entry.divUsed = x.divUsed;
+      entry.divReinvested = reinvested;
+      entry.sold = x.sold;
+      entry.withdrawn = x.wd;
+      entry.excessReinvested = x.excessIn;
+      entry.taxExempt = x.te;
+      entry.ltcg = x.ltcg;
+      entry.cgd = x.cgd || 0; // the exact (pre-SCGL) gain realized and taxed this year (cgd = the distributed part of it)
+      // Net growth after expenses paid from this portfolio (dividends used + shares sold) — actual balance change.
+      entry.netGrowthPct = (st.bal / bal - 1) * 100;
+    })
+  );
+
+  // Properties sold at the start of this year to cover the shortfall: show them in the asset chart's sale line, and share the tax their gain added
+  // (this year's tax with the gain minus without it, informational) across them by gain.
+  const shortGainTotal = wf.reShortGain;
+  let shortTax = 0;
+  if (shortGainTotal > 0) {
+    const u = taxOn(ltcgGross - shortGainTotal, rothConvTotal, wf.expFromIra, reGainTotal, reGainNiitExcl);
+    shortTax = Math.max(0, tx.totalTax + tx.stateTax - (u.totalTax + u.stateTax));
+  }
+  const reShortSales = wf.reShort.map(x =>
+    Object.assign({}, x, {
+      valEnd: x.value,
+      basEnd: x.basis,
+      tax: shortGainTotal > 0 ? (shortTax * x.gain) / shortGainTotal : 0,
+      net: x.excess,
+      atStart: true,
+      shortfall: true
+    })
+  );
+  // Real estate, start-of-year values (today's $) for the asset chart, then roll each property forward one year.
+  const realEstateByPerson = people.map((p, i) =>
+    (p.realEstate || []).map((r, ri) => {
+      const st = reState[i][ri],
+        on = !!r && r.enabled !== false;
+      st.steppedNow = false;
+      if (on) {
+        const spouseAlive = married && people.length === 2 && alive[1 - i];
+        if (!alive[i] && !(r.bene && spouseAlive)) st.dead = true;
+        const jointSpouseGone = !!r.bene && married && people.length === 2 && alive[i] && !alive[1 - i]; // jointly owned: steps up at the spouse's passing too
+        if ((!alive[i] || jointSpouseGone) && !st.dead && !st.stepped) {
+          st.stepped = true;
+          st.basis = st.bal;
+          st.steppedNow = true;
+        }
+      }
+      const bal = on && !st.dead ? st.bal : 0;
+      return {
+        id: r.id,
+        name: (r.name && r.name.trim()) || 'Property ' + (ri + 1),
+        balance: bal,
+        basis: bal > 0 ? Math.min(st.basis, bal) : 0,
+        unrealizedGain: bal > 0 ? Math.max(0, bal - st.basis) : 0,
+        steppedUp: bal > 0 && st.steppedNow,
+        growthPct: realGrowth(r.growth, inflation) * 100,
+        sale: reSales.find(x => x.i === i && x.ri === ri) || reShortSales.find(x => x.i === i && x.ri === ri) || null
+      }; // sold at the end of THIS year: {valEnd, basEnd, gain, tax, net, to}
+    })
+  );
+  people.forEach((p, i) =>
+    (p.realEstate || []).forEach((r, ri) => {
+      const st = reState[i][ri],
+        e = realEstateByPerson[i][ri];
+      if (!(e.balance > 0)) {
+        st.bal = 0;
+        st.basis = 0;
+        return;
+      }
+      st.bal = e.balance * (1 + gk(realGrowth(r.growth, inflation), 're:' + r.id, k, r.growth));
+      st.basis = clamp(st.basis / (1 + infAt(k, inflation)), 0, st.bal);
+    })
+  );
+  // Property sales made at the end of this year (step 3): the value after the sale tax, at a 100% basis, joins the designated portfolio (added after that
+  // portfolio's own roll-forward above, so it is in the balance from the start of next year); the property is gone.
+  // A property sold to cover a shortfall (start of the year): the part of the proceeds the shortfall did not use joins the designated portfolio.
+  reShortSales.forEach(x => {
+    const st = reState[x.i][x.ri];
+    if (x.ti != null && x.excess > 0.005) {
+      const T = pfState[x.ti][x.bi];
+      T.bal += x.excess;
+      T.basis += x.excess;
+      T.saleIn = (T.saleIn || []).concat([{name: x.name, value: x.excess, basis: x.excess, gain: x.gain, tax: x.tax}]);
+    }
+    st.sold = true;
+    st.dead = true;
+    st.bal = 0;
+    st.basis = 0;
+  });
+  reSales.forEach(x => {
+    const st = reState[x.i][x.ri],
+      T = pfState[x.ti][x.bi];
+    T.bal += x.net;
+    T.basis += x.net;
+    T.saleIn = (T.saleIn || []).concat([{name: x.name, value: x.net, basis: x.net, gain: x.gain, tax: x.tax}]);
+    st.sold = true;
+    st.dead = true;
+    st.bal = 0;
+    st.basis = 0;
+  });
+  return {shortGainTotal, realEstateByPerson};
+}
+
+// The year's output row (every value the charts, exports and measures read).
+function projYearRow(c, k, m, carry, head, acct, income, aumG, pools, taxInp, resales, solved, taxRes, excess, pfEnd, closing) {
+  const {idxP0, inhSim, iraBal, iraSim, people, rothBal, rows} = c;
+  const iraBalByPerson = people.map((p, i) => (iraBal[i][k] != null ? iraBal[i][k] : 0));
+  const rothBalByPerson = people.map((p, i) => (rothBal[i][k] != null ? rothBal[i][k] : 0));
+  return {
+    k,
+    age0: idxP0 != null ? head.ages[idxP0] : head.ages[0],
+    ages: head.ages,
+    alive: head.alive,
+    filing: taxInp.filing,
+    wageByPerson: income.wageByPerson,
+    wageTotal: taxInp.wageTotal,
+    ssByPerson: income.ssByPerson,
+    totalSS: income.totalSS,
+    pension: income.pension,
+    rental: income.rental,
+    pensionByPerson: income.pensionByPerson,
+    rentalByPerson: income.rentalByPerson,
+    rentalDep: income.rentalDep,
+    rentalDepByPerson: income.rentalDepByPerson,
+    teIncome: pools.teIncome,
+    teByPerson: pools.teByPerson,
+    annuity: income.annuity,
+    annuityTE: income.annuityTE,
+    annuityByPerson: income.annuityByPerson,
+    annuityTEByPerson: income.annuityTEByPerson,
+    annuitiesByPerson: income.annuitiesByPerson,
+    annuityBalance: income.annuityBalance,
+    odiv: taxInp.odiv,
+    qdiv: taxInp.qdiv,
+    odivNQ: taxInp.odivNQ,
+    ltcg: taxRes.ltcg,
+    ltcgGross: taxRes.ltcgGross,
+    reSaleGain: resales.reGainTotal + closing.shortGainTotal,
+    reSaleTax: solved.reSaleTax,
+    scglUsed: taxRes.scglUsed,
+    scglRemaining: carry.scglRemaining,
+    odivByPerson: taxInp.odivByPerson,
+    qdivByPerson: taxInp.qdivByPerson,
+    odivNQByPerson: taxInp.odivNQByPerson,
+    ltcgByPerson: excess.ltcgByPerson,
+    ftcByPerson: taxInp.ftcByPerson,
+    foreignTaxCredit: taxInp.foreignTaxCredit,
+    inhIraWdByPerson: acct.inhIraWdByPerson,
+    inhIraWd: acct.inhIraWd,
+    inhRothWdByPerson: acct.inhRothWdByPerson,
+    inhRothWd: acct.inhRothWd,
+    inhIraByPerson: inhSim.map(l => l.map(sm => ({balance: sm.live ? sm.eoy : 0, live: sm.live, wd: sm.wd, kind: sm.kind, name: sm.name}))),
+    iraByPerson: taxInp.iraByPerson,
+    iraTotal: taxInp.iraTotal,
+    iraExpByPerson: solved.iraExpByPerson,
+    iraExpTotal: solved.iraExpTotal,
+    rothExpByPerson: solved.rothExpByPerson,
+    rothExpTotal: solved.rothExpTotal,
+    iraBalByPerson,
+    rothConvByPerson: solved.rothConvByPerson,
+    convMainByPerson: solved.convMainByPerson.slice(),
+    rothConvTotal: solved.rothConvTotal,
+    rothWdOnlyByPerson: solved.rothConvByPerson.map((v, i) => Math.max(0, v - (solved.rothInByPerson[i] || 0))),
+    rothInByPerson: solved.rothInByPerson,
+    rothInTotal: solved.rothInByPerson.reduce((a, b) => a + b, 0),
+    convCashTotal: m.convCash,
+    rothBalByPerson,
+    portfoliosByPerson: pfEnd.portfoliosByPerson,
+    realEstateByPerson: closing.realEstateByPerson,
+    embeddedGain: m.embeddedGain,
+    embeddedGainIdgt: m.embeddedGainIdgt,
+    nonSSOrdinary: solved.nonSSOrdinary,
+    taxableSS: taxRes.taxableSS,
+    provisional: taxRes.provisional,
+    ordIncome: taxRes.ordIncome,
+    std: taxRes.ded,
+    seniorDeduction: taxRes.seniorDed,
+    seniorEligible: taxInp.seniorN,
+    stdDeduction: taxInp.std,
+    age65Eligible: taxInp.age65N,
+    ltcStarted: m.ltcStarted,
+    ltcCostByPerson: taxInp.ltcCostByPerson,
+    noConvOrdTI: solved.noConvOrdTI,
+    noConvItemized: solved.noConvItemized,
+    convTriggerStartedByPerson: iraSim.map(s => s.startedK === k),
+    agiFloor: taxRes.agiFloor,
+    itemized: taxRes.itemized,
+    usedItemized: taxRes.usedItemized,
+    ordTI: taxRes.ordTI,
+    ordTax: taxRes.ordTax,
+    qualIncome: taxRes.qualIncome,
+    qualTaxable: taxRes.qualTaxable,
+    qdivT: taxRes.qdivT,
+    ltcgT: taxRes.ltcgT,
+    qualTax: taxRes.qualTax,
+    sst: excess.sst,
+    marginalRate: excess.marginalRate,
+    marginalOrd: excess.marginalOrd,
+    marginalQual: excess.marginalQual,
+    sstOrdTI: excess.sstOrdTI,
+    sstTaxNoSS: excess.sstTaxNoSS,
+    mProv: excess.mProv,
+    mTSS: excess.mTSS,
+    mTI: excess.mTI,
+    mQT: excess.mQT,
+    mTax: excess.mTax,
+    sstQT: excess.sstQT,
+    niiIncome: taxRes.niiIncome,
+    niit: taxRes.niit,
+    rentalNII: income.rentalNII,
+    reNiitExcl: resales.reGainNiitExcl + solved.wf.reShortNiitExcl,
+    irmaaSurcharge: aumG.irmaaSurcharge,
+    ...(taxRes.guard ? {guard: taxRes.guard} : {}),
+    ...(taxInp.expMed ? {expMed: taxInp.expMed} : {}),
+    expLiving: taxInp.expLiving,
+    expLtc: m.expLtc,
+    expIrmaa: taxInp.expIrmaa,
+    expAum: taxInp.expAum,
+    aumBalance: aumG.aumBalance,
+    aumBalPf: aumG.aumBalPf,
+    aumBalIra: aumG.aumBalIra,
+    aumBalRoth: aumG.aumBalRoth,
+    aumBalInh: aumG.aumBalInh,
+    aumFee: aumG.aumFee,
+    expTax: solved.expTax,
+    expTotal: solved.expTotal,
+    expFromIncome: solved.expFromIncome,
+    expFromDiv: solved.expFromDiv,
+    expFromSales: solved.expFromSales,
+    expFromIra: solved.expFromIra,
+    expFromRoth: solved.expFromRoth,
+    expFromRe: solved.expFromRe,
+    expUnfunded: solved.expUnfunded,
+    cashIncome: m.cashIncome,
+    brokerageWd: solved.wf.wdCash,
+    brokerageWdByPerson: people.map((p, i) => pools.wdList.reduce((a, e) => a + (e.i === i ? e.amt : 0), 0)),
+    excessIncome: excess.excessIncome,
+    excessReinvested: excess.excessReinvested,
+    taxIters: solved.taxIters,
+    taxConverged: solved.taxConverged,
+    convTrials: m.convTrials,
+    totalTax: taxRes.totalTax,
+    stateTax: taxRes.stateTax,
+    stateCode: taxInp.stCode,
+    agi: taxRes.agi,
+    magi: taxRes.agi + pools.teIncome
+  };
+}
+
+// Legacy 'stretch' years after the household's last passing (STRETCH_YEARS): see the comment above for what carries on. Returns the stretch rows ([] when nothing continues).
+// ── Legacy "stretch": the 10 years after the household's last passing (STRETCH_YEARS). Two things carry on, with no
+// expenses, withdrawals or RMDs modeled (heirs' own taxes are out of scope):
+//   • every non-IDGT brokerage portfolio still holding a balance in the last row keeps compounding at its own real
+//     growth rate, with its basis stepped up to value at the passing (spec §4.6) and then eroding by inflation, so
+//     the unrealized gain in these years is only growth since the passing. IDGT portfolios are outside the estate
+//     and stop at the last row, as before.
+//   • any pre-tax / Roth IRA with its own "IRA stretch" checkbox on (`ira.stretch` / `roth.stretch`) and a balance.
+// These are NOT projection rows (income/tax charts and the Excel summary never see them); they're returned
+// separately as `stretch` for the asset chart / export. Stretch year 1 is the balance at the passing itself.
+function projStretch({inflation, people, curAges, idxP0, rows}) {
+  const stretch = [];
+  if (rows.length) {
+    const last = rows[rows.length - 1];
+    const gIra = people.map(p => realGrowth(p.ira.growth, inflation));
+    const gRoth = people.map(p => (p.roth && p.roth.growth ? realGrowth(p.roth.growth, inflation) : 0));
+    const gPf = people.map(p => (p.brokerage || []).map(b => realGrowth(b.growth, inflation)));
+    const gRe = people.map(p => (p.realEstate || []).map(r => realGrowth(r.growth, inflation)));
+    let any = false;
+    for (let n = 1; n <= STRETCH_YEARS; n++) {
+      const k = last.k + n,
+        ages = curAges.map(a => a + k);
+      const iraBalByPerson = people.map((p, i) => {
+        const b = last.iraBalByPerson[i] || 0;
+        return p.ira.enabled && p.ira.stretch && b > 0 ? b * Math.pow(1 + gIra[i], n) : 0;
+      });
+      const rothBalByPerson = people.map((p, i) => {
+        const b = last.rothBalByPerson[i] || 0;
+        return p.roth && p.roth.enabled && p.roth.stretch && b > 0 ? b * Math.pow(1 + gRoth[i], n) : 0;
+      });
+      // null = this portfolio does not continue (IDGT, disabled, or already gone at the last row).
+      const portfoliosByPerson = (last.portfoliosByPerson || []).map((list, i) =>
+        list.map((e, bi) => {
+          if (!e || e.idgt || !(e.balance > 0)) return null;
+          const g = gPf[i][bi],
+            balance = e.balance * Math.pow(1 + g, n),
+            basis = (e.balance * (1 + g)) / Math.pow(1 + inflation, n - 1);
+          any = true;
+          return {
+            id: e.id,
+            name: e.name,
+            balance,
+            idgt: false,
+            aum: false,
+            payExp: false,
+            feeDrag: 0,
+            ltcg: 0,
+            tracked: true,
+            basis: Math.min(basis, balance),
+            unrealizedGain: Math.max(0, balance - basis),
+            steppedUp: n === 1,
+            divUsed: 0,
+            divReinvested: 0,
+            sold: 0,
+            growthPct: g * 100,
+            netGrowthPct: g * 100
+          };
+        })
+      );
+      // Real estate still held at the last row carries on like a non-IDGT portfolio: basis stepped up at the passing, then eroding by inflation.
+      const realEstateByPerson = (last.realEstateByPerson || []).map((list, i) =>
+        list.map((e, ri) => {
+          if (!e || !(e.balance > 0)) return null;
+          const g = gRe[i][ri],
+            balance = e.balance * Math.pow(1 + g, n),
+            basis = (e.balance * (1 + g)) / Math.pow(1 + inflation, n - 1);
+          any = true;
+          return {
+            id: e.id,
+            name: e.name,
+            balance,
+            basis: Math.min(basis, balance),
+            unrealizedGain: Math.max(0, balance - basis),
+            steppedUp: n === 1,
+            growthPct: g * 100
+          };
+        })
+      );
+      if (iraBalByPerson.some(v => v > 0) || rothBalByPerson.some(v => v > 0)) any = true;
+      stretch.push({
+        k,
+        stretchYear: n,
+        age0: ages[idxP0],
+        ages,
+        alive: ages.map(() => false),
+        iraBalByPerson,
+        rothBalByPerson,
+        portfoliosByPerson,
+        realEstateByPerson
+      });
+    }
+    if (!any) stretch.length = 0;
+  }
+  return {stretch};
+}
+
+// ── computeProjection(): one projection row per year, in today's $ ──
+// Set-up (above): the household facts and the account simulators (proj* functions: Social Security, IRAs, Roth IRAs, inherited IRAs, annuities, portfolio and
+// property state, event rows, withdrawal order). Then, for each year k, a fixed pipeline of phase functions (projYear*); each reads what it needs and returns the
+// values later phases use, as a named group object:
+//   c      the set-up above, read-only (people, ages, simulators, `rows` so far …)
+//   carry  state that lives across years (SCGL carry-forward, guardrail multiplier and rates)
+//   m      this year's mutable record: the few values that several phases write, or that a closure reads before the phase that defines them has run
+//   head, acct, income, pfv, aumG, pools, taxInp, resales, solved, taxRes, excess, pfEnd, closing   the groups returned by the phases of the same names
+// Every phase keeps the original statements unchanged: the tax <-> LTCG fixed-point iteration lives in projYearSolveTax, the year's output row in projYearRow.
+function computeProjection() {
+  const carry = {scglRemaining: undefined, gMult: undefined, gIwr: undefined, gCutYears: undefined};
+  const inflation = state.inflation;
+  GROWTH_REC = REC_RATES ? [] : null;
+  const married = state.filingStatus === 'married';
+  const people = married ? state.people : [state.people[0]];
+  const curAges = people.map(p => currentAge(p));
+  const passAges = people.map(p => (state.passing[p.id] != null ? state.passing[p.id] : 95));
+  const idxP0 = married ? (curAges[0] >= curAges[1] ? 0 : 1) : 0;
+  const yearsToProject = Math.max(1, Math.ceil(Math.max(...people.map((p, i) => passAges[i] - curAges[i]))));
+
+  // ── Social Security: own/spousal amount at claim, per person (monthly, today's $) ──
+  const {ssMonthly} = projSocialSecurity({married, people, curAges});
+
+  // ── Pre-tax IRA / 401(k) RMD schedule, plus optional annual withdraw (optionally a Roth conversion) ──
+  const {iraW, iraBal, iraSim} = projIraSims({inflation, married, people, curAges, passAges});
+
+  // ── Roth IRA: tax-free growth, funded by its starting balance plus any Roth conversion
+  const {rothBal, rothSim} = projRothSims({inflation, married, people, curAges, passAges});
+
+  // ── Inherited IRAs (Inheritance card: pre-tax IRA / Roth IRA from another plan) ──
+  const {inhSim} = projInheritedIras({inflation, people});
+
+  // ── Annuities (per person, any number) ──
+  const {annuityRun} = projAnnuities({inflation, married, people, curAges, passAges, yearsToProject});
+
+  // ── Pension / rental: always per-person ──
+  const {personAgedItemActive} = projPersonAgedItemActive({inflation, married, people, curAges, passAges});
+
+  // ── Brokerage portfolio balances (today's $) ──
+  const {lastPassRow, swapRow, pfState, reState} = projPortfolioState({people, curAges, passAges});
   // Selling a property (optional, per property; default never). The row it is sold in, by `sellMode`:
-  //   'age'     — the first row the OWNER is at least `sellAge` (row 0 if already past it);
-  //   'ltc'     — the row the LAST person to start long-term care starts it (the latest start row among the people whose LTC starts; never if LTC is off);
-  //   'passing' — the last row of the scenario, the year the last person passes.
-  // Order of a sale: (1) the basis is adjusted for a passing — stepped up to value if the owner has passed (a 'passing' sale is made at the passing, so it is
-  // always stepped up first); (2) any taxable gain (value − basis) is realized LTCG that year, so it goes through the household's tax like portfolio LTCG
-  // (SCGL shield, qualified brackets, NIIT, taxable Social Security); the tax it adds is paid out of the sale; (3) the remaining value (value − that tax) and
-  // a 100% after-tax basis are forwarded to the designated portfolio. An 'age' / 'ltc' sale is made at the END of its year at that year's end value (so
-  // the tax is known and the property's band runs to the end of its last year); the portfolio has the money from the next year. A 'passing' sale is at
-  // the start of the last year, already stepped up, so it has no gain and no tax.
-  const lastRowK=Math.max(0,lastPassRow-1);
-  const ltcStartRows=(state.ltc&&state.ltc.enabled)?people.map((p,j)=>{
-    const L=(state.ltc.people&&state.ltc.people[j])||{}, sAge=Number(L.startAge)||0;
-    return sAge<passAges[j]?Math.max(0,Math.ceil(sAge-curAges[j]-1e-9)):null;
-  }).filter(v=>v!=null):[];
-  const reSaleRow=people.map((p,i)=>(p.realEstate||[]).map(r=>{
-    const mode=(r&&r.sellMode)||'never';
-    if(mode==='age'){ const a=Number(r.sellAge); return a>0?Math.max(0,Math.ceil(a-curAges[i]-1e-9)):null; }
-    if(mode==='ltc') return ltcStartRows.length?Math.max(...ltcStartRows):null;
-    if(mode==='passing') return lastRowK;
-    return null;
-  }));
+  const {lastRowK, reSaleRow} = projEventRows({people, curAges, passAges, lastPassRow});
 
   // ── Suspended Capital-Gain Loss (SCGL) carryforward, spec §4.5/§8.3 ──
   // A household-level pool (today's $) that shields realized LTCG from tax, dollar-for-dollar,
   // until it's exhausted. Tracked as a running balance across years, consumed before growth/
   // inflation considerations apply (it's a fixed today's-$ pool, not itself inflation-adjusted).
-  let scglRemaining=state.scglEnabled===false?0:Math.max(0,Number(state.scgl)||0);   // unchecked Enable → no SCGL
+  carry.scglRemaining = state.scglEnabled === false ? 0 : Math.max(0, Number(state.scgl) || 0); // unchecked Enable → no SCGL
 
   // ── Expense-shortfall withdrawal order (Expenses panel → "Expense shortfall withdrawal order") ──
-  // Off (default): the built-in order — pay-expenses portfolios pro rata, then the pre-tax IRAs, then the Roth IRAs. On: the user's steps
-  // are tried one at a time in order, each drawing what is still needed from its one asset; an asset that is not listed is never drawn on.
-  // Asset keys: 'pf:<portfolio id>', 'ira:<person id>', 'roth:<person id>', 're:<property id>'. A key that no longer exists (or belongs to a
-  // person not in the household) is skipped, as is a repeat.
-  const woIdx={};
-  people.forEach((p,i)=>{
-    (p.brokerage||[]).forEach((b,bi)=>{ if(b&&b.id!=null) woIdx['pf:'+b.id]={t:'pf',i,bi}; });
-    woIdx['ira:'+p.id]={t:'ira',i}; woIdx['roth:'+p.id]={t:'roth',i};
-    (p.realEstate||[]).forEach((r,ri)=>{ if(r&&r.id!=null) woIdx['re:'+r.id]={t:'re',i,ri}; });
-  });
-  const woSteps=(state.withdrawOrder&&state.withdrawOrder.enabled)?(()=>{
-    const seen={}, out=[];
-    (state.withdrawOrder.steps||[]).forEach(s=>{ const key=s&&s.asset; if(key&&woIdx[key]&&!seen[key]){ seen[key]=1; out.push(woIdx[key]); } });
-    return out;
-  })():null;
+  const {woSteps} = projWithdrawOrder({people});
 
-  const sumArr=a=>a.reduce((x,y)=>x+y,0);
-  const rows=[];
+  const sumArr = a => a.reduce((x, y) => x + y, 0);
+  const rows = [];
   // Spending guardrails (state.guardrail; null = off, and then nothing below changes). gMult = the multiplier on the discretionary part of living expenses
   // (1 = the plan's amount), decided at the END of each year for the next one. iwr = the initial withdrawal rate the later rates are compared with.
-  const G=(state.guardrail&&state.guardrail.enabled)?state.guardrail:null;
-  let gMult=1, gIwr=(G&&G.iwrMode==='target'&&Number(G.targetWR)>0)?Number(G.targetWR)/100:null, gCutYears=0;
-  for(let k=0;k<=yearsToProject;k++){
-    const ages=people.map((p,i)=>curAges[i]+k);
-    const alive=people.map((p,i)=>ages[i]<passAges[i]);
-    if(!alive.some(Boolean)) break;
-    // Start-of-year IRA / Roth state (RMDs, AUM balances, room to convert); the conversion itself is decided below, after the year's other income is known.
-    // AUM: the start-of-year balance (BEFORE this year's RMD) of a pre-tax / Roth IRA whose AUM box is checked and that the household still holds this year (`open` after pre()).
-    const iraBal0=people.map((p,i)=>iraSim[i].bal), rothBal0=people.map((p,i)=>rothSim[i].bal);
-    people.forEach((p,i)=>{ iraSim[i].pre(k); rothSim[i].pre(k); });
-    const aumIra=people.map((p,i)=>(p.ira&&p.ira.aum&&iraSim[i].open&&iraBal0[i]>0)?iraBal0[i]:0);
-    const aumRoth=people.map((p,i)=>(p.roth&&p.roth.aum&&rothSim[i].open&&rothBal0[i]>0)?rothBal0[i]:0);
-    // Inherited assets arriving this year (a portfolio / property that is not yet there has no balance).
-    people.forEach((p,i)=>{
-      pfState[i].forEach(t=>{ if(t.pendK!=null&&k>=t.pendK){ t.bal=t.bal0; t.basis=t.bas0; t.pendK=null; } });
-      reState[i].forEach(t=>{ if(t.pendK!=null&&k>=t.pendK){ t.bal=t.bal0; t.basis=t.bas0; t.pendK=null; } });
-    });
-    // Inherited IRAs: this year's forced withdrawal (see inhSim above). Pre-tax ones join their holder's IRA distributions.
-    const inhIraWdByPerson=people.map(()=>0), inhRothWdByPerson=people.map(()=>0);
-    people.forEach((p,i)=>inhSim[i].forEach((sm,ii)=>{
-      sm.wd=0; sm.eoy=0; sm.live=false; sm.open=false; sm.room=0; sm.fixed=0; sm.aumB=0;
-      if(!sm.on||sm.done) return;
-      if(!alive[sm.holder]){
-        const o=1-sm.holder;
-        if(sm.bene&&sm.holder===i&&married&&people.length===2&&alive[o]) sm.holder=o;   // inherited by the surviving spouse: same schedule and deadline, the spouse's age and Roth IRA
-        else { sm.done=true; sm.bal=0; return; }                                        // otherwise it ends (the 10 years never extend, even to another plan)
-      }
-      if(k<sm.kS) return;
-      if(k===sm.kS) sm.bal=sm.bal0;
-      sm.live=true;
-      const h=sm.holder, age=ages[h], holderP=people[h];
-      let w=0;
-      if(k>sm.kS){
-        const lastK=sm.kS+INH_IRA_YEARS;
-        if(k>=lastK) w=sm.bal;                              // year 10: whatever is left
-        else if(sm.rmdOn&&sm.bal>0){                        // RMDs had started: an annual RMD in years 1–9, by the Single Life Expectancy table (IRS Table I), not the owner's Uniform Lifetime Table
-          // Fixed-term method (non-spouse beneficiary): look the factor up once, for the holder's age in the first RMD year, then subtract 1 each later year (never back to the table).
-          // A spouse who takes over after the holder passes continues the same schedule (a successor beneficiary uses the remaining period of the original).
-          if(sm.sle==null) sm.sle=sleFactor(age);   // k = kS+1 here: the first RMD year
-          const div=Math.max(1,sm.sle-(k-sm.kS-1)); w=Math.min(sm.bal/div,sm.bal);
-        }
-      }
-      w=Math.min(w,sm.bal); sm.wd=w;
-      sm.aumB=(p.inhIras[ii]&&p.inhIras[ii].aum)?sm.bal:0;   // AUM: this inherited IRA's start-of-year balance (before the withdrawal) when its AUM box is checked
-      sm.bal-=w; sm.open=true;
-      if(sm.kind==='roth') inhRothWdByPerson[h]+=w; else { inhIraWdByPerson[h]+=w; iraW[h][k]=(iraW[h][k]||0)+w; }
-      if(sm.kind==='ira'){   // room to convert into the holder's Roth IRA this year
-        const x=p.inhIras[ii], hr=holderP.roth;
-        sm.toRoth=false;   // an inherited IRA cannot be converted to a Roth IRA: its annual withdraw is always an ordinary taxable withdrawal (older saves that had it ticked are ignored)
-        sm.rothOk=sm.toRoth?!!(hr&&hr.enabled):true;
-        sm.mode=(sm.rothOk&&x.convMode==='bracket')?'bracket':'fixed';
-        sm.convAmt=(sm.rothOk&&sm.mode==='fixed')?Math.max(0,Number(x.conv)||0):0;
-        const startAge=sm.cMode==='custom'?(Number(x.convStart)||0):0;   // 'rmd' (older saves) and 'now' = when inherited; the triggers decide for themselves
-        sm.room=(sm.trigger?sm.started:age>=startAge)?sm.bal:0;
-        sm.fixed=Math.min(sm.convAmt,sm.room);
-      }
-    }));
-    const inhRothWd=inhRothWdByPerson.reduce((a,b)=>a+b,0), inhIraWd=inhIraWdByPerson.reduce((a,b)=>a+b,0);
-    // Start-of-year balances (after the RMD) that could be sold to pay expenses if the portfolios run out. Captured now because post() below
-    // advances the balances. A conversion leaves the pre-tax IRA and lands in the Roth IRA the same year, so it is netted/added in runWaterfall.
-    const iraStart=people.map((p,i)=>iraSim[i].open?Math.max(0,iraSim[i].bal):0);
-    const rothStart=people.map((p,i)=>rothSim[i].open?Math.max(0,rothSim[i].bal):0);
-    // Invested balance at the START of this year (same set of accounts as mcMeasure's `fin`): the denominator of the guardrail withdrawal rate.
-    let gBal0=0;
-    if(G){ pfState.forEach(l=>l.forEach(t=>{ if(t.bal>0) gBal0+=t.bal; })); iraStart.forEach(v=>{ gBal0+=v; }); rothStart.forEach(v=>{ gBal0+=v; }); inhSim.forEach(l=>l.forEach(sm=>{ if(sm.open&&sm.bal>0) gBal0+=sm.bal; })); }
-    // wages
-    const wageByPerson=people.map((p,i)=>{
-      if(!p.wage.enabled||!alive[i]) return 0;
-      const [sA,eA]=resolveAgeRange(p.wage.ar, p);
-      if(ages[i]<sA||ages[i]>=eA) return 0;
-      const g=realGrowth(p.wage.change, inflation);
-      return p.wage.amount*growIdx(p.wage.change,g,k,inflation);
-    });
-
-    // social security (with survivor switch-over)
-    const ssByPerson=people.map((p,i)=>{
-      if(!alive[i]||!p.ss.enabled) return 0;
-      if(ages[i]<ssMonthly[i].claimAgeEff) return 0;
-      let amt=ssMonthly[i].own*12;
-      if(married && people.length===2){
-        const other=1-i;
-        if(!alive[other] && people[other].ss.enabled){
-          const deceasedAmt=ssMonthly[other].own*12;
-          amt=Math.max(amt, deceasedAmt);
-        }
-      }
-      return amt;
-    });
-    const totalSS=ssByPerson.reduce((a,b)=>a+b,0);
-
-    // pension / rental — always per person
-    const pensionByPerson = people.map((p,i)=>personAgedItemActive(p.pension,i,k));
-    const pension = pensionByPerson.reduce((a,b)=>a+b,0);
-
-    // Rental properties: any number per person; each has its own on/off, age range, annual change and survivor flag.
-    const rentalByPerson = people.map((p,i)=>(p.rentals||[]).reduce((a,r)=>a+personAgedItemActive(r,i,k),0));
-    const rental = rentalByPerson.reduce((a,b)=>a+b,0);
-    // Rental depreciation: a non-cash expense already deducted in the entered (taxable) rental income, so it is added back to the
-    // household's cash income stream but is never taxed (it is not part of `nonSSOrdinary` / AGI).
-    const rentalDepByPerson = people.map((p,i)=>(p.rentals||[]).reduce((a,r)=>a+personAgedItemActive(r,i,k,true),0));
-    const rentalDep = rentalDepByPerson.reduce((a,b)=>a+b,0);
-    // Net investment income from rentals (NIIT): the entered amount is already net of depreciation and expenses (Schedule E). A rental classed 'business' (a trade or
-    // business the owner materially participates in) is excluded; every other rental is passive, so its net income is NII. The amount cannot be negative, so there
-    // is no rental loss to offset other NII.
-    const rentalNII = people.reduce((a,p,i)=>a+(p.rentals||[]).reduce((b,r)=>b+(r&&r.niitStatus==='business'?0:personAgedItemActive(r,i,k)),0),0);
-
-    // Annuity payouts this year (see simulateAnnuity). The taxable part is ordinary income; the tax-exempt part is untaxed but is
-    // household cash income, but it is a return of the owner's own after-tax premium, so — unlike tax-exempt interest (`teIncome`) — it is NOT added to
-    // provisional income (SS taxation) or to MAGI (IRMAA).
-    // Non-qualified taxable payouts are also net investment income (NIIT).
-    const annuitiesByPerson=people.map((p,i)=>(p.annuities||[]).map((a,ai)=>{
-      const run=annuityRun[i][ai], y=run&&run.on?run.yr[k]:null;
-      const nm=(a&&a.name&&a.name.trim())||('Annuity '+(ai+1));
-      if(!y) return {id:a&&a.id, name:nm, balance:0, payout:0, taxable:0, taxFree:0, taxableEmbedded:0, passing:null, nonQual:false, live:false};
-      return {id:a.id, name:nm, balance:y.bal, payout:y.payout, taxable:y.taxable, taxFree:y.taxFree, taxableEmbedded:y.taxableEmbedded, passing:y.passing, nonQual:y.nonQual, live:true};
-    }));
-    const annuityByPerson=annuitiesByPerson.map(l=>sumArr(l.map(e=>e.taxable)));
-    const annuityTEByPerson=annuitiesByPerson.map(l=>sumArr(l.map(e=>e.taxFree)));
-    const annuity=sumArr(annuityByPerson), annuityTE=sumArr(annuityTEByPerson);
-    const annuityNII=sumArr(annuitiesByPerson.map(l=>sumArr(l.map(e=>e.nonQual?e.taxable:0))));
-    const annuityBalance=sumArr(annuitiesByPerson.map(l=>sumArr(l.map(e=>e.balance))));
-
-    // Brokerage portfolio income — each portfolio produces ODIV and QDIV (and a foreign tax credit).
-    // Realized LTCG is NOT computed here: it comes from the household expense waterfall below (asset sales).
-    // `active` = the portfolio is inside its age range (or continuing to a surviving spouse); an inactive
-    // portfolio just compounds — it produces no dividends and is not touched to fund expenses.
-    const NOPF={odiv:0,qdiv:0,ftc:0,te:0,cgd:0,active:false};
-    function brokerageValues(portfolio, ownerIdx, k, bal){
-      if(!portfolio||!portfolio.enabled||!(bal>0)) return NOPF;
-
-      const ownerAge=curAges[ownerIdx]+k;
-      const ownerAlive=ownerAge<passAges[ownerIdx];
-      const otherIdx=1-ownerIdx;
-      const spouseAlive=married&&people.length===2&&
-        (curAges[otherIdx]+k<passAges[otherIdx]);
-
-      // Before the owner passes, use the portfolio's configured age range.
-      if(ownerAlive){
-        const [sA,eA]=resolveAgeRange(portfolio.ar,people[ownerIdx]);
-        if(ownerAge<sA||ownerAge>=eA) return NOPF;
-      }else{
-        // If inheritance is enabled, the portfolio continues for the spouse
-        // after the owner passes. Do not re-apply the deceased owner's
-        // "end age = passing" check, which would otherwise stop the income.
-        if(!(portfolio.bene&&spouseAlive)) return NOPF;
-      }
-
-      // `bal` is this year's starting balance from the running simulation above;
-      // spouse continuation therefore keeps the same projected portfolio.
-      const odiv=Math.max(0,bal*(Number(portfolio.yield)||0)/100);
-      const qdiv=odiv*clamp(Number(portfolio.qdivPct)||0,0,100)/100;
-      // Foreign tax credit (spec §4.4, §9.4): always active, independent of the AUM box
-      // and the IDGT flag. Subtracted from the household's Total Tax, not added to income.
-      const ftc = bal*clamp(Number(portfolio.foreignPct)||0,0,100)/100*clamp(Number(portfolio.ftcPct)||0,0,100)/100;
-      // Tax-exempt income (e.g. municipal-bond interest): a yield on the start-of-year balance, paid out of the portfolio's total
-      // return to the household. It is untaxed (never in AGI) but counts as household cash income (see cashIncome below).
-      const te=Math.max(0,bal*(Number(portfolio.teYield)||0)/100);
-      // Distributed LTCG (a fund's capital-gain distribution): a % of the start-of-year balance, or a fixed amount in today's $ (the projection is in today's $, so
-      // that already tracks inflation). It is realized LTCG this year whether or not shares are sold (taxOn), and — like a dividend — cash the household can spend
-      // (x.odiv below); what is not spent is reinvested and adds cost basis.
-      const cgd=Math.min(bal, Math.max(0, portfolio.cgdMode==='amt'?(Number(portfolio.cgdAmt)||0):bal*(Number(portfolio.cgdPct)||0)/100));
-      return {odiv,qdiv,ftc,te,cgd,active:true};
-    }
-    // Real estate sales, part 1 — a 'passing' sale (start of the last year): the basis is stepped up to value first, so there is no gain and no tax; the whole
-    // value, at a 100% basis, goes to the designated portfolio. (Sales on an age / LTC date are made at year-end, below, because they are taxed.)
-    // The designated portfolio: the one chosen on the property (`sellTo`), else the owner's first non-IDGT portfolio, else the spouse's; it must be enabled and held.
-    const pfHeldAt=(ti,b,aliveArr)=>{ const st=pfState[ti][(people[ti].brokerage||[]).indexOf(b)];
-      return !!b&&b.enabled!==false&&!!st&&!st.dead&&(aliveArr[ti]||(b.bene&&married&&people.length===2&&aliveArr[1-ti])); };
-    const pickSaleTarget=(i,r,aliveArr)=>{
-      const cands=[]; people.forEach((q,ti)=>(q.brokerage||[]).forEach((b,bi)=>{ if(b&&!b.idgt) cands.push({ti,bi,b}); }));
-      return (r.sellTo&&cands.find(c=>c.b.id===r.sellTo&&pfHeldAt(c.ti,c.b,aliveArr)))
-        ||cands.find(c=>c.ti===i&&pfHeldAt(c.ti,c.b,aliveArr))||cands.find(c=>pfHeldAt(c.ti,c.b,aliveArr))||null; };
-    const saleLabel=(r,ri)=>(r.name||'').trim()||('Property '+(ri+1));
-    people.forEach((p,i)=>(p.realEstate||[]).forEach((r,ri)=>{
-      const st=reState[i][ri];
-      if(!r||r.enabled===false||r.sellMode!=='passing'||st.dead||st.sold||!(st.bal>0)||reSaleRow[i][ri]!==k) return;
-      const spouseAlive=married&&people.length===2&&alive[1-i];
-      if(!alive[i]&&!(r.bene&&spouseAlive)) return;                    // already gone with its owner; the normal path below marks it dead
-      const pick=pickSaleTarget(i,r,alive); if(!pick) return;
-      const T=pfState[pick.ti][pick.bi], value=st.bal;
-      T.bal+=value; T.basis+=value;                                    // basis stepped up at the passing, then carried at 100%
-      T.saleIn=(T.saleIn||[]).concat([{name:saleLabel(r,ri), value, basis:value, gain:0, tax:0}]);
-      st.sold=true; st.dead=true; st.bal=0; st.basis=0;
-    }));
-    // Start-of-year balance for every portfolio. A portfolio stops existing once its owner has
-    // passed unless it is marked to continue to a surviving spouse.
-    const pfBalNow=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
-      const st=pfState[i][bi];
-      if(!b||!b.enabled) return 0;
-      const spouseAlive=married&&people.length===2&&alive[1-i];
-      if(!alive[i] && !(b.bene&&spouseAlive)) st.dead=true;
-      // Step-up in basis (spec §4.6, cost basis): the year the owner has passed and the portfolio continues to
-      // the surviving spouse, a tracked, non-IDGT portfolio's basis resets to its value (unrealized
-      // gain → 0). IDGT assets are outside the owner's estate, so they keep their carryover basis.
-      st.steppedNow=false; st.swapAmt=0;
-      // A jointly owned portfolio ("Joint owned with spouse") also steps up when the SPOUSE passes first (the owner is still alive): the
-      // whole balance is treated as jointly held, so the survivor gets a full step-up at either passing (community-property style).
-      const jointSpousePassed=!!b.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];
-      if((!alive[i]||jointSpousePassed) && !st.dead && st.tracked && !st.stepped){
-        st.stepped=true;
-        if(!b.idgt){ st.basis=st.bal; st.steppedNow=true; }
-      }
-      return st.dead?0:st.bal;
-    }));
-    // Asset / basis swap (Tax & Optimizations panel, off by default). The IDGT's swap power lets the household trade assets of equal value with the IDGT, so the
-    // low-basis assets end up in the owner's estate (stepped up at the last passing) and the high-basis assets in the IDGT (carryover basis).
-    // A swap of `S` of value moves the basis in proportion to the assets traded: the living portfolio gives up S × its basis ratio and takes S × the
-    // IDGT's basis ratio, the IDGT the reverse, so total basis is unchanged and so are both balances (growth/dividends are unaffected).
-    // It happens at the start of the year, (A) when a living-expense portfolio's basis steps up after the first passing (married; no setting), and
-    // (B) `basisSwapYears` years before the last passing (single or married). Done only when it helps and is possible: the living portfolio and the
-    // IDGT both exist (not dead), are funded and track cost basis, and the IDGT's basis ratio is lower than the living portfolio's. A swap is between
-    // assets held by the same person: a portfolio is held by its owner while alive and, after the owner passes, by the spouse if its "Joint owned
-    // with spouse" box is checked (otherwise it is gone, `dead`, and cannot be swapped).
-    // IDGTs with the lowest basis % are used first, the living portfolios with the highest basis % first; S = min(value left, IDGT value left).
-    if(state.basisSwap){
-      // Current holder of a portfolio: its owner while alive; once the owner has passed, the spouse if "Joint owned with spouse" is checked.
-      const holder=(i,b)=>alive[i]?i:((b&&b.bene&&married&&people.length===2&&alive[1-i])?1-i:-1);
-      const swapWith=living=>{
-        const idgts=[];
-        people.forEach((p,j)=>(p.brokerage||[]).forEach((b,bj)=>{
-          const t=pfState[j][bj];
-          const own=holder(j,b);                                // who holds it now (-1 = nobody: it has gone)
-          if(b&&b.enabled&&b.idgt&&!t.dead&&own>=0&&t.tracked&&t.bal>0.005) idgts.push({s:t, cap:t.bal, own});
-        }));
-        if(!idgts.length||!living.length) return;
-        living.sort((x,y)=>(y.t.basis/y.t.bal)-(x.t.basis/x.t.bal));
-        living.forEach(Lx=>{
-          const L=Lx.t; let left=L.bal;
-          idgts.sort((x,y)=>(x.s.basis/x.s.bal)-(y.s.basis/y.s.bal));
-          idgts.forEach(g=>{
-            if(!(left>0.005)||!(g.cap>0.005)||g.own!==Lx.own) return;   // a swap is between assets held by the same person
-            const rL=L.basis/L.bal, rI=g.s.basis/g.s.bal;
-            if(!(rI<rL-1e-9)) return;                     // nothing to gain: the IDGT's assets do not have a lower basis %
-            const amt=Math.min(left,g.cap), shift=amt*(rL-rI);
-            L.basis-=shift; g.s.basis+=shift;
-            L.swapAmt+=amt; g.s.swapAmt+=amt; left-=amt; g.cap-=amt;
-          });
-        });
-      };
-      const livingStates=pick=>{ const out=[];
-        people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{ const t=pfState[i][bi];
-          if(b&&b.enabled&&!b.idgt&&!t.dead&&t.tracked&&t.bal>0.005&&pick(t)){ const own=holder(i,b); if(own>=0) out.push({t, own}); } }));
-        return out; };
-      swapWith(livingStates(t=>t.steppedNow));                                  // (A) after the first passing (the stepped-up portfolio)
-      if(k===swapRow) swapWith(livingStates(()=>true));                         // (B) N years before the last passing
-    }
-    // Dividends / foreign tax credit per portfolio (independent of expenses).
-    const pfVals=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>brokerageValues(b,i,k,pfBalNow[i][bi])));
-
-    // Household IRMAA surcharge for this year (today's $; the tier tables are indexed, so they aren't deflated):
-    // the tier reached by the MAGI (AGI + tax-exempt income) from TWO years earlier (IRMAA's real look-back: the premium for year Y is set from the
-    // tax return for year Y−2; it also means this year's AGI — which depends on this year's LTCG, which depends on asset
-    // sales, which fund this surcharge — is never needed, so there is no circularity) × the number of living people age 65+.
-    // Years 0 and 1 have no projected AGI two years back (the model has no pre-projection history), so they are $0.
-    // The tier table (joint or single) is the one for the filing status of the SAME year's return that the MAGI comes from (rows[k-2].filing), not this
-    // year's: after a spouse dies, the premium of the next two years is still set from the earlier joint return, so the survivor is looked up in the joint
-    // table (SSA's "life-changing event" request to use a newer, single-filer return is not modeled — this keeps the conservative, default determination).
-    // IRMAA's MAGI = AGI + tax-exempt interest, so the tax-exempt income of that year counts toward the tier. (The tax-free part of annuity payouts is not added.)
-    const priorAGI = (k>=2 && rows[k-2]) ? ((rows[k-2].agi||0)+(rows[k-2].teIncome||0)) : 0;
-    const irmaaEnrolled = people.reduce((n,p,i)=>n+((alive[i]&&ages[i]>=65)?1:0),0);
-    const irmaaFiling = (k>=2 && rows[k-2]) ? rows[k-2].filing : 'single';   // filing status of the return the MAGI comes from
-    const irmaaTier = (irmaaFiling==='married'?IRMAA_MFJ:IRMAA_SGL).slice().reverse().find(t=>priorAGI>=t.magi);
-    const irmaaSurcharge = irmaaTier ? irmaaTier.surch*irmaaEnrolled : 0;
-    // The IRMAA surcharge is always a household expense (no per-portfolio opt-in); it is paid by the pool below.
-    // AUM fee (spec §4.6): a household assumption (`state.aumFee`) charged on the AUM balance = the start-of-year
-    // balances of every non-IDGT portfolio whose AUM box is checked (and that is enabled, inside its age range and funded), plus every pre-tax IRA, Roth IRA and inherited IRA whose AUM box is checked (its balance BEFORE the year's RMD / forced withdrawal; held by the household that year). IDGTs are never charged.
-    // '% AUM balance' × that sum, or a fixed $/yr (entered in today's $ for year 0, flat nominal, so it shrinks with inflation).
-    // The charge is split across the checked accounts pro rata to balance (for display); the whole fee is a household expense
-    // paid by the pool below — i.e. only by portfolios with "Pay expenses" checked.
-    const aumMode=(state.aumFee&&state.aumFee.mode==='fixed')?'fixed':'pct';
-    const aumVal=(state.aumFee&&state.aumFee.enabled===false)?0:Math.max(0,Number(state.aumFee&&state.aumFee.value)||0);   // unchecked Enable → no fee
-    const aumBase=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>(b&&b.aum&&!b.idgt&&pfVals[i][bi].active&&!pfState[i][bi].dead&&pfBalNow[i][bi]>0)?pfBalNow[i][bi]:0));
-    const aumBalPf=aumBase.reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
-    const aumBalIra=aumIra.reduce((a,v)=>a+v,0), aumBalRoth=aumRoth.reduce((a,v)=>a+v,0), aumBalInh=inhSim.reduce((a,l)=>a+l.reduce((x,sm)=>x+(sm.aumB||0),0),0);
-    const aumBalance=aumBalPf+aumBalIra+aumBalRoth+aumBalInh;
-    const aumFee=aumBalance>0?(aumMode==='pct'?aumBalance*aumVal/100:aumVal/cpiAt(k,inflation)):0;
-    // ── Household expense funding waterfall (spec §4.6) ──
-    // Expenses = household living expenses (today's $, flat in real terms) + the household IRMAA surcharge + the
-    // AUM fee + THIS YEAR'S INCOME TAX (tax drag is an expense). Funded by, in order: (1) household
-    // income, (2) portfolio dividends (leftovers are reinvested), (3) portfolio asset sales (each sale realizes
-    // LTCG = amount sold × the portfolio's unrealized-gain fraction), then — only once the portfolios are exhausted —
-    // (4) pre-tax IRA withdraw (ordinary income, so it adds to the tax that is itself an expense) and (5) Roth IRA withdrawn (tax-free).
-    // Circularity: tax ← LTCG ← asset sales ← expenses ← tax. It is resolved by fixed-point iteration (see the
-    // solver below): guess the tax, run the waterfall, recompute the tax, repeat until it stops changing.
-    // Household cash income: wages, Social Security, pension, rental (+ its depreciation add-back), tax-exempt income and IRA RMDs. The Roth-conversion
-    // amount is excluded (it moves to the Roth IRA, it isn't spendable). Gross — the tax it triggers is itself
-    // one of the expenses it pays for.
-    // Tax-exempt income per person (portfolio `teYield` × start-of-year balance, capped at what the portfolio can pay out). It is
-    // untaxed — never in AGI — but is household cash income, so it pays expenses and any excess can be reinvested.
-    const teByPerson=people.map((p,i)=>(p.brokerage||[]).reduce((a,b,bi)=>{
-      const v=pfVals[i][bi]; if(!v.active||pfState[i][bi].dead) return a;
-      const avail=Math.max(0,pfBalNow[i][bi]*(1+gk(realGrowth(b.growth,inflation),'pf:'+b.id,k,b.growth)));
-      return a+Math.min(v.te||0, avail);
-    },0));
-    const teIncome=teByPerson.reduce((a,b)=>a+b,0);
-    const cashBase = sumArr(wageByPerson)+totalSS+pension+rental+rentalDep+teIncome+annuity+annuityTE+inhRothWd+people.reduce((a,p,i)=>a+(iraW[i][k]||0),0);
-    let cashIncome=cashBase;   // + this year's brokerage withdraws and non-Roth pre-tax IRA annual withdraw (set at the top of every waterfall pass, see runWaterfall)
-    let convCash=0;            // this year's annual pre-tax IRA withdraw that is NOT a Roth conversion: taxed as ordinary income, spendable household cash (set by syncConv below)
-    // Per-portfolio working entries. Only live, funded portfolios have one.
-    const pfx=people.map(()=>[]);
-    const poolPf=[];   // portfolios inside their age range with "Pay expenses" checked — the only sources for household expenses
-    people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
-      const st=pfState[i][bi], bal=pfBalNow[i][bi];
-      if(st.dead||!(bal>0)) return;
-      const v=pfVals[i][bi];
-      const g=gk(realGrowth(b.growth,inflation),'pf:'+b.id,k,b.growth), avail=Math.max(0,bal*(1+g));
-      const feeShare=aumBalance>0?aumFee*aumBase[i][bi]/aumBalance:0;   // this portfolio's share of the AUM fee
-      const feeD=feeShare;   // informational: the AUM fee charged on this balance (paid by the pool, not by this portfolio)
-      const x={active:v.active, idgt:!!b.idgt, payExp:!!b.payExp, reinvest:!!b.reinvest, feeShare, bal, g, avail, feeD, odiv:v.odiv+(v.cgd||0), cgd:v.cgd||0, te:Math.min(v.te||0, avail),
-               f:st.tracked?pfGainFraction(bal,st.basis):0, divUsed:0, sold:0, wd:0, ltcg:0, excessIn:0};
-      pfx[i][bi]=x;
-      // Only portfolios with "Pay expenses" checked contribute dividends and asset sales to household expenses.
-      if(x.active && x.payExp) poolPf.push(x);
-    }));
-    // Portfolio withdraw (Tax & Optimizations panel): when enabled, every live (enabled, in its own age range, funded), non-IDGT portfolio sells each year as much as
-    // fits with taxable income (ordinary + qualified: QDIV + net LTCG) staying within the chosen LTCG bracket (`state.pfWithdraw.ltcgPct`; 20 = no limit), sized by the
-    // bracket solve below, in portfolio order (a later portfolio only gets what room is left). There is no age window beyond the portfolio's own range. The proceeds are
-    // household cash income (they pay expenses first; any excess is reinvested like other excess income) and the sale realizes LTCG on the portfolio's gain share.
-    const wdList=[];
-    const pfw=state.pfWithdraw;
-    if(pfw&&pfw.enabled){
-      const pctW=Number.isFinite(Number(pfw.ltcgPct))?Number(pfw.ltcgPct):0;
-      people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
-        const x=pfx[i][bi]; if(!x||!x.active||x.idgt) return;
-        wdList.push({x, i, bi, wi:0, mode:'bracket', amt:0, want:0, pct:pctW});
-      }));
-    }
-    // Share of a portfolio's tax-exempt-reserved balance still free for withdraws: what it holds after growth, less its tax-exempt payout and other withdraws.
-    const wdRoom=e=>Math.max(0, e.x.avail-e.x.te-wdList.reduce((a,o)=>a+(o!==e&&o.x===e.x?o.amt:0),0));
-    function setWd(e,v){ e.amt=Math.min(Math.max(0,v),wdRoom(e)); e.x.wd=wdList.reduce((a,o)=>a+(o.x===e.x?o.amt:0),0); }
-    wdList.forEach(e=>{ if(e.mode==='amount') setWd(e,e.want); });
-
-    // Dividends / foreign tax credit per person — independent of the waterfall and of LTCG.
-    const brokerageByPerson=people.map((p,i)=>{
-      let odiv=0,qdiv=0,ftc=0;
-      (p.brokerage||[]).forEach((b,bi)=>{const v=pfVals[i][bi];odiv+=v.odiv;qdiv+=v.qdiv;ftc+=v.ftc;});
-      return {odiv,qdiv,ftc};
-    });
-    const odivByPerson=brokerageByPerson.map(v=>v.odiv);
-    const qdivByPerson=brokerageByPerson.map(v=>v.qdiv);
-    const odivNQByPerson=people.map((p,i)=>Math.max(0,odivByPerson[i]-qdivByPerson[i]));
-    const odiv=odivByPerson.reduce((a,b)=>a+b,0), qdiv=qdivByPerson.reduce((a,b)=>a+b,0);
-    const odivNQ=odivNQByPerson.reduce((a,b)=>a+b,0);
-    // Foreign tax credit (spec §4.4, §9.4): summed across every brokerage portfolio (both people),
-    // then subtracted from Total Tax below — a nonrefundable credit against regular income tax,
-    // not against NIIT (mirrors how the real-world credit doesn't offset the investment surtax).
-    const ftcByPerson=brokerageByPerson.map(v=>v.ftc);
-    const foreignTaxCredit=ftcByPerson.reduce((a,b)=>a+b,0);
-
-    // IRA withdrawals, plus any Roth conversion amount (taxed as ordinary income, spec §4.4)
-    const iraByPerson=people.map((p,i)=>iraW[i][k]||0);
-
-    const wageTotal=wageByPerson.reduce((a,b)=>a+b,0);
-    const iraTotal=iraByPerson.reduce((a,b)=>a+b,0);
-
-    // Ordinary side of the return that does not depend on LTCG, computed once outside the iteration. (Taxable Social Security does
-    // depend on LTCG — provisional income includes QDIV and LTCG — so it is computed inside taxOn() below.)
-    const filing = married && alive[0] && alive[1] ? 'married' : 'single';
-    const ssThresholdFactor = (1/cpiAt(k,inflation)); // un-indexed SS-tax thresholds, in today's $
-    const nonSSBase = wageTotal+pension+rental+annuity+iraTotal+odivNQ;   // + the Roth conversion (decided below) = nonSSOrdinary
-    // Standard deduction = the basic amount + the additional amount for age 65 or older, per living person who is 65 by the end of the tax year (birth year
-    // + 65 ≤ year, the same rule as the senior deduction below; the additional amount for blindness is not modeled). The additional amount is $1,650 per person
-    // on a joint return and $2,050 for a single filer, so it follows the filing status in force (the survivor gets the single amount). Indexed, like the basic amount.
-    const taxYear=THIS_YEAR+k;
-    const age65N=people.reduce((n,p,i)=>n+((alive[i]&&(Number(p.birthYear)||0)+65<=taxYear)?1:0),0);
-    const std = (filing==='married'?STD_MFJ+STD_AGE65_MFJ*age65N:STD_SGL+STD_AGE65_SGL*age65N);
-    // Long Term Care: from the LTC start age (older person's age) the LTC cost is an extra expense and the household
-    // living expense switches to the post-LTC amount. Both are today's $ (flat in real terms = inflating in future $).
-    // Per person: triggered once that person (alive at the start) reaches their own LTC start age; the cost runs while they are alive.
-    // The household living expense becomes the 1st-LTC amount once the first LTC has started, and the 2nd-LTC amount once the second has.
-    const ltc=state.ltc||{};
-    let expLtc=0, ltcStarted=0; const ltcCostByPerson=people.map(()=>0);
-    if(ltc.enabled) people.forEach((p,i)=>{
-      const L=(ltc.people&&ltc.people[i])||{}, sAge=Number(L.startAge)||0;
-      if(!(sAge<passAges[i]) || ages[i]<sAge) return;
-      ltcStarted++;
-      if(alive[i]){ ltcCostByPerson[i]=Math.max(0,Number(L.cost)||0); expLtc+=ltcCostByPerson[i]; }
-    });
-    // Late-life medical shock (state.medShock; off = nothing here changes). Counted inside the Long Term Care cost (expLtc / ltcCostByPerson) so the itemized deduction,
-    // California medical deduction, expense chart and Excel sheet all see it, but ltcStarted is untouched: household living expenses do not switch to the care amount.
-    let expMed=0;
-    { const M=state.medShock;
-      if(M&&M.enabled){ const mi=(M.person===1&&people.length>1)?1:0, a0=Number(M.age)||0, yrs=Math.max(1,Math.round(Number(M.years)||1));
-        if(alive[mi]&&ages[mi]>=a0&&ages[mi]<a0+yrs){ expMed=Math.max(0,Number(M.cost)||0); ltcCostByPerson[mi]+=expMed; expLtc+=expMed; } } }
-    const ltcLiving=ltcStarted>=2?Math.max(0,Number(ltc.living2)||0):(ltcStarted===1?Math.max(0,Number(ltc.living1!=null?ltc.living1:ltcLiving1Default(married))||0):null);
-    const ltcActive=ltcLiving!==null;
-    // Itemized deduction = LTC cost above the 7.5%-of-AGI floor; AGI includes realized LTCG, so it is computed inside taxOn() below.
-    // Enhanced deduction for seniors (Schedule 1-A Part V): each living person who is 65 by the end of this tax year (birth year
-    // + 65 ≤ year; the model tracks birth year and month only, so a Jan 1 birthday exactly 65 years earlier is not picked up),
-    // for tax years 2025–2028 only. The amount depends on AGI, so it is evaluated inside taxOn() and in the SST/marginal helper.
-    const seniorN=(taxYear>=SENIOR_FIRST_YEAR&&taxYear<=SENIOR_LAST_YEAR)?people.reduce((n,p,i)=>n+((alive[i]&&(Number(p.birthYear)||0)+65<=taxYear)?1:0),0):0;
-    const seniorOf=agiX=>computeSeniorDeduction(seniorN, agiX, filing, ssThresholdFactor);
-    const ordBrk = filing==='married'?MFJ_ORD:SGL_ORD;
-    // State income tax (Tax & Optimizations panel): off unless enabled. Paid like federal tax (a household expense funded by the waterfall),
-    // but kept apart from Total Tax (TT) so the Total Income Tax chart can stack it on top as its own line.
-    const stCode=(state.stateTax&&state.stateTax.enabled)?state.stateTax.state:null;
-    const stN=people.reduce((n,p,i)=>n+(alive[i]?1:0),0), stSenior=people.reduce((n,p,i)=>n+((alive[i]&&ages[i]>=65)?1:0),0);
-    const qBrk = filing==='married'?MFJ_QDIV:SGL_QDIV;
-    const baseLiving=Math.max(0,Number(ltcActive?ltcLiving:state.living)||0);
-    const gUsed=gMult, gDisc=G?baseLiving*Math.max(0,Math.min(100,Number(G.discPct)||0))/100:0;   // the discretionary part and the multiplier this year runs with
-    const expLiving=baseLiving-gDisc*(1-gUsed);
-    const expIrmaa=irmaaSurcharge;
-    // The whole AUM fee is a household expense (paid by the pay-expenses portfolios via the waterfall).
-    const expAum=aumFee;
-
-    // Real estate sales, part 2 — taxed sales on an age / LTC date, made at the END of this year at the year-end value. (1) The basis steps up to value if the
-    // owner has already passed (the property continues only with a surviving spouse, if jointly owned); (2) the gain over the (inflation-eroded) basis is realized
-    // LTCG this year (value − exemption × owners alive − basis), added to the portfolio sales' LTCG in the waterfall below; (3) after the tax it adds, the rest goes to the designated portfolio (which must
-    // still be held next year) at a 100% basis. The last year of the scenario is excluded (the owner's passing then steps the basis up anyway).
-    const aliveNext=people.map((p,i)=>ages[i]+1<passAges[i]);
-    const reSales=[];
-    people.forEach((p,i)=>(p.realEstate||[]).forEach((r,ri)=>{
-      const st=reState[i][ri];
-      if(!r||r.enabled===false||r.sellMode==='passing'||st.dead||st.sold||!(st.bal>0)||reSaleRow[i][ri]!==k||k>=lastRowK) return;
-      const spouseAlive=married&&people.length===2&&alive[1-i];
-      if(!alive[i]&&!(r.bene&&spouseAlive)) return;
-      const pick=pickSaleTarget(i,r,aliveNext); if(!pick) return;
-      const valEnd=st.bal*(1+gk(realGrowth(r.growth,inflation),'re:'+r.id,k,r.growth));
-      const jointSpouseGone=!!r.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];
-      const basisNow=((!alive[i]||jointSpouseGone)&&!st.stepped)?st.bal:st.basis;   // (1) stepped up on the owner's passing (or the spouse's, if jointly owned)
-      const basEnd=clamp(basisNow/(1+infAt(k,inflation)), 0, valEnd);
-      // Exemption per living owner (this property's owner, plus the spouse when it is jointly owned). It is a fixed nominal amount, so like the cost basis it
-      // erodes with inflation in today's $: the amount entered, divided by (1 + inflation) for each year up to this year's end.
-      const ownersAlive=(alive[i]?1:0)+((r.bene&&married&&people.length===2&&alive[1-i])?1:0);
-      const exempt=Math.max(0,Number(r.exempt)||0)/cpiAt(k+1,inflation)*ownersAlive;
-      reSales.push({i, ri, ti:pick.ti, bi:pick.bi, name:saleLabel(r,ri), valEnd, basEnd, ownersAlive, exempt, gain:Math.max(0,valEnd-exempt-basEnd), niitExcl:r.niitStatus==='business', tax:0, net:valEnd});
-    }));
-    const reGainTotal=reSales.reduce((a,x)=>a+x.gain,0);
-    const reGainNiitExcl=reSales.reduce((a,x)=>a+(x.niitExcl?x.gain:0),0);   // part of that gain that is not net investment income (property used in a business the owner materially participates in)
-    // Real estate sold to cover an expense shortfall (a 'sell' step in the withdrawal order). The whole property is sold at the START of this year at its
-    // start-of-year value, so the proceeds are available for this year's expenses: (1) the basis is stepped up to value if the owner has passed; (2) the gain
-    // over the (inflation-eroded) basis and the exemption is realized LTCG this year, taxed with everything else (the tax is an ordinary household expense,
-    // paid by the same waterfall); (3) what the shortfall does not use goes to the designated portfolio at a 100% basis (it is in the balance from next year;
-    // with no portfolio to take it, it leaves the model). A property with a scheduled sale this year (age / LTC / passing) is left to that sale.
-    function reShortInfo(i,ri){
-      const r=(people[i].realEstate||[])[ri], st=reState[i][ri];
-      if(!r||r.enabled===false||st.dead||st.sold||!(st.bal>0)) return null;
-      const spouseAlive=married&&people.length===2&&alive[1-i];
-      if(!alive[i]&&!(r.bene&&spouseAlive)) return null;
-      if(reSales.some(x=>x.i===i&&x.ri===ri)) return null;
-      const jointSpouseGone=!!r.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];
-      const value=st.bal, basis=clamp(((!alive[i]||jointSpouseGone)&&!st.stepped)?st.bal:st.basis, 0, value);
-      const ownersAlive=(alive[i]?1:0)+((r.bene&&married&&people.length===2&&alive[1-i])?1:0);
-      const exempt=Math.max(0,Number(r.exempt)||0)/cpiAt(k,inflation)*ownersAlive;
-      const pick=pickSaleTarget(i,r,aliveNext);
-      return {i, ri, ti:pick?pick.ti:null, bi:pick?pick.bi:null, name:saleLabel(r,ri), value, basis, exempt, ownersAlive, gain:Math.max(0,value-exempt-basis), niitExcl:r.niitStatus==='business'};
-    }
-    // One pass of the funding waterfall for a given income-tax expense `taxExp`. Resets and refills every pool
-    // portfolio's divUsed / sold / ltcg and returns the funding split.
-    function runWaterfall(taxExp){
-      const expTotal=expLiving+expLtc+expIrmaa+expAum+taxExp;
-      poolPf.forEach(x=>{ x.divUsed=0; x.sold=0; x.ltcg=0; });
-      const wdCash=wdList.reduce((a,e)=>a+e.amt,0);
-      cashIncome=cashBase+wdCash+convCash;   // withdraw proceeds (brokerage, and the pre-tax IRA's non-Roth annual withdraw) are household cash income
-      const expFromIncome=Math.min(expTotal,cashIncome);
-      let expNeed=expTotal-expFromIncome;
-      // (2) dividends, shared pro rata to each portfolio's ODIV
-      const divRoom=x=>Math.max(0,Math.min(x.odiv, x.avail-x.te-x.wd));   // a withdraw leaves less than the full dividend to take
-      const poolOdiv=poolPf.reduce((a,x)=>a+divRoom(x),0);
-      const expFromDiv=Math.min(poolOdiv,expNeed);
-      if(poolOdiv>0) poolPf.forEach(x=>{ x.divUsed=expFromDiv*divRoom(x)/poolOdiv; });
-      expNeed-=expFromDiv;
-      // (3) asset sales, shared pro rata to balance; a portfolio that runs out hands its remainder to the others
-      const needBeforeSales=expNeed;
-      let cand=woSteps?[]:poolPf.filter(x=>x.avail-x.divUsed-x.te-x.wd>0.005), guard=0;   // (with a withdrawal order, the steps below do the selling)   // tax-exempt income is paid out of the same total return, so it is reserved before any sale
-      while(expNeed>0.005 && cand.length && guard++<8){
-        const B=cand.reduce((a,x)=>a+x.bal,0); let given=0; const next=[];
-        cand.forEach(x=>{
-          const room=Math.max(0,x.avail-x.divUsed-x.te-x.wd-x.sold), amt=Math.min(expNeed*x.bal/B, room);
-          x.sold+=amt; given+=amt; if(room-amt>0.005) next.push(x);
-        });
-        expNeed-=given; cand=next;
-      }
-      // (4) pre-tax IRA, then (5) Roth IRA, for what the portfolios could not cover. Each is shared pro rata to balance across the
-      // people's accounts. A pre-tax IRA withdraw is ordinary income (taxOn adds it, and the tax-expense iteration grosses it up); a Roth IRA
-      // sale is tax-free. Withdrawn dollars have left the pre-tax IRA; the ones that are a Roth conversion sit in the Roth IRA the same year.
-      const iraAvail=iraStart.map((b,i)=>Math.max(0,b-(convMainByPerson[i]||0)));
-      const rothAvail=rothStart.map((b,i)=>b+(convRothByPerson[i]||0));
-      const drawPro=(avail,need)=>{ const tot=avail.reduce((a,b)=>a+b,0), amt=Math.min(Math.max(0,need),tot); return avail.map(v=>tot>0?amt*v/tot:0); };
-      let expFromSales, iraExpByPerson, rothExpByPerson, expFromIra, expFromRoth, expFromRe=0, reShort=[];
-      if(!woSteps){
-        expFromSales=needBeforeSales-Math.max(0,expNeed);
-        iraExpByPerson=drawPro(iraAvail, expNeed);
-        expFromIra=iraExpByPerson.reduce((a,b)=>a+b,0);
-        expNeed-=expFromIra;
-        rothExpByPerson=drawPro(rothAvail, expNeed);
-        expFromRoth=rothExpByPerson.reduce((a,b)=>a+b,0);
-        expNeed-=expFromRoth;
-      }else{
-        // The user's withdrawal order replaces (3)–(5) and the pro-rata sharing: the shortfall that dividends left is taken from the listed assets one at a
-        // time, in order, each as far as it can go. Tax follows the asset: a portfolio sale realizes LTCG on its gain share (and must be a Living expense & income portfolio — payExp, as
-        // always); a pre-tax IRA draw is ordinary income; a Roth IRA draw is tax-free; a property is sold whole (see reShortInfo).
-        poolPf.forEach(x=>{ x.sold=0; });
-        expNeed=needBeforeSales;
-        iraExpByPerson=people.map(()=>0); rothExpByPerson=people.map(()=>0);
-        let sales=0;
-        for(const s of woSteps){
-          if(!(expNeed>0.005)) break;
-          if(s.t==='pf'){
-            const x=pfx[s.i][s.bi]; if(!x||!x.active||!x.payExp) continue;
-            const amt=Math.min(expNeed, Math.max(0,x.avail-x.divUsed-x.te-x.wd-x.sold));
-            x.sold+=amt; sales+=amt; expNeed-=amt;
-          }else if(s.t==='ira'){
-            const amt=Math.min(expNeed, iraAvail[s.i]); iraExpByPerson[s.i]+=amt; expNeed-=amt;
-          }else if(s.t==='roth'){
-            const amt=Math.min(expNeed, rothAvail[s.i]); rothExpByPerson[s.i]+=amt; expNeed-=amt;
-          }else{
-            const c=reShortInfo(s.i,s.ri); if(!c) continue;
-            const applied=Math.min(expNeed, c.value);
-            expNeed-=applied; expFromRe+=applied;
-            reShort.push(Object.assign({}, c, {applied, excess:c.value-applied}));
-          }
-        }
-        expFromSales=sales;
-        expFromIra=iraExpByPerson.reduce((a,b)=>a+b,0);
-        expFromRoth=rothExpByPerson.reduce((a,b)=>a+b,0);
-      }
-      const expUnfunded=Math.max(0,expNeed);
-      // Realized LTCG = sold × gain fraction, for every portfolio (IDGT included, on its own sales).
-      pfx.forEach(list=>list.forEach(x=>{ if(x) x.ltcg=(x.sold+x.wd)*x.f+(x.cgd||0); }));   // a withdraw is a sale like any other; + the distributed LTCG (taxed whether or not anything is sold)
-      const reShortGain=reShort.reduce((a,x)=>a+x.gain,0), reShortNiitExcl=reShort.reduce((a,x)=>a+(x.niitExcl?x.gain:0),0);
-      let ltcgGross=reGainTotal+reShortGain; pfx.forEach(list=>list.forEach(x=>{ if(x) ltcgGross+=x.ltcg; }));   // portfolio sales' LTCG + the gain on a property sold this year (step 2)
-      return {wdCash, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, ltcgGross, iraExpByPerson, rothExpByPerson, reShort, reShortGain, reShortNiitExcl};
-    }
-    // The year's tax given gross realized LTCG. Spec §8.3: available SCGL (suspended capital-gain loss
-    // carryforward) eliminates realized LTCG dollar-for-dollar, before tax, so only the net-of-SCGL amount is taxed.
-    // Pure (does not consume the SCGL pool) — the pool is drawn down once, after the iteration converges.
-    // `reNiitExcl` = the part of the property-sale gain in this call (`reGainAll`) that is not net investment income (see `niitStatus` on a property); 0 when omitted.
-    function taxOn(ltcgGross, conv, iraExp, reGainAll, reNiitExcl){
-      const nonSSOrdinary=nonSSBase+conv+(iraExp||0);   // ordinary income excluding Social Security, including this year's Roth conversion and any pre-tax IRA withdraw for expenses
-      const scglUsed=Math.min(scglRemaining,Math.max(0,ltcgGross));
-      const ltcg=Math.max(0,ltcgGross-scglUsed); // net-of-SCGL LTCG — what's actually taxed/displayed
-      const qualIncome=qdiv+ltcg;
-      // Provisional income = ALL non-SS income in AGI (ordinary, QDIV, net LTCG) + tax-exempt income + 50% of SS, so taxable SS
-      // moves with the realized LTCG and is solved inside the same tax ↔ LTCG iteration.
-      const {taxableSS,provisional}=computeTaxableSS(nonSSOrdinary+qdiv+ltcg+teIncome, totalSS, filing, ssThresholdFactor);
-      const ordIncome=nonSSOrdinary+taxableSS;
-      const agi=nonSSOrdinary+taxableSS+qdiv+ltcg;
-      const agiFloor=0.075*Math.max(0,agi);
-      const itemized=Math.max(0, expLtc-agiFloor);
-      const usedItemized=itemized>std;
-      const ded=Math.max(std,itemized);
-      const seniorDed=seniorOf(agi);   // on top of the standard/itemized deduction; does not reduce AGI
-      const ordTI=Math.max(0, ordIncome-ded-seniorDed);
-      const ordTax=calcOrdTax(ordTI, ordBrk);
-      const qualTaxable=qualTaxableAmt(ordIncome, qualIncome, ded+seniorDed);   // the deduction's excess over ordinary income shelters qualified income (worksheet)
-      const {qdiv:qdivT, ltcg:ltcgT}=qualTaxableSplit(qdiv, ltcg, qualTaxable);
-      const qualTax=calcQualTax(ordTI, qualTaxable, qBrk);
-      const incomeTax=ordTax+qualTax; // ordinary + qualified only — the SST hypothetical below mirrors this basis
-      // §9.4 NIIT: 3.8% of the lesser of net investment income (ODIV−QDIV + QDIV + LTCG) or MAGI (~AGI)
-      // over the un-indexed threshold. Added on top of ordinary + qualified tax for Total Tax (TT).
-      // Also in NII: net rental income of passive rentals (rentalNII), and the gain on a property sold this year (it is inside `ltcg`) except the part from property used in a
-      // business the owner materially participates in. The home-sale exclusion (`exempt`) is already out of that gain.
-      const niiIncome=odivNQ+qdiv+Math.max(0,ltcg-(reNiitExcl||0))+annuityNII+rentalNII;
-      const niit=computeNIIT(niiIncome, agi, filing, ssThresholdFactor, state.futureTax, THIS_YEAR+k);
-      // §9.4: foreign tax credit offsets the ordinary+qualified tax (not NIIT), floored at 0.
-      const totalTax=Math.max(0, incomeTax-foreignTaxCredit)+niit;
-      // State tax (not part of totalTax). Washington taxes only portfolio gains, so a property sale's gain (and the SCGL it uses first) is left out.
-      const stateTax=stCode?computeStateTax(stCode,{agi, taxableSS, expLtc, ltcgPortfolio:Math.max(0,ltcgGross-(reGainAll==null?reGainTotal:reGainAll)-scglUsed), filing, nAlive:stN, nSenior:stSenior, f:ssThresholdFactor}):0;
-      return {stateTax, scglUsed, ltcg, qualIncome, qualTaxable, qdivT, ltcgT, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax};
-    }
-
-    // ── Tax ↔ LTCG fixed-point iteration ──
-    // T_{n+1} = Tax( LTCG( Waterfall( living + IRMAA + AUM fee + T_n ) ) ). More tax → more expenses → more shares
-    // sold → more LTCG → more tax, but each extra tax dollar creates well under a dollar of new tax (LTCG is
-    // taxed at ≤ ~24% including NIIT, and only the gain share of a sale is LTCG), so the map is a contraction:
-    // the error shrinks ~4× per round and a few rounds settle it to the cent. Warm-started from last year's tax
-    // (and, during the conversion search below, from the previous trial).
-    let taxIn=(k>0&&rows[k-1])?((rows[k-1].totalTax||0)+(rows[k-1].stateTax||0)):0;
-    function solveTax(convTotal){
-      let it=0, ok=false, w, t, saleTax=0;
-      while(it<TAX_MAX_ITERS){
-        w=runWaterfall(taxIn); t=taxOn(w.ltcgGross, convTotal, w.expFromIra, reGainTotal+w.reShortGain, reGainNiitExcl+w.reShortNiitExcl); it++;
-        // The tax a property sale adds (this year's tax with the gain minus without it) is paid out of the sale, so the waterfall funds only the rest.
-        // (A property sold to cover a shortfall is not netted here: its tax is an ordinary expense, paid by the same waterfall.)
-        saleTax=reGainTotal>0?Math.max(0,(t.totalTax+t.stateTax)-(()=>{ const u=taxOn(w.ltcgGross-reGainTotal, convTotal, w.expFromIra, w.reShortGain, w.reShortNiitExcl); return u.totalTax+u.stateTax; })()):0;
-        const funded=t.totalTax+t.stateTax-saleTax;
-        if(Math.abs(funded-taxIn)<TAX_TOL){ ok=true; break; }
-        taxIn=funded;
-      }
-      return {wf:w, tx:t, saleTax, iters:it, converged:ok};
-    }
-
-    // ── Roth conversion solve ──
-    // 'fixed' IRAs convert their flat amount. 'bracket' IRAs convert as much as fits under BOTH limits entered (AND — the stricter limit
-    // sets the amount), one person at a time in person order (each given the conversions already settled): the largest amount c in
-    // [0, room after RMD] with
-    //   • taxable ordinary income stays BELOW the chosen ordinary bracket, i.e. ≤ where that bracket starts (stop 0 = nothing converts;
-    //     the first bracket's start is $0, which fills just the standard deduction; no-limit stop = no ceiling), and
-    //   • MAGI (AGI + tax-exempt interest; the tax-free part of an annuity payout is not added) stays BELOW the IRMAA line labeled with the chosen Part B % (stop 0 = nothing converts; no-limit
-    //     stop = no ceiling). IRMAA looks back two years, so this year's MAGI sets the premium of year k+2: it applies to anyone alive
-    //     now and 63+ (on Medicare by then), using this year's filing status (the return that sets that premium).
-    // Both measures rise with c, but c also moves taxable Social Security, the tax, the asset sales that fund it and so the realized LTCG
-    // — a circular dependence — so each trial c runs the full tax ↔ LTCG iteration above, and the search over c is iterated too
-    // (false position with bisection safeguards) until the largest feasible c is pinned to a few cents.
-    // Conversion units: each person's own pre-tax IRA first, then every inherited pre-tax IRA still pending this year (converted by its current holder).
-    // A unit has the conversion state the solve reads (live, rothOk, bal, trigger, started, room, fixed, mode) and `par`, the object holding its limits / trigger values.
-    const convUnits=people.map((p,i)=>({i, main:true, sim:iraSim[i], par:p.ira}));
-    people.forEach((p,i)=>inhSim[i].forEach((sm,ii)=>{ if(sm.open&&sm.kind==='ira') convUnits.push({i:sm.holder, main:false, sim:sm, par:p.inhIras[ii]}); }));
-    const convByUnit=convUnits.map(()=>0);
-    const convByPerson=people.map(()=>0), convMainByPerson=people.map(()=>0), convRothByPerson=people.map(()=>0);   // every annual withdraw by its holder (taxed) / the part that leaves the person's own IRA / the part that is a Roth conversion (enters the holder's Roth IRA)
-    const syncConv=()=>{ convByPerson.fill(0); convMainByPerson.fill(0); convRothByPerson.fill(0); convCash=0;
-      convUnits.forEach((u,ui)=>{ const v=convByUnit[ui]; convByPerson[u.i]+=v; if(u.main) convMainByPerson[u.i]+=v; if(u.sim.toRoth) convRothByPerson[u.i]+=v; else convCash+=v; }); };
-    const convTotalOf=()=>convByPerson.reduce((a,b)=>a+b,0);
-    // Trigger starts: an IRA whose conversion start is 'bracket' / 'itemized' / 'ltc' and has not started yet checks its trigger against this year's
-    // tax with NO conversion (everyone's conversion held at 0, so the test is on the household's own income and deductions). Once met it stays started.
-    //   bracket  — taxable ordinary income stays at or below where the chosen bracket starts (same reading as the "below bracket" limit).
-    //   itemized — the itemized deduction (LTC cost above the 7.5%-of-AGI floor), in today's $, exceeds the entered value.
-    //   ltc      — the first LTC start has been reached (needs Long Term Care enabled).
-    const trigPending=u=>{ const s=u.sim; return !!(s.trigger&&!s.started&&s.live&&s.rothOk&&s.bal>0); };
-    let noConvOrdTI=null, noConvItemized=null;   // the no-conversion tax picture the triggers test (exported for reference)
-    // Solved whenever a Roth conversion is possible this year (any start mode), so the export always shows the no-conversion picture.
-    const trigLive=convUnits.some(u=>u.sim.live&&u.sim.rothOk&&u.sim.bal>0);
-    if(trigLive){
-      const r0=solveTax(0);
-      noConvOrdTI=r0.tx.ordTI; noConvItemized=r0.tx.itemized;
-      convUnits.forEach(u=>{
-        if(!trigPending(u)) return;
-        const sim=u.sim;
-        let go=false;
-        if(sim.trigger==='ltc') go=ltcStarted>=1;
-        else if(sim.trigger==='bracket'){ const b=Number(u.par.convStartBracket); go=r0.tx.ordTI<=convOrdTop(Number.isFinite(b)?b:24, ordBrk)+0.005; }
-        else go=r0.tx.itemized>(Number(u.par.convStartItemized)||0);
-        if(go){ sim.started=true; sim.startedK=k; sim.room=sim.bal; sim.fixed=Math.min(sim.convAmt,sim.room); }
-      });
-    }
-    convUnits.forEach((u,ui)=>{ convByUnit[ui]=u.sim.fixed||0; });
-    syncConv();
-    let convTrials=0;
-    function convLimits(par){
-      const num=v=>(v!=null&&v!==''&&Number.isFinite(Number(v)))?Number(v):null;
-      const ordIn=num(par.convOrdPct), irmIn=num(par.convIrmaaPct);
-      let ordTop=Infinity, magiCap=Infinity, ordOn=false, magiOn=false;
-      if(ordIn!=null){ ordOn=true; ordTop=convOrdTop(ordIn, ordBrk); }
-      if(irmIn!=null){
-        // This year's MAGI sets the IRMAA premium of year k+2, for anyone who will be on Medicare (65+) then. A person alive now and 63+ is
-        // exposed whether or not they live to k+2 — so the limit keeps applying right up to the last years (no end-of-plan conversion
-        // spike). The tier table is the one for THIS year's filing status, since this year's return is the one that sets that premium.
-        const exposed=people.some((q,j)=>curAges[j]+k<passAges[j] && curAges[j]+k+2>=65);
-        if(exposed){
-          magiCap=convMagiCap(irmIn, filing==='married'?IRMAA_MFJ:IRMAA_SGL);
-          magiOn=true;
-        }
-      }
-      return {ordTop, magiCap, ordOn, magiOn};
-    }
-    convUnits.forEach((u,ui)=>{
-      const sim=u.sim;
-      if(sim.mode!=='bracket'||!(sim.room>0)) return;
-      const lim=convLimits(u.par);
-      if(!lim.ordOn&&!lim.magiOn){ convByUnit[ui]=sim.room; syncConv(); return; }   // no limit applies (both sliders at "no limit", or only an IRMAA limit and nobody is IRMAA-exposed yet): convert it all
-      // Headroom under the stricter active limit when person i converts c (negative = over a limit). Non-increasing in c.
-      const slack=c=>{
-        convByUnit[ui]=c; syncConv(); convTrials++;
-        const r=solveTax(convTotalOf());
-        const so=lim.ordOn?lim.ordTop-r.tx.ordTI:Infinity, sm=lim.magiOn?lim.magiCap-(r.tx.agi+teIncome):Infinity;
-        return Math.min(so,sm);
-      };
-      const hi=sim.room;
-      let a=0, fa=slack(0);
-      if(fa<0){ convByUnit[ui]=0; syncConv(); return; }    // already over a limit before converting anything
-      let b=hi, fb=slack(b);
-      if(fb>=0){ convByUnit[ui]=hi; syncConv(); return; }   // the whole balance fits
-      let side=0;
-      for(let n=0;n<60&&b-a>0.01;n++){
-        let c=a+(b-a)*fa/(fa-fb);                          // false position
-        if(!(c>a&&c<b)||n%4===3) c=(a+b)/2;                // safeguard: bisect now and then / if the interpolation misbehaves
-        const fc=slack(c);
-        if(fc>=0){ a=c; fa=fc; if(side===1) fb/=2; side=1; if(fc<0.005) break; }
-        else { b=c; fb=fc; if(side===-1) fa/=2; side=-1; }
-      }
-      convByUnit[ui]=a; syncConv();                         // the largest amount known to fit
-    });
-    const rothConvByPerson=convByPerson.slice();    // the annual pre-tax IRA withdraw per holder (Roth conversion or not)
-    const rothInByPerson=convRothByPerson.slice();  // the part of it that enters the holder's Roth IRA
-    const iraConvByPerson=convMainByPerson.slice();   // the part of it that leaves each person's own pre-tax IRA (the rest leaves an inherited IRA, below)
-    const rothConvTotal=convTotalOf();
-    // ── Brokerage withdraws sized by an LTCG bracket ──
-    // After the Roth conversions are settled, each 'bracket' withdraw (in portfolio order) sells the largest amount w for which the year's taxable income
-    // (ordinary taxable income + qualified income: QDIV + net LTCG) stays within the top of the chosen LTCG bracket (0% / 15%; 20% = no limit = sell all that is
-    // free). Like the conversion search, every trial w runs the full tax ↔ LTCG iteration, because w moves the LTCG, the tax, and the asset sales that tax funds.
-    wdList.forEach(e=>{
-      if(e.mode!=='bracket') return;
-      const j=e.pct>=20?-1:(e.pct>=15?1:0), top=j<0?Infinity:qBrk[j].lim;
-      const hi=wdRoom(e);
-      if(!(hi>0)) return;
-      // "Accept NIIT" unchecked (default): the sale must also keep MAGI (AGI) at or under the NIIT threshold, so it adds no Net Investment Income Tax. A portfolio with no
-      // unrealized gain realizes nothing (no new net investment income), so it is not capped by NIIT.
-      const niitTop=(!state.pfWithdraw.acceptNiit&&e.x.f>0)?niitThreshold(filing,ssThresholdFactor,state.futureTax,THIS_YEAR+k):Infinity;
-      // "Accept Social Security tax torpedo" unchecked (default): the sale must not raise this year's taxable Social Security above what it is before this portfolio sells
-      // (a sale's LTCG is in provisional income, so inside the 50% / 85% phase-in each extra dollar makes up to 85c of Social Security taxable). Taxable SS only rises with the sale,
-      // so the limit is the value at w = 0. Once taxable SS is already at its cap (85%), or provisional income is under the base threshold, there is room up to that point.
-      const noTorpedo=!state.pfWithdraw.acceptTorpedo&&totalSS>0;
-      if(!isFinite(top)&&!isFinite(niitTop)&&!noTorpedo){ setWd(e,hi); return; }
-      let ssTop=Infinity; if(noTorpedo){ setWd(e,0); ssTop=solveTax(rothConvTotal).tx.taxableSS+0.01; }
-      const slack=w=>{ setWd(e,w); const r=solveTax(rothConvTotal); return Math.min(isFinite(top)?top-(r.tx.ordTI+r.tx.qualTaxable):Infinity, isFinite(niitTop)?niitTop-r.tx.agi:Infinity, ssTop-r.tx.taxableSS); };
-      let a=0, fa=slack(0);
-      if(fa<0){ setWd(e,0); return; }                       // already over the bracket before selling anything
-      let b=hi, fb=slack(b);
-      if(fb>=0){ setWd(e,hi); return; }                      // everything free fits
-      let side=0;
-      for(let n=0;n<60&&b-a>0.01;n++){
-        let c=a+(b-a)*fa/(fa-fb);
-        if(!(c>a&&c<b)||n%4===3) c=(a+b)/2;
-        const fc=slack(c);
-        if(fc>=0){ a=c; fa=fc; if(side===1) fb/=2; side=1; if(fc<0.005) break; }
-        else { b=c; fb=fc; if(side===-1) fa/=2; side=-1; }
-      }
-      setWd(e,a);                                           // the largest amount known to fit
-    });
-    const fin=solveTax(rothConvTotal);
-    const wf=fin.wf, tx=fin.tx, taxIters=fin.iters, taxConverged=fin.converged, reSaleTax=fin.saleTax;
-    // Advance the IRA / Roth balances one year now that this year's expense draws are known (conversion and draw both leave the pre-tax IRA;
-    // the conversion enters the Roth IRA, and the Roth draw leaves it).
-    people.forEach((p,i)=>{ iraSim[i].post(k,iraConvByPerson[i],wf.iraExpByPerson[i]); rothSim[i].post(k,rothInByPerson[i],wf.rothExpByPerson[i]); });
-    // Inherited IRAs: take this year's conversion out of what is left after the withdrawal, then grow it.
-    convUnits.forEach((u,ui)=>{ if(!u.main) u.sim.convOut=convByUnit[ui]; });
-    inhSim.forEach(list=>list.forEach(sm=>{
-      if(!sm.open) return;
-      sm.bal=Math.max(0,sm.bal-(sm.convOut||0))*(1+gk(sm.g,'inh:'+sm.holder+':'+sm.name,k,sm.gch)); sm.convOut=0; sm.eoy=sm.bal;
-      if(k>=sm.kS+INH_IRA_YEARS) sm.done=true;
-    }));
-    const iraExpByPerson=wf.iraExpByPerson, iraExpTotal=wf.expFromIra, rothExpByPerson=wf.rothExpByPerson, rothExpTotal=wf.expFromRoth;
-    const nonSSOrdinary = nonSSBase+rothConvTotal+iraExpTotal;
-    // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
-    const expTax=taxIn;
-    const {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded}=wf;
-    // Guardrail decision for NEXT year. Portfolio-funded spending = all expenses (living, LTC, IRMAA, AUM fee, tax) less income that does not come out of the
-    // portfolios (wages, Social Security, pension, rental, annuity); tax-exempt interest and IRA / Roth / portfolio distributions are portfolio money. It is
-    // independent of which account paid, so it is not distorted by planned withdraws or Roth conversions.
-    let guard=null;
-    if(G){
-      const nonPf=wageTotal+totalSS+pension+rental+rentalDep+annuity+annuityTE;
-      const draw=Math.max(0, expTotal-(G.excludeLtc?expLtc:0)-nonPf);
-      const wr=gBal0>0?draw/gBal0:(draw>0?Infinity:0), band=Math.max(0,Number(G.band)||0)/100;
-      if(gIwr==null&&wageTotal<0.5&&draw>0&&isFinite(wr)) gIwr=wr;                 // the first year without wages that draws on the portfolios sets the baseline
-      let move=0;
-      if(gIwr!=null&&k+1<=lastRowK-Math.max(0,Math.round(Number(G.sunsetYears)||0))){
-        if(wr>gIwr*(1+band)){ gMult=Math.max(0,gMult*(1-Math.max(0,Number(G.cutPct)||0)/100)); move=-1; gCutYears++; }
-        else if(G.prosperity&&wr<gIwr*(1-band)&&gMult<1){ gMult=Math.min(1,gMult*(1+Math.max(0,Number(G.raisePct)||0)/100)); move=1; }
-      }
-      // tripwire: the invested balance at the start of next year below which that year's rate (at this year's spending) passes the cut line
-      guard={mult:gUsed, nextMult:gMult, wr, iwr:gIwr, bandPct:band*100, draw, bal0:gBal0, move, cutAmt:gDisc*(1-gUsed), tripwire:gIwr!=null?draw/(gIwr*(1+band)):null, cutYears:gCutYears};
-    }
-    const {scglUsed, ltcg, qualIncome, qualTaxable, qdivT, ltcgT, qualTax, taxableSS, provisional, ordIncome, agi, incomeTax, niiIncome, niit, totalTax, stateTax, agiFloor, itemized, usedItemized, ded, seniorDed, ordTI, ordTax}=tx;
-    const ltcgGross=wf.ltcgGross;
-    scglRemaining=Math.max(0,scglRemaining-scglUsed);
-    // Excess income: household cash income left after ALL expenses (living, LTC, IRMAA, AUM fee and this year's tax) are paid.
-    // It is only positive when income alone covered every expense, so no dividends were used and no shares sold that year.
-    // It is reinvested at year-end into the live, in-range portfolios with \"Reinvest excess income\" checked, shared pro rata to
-    // start-of-year balance. With no such portfolio the excess simply leaves the model (as before this option existed).
-    const excessIncome=Math.max(0, cashIncome-expTotal);
-    const reinvPf=[]; pfx.forEach(list=>list.forEach(x=>{ if(x&&x.active&&x.reinvest) reinvPf.push(x); }));
-    const reinvBase=reinvPf.reduce((a,x)=>a+x.bal,0);
-    if(excessIncome>0&&reinvBase>0) reinvPf.forEach(x=>{ x.excessIn=excessIncome*x.bal/reinvBase; });
-    const excessReinvested=reinvBase>0?excessIncome:0;
-    // Per-person gross LTCG, then prorate the SCGL shield across people/portfolios so the per-person breakdown
-    // (used by the income chart's tooltip) still sums to the net total above.
-    const ltcgByPersonGross=people.map((p,i)=>{ let t=0; pfx[i].forEach(x=>{ if(x) t+=x.ltcg; }); reSales.forEach(x=>{ if(x.i===i) t+=x.gain; }); wf.reShort.forEach(x=>{ if(x.i===i) t+=x.gain; }); return t; });
-    const shieldFrac = ltcgGross>0 ? scglUsed/ltcgGross : 0;
-    const ltcgByPerson = ltcgByPersonGross.map(v=>v*(1-shieldFrac));
-    const {sst,marginalRate,sstOrdTI,sstTaxNoSS,mProv,mTSS,mTI,mQT,mTax,sstQT} = computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, ded, ordBrk, qBrk, incomeTax, ssThresholdFactor, seniorOf, teIncome);
-
-    // Split of the marginal rate: the part from the ordinary brackets (incl. the SS torpedo) and the part from ordinary income pushing qualified income into a higher tier.
-    const marginalQual=Math.max(0,(calcQualTax(mTI, mQT, qBrk)-qualTax)/100), marginalOrd=marginalRate-marginalQual;
-
-    // Brokerage portfolio asset value (today's $), including the IDGT flag so charts can split them.
-    const portfoliosByPerson=people.map((p,i)=>(p.brokerage||[]).map((b,bi)=>{
-      const st=pfState[i][bi], bal=pfBalNow[i][bi], tracked=!!st.tracked&&bal>0;
-      return {
-        id:b.id, name:(b.name&&b.name.trim())||('Portfolio '+(bi+1)), balance:bal, idgt:!!b.idgt, aum:!!b.aum&&!b.idgt, payExp:!!b.payExp, feeDrag:0, ltcg:0,
-        // Cost-basis tracking (spec §4.6, cost basis) — start-of-year values, after any step-up this year.
-        tracked, basis:tracked?st.basis:null, unrealizedGain:tracked?Math.max(0,bal-st.basis):null, steppedUp:tracked&&!!st.steppedNow, swapAmt:tracked?(st.swapAmt||0):0,
-        reSaleIn:st.saleIn||[],   // properties sold into this portfolio (value after the sale tax, and its basis), received at the start of this year
-        divUsed:0, divReinvested:0, sold:0, withdrawn:0, excessReinvested:0, taxExempt:0, reinvest:!!b.reinvest   // expense waterfall (filled in the roll-forward below): dividends used, dividends reinvested, shares sold
-      };
-    }));
-    pfState.forEach(list=>list.forEach(t=>{ t.saleIn=[]; }));   // consumed above; sales made at the end of this year are added below and show up next year
-    // Share the sale tax across this year's sales by gain, and set what each forwards: value after tax (step 3).
-    reSales.forEach(x=>{ x.tax=reGainTotal>0?reSaleTax*x.gain/reGainTotal:0; x.net=x.valEnd-x.tax; });
-    // Household embedded (unrealized) gain across tracked portfolios, split by whether basis steps up at death.
-    let embeddedGain=0, embeddedGainIdgt=0;
-    portfoliosByPerson.forEach(list=>list.forEach(e=>{ if(e.tracked){ if(e.idgt) embeddedGainIdgt+=e.unrealizedGain; else embeddedGain+=e.unrealizedGain; } }));
-
-    // Roll each brokerage balance forward one year: growth − (dividends used for expenses + shares sold), from the
-    // household waterfall above. Basis (average-cost method): sales remove basis in proportion to cost share
-    // (1 − gain fraction); dividends not needed for expenses are reinvested (already-taxed income, adds basis);
-    // and because everything is in today's $ while basis is a fixed nominal amount, basis erodes by inflation.
-    // Growth is total return, so dividends used vs. shares sold move the balance identically; only basis and
-    // realized gain differ.
-    people.forEach((p,i)=>(p.brokerage||[]).forEach((b,bi)=>{
-      const st=pfState[i][bi], bal=pfBalNow[i][bi], x=pfx[i][bi];
-      if(st.dead||!(bal>0)||!x){ st.bal=0; st.basis=0; return; }
-      st.bal=Math.max(0, x.avail-x.divUsed-x.sold-x.wd-x.te+x.excessIn);   // tax-exempt income is paid out to the household   // excess income is added at year-end, like the sales come out
-      const reinvested=Math.max(0,x.odiv-x.divUsed);
-      // Reinvested dividends and reinvested excess income are after-tax money put in, so both add cost basis.
-      if(st.tracked) st.basis=clamp((st.basis-(x.sold+x.wd)*(1-x.f)+reinvested+x.excessIn)/(1+infAt(k,inflation)), 0, st.bal);
-      const entry=portfoliosByPerson[i][bi];
-      entry.feeDrag=x.feeD; entry.growthPct=x.g*100;
-      entry.divUsed=x.divUsed; entry.divReinvested=reinvested; entry.sold=x.sold; entry.withdrawn=x.wd; entry.excessReinvested=x.excessIn; entry.taxExempt=x.te;
-      entry.ltcg=x.ltcg; entry.cgd=x.cgd||0;   // the exact (pre-SCGL) gain realized and taxed this year (cgd = the distributed part of it)
-      // Net growth after expenses paid from this portfolio (dividends used + shares sold) — actual balance change.
-      entry.netGrowthPct = ((st.bal/bal)-1)*100;
-    }));
-
-    // Properties sold at the start of this year to cover the shortfall: show them in the asset chart's sale line, and share the tax their gain added
-    // (this year's tax with the gain minus without it, informational) across them by gain.
-    const shortGainTotal=wf.reShortGain;
-    let shortTax=0;
-    if(shortGainTotal>0){ const u=taxOn(ltcgGross-shortGainTotal, rothConvTotal, wf.expFromIra, reGainTotal, reGainNiitExcl); shortTax=Math.max(0,(tx.totalTax+tx.stateTax)-(u.totalTax+u.stateTax)); }
-    const reShortSales=wf.reShort.map(x=>Object.assign({}, x, {valEnd:x.value, basEnd:x.basis, tax:shortGainTotal>0?shortTax*x.gain/shortGainTotal:0, net:x.excess, atStart:true, shortfall:true}));
-    // Real estate, start-of-year values (today's $) for the asset chart, then roll each property forward one year.
-    const realEstateByPerson=people.map((p,i)=>(p.realEstate||[]).map((r,ri)=>{
-      const st=reState[i][ri], on=!!r&&r.enabled!==false;
-      st.steppedNow=false;
-      if(on){
-        const spouseAlive=married&&people.length===2&&alive[1-i];
-        if(!alive[i]&&!(r.bene&&spouseAlive)) st.dead=true;
-        const jointSpouseGone=!!r.bene&&married&&people.length===2&&alive[i]&&!alive[1-i];   // jointly owned: steps up at the spouse's passing too
-        if((!alive[i]||jointSpouseGone)&&!st.dead&&!st.stepped){ st.stepped=true; st.basis=st.bal; st.steppedNow=true; }
-      }
-      const bal=(on&&!st.dead)?st.bal:0;
-      return {id:r.id, name:(r.name&&r.name.trim())||('Property '+(ri+1)), balance:bal,
-        basis:bal>0?Math.min(st.basis,bal):0, unrealizedGain:bal>0?Math.max(0,bal-st.basis):0,
-        steppedUp:bal>0&&st.steppedNow, growthPct:realGrowth(r.growth,inflation)*100,
-        sale:(reSales.find(x=>x.i===i&&x.ri===ri)||reShortSales.find(x=>x.i===i&&x.ri===ri)||null)};   // sold at the end of THIS year: {valEnd, basEnd, gain, tax, net, to}
-    }));
-    people.forEach((p,i)=>(p.realEstate||[]).forEach((r,ri)=>{
-      const st=reState[i][ri], e=realEstateByPerson[i][ri];
-      if(!(e.balance>0)){ st.bal=0; st.basis=0; return; }
-      st.bal=e.balance*(1+gk(realGrowth(r.growth,inflation),'re:'+r.id,k,r.growth));
-      st.basis=clamp(st.basis/(1+infAt(k,inflation)), 0, st.bal);
-    }));
-    // Property sales made at the end of this year (step 3): the value after the sale tax, at a 100% basis, joins the designated portfolio (added after that
-    // portfolio's own roll-forward above, so it is in the balance from the start of next year); the property is gone.
-    // A property sold to cover a shortfall (start of the year): the part of the proceeds the shortfall did not use joins the designated portfolio.
-    reShortSales.forEach(x=>{
-      const st=reState[x.i][x.ri];
-      if(x.ti!=null&&x.excess>0.005){
-        const T=pfState[x.ti][x.bi];
-        T.bal+=x.excess; T.basis+=x.excess;
-        T.saleIn=(T.saleIn||[]).concat([{name:x.name, value:x.excess, basis:x.excess, gain:x.gain, tax:x.tax}]);
-      }
-      st.sold=true; st.dead=true; st.bal=0; st.basis=0;
-    });
-    reSales.forEach(x=>{
-      const st=reState[x.i][x.ri], T=pfState[x.ti][x.bi];
-      T.bal+=x.net; T.basis+=x.net;
-      T.saleIn=(T.saleIn||[]).concat([{name:x.name, value:x.net, basis:x.net, gain:x.gain, tax:x.tax}]);
-      st.sold=true; st.dead=true; st.bal=0; st.basis=0;
-    });
-
-    const iraBalByPerson = people.map((p,i)=> iraBal[i][k]!=null?iraBal[i][k]:0);
-    const rothBalByPerson = people.map((p,i)=> rothBal[i][k]!=null?rothBal[i][k]:0);
-    rows.push({
-      k, age0: idxP0!=null? ages[idxP0]:ages[0],
-      ages, alive, filing,
-      wageByPerson, wageTotal, ssByPerson, totalSS, pension, rental, pensionByPerson, rentalByPerson, rentalDep, rentalDepByPerson, teIncome, teByPerson, annuity, annuityTE, annuityByPerson, annuityTEByPerson, annuitiesByPerson, annuityBalance,
-      odiv, qdiv, odivNQ, ltcg, ltcgGross, reSaleGain:reGainTotal+shortGainTotal, reSaleTax, scglUsed, scglRemaining, odivByPerson, qdivByPerson, odivNQByPerson, ltcgByPerson,
-      ftcByPerson, foreignTaxCredit,
-      inhIraWdByPerson, inhIraWd, inhRothWdByPerson, inhRothWd, inhIraByPerson:inhSim.map(l=>l.map(sm=>({balance:sm.live?sm.eoy:0, live:sm.live, wd:sm.wd, kind:sm.kind, name:sm.name}))),
-      iraByPerson, iraTotal, iraExpByPerson, iraExpTotal, rothExpByPerson, rothExpTotal, iraBalByPerson, rothConvByPerson, convMainByPerson:convMainByPerson.slice(), rothConvTotal, rothWdOnlyByPerson:rothConvByPerson.map((v,i)=>Math.max(0,v-(rothInByPerson[i]||0))), rothInByPerson, rothInTotal:rothInByPerson.reduce((a,b)=>a+b,0), convCashTotal:convCash, rothBalByPerson, portfoliosByPerson, realEstateByPerson, embeddedGain, embeddedGainIdgt,
-      nonSSOrdinary, taxableSS, provisional, ordIncome, std:ded, seniorDeduction:seniorDed, seniorEligible:seniorN, stdDeduction:std, age65Eligible:age65N, ltcStarted, ltcCostByPerson, noConvOrdTI, noConvItemized, convTriggerStartedByPerson:iraSim.map(s=>s.startedK===k), agiFloor, itemized, usedItemized, ordTI, ordTax, qualIncome, qualTaxable, qdivT, ltcgT, qualTax,
-      sst, marginalRate, marginalOrd, marginalQual, sstOrdTI, sstTaxNoSS, mProv, mTSS, mTI, mQT, mTax, sstQT,
-      niiIncome, niit, rentalNII, reNiitExcl:reGainNiitExcl+wf.reShortNiitExcl,
-      irmaaSurcharge,
-      ...(guard?{guard}:{}), ...(expMed?{expMed}:{}), expLiving, expLtc, expIrmaa, expAum, aumBalance, aumBalPf, aumBalIra, aumBalRoth, aumBalInh, aumFee, expTax, expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded, cashIncome, brokerageWd:wf.wdCash, brokerageWdByPerson:people.map((p,i)=>wdList.reduce((a,e)=>a+(e.i===i?e.amt:0),0)), excessIncome, excessReinvested, taxIters, taxConverged,
-      convTrials,
-      totalTax, stateTax, stateCode:stCode, agi, magi:agi+teIncome
-    });
+  const G = state.guardrail && state.guardrail.enabled ? state.guardrail : null;
+  carry.gMult = 1;
+  carry.gIwr = G && G.iwrMode === 'target' && Number(G.targetWR) > 0 ? Number(G.targetWR) / 100 : null;
+  carry.gCutYears = 0;
+  const c = {
+    annuityRun,
+    curAges,
+    G,
+    idxP0,
+    inflation,
+    inhSim,
+    iraBal,
+    iraSim,
+    iraW,
+    lastRowK,
+    married,
+    passAges,
+    people,
+    personAgedItemActive,
+    pfState,
+    reSaleRow,
+    reState,
+    rothBal,
+    rothSim,
+    rows,
+    ssMonthly,
+    sumArr,
+    swapRow,
+    woSteps
+  };
+  for (let k = 0; k <= yearsToProject; k++) {
+    const ages = people.map((p, i) => curAges[i] + k);
+    const alive = people.map((p, i) => ages[i] < passAges[i]);
+    if (!alive.some(Boolean)) break;
+    const head = {ages, alive};
+    const m = {
+      gBal0: undefined,
+      cashIncome: undefined,
+      convCash: undefined,
+      expLtc: undefined,
+      ltcStarted: undefined,
+      convTrials: undefined,
+      embeddedGain: undefined,
+      embeddedGainIdgt: undefined
+    };
+    const acct = projYearAccounts(c, k, m, head);
+    const income = projYearIncome(c, k, head);
+    const pfv = projYearPortfolios(c, k, head);
+    const aumG = projYearIrmaaAum(c, k, head, acct, pfv);
+    const pools = projYearPools(c, k, m, acct, income, pfv, aumG);
+    const taxInp = projYearTaxInputs(c, k, m, carry, head, income, pfv, aumG);
+    const resales = projYearPropertySales(c, k, head, pfv);
+    const solved = projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp, resales);
+    const taxRes = projYearTaxResult(c, k, m, carry, income, taxInp, solved);
+    const excess = projYearExcessAndMarginal(c, m, income, pools, taxInp, resales, solved, taxRes);
+    const pfEnd = projYearPortfolioEnd(c, pfv, resales, solved);
+    const closing = projYearCloseBooks(c, k, m, head, pfv, pools, resales, solved, taxRes, pfEnd);
+    rows.push(projYearRow(c, k, m, carry, head, acct, income, aumG, pools, taxInp, resales, solved, taxRes, excess, pfEnd, closing));
   }
-  // ── Legacy "stretch": the 10 years after the household's last passing (STRETCH_YEARS). Two things carry on, with no
-  // expenses, withdrawals or RMDs modeled (heirs' own taxes are out of scope):
-  //   • every non-IDGT brokerage portfolio still holding a balance in the last row keeps compounding at its own real
-  //     growth rate, with its basis stepped up to value at the passing (spec §4.6) and then eroding by inflation, so
-  //     the unrealized gain in these years is only growth since the passing. IDGT portfolios are outside the estate
-  //     and stop at the last row, as before.
-  //   • any pre-tax / Roth IRA with its own "IRA stretch" checkbox on (`ira.stretch` / `roth.stretch`) and a balance.
-  // These are NOT projection rows (income/tax charts and the Excel summary never see them); they're returned
-  // separately as `stretch` for the asset chart / export. Stretch year 1 is the balance at the passing itself.
-  const stretch=[];
-  if(rows.length){
-    const last=rows[rows.length-1];
-    const gIra=people.map(p=>realGrowth(p.ira.growth,inflation));
-    const gRoth=people.map(p=>p.roth&&p.roth.growth?realGrowth(p.roth.growth,inflation):0);
-    const gPf=people.map(p=>(p.brokerage||[]).map(b=>realGrowth(b.growth,inflation)));
-    const gRe=people.map(p=>(p.realEstate||[]).map(r=>realGrowth(r.growth,inflation)));
-    let any=false;
-    for(let n=1;n<=STRETCH_YEARS;n++){
-      const k=last.k+n, ages=curAges.map(a=>a+k);
-      const iraBalByPerson=people.map((p,i)=>{ const b=(last.iraBalByPerson[i]||0); return (p.ira.enabled&&p.ira.stretch&&b>0)?b*Math.pow(1+gIra[i],n):0; });
-      const rothBalByPerson=people.map((p,i)=>{ const b=(last.rothBalByPerson[i]||0); return (p.roth&&p.roth.enabled&&p.roth.stretch&&b>0)?b*Math.pow(1+gRoth[i],n):0; });
-      // null = this portfolio does not continue (IDGT, disabled, or already gone at the last row).
-      const portfoliosByPerson=(last.portfoliosByPerson||[]).map((list,i)=>list.map((e,bi)=>{
-        if(!e||e.idgt||!(e.balance>0)) return null;
-        const g=gPf[i][bi], balance=e.balance*Math.pow(1+g,n), basis=e.balance*(1+g)/Math.pow(1+inflation,n-1);
-        any=true;
-        return {id:e.id, name:e.name, balance, idgt:false, aum:false, payExp:false, feeDrag:0, ltcg:0, tracked:true,
-                basis:Math.min(basis,balance), unrealizedGain:Math.max(0,balance-basis), steppedUp:n===1,
-                divUsed:0, divReinvested:0, sold:0, growthPct:g*100, netGrowthPct:g*100};
-      }));
-      // Real estate still held at the last row carries on like a non-IDGT portfolio: basis stepped up at the passing, then eroding by inflation.
-      const realEstateByPerson=(last.realEstateByPerson||[]).map((list,i)=>list.map((e,ri)=>{
-        if(!e||!(e.balance>0)) return null;
-        const g=gRe[i][ri], balance=e.balance*Math.pow(1+g,n), basis=e.balance*(1+g)/Math.pow(1+inflation,n-1);
-        any=true;
-        return {id:e.id, name:e.name, balance, basis:Math.min(basis,balance), unrealizedGain:Math.max(0,balance-basis), steppedUp:n===1, growthPct:g*100};
-      }));
-      if(iraBalByPerson.some(v=>v>0)||rothBalByPerson.some(v=>v>0)) any=true;
-      stretch.push({k, stretchYear:n, age0:ages[idxP0], ages, alive:ages.map(()=>false), iraBalByPerson, rothBalByPerson, portfoliosByPerson, realEstateByPerson});
-    }
-    if(!any) stretch.length=0;
-  }
-  const rates=GROWTH_REC; GROWTH_REC=null;
+  // ── Legacy "stretch" years after the last passing (see projStretch) ──
+  const {stretch} = projStretch({inflation, people, curAges, idxP0, rows});
+  const rates = GROWTH_REC;
+  GROWTH_REC = null;
   // rates[k][assetKey] = real (today's $) growth in year row k; inflRate[k] = that year's inflation (the trial's own in a Monte Carlo trial): nominal = (1+real)(1+inflRate)-1
-  return {rows, stretch, people, idxP0, married, rates, inflRate:rates?rows.map((r,i)=>infAt(i,inflation)):null};
+  return {rows, stretch, people, idxP0, married, rates, inflRate: rates ? rows.map((r, i) => infAt(i, inflation)) : null};
 }
 
-function displayPersonName(person, idx){
-  const entered = person && typeof person.name==='string' ? person.name.trim() : '';
-  return entered || `Person ${idx+1}`;
+function displayPersonName(person, idx) {
+  const entered = person && typeof person.name === 'string' ? person.name.trim() : '';
+  return entered || `Person ${idx + 1}`;
 }
-function p0Name(proj){ return displayPersonName(proj.people[proj.idxP0], proj.idxP0); }
+function p0Name(proj) {
+  return displayPersonName(proj.people[proj.idxP0], proj.idxP0);
+}
 // X-axis title shared by every age-axis chart: the older person's (P0's) name, then the younger person's, then "age", e.g. "Alice, Bob age" (one person: "Alice age").
 // On the charts the older name is drawn black and the younger dark blue (ageAxisTitle plugin, overlayPlugin.js); this is the plain-text form (Excel, tooltips, other charts).
-function ageAxisNames(proj){
-  if(!proj||!proj.people) return [];
-  const n=proj.rows&&proj.rows[0]&&proj.rows[0].ages?proj.rows[0].ages.length:proj.people.length, io=proj.idxP0||0, out=[displayPersonName(proj.people[io],io)];
-  if(n>1){ const iy=io===0?1:0; out.push(displayPersonName(proj.people[iy],iy)); }
+function ageAxisNames(proj) {
+  if (!proj || !proj.people) return [];
+  const n = proj.rows && proj.rows[0] && proj.rows[0].ages ? proj.rows[0].ages.length : proj.people.length,
+    io = proj.idxP0 || 0,
+    out = [displayPersonName(proj.people[io], io)];
+  if (n > 1) {
+    const iy = io === 0 ? 1 : 0;
+    out.push(displayPersonName(proj.people[iy], iy));
+  }
   return out;
 }
-function ageAxisLabel(proj){ return proj ? ageAxisNames(proj).join(', ')+' age' : 'Age'; }
-
+function ageAxisLabel(proj) {
+  return proj ? ageAxisNames(proj).join(', ') + ' age' : 'Age';
+}

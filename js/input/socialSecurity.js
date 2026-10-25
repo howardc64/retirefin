@@ -3,16 +3,19 @@
 // INPUT / SOCIAL SECURITY — "Social Security" card: already-started
 // flag, PIA/FRA, and the claim-age slider (spec §4.4).
 // ═══════════════════════════════════════════════════════════════
-function buildSSCard(pid, p, i, married){
-  const s=p.ss;
+function buildSSCard(pid, p, i, married) {
+  const s = p.ss;
   return `<div class="item">
-      ${cardHeader('Social Security', pid+'.ss.enabled', s.enabled, pid+'.ss.hidden', !!s.hidden)}
-      <div class="item-body ${s.hidden?'':'open'}">
-        <div class="field full"><label><input type="checkbox" ${s.started?'checked':''} onchange="onSSStartedToggle(${i}, this.checked)"> Already started collecting</label></div>
-        ${s.started?`
+      ${cardHeader('Social Security', pid + '.ss.enabled', s.enabled, pid + '.ss.hidden', !!s.hidden)}
+      <div class="item-body ${s.hidden ? '' : 'open'}">
+        <div class="field full"><label><input type="checkbox" ${s.started ? 'checked' : ''} onchange="onSSStartedToggle(${i}, this.checked)"> Already started collecting</label></div>
+        ${
+          s.started
+            ? `
         <div class="field full"><label>Current monthly benefit (today's $)</label>
           <input type="number" class="money" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
-        `:`
+        `
+            : `
         <div class="field"><label>PIA at FRA ($/mo, today's $)</label>
           <input type="number" class="money" min="0" step="10" value="${s.pia}" oninput="onNumberInput('${pid}.ss.pia', this.value)"></div>
         <div class="field"><label>Full retirement age</label>
@@ -24,7 +27,8 @@ function buildSSCard(pid, p, i, married){
             <div class="sv" id="ssClaimVal_${i}" style="flex:0 0 auto;min-width:24px;text-align:right">${s.claimAge}</div>
           </div>
         </div>
-        `}
+        `
+        }
       </div>
     </div>`;
 }

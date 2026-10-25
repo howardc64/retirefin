@@ -44,7 +44,7 @@ Everything runs in your browser. Plans are autosaved to the browser's local stor
 | [`misc/Note4User.md`](misc/Note4User.md) | Planning observations (Social Security timing, Roth conversions, IRMAA, widow taxation) |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | File-by-file spec: state schema, projection row schema, tax rules, load order, with diagrams |
 | [`docs/MONTE_CARLO.md`](docs/MONTE_CARLO.md) | Monte Carlo and stress-test design |
-| [`ChangeLog.md`](ChangeLog.md) | Numbered history of changes |
+| [`ChangeLog.md`](ChangeLog.md) | Numbered history of changes (entries 1–323 in `docs/ChangeLog_archive.md`) |
 | [`tests/README.md`](tests/README.md) | How the regression tests work |
 
 The app also has built-in **Usage**, **Formulas** and **Tips** pages.

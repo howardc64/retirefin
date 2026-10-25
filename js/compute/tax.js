@@ -3,61 +3,80 @@
 // COMPUTE / TAX — ordinary + qualified income tax, taxable Social
 // Security (TSS/SST), NIIT, and marginal-rate helpers (spec §9).
 // ═══════════════════════════════════════════════════════════════
-function calcOrdTax(ti,brackets){
-  if(ti<=0)return 0;let tax=0,prev=0;
-  for(const b of brackets){if(ti<=prev)break;tax+=(Math.min(ti,b.lim)-prev)*b.r;prev=b.lim;}
+function calcOrdTax(ti, brackets) {
+  if (ti <= 0) return 0;
+  let tax = 0,
+    prev = 0;
+  for (const b of brackets) {
+    if (ti <= prev) break;
+    tax += (Math.min(ti, b.lim) - prev) * b.r;
+    prev = b.lim;
+  }
   return tax;
 }
 // Qualified income that is actually taxed (the Qualified Dividends and Capital Gain Tax Worksheet): taxable income = ordinary + qualified − deduction, floored at 0, and the
 // deduction takes ordinary income first — only what it does not use reduces the qualified income. So taxable qualified income = taxable income − taxable ordinary income.
-function qualTaxableAmt(ordIncome, qualIncome, deduction){
-  if(!(qualIncome>0)) return 0;
-  return Math.max(0, Math.max(0,ordIncome+qualIncome-deduction) - Math.max(0,ordIncome-deduction));
+function qualTaxableAmt(ordIncome, qualIncome, deduction) {
+  if (!(qualIncome > 0)) return 0;
+  return Math.max(0, Math.max(0, ordIncome + qualIncome - deduction) - Math.max(0, ordIncome - deduction));
 }
 // Of that taxable qualified income, the part that is QDIV and the part that is LTCG. The deduction's spill-over comes off the top of the stack (LTCG first, then QDIV).
-function qualTaxableSplit(qdiv, ltcg, qualTaxable){
-  const shelter=Math.max(0,(qdiv+ltcg)-qualTaxable), l=Math.max(0,ltcg-shelter), d=Math.max(0,qdiv-Math.max(0,shelter-ltcg));
-  return {qdiv:d, ltcg:l};
+function qualTaxableSplit(qdiv, ltcg, qualTaxable) {
+  const shelter = Math.max(0, qdiv + ltcg - qualTaxable),
+    l = Math.max(0, ltcg - shelter),
+    d = Math.max(0, qdiv - Math.max(0, shelter - ltcg));
+  return {qdiv: d, ltcg: l};
 }
-function calcQualTax(ordTI, qualIncome, qdivBrackets){
-  if(qualIncome<=0)return 0;
-  let tax=0, base=ordTI, rem=qualIncome;
-  for(const b of qdivBrackets){
-    if(rem<=0)break;
-    const avail=Math.max(0,b.lim-base);
-    const portion=Math.min(rem,avail);
-    tax+=portion*b.r; rem-=portion; base=Math.max(base,b.lim);
+function calcQualTax(ordTI, qualIncome, qdivBrackets) {
+  if (qualIncome <= 0) return 0;
+  let tax = 0,
+    base = ordTI,
+    rem = qualIncome;
+  for (const b of qdivBrackets) {
+    if (rem <= 0) break;
+    const avail = Math.max(0, b.lim - base);
+    const portion = Math.min(rem, avail);
+    tax += portion * b.r;
+    rem -= portion;
+    base = Math.max(base, b.lim);
   }
   return tax;
 }
 // Per-tier breakdown of calcQualTax's total, e.g. so a chart can stack the 0/15/20% tiers
 // as separate bands instead of one lump sum.
-function qualTaxTiers(ordTI, qualIncome, qBrackets){
-  const res=[]; let rem=qualIncome, base=ordTI;
-  for(const b of qBrackets){
-    if(rem<=0){ res.push(0); continue; }
-    const avail=Math.max(0,b.lim-base);
-    const portion=Math.min(rem,avail);
-    res.push(portion*b.r); rem-=portion; base=Math.max(base,b.lim);
+function qualTaxTiers(ordTI, qualIncome, qBrackets) {
+  const res = [];
+  let rem = qualIncome,
+    base = ordTI;
+  for (const b of qBrackets) {
+    if (rem <= 0) {
+      res.push(0);
+      continue;
+    }
+    const avail = Math.max(0, b.lim - base);
+    const portion = Math.min(rem, avail);
+    res.push(portion * b.r);
+    rem -= portion;
+    base = Math.max(base, b.lim);
   }
   return res;
 }
 // The statutory provisional-income thresholds ($25k/$34k single, $32k/$44k married) are NOT indexed
 // to inflation. Because every figure here is in today's $, they shrink by 1/(1+inflation)^k in year k;
 // `f` is that factor (1 in year 0). The bracket/deduction/IRMAA tables ARE indexed, so they stay fixed.
-function computeTaxableSS(nonSS,totalSS,filing,f=1){
-  const pi=nonSS+0.5*totalSS;
-  let tss=0;
+function computeTaxableSS(nonSS, totalSS, filing, f = 1) {
+  const pi = nonSS + 0.5 * totalSS;
+  let tss = 0;
   // Upper tier: 85% of the PI above T2, plus the amount taxable from the first tier — which is capped at 50% of the benefits, and is $6,000 (married) / $4,500 (single) only
   // when the benefits are large enough to fill the whole first tier (50% × the T1–T2 span). With small benefits the first-tier part is just 50% of them.
-  if(filing==='married'){
-    if(pi>44000*f)tss=Math.min(Math.min(0.5*totalSS,6000*f)+0.85*(pi-44000*f),0.85*totalSS);
-    else if(pi>32000*f)tss=Math.min(0.5*(pi-32000*f),0.5*totalSS);
+  if (filing === 'married') {
+    if (pi > 44000 * f) tss = Math.min(Math.min(0.5 * totalSS, 6000 * f) + 0.85 * (pi - 44000 * f), 0.85 * totalSS);
+    else if (pi > 32000 * f) tss = Math.min(0.5 * (pi - 32000 * f), 0.5 * totalSS);
   } else {
-    if(pi>34000*f)tss=Math.min(Math.min(0.5*totalSS,4500*f)+0.85*(pi-34000*f),0.85*totalSS);
-    else if(pi>25000*f)tss=Math.min(0.5*(pi-25000*f),0.5*totalSS);
+    if (pi > 34000 * f) tss = Math.min(Math.min(0.5 * totalSS, 4500 * f) + 0.85 * (pi - 34000 * f), 0.85 * totalSS);
+    else if (pi > 25000 * f) tss = Math.min(0.5 * (pi - 25000 * f), 0.5 * totalSS);
   }
-  return{taxableSS:Math.max(0,tss),provisional:pi};
+  return {taxableSS: Math.max(0, tss), provisional: pi};
 }
 // §9.2/9.3: SST = "actual social security tax" — the dollar amount of tax
 // generated by including the taxable portion of SS in ordinary income —
@@ -71,45 +90,71 @@ function computeTaxableSS(nonSS,totalSS,filing,f=1){
 // `teIncome` (optional) is tax-exempt income: it is not taxed, but it raises provisional income, so it is added in the SS-taxability bump (as are QDIV and LTCG).
 // `seniorFn(agi)` (optional) is the enhanced senior deduction as a function of AGI, so the no-SS hypothetical and the marginal-rate
 // bump use the deduction that AGI would really earn (it phases out at 6% per eligible person, which shows up in the marginal rate).
-function computeSSTAndMarginal(nonSSOrdinary, totalSS, filing, qdiv, ltcg, std, ordBrk, qBrk, actualTotalTax, f=1, seniorFn=null, teIncome=0){
-  const dedNoSS = std+(seniorFn?seniorFn(nonSSOrdinary+qdiv+ltcg):0);
-  const ordTInoSS = Math.max(0, nonSSOrdinary-dedNoSS);
+function computeSSTAndMarginal(
+  nonSSOrdinary,
+  totalSS,
+  filing,
+  qdiv,
+  ltcg,
+  std,
+  ordBrk,
+  qBrk,
+  actualTotalTax,
+  f = 1,
+  seniorFn = null,
+  teIncome = 0
+) {
+  const dedNoSS = std + (seniorFn ? seniorFn(nonSSOrdinary + qdiv + ltcg) : 0);
+  const ordTInoSS = Math.max(0, nonSSOrdinary - dedNoSS);
   const ordTaxNoSS = calcOrdTax(ordTInoSS, ordBrk);
-  const qualTaxNoSS = calcQualTax(ordTInoSS, qualTaxableAmt(nonSSOrdinary, qdiv+ltcg, dedNoSS), qBrk);
-  const sst = Math.max(0, actualTotalTax - (ordTaxNoSS+qualTaxNoSS));
+  const qualTaxNoSS = calcQualTax(ordTInoSS, qualTaxableAmt(nonSSOrdinary, qdiv + ltcg, dedNoSS), qBrk);
+  const sst = Math.max(0, actualTotalTax - (ordTaxNoSS + qualTaxNoSS));
 
-  const bump=100; // $100 numerical-derivative step, normalized back to a per-$1 rate
-  const {taxableSS:taxSS2,provisional:provM}=computeTaxableSS(nonSSOrdinary+bump+qdiv+ltcg+teIncome, totalSS, filing, f);   // QDIV, LTCG and tax-exempt interest all count toward provisional income
-  const ord2=nonSSOrdinary+bump+taxSS2, ded2=std+(seniorFn?seniorFn(ord2+qdiv+ltcg):0);
-  const ordTI2=Math.max(0, ord2-ded2), mQT=qualTaxableAmt(ord2, qdiv+ltcg, ded2);
-  const tax2=calcOrdTax(ordTI2, ordBrk)+calcQualTax(ordTI2, mQT, qBrk);
-  const marginalRate=Math.max(0,(tax2-actualTotalTax)/bump);
+  const bump = 100; // $100 numerical-derivative step, normalized back to a per-$1 rate
+  const {taxableSS: taxSS2, provisional: provM} = computeTaxableSS(nonSSOrdinary + bump + qdiv + ltcg + teIncome, totalSS, filing, f); // QDIV, LTCG and tax-exempt interest all count toward provisional income
+  const ord2 = nonSSOrdinary + bump + taxSS2,
+    ded2 = std + (seniorFn ? seniorFn(ord2 + qdiv + ltcg) : 0);
+  const ordTI2 = Math.max(0, ord2 - ded2),
+    mQT = qualTaxableAmt(ord2, qdiv + ltcg, ded2);
+  const tax2 = calcOrdTax(ordTI2, ordBrk) + calcQualTax(ordTI2, mQT, qBrk);
+  const marginalRate = Math.max(0, (tax2 - actualTotalTax) / bump);
   // The hypotheticals' intermediate values are returned too, so the Excel export can show them as cached values next to its live formulas.
-  return {sst, marginalRate, sstOrdTI:ordTInoSS, sstTaxNoSS:ordTaxNoSS+qualTaxNoSS, mProv:provM, mTSS:taxSS2, mTI:ordTI2, mQT, mTax:tax2, sstQT:qualTaxableAmt(nonSSOrdinary, qdiv+ltcg, dedNoSS)};
+  return {
+    sst,
+    marginalRate,
+    sstOrdTI: ordTInoSS,
+    sstTaxNoSS: ordTaxNoSS + qualTaxNoSS,
+    mProv: provM,
+    mTSS: taxSS2,
+    mTI: ordTI2,
+    mQT,
+    mTax: tax2,
+    sstQT: qualTaxableAmt(nonSSOrdinary, qdiv + ltcg, dedNoSS)
+  };
 }
 // Enhanced deduction for seniors (Schedule 1-A Part V, lines 31–37). Per eligible individual it is
 //   max( 0, $6,000 − 6% × max( 0, MAGI − $75,000 ($150,000 joint) ) ),
 // and each eligible person on the return gets that same reduced amount (so two eligible spouses get twice it, and it reaches $0
 // at MAGI $250,000 joint). MAGI ≈ AGI. The dollar amounts are fixed by statute (not indexed), so like the SS thresholds they are
 // scaled by `f` = 1/(1+inflation)^k to stay in today's $. It does not reduce AGI; it reduces taxable income only.
-function computeSeniorDeduction(nEligible, magi, filing, f=1){
-  if(!(nEligible>0)) return 0;
-  const thresh=(filing==='married'?SENIOR_THRESH_MFJ:SENIOR_THRESH_SGL)*f;
-  const each=Math.max(0, SENIOR_DED*f - SENIOR_RATE*Math.max(0, magi-thresh));
-  return nEligible*each;
+function computeSeniorDeduction(nEligible, magi, filing, f = 1) {
+  if (!(nEligible > 0)) return 0;
+  const thresh = (filing === 'married' ? SENIOR_THRESH_MFJ : SENIOR_THRESH_SGL) * f;
+  const each = Math.max(0, SENIOR_DED * f - SENIOR_RATE * Math.max(0, magi - thresh));
+  return nEligible * each;
 }
 // §9.4 NIIT: 3.8% of the lesser of net investment income or MAGI over the threshold.
 // The MAGI above which NIIT applies this year (today's $): the un-indexed statutory threshold deflated by f, or the speculative future threshold.
-function niitThreshold(filing, f=1, futureTax, year){
-  const useFuture = futureTax && futureTax.enabled && year!=null && year>=Number(futureTax.niitStartYear);
+function niitThreshold(filing, f = 1, futureTax, year) {
+  const useFuture = futureTax && futureTax.enabled && year != null && year >= Number(futureTax.niitStartYear);
   return useFuture
-    ? Math.max(0, Number(filing==='married'?futureTax.niitMarried:futureTax.niitSingle)||0)
-    : (filing==='married'?NIIT_THRESH_MFJ:NIIT_THRESH_SGL)*f;
+    ? Math.max(0, Number(filing === 'married' ? futureTax.niitMarried : futureTax.niitSingle) || 0)
+    : (filing === 'married' ? NIIT_THRESH_MFJ : NIIT_THRESH_SGL) * f;
 }
-function computeNIIT(nii, magi, filing, f=1, futureTax, year){
+function computeNIIT(nii, magi, filing, f = 1, futureTax, year) {
   const thresh = niitThreshold(filing, f, futureTax, year);
-  const excess=Math.max(0, magi-thresh);
-  return NIIT_RATE*Math.min(Math.max(0,nii), excess);
+  const excess = Math.max(0, magi - thresh);
+  return NIIT_RATE * Math.min(Math.max(0, nii), excess);
 }
 
 // State income tax for the year (today's $). `code` is 'CA' or 'WA' (anything else = 0).
@@ -122,28 +167,28 @@ function computeNIIT(nii, magi, filing, f=1, futureTax, year){
 // Washington: 7% / 9.9% capital-gains excise tax on portfolio LTCG above the deduction.
 // California exemption-credit phase-out: the amount taken off EACH personal and senior credit, in today's $ (see CA_CREDIT_PHASEOUT_* in constants.js).
 //   fedAgi = federal AGI (Form 540 line 13, not California AGI); f = the deflator that shrinks the un-indexed $2,500 step and $6 reduction.
-function caCreditReduction(fedAgi, married, f){
-  const excess=fedAgi-(married?CA_CREDIT_PHASEOUT_MFJ:CA_CREDIT_PHASEOUT_SGL);
-  if(!(excess>0)) return 0;
-  const steps=Math.ceil(excess/(CA_CREDIT_PHASEOUT_BAND*f)-1e-9);   // "or part of": any remainder counts as a whole step (1e-9 keeps an exact multiple from rounding up)
-  return Math.max(0,steps)*CA_CREDIT_PHASEOUT_STEP*f;
+function caCreditReduction(fedAgi, married, f) {
+  const excess = fedAgi - (married ? CA_CREDIT_PHASEOUT_MFJ : CA_CREDIT_PHASEOUT_SGL);
+  if (!(excess > 0)) return 0;
+  const steps = Math.ceil(excess / (CA_CREDIT_PHASEOUT_BAND * f) - 1e-9); // "or part of": any remainder counts as a whole step (1e-9 keeps an exact multiple from rounding up)
+  return Math.max(0, steps) * CA_CREDIT_PHASEOUT_STEP * f;
 }
-function computeStateTax(code, p){
-  if(code==='CA'){
-    const married=p.filing==='married';
-    const caAgi=Math.max(0, p.agi-p.taxableSS);
-    const medItemized=Math.max(0, (p.expLtc||0)-0.075*caAgi);
-    const ti=Math.max(0, caAgi-Math.max(married?CA_STD_MFJ:CA_STD_SGL, medItemized));
-    let tax=calcOrdTax(ti, married?CA_ORD_MFJ:CA_ORD_SGL);
-    tax+=CA_MH_RATE*Math.max(0, ti-CA_MH_THRESH*p.f);
-    const red=caCreditReduction(p.agi, married, p.f);   // phase-out of the exemption credits, per credit
-    tax-=Math.max(0,CA_PERSONAL_CREDIT-red)*p.nAlive+Math.max(0,CA_SENIOR_CREDIT-red)*p.nSenior;
-    return Math.max(0,tax);
+function computeStateTax(code, p) {
+  if (code === 'CA') {
+    const married = p.filing === 'married';
+    const caAgi = Math.max(0, p.agi - p.taxableSS);
+    const medItemized = Math.max(0, (p.expLtc || 0) - 0.075 * caAgi);
+    const ti = Math.max(0, caAgi - Math.max(married ? CA_STD_MFJ : CA_STD_SGL, medItemized));
+    let tax = calcOrdTax(ti, married ? CA_ORD_MFJ : CA_ORD_SGL);
+    tax += CA_MH_RATE * Math.max(0, ti - CA_MH_THRESH * p.f);
+    const red = caCreditReduction(p.agi, married, p.f); // phase-out of the exemption credits, per credit
+    tax -= Math.max(0, CA_PERSONAL_CREDIT - red) * p.nAlive + Math.max(0, CA_SENIOR_CREDIT - red) * p.nSenior;
+    return Math.max(0, tax);
   }
-  if(code==='WA'){
-    const taxable=Math.max(0, p.ltcgPortfolio-WA_CG_DEDUCTION);
-    const t2=WA_CG_TIER2*p.f;
-    return WA_CG_RATE*Math.min(taxable,t2)+WA_CG_RATE2*Math.max(0,taxable-t2);
+  if (code === 'WA') {
+    const taxable = Math.max(0, p.ltcgPortfolio - WA_CG_DEDUCTION);
+    const t2 = WA_CG_TIER2 * p.f;
+    return WA_CG_RATE * Math.min(taxable, t2) + WA_CG_RATE2 * Math.max(0, taxable - t2);
   }
   return 0;
 }

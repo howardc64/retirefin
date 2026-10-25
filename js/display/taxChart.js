@@ -3,194 +3,490 @@
 // DISPLAY / TOTAL INCOME TAX CHART — stacked ordinary/QDIV/LTCG tax
 // with an effective-rate overlay line (spec §9.4); the marginal rate is in the popup only.
 // ═══════════════════════════════════════════════════════════════
-const VZ_TAX = { ord:'#C8600A', qdiv0:'#D4BCEE', qdiv15:'#7B3FBE', qdiv20:'#3A0D7A',
-                 ltcg0:'#A0E4DC', ltcg15:'#1A9E8F', ltcg20:'#0A4A42', niit:'#D81B8A', effRate:'#1B1B1B', ftc:'#1F5FE0', state:'#00A8CC' };
-function buildTaxChart(){
-  if(typeof Chart==='undefined'||!lastProjection) return;
-  const proj=lastProjection, rows=proj.rows;
-  if(!rows.length){ return; }
-  const labels=ageLabelRange(rows[0].age0,chartMaxAge(proj));
-  const ages=rows.map(r=>r.age0);
+const CI_TAX = [
+  [
+    /^Ordinary income tax/,
+    "Federal tax on ordinary income (wages, pension, rental, taxable Social Security, IRA withdrawals, ordinary dividends…) after the standard/itemized and senior deductions, using the filing status' brackets."
+  ],
+  [
+    /^NIIT/,
+    'Net Investment Income Tax: 3.8% of the lesser of net investment income or MAGI above the threshold ($250,000 married / $200,000 single unless a future-law change is set).'
+  ],
+  [/^Foreign tax credit/, 'Foreign tax credit, subtracted from income tax. It does not reduce the NIIT.'],
+  [/^Effective tax rate/, 'Effective tax rate: total tax divided by AGI. Read it on the right-hand axis.'],
+  [
+    /^State income tax/,
+    'State income tax (dashed line, drawn on top of the federal stack). It is not part of Total Tax, but is paid as a household expense.'
+  ],
+  [
+    /^IRMAA surcharge/,
+    'Medicare IRMAA surcharge drawn on top of the tax stack, for comparison with the tax. It is an expense, not an income tax.'
+  ]
+];
+// Chart Element text of the three Total Income Tax charts's lines: stamped onto its datasets as ds.info by upsertLineChart (chartHelpers.js), read by chartInfo.js.
+const infoTax = ds => {
+  const label = String(ds.label == null ? '' : ds.label),
+    pick = t => infoFromTable(t, ds);
+  const m = /^(QDIV|LTCG) (\d+)% tax/.exec(label);
+  if (m)
+    return (
+      (m[1] === 'QDIV' ? 'Tax on qualified dividends' : 'Tax on long-term capital gains') +
+      ' that fall in the ' +
+      m[2] +
+      '% qualified-income bracket.'
+    );
+  return pick(CI_TAX);
+};
+const VZ_TAX = {
+  ord: '#C8600A',
+  qdiv0: '#D4BCEE',
+  qdiv15: '#7B3FBE',
+  qdiv20: '#3A0D7A',
+  ltcg0: '#A0E4DC',
+  ltcg15: '#1A9E8F',
+  ltcg20: '#0A4A42',
+  niit: '#D81B8A',
+  effRate: '#1B1B1B',
+  ftc: '#1F5FE0',
+  state: '#00A8CC'
+};
+function buildTaxChart() {
+  if (typeof Chart === 'undefined' || !lastProjection) return;
+  const proj = lastProjection,
+    rows = proj.rows;
+  if (!rows.length) {
+    return;
+  }
+  const labels = ageLabelRange(rows[0].age0, chartMaxAge(proj));
+  const ages = rows.map(r => r.age0);
 
-  const ftcArr=[], ordArr=[], qTiers=[[],[],[]], lTiers=[[],[],[]], niitArr=[];
-  rows.forEach(r=>{
-    const qBrk = r.filing==='married'?MFJ_QDIV:SGL_QDIV;
-    const qdT=r.qdivT!=null?r.qdivT:r.qdiv, lgT=r.ltcgT!=null?r.ltcgT:r.ltcg;   // the taxable parts (a deduction larger than ordinary income shelters qualified income)
-    const qt=qualTaxTiers(r.ordTI, qdT, qBrk);
-    const lt=qualTaxTiers(r.ordTI+qdT, lgT, qBrk);
+  const ftcArr = [],
+    ordArr = [],
+    qTiers = [[], [], []],
+    lTiers = [[], [], []],
+    niitArr = [];
+  rows.forEach(r => {
+    const qBrk = r.filing === 'married' ? MFJ_QDIV : SGL_QDIV;
+    const qdT = r.qdivT != null ? r.qdivT : r.qdiv,
+      lgT = r.ltcgT != null ? r.ltcgT : r.ltcg; // the taxable parts (a deduction larger than ordinary income shelters qualified income)
+    const qt = qualTaxTiers(r.ordTI, qdT, qBrk);
+    const lt = qualTaxTiers(r.ordTI + qdT, lgT, qBrk);
     // §9.4: foreign tax credit offsets ordinary tax first, then each qualified-dividend/LTCG tier
     // in turn, so the visual stack's total height matches r.totalTax (which already nets the
     // credit out) instead of drawing a taller bar than the tooltip's Total Tax figure.
-    let credit=Math.max(0,r.foreignTaxCredit||0); const credit0=credit;
-    const apply=v=>{ const used=Math.min(v,credit); credit-=used; return v-used; };
+    let credit = Math.max(0, r.foreignTaxCredit || 0);
+    const credit0 = credit;
+    const apply = v => {
+      const used = Math.min(v, credit);
+      credit -= used;
+      return v - used;
+    };
     ordArr.push(apply(r.ordTax));
-    qt.map(apply).forEach((v,i)=>qTiers[i].push(v));
-    lt.map(apply).forEach((v,i)=>lTiers[i].push(v));
-    niitArr.push(r.niit||0);
+    qt.map(apply).forEach((v, i) => qTiers[i].push(v));
+    lt.map(apply).forEach((v, i) => lTiers[i].push(v));
+    niitArr.push(r.niit || 0);
     // Credit actually absorbed by income tax (what the stack was reduced by); drawn back on top as the dashed blue line.
-    const usedCredit=credit0-credit; ftcArr.push(usedCredit>0?usedCredit:null);
+    const usedCredit = credit0 - credit;
+    ftcArr.push(usedCredit > 0 ? usedCredit : null);
   });
-  const alignedOrd=alignToAges(ages,ordArr,labels);
-  const alignedQ=qTiers.map(arr=>alignToAges(ages,arr,labels));
-  const alignedL=lTiers.map(arr=>alignToAges(ages,arr,labels));
-  const alignedNiit=alignToAges(ages,niitArr,labels);
-  const alignedFtc=alignToAges(ages,ftcArr,labels);
+  const alignedOrd = alignToAges(ages, ordArr, labels);
+  const alignedQ = qTiers.map(arr => alignToAges(ages, arr, labels));
+  const alignedL = lTiers.map(arr => alignToAges(ages, arr, labels));
+  const alignedNiit = alignToAges(ages, niitArr, labels);
+  const alignedFtc = alignToAges(ages, ftcArr, labels);
   // §9.4: thick dashed line for the effective tax rate (TT / AGI) on the right-hand % axis, overlaid on top of the $ stack (but below the
   // tooltip). The marginal rate is shown in the popup only, not as a line.
-  const effRateArr=rows.map(r=>r.agi>0 ? r.totalTax/r.agi*100 : 0);
-  const alignedEff=alignToAges(ages,effRateArr,labels);
+  const effRateArr = rows.map(r => (r.agi > 0 ? (r.totalTax / r.agi) * 100 : 0));
+  const alignedEff = alignToAges(ages, effRateArr, labels);
 
   // "view IRMAA as tax": the IRMAA surcharge paid that year (null when none) stacks on top of the tax stack as a dashed line.
-  const alignedIrmaa=alignToAges(ages, rows.map(r=>r.expIrmaa>0?r.expIrmaa:null), labels);
+  const alignedIrmaa = alignToAges(
+    ages,
+    rows.map(r => (r.expIrmaa > 0 ? r.expIrmaa : null)),
+    labels
+  );
   // Height of the tax stack itself (the foreign tax credit line is not part of it): the IRMAA line is drawn at this + IRMAA.
-  const stackTop=labels.map((_,i)=>{
-    let t=alignedOrd[i]||0; alignedQ.forEach(a=>t+=a[i]||0); alignedL.forEach(a=>t+=a[i]||0); return t+(alignedNiit[i]||0);
+  const stackTop = labels.map((_, i) => {
+    let t = alignedOrd[i] || 0;
+    alignedQ.forEach(a => (t += a[i] || 0));
+    alignedL.forEach(a => (t += a[i] || 0));
+    return t + (alignedNiit[i] || 0);
   });
   // State tax (Tax & Optimizations panel → State income tax): its own dashed green line at tax stack + state tax — absolute height in its own stack group, so it never sits on the foreign tax credit line.
-  const stateName=(STATE_TAX_OPTIONS.find(o=>o[0]===(state.stateTax&&state.stateTax.state))||[0,'State'])[1];
-  const alignedState=alignToAges(ages, rows.map(r=>r.stateTax>0?r.stateTax:null), labels);
-  const alignedStateTop=alignedState.map((v,i)=>v>0?stackTop[i]+v:null);
+  const stateName = (STATE_TAX_OPTIONS.find(o => o[0] === (state.stateTax && state.stateTax.state)) || [0, 'State'])[1];
+  const alignedState = alignToAges(
+    ages,
+    rows.map(r => (r.stateTax > 0 ? r.stateTax : null)),
+    labels
+  );
+  const alignedStateTop = alignedState.map((v, i) => (v > 0 ? stackTop[i] + v : null));
   // IRMAA, when shown, stacks above the state tax line so the two dashed lines never overlap.
-  const alignedIrmaaTop=alignedIrmaa.map((v,i)=>v>0?stackTop[i]+(alignedState[i]||0)+v:null);
-  const Y_MAX=lockedYMax('tax', ()=>{
-    let maxV=0;
-    for(let i=0;i<labels.length;i++){
-      let t=alignedOrd[i]||0; alignedQ.forEach(a=>t+=a[i]||0); alignedL.forEach(a=>t+=a[i]||0); t+=alignedNiit[i]||0;
-      t+=alignedFtc[i]||0;
-      maxV=Math.max(maxV,t);
-      if(alignedStateTop[i]!=null) maxV=Math.max(maxV,alignedStateTop[i]);
+  const alignedIrmaaTop = alignedIrmaa.map((v, i) => (v > 0 ? stackTop[i] + (alignedState[i] || 0) + v : null));
+  const Y_MAX = lockedYMax('tax', () => {
+    let maxV = 0;
+    for (let i = 0; i < labels.length; i++) {
+      let t = alignedOrd[i] || 0;
+      alignedQ.forEach(a => (t += a[i] || 0));
+      alignedL.forEach(a => (t += a[i] || 0));
+      t += alignedNiit[i] || 0;
+      t += alignedFtc[i] || 0;
+      maxV = Math.max(maxV, t);
+      if (alignedStateTop[i] != null) maxV = Math.max(maxV, alignedStateTop[i]);
     }
-    return Math.ceil(Math.max(maxV,1)/2000)*2000+4000;
+    return Math.ceil(Math.max(maxV, 1) / 2000) * 2000 + 4000;
   });
 
-  const rowByAge={}; rows.forEach(r=>rowByAge[Math.round(r.age0)]=r);
-  let swIdx=labels.length;
-  for(let i=0;i<labels.length;i++){ const r=rowByAge[labels[i]]; if(!r||r.filing!=='married'){ swIdx=i; break; } }
+  const rowByAge = {};
+  rows.forEach(r => (rowByAge[Math.round(r.age0)] = r));
+  let swIdx = labels.length;
+  for (let i = 0; i < labels.length; i++) {
+    const r = rowByAge[labels[i]];
+    if (!r || r.filing !== 'married') {
+      swIdx = i;
+      break;
+    }
+  }
 
-  const datasets=[
-    {label:'Ordinary income tax', data:alignedOrd, borderColor:VZ_TAX.ord, backgroundColor:VZ_TAX.ord+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'QDIV 0% tax', data:alignedQ[0], borderColor:VZ_TAX.qdiv0, backgroundColor:VZ_TAX.qdiv0+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'QDIV 15% tax', data:alignedQ[1], borderColor:VZ_TAX.qdiv15, backgroundColor:VZ_TAX.qdiv15+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'QDIV 20% tax', data:alignedQ[2], borderColor:VZ_TAX.qdiv20, backgroundColor:VZ_TAX.qdiv20+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'LTCG 0% tax', data:alignedL[0], borderColor:VZ_TAX.ltcg0, backgroundColor:VZ_TAX.ltcg0+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'LTCG 15% tax', data:alignedL[1], borderColor:VZ_TAX.ltcg15, backgroundColor:VZ_TAX.ltcg15+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'LTCG 20% tax', data:alignedL[2], borderColor:VZ_TAX.ltcg20, backgroundColor:VZ_TAX.ltcg20+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'NIIT (3.8% on net investment income)', data:alignedNiit, borderColor:VZ_TAX.niit, backgroundColor:VZ_TAX.niit+'cc', borderWidth:THIN_W, pointRadius:0, tension:0.25, fill:true, spanGaps:false, stack:'tax', order:2},
-    {label:'Foreign tax credit', data:alignedFtc, borderColor:VZ_TAX.ftc, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[7,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'tax', order:2},
+  const datasets = [
+    {
+      label: 'Ordinary income tax',
+      data: alignedOrd,
+      borderColor: VZ_TAX.ord,
+      backgroundColor: VZ_TAX.ord + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'QDIV 0% tax',
+      data: alignedQ[0],
+      borderColor: VZ_TAX.qdiv0,
+      backgroundColor: VZ_TAX.qdiv0 + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'QDIV 15% tax',
+      data: alignedQ[1],
+      borderColor: VZ_TAX.qdiv15,
+      backgroundColor: VZ_TAX.qdiv15 + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'QDIV 20% tax',
+      data: alignedQ[2],
+      borderColor: VZ_TAX.qdiv20,
+      backgroundColor: VZ_TAX.qdiv20 + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'LTCG 0% tax',
+      data: alignedL[0],
+      borderColor: VZ_TAX.ltcg0,
+      backgroundColor: VZ_TAX.ltcg0 + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'LTCG 15% tax',
+      data: alignedL[1],
+      borderColor: VZ_TAX.ltcg15,
+      backgroundColor: VZ_TAX.ltcg15 + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'LTCG 20% tax',
+      data: alignedL[2],
+      borderColor: VZ_TAX.ltcg20,
+      backgroundColor: VZ_TAX.ltcg20 + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'NIIT (3.8% on net investment income)',
+      data: alignedNiit,
+      borderColor: VZ_TAX.niit,
+      backgroundColor: VZ_TAX.niit + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'Foreign tax credit',
+      data: alignedFtc,
+      borderColor: VZ_TAX.ftc,
+      backgroundColor: 'transparent',
+      borderWidth: THIN_W,
+      borderDash: [7, 4],
+      pointRadius: 0,
+      tension: 0.25,
+      fill: false,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
     // §9.4: rate lines are overlaid "on top of other graph objects (but below tooltip)" — a lower
     // Chart.js `order` value draws on top of higher ones, so these get order:1/0 vs. order:2 above.
-    {label:'Effective tax rate', data:alignedEff, thin:true, borderColor:VZ_TAX.effRate, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, tension:0.25, fill:false, spanGaps:false, yAxisID:'y1', order:1},
+    {
+      label: 'Effective tax rate',
+      data: alignedEff,
+      thin: true,
+      borderColor: VZ_TAX.effRate,
+      backgroundColor: 'transparent',
+      borderWidth: THIN_W,
+      borderDash: [],
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      pointHitRadius: 12,
+      tension: 0.25,
+      fill: false,
+      spanGaps: false,
+      yAxisID: 'y1',
+      order: 1
+    }
   ];
 
-  if(alignedState.some(v=>v>0)){
-    datasets.push({label:'State income tax ('+stateName+')', data:alignedStateTop, irmaaAmt:alignedState, ciValues:alignedState, borderColor:VZ_TAX.state, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[3,4], pointRadius:0, tension:0.25, fill:false, spanGaps:false, stack:'state', order:2});   // irmaaAmt = what the popup reports (the dataset values are heights)
+  if (alignedState.some(v => v > 0)) {
+    datasets.push({
+      label: 'State income tax (' + stateName + ')',
+      data: alignedStateTop,
+      irmaaAmt: alignedState,
+      ciValues: alignedState,
+      borderColor: VZ_TAX.state,
+      backgroundColor: 'transparent',
+      borderWidth: THIN_W,
+      borderDash: [3, 4],
+      pointRadius: 0,
+      tension: 0.25,
+      fill: false,
+      spanGaps: false,
+      stack: 'state',
+      order: 2
+    }); // irmaaAmt = what the popup reports (the dataset values are heights)
   }
   // The IRMAA line is always a dataset (when any IRMAA is paid) so that toggling "view IRMAA as tax" tweens it instead of rebuilding the chart:
   // off, it lies on the tax / state line it would stack on and is fully transparent; on, it slides up to tax + IRMAA and fades in.
-  if(alignedIrmaa.some(v=>v>0)){
-    const on=viewIrmaaAsTax;
-    const alignedIrmaaBase=alignedIrmaa.map((v,i)=>v>0?stackTop[i]+(alignedState[i]||0):null);
+  if (alignedIrmaa.some(v => v > 0)) {
+    const on = viewIrmaaAsTax;
+    const alignedIrmaaBase = alignedIrmaa.map((v, i) => (v > 0 ? stackTop[i] + (alignedState[i] || 0) : null));
     // Own stack id so it is plotted at an absolute height (tax stack + IRMAA), not on top of the foreign tax credit line; irmaaAmt is what the popup reports.
-    datasets.push({label:'IRMAA surcharge', data:on?alignedIrmaaTop:alignedIrmaaBase, irmaaAmt:alignedIrmaa, ciValues:alignedIrmaa, irmaaOff:!on, borderColor:on?OVERLAY_COLOR:IRMAA_LINE_OFF, backgroundColor:'transparent', borderWidth:THIN_W, borderDash:[7,4], pointRadius:0, pointHitRadius:on?12:0, tension:0.25, fill:false, spanGaps:false, stack:'irmaa', order:2});
+    datasets.push({
+      label: 'IRMAA surcharge',
+      data: on ? alignedIrmaaTop : alignedIrmaaBase,
+      irmaaAmt: alignedIrmaa,
+      ciValues: alignedIrmaa,
+      irmaaOff: !on,
+      borderColor: on ? OVERLAY_COLOR : IRMAA_LINE_OFF,
+      backgroundColor: 'transparent',
+      borderWidth: THIN_W,
+      borderDash: [7, 4],
+      pointRadius: 0,
+      pointHitRadius: on ? 12 : 0,
+      tension: 0.25,
+      fill: false,
+      spanGaps: false,
+      stack: 'irmaa',
+      order: 2
+    });
   }
 
   // Built fresh every call so it doesn't close over a stale rowByAge/labels from an earlier render.
-  const tooltipCallbacks={
-    title:i=>{ const idx=i[0]?i[0].dataIndex:0; const r=rowByAge[labels[idx]]; return r?popupPersonAgeLines(proj,r):[]; },
-    label:ctx=>{
-      // Effective-tax-rate line reports in the footer (below), not as a stack segment here.
-      if(ctx.dataset.yAxisID==='y1') return null;
-      if(ctx.dataset.irmaaOff||ctx.raw==null||ctx.raw===0)return null;
-      const v=ctx.dataset.irmaaAmt?ctx.dataset.irmaaAmt[ctx.dataIndex]:ctx.raw;
-      return mrow('  '+ctx.dataset.label, fmt(v)+'/yr');
+  const tooltipCallbacks = {
+    title: i => {
+      const idx = i[0] ? i[0].dataIndex : 0;
+      const r = rowByAge[labels[idx]];
+      return r ? popupPersonAgeLines(proj, r) : [];
     },
-    footer:items=>{
-      const idx=items[0]?items[0].dataIndex:0;
-      const r=rowByAge[labels[idx]]; if(!r) return[];
-      const effRate=r.agi>0 ? r.totalTax/r.agi*100 : 0;
+    label: ctx => {
+      // Effective-tax-rate line reports in the footer (below), not as a stack segment here.
+      if (ctx.dataset.yAxisID === 'y1') return null;
+      if (ctx.dataset.irmaaOff || ctx.raw == null || ctx.raw === 0) return null;
+      const v = ctx.dataset.irmaaAmt ? ctx.dataset.irmaaAmt[ctx.dataIndex] : ctx.raw;
+      return mrow('  ' + ctx.dataset.label, fmt(v) + '/yr');
+    },
+    footer: items => {
+      const idx = items[0] ? items[0].dataIndex : 0;
+      const r = rowByAge[labels[idx]];
+      if (!r) return [];
+      const effRate = r.agi > 0 ? (r.totalTax / r.agi) * 100 : 0;
       // §9.4: "Popup window should include: Effective Tax Rate, Marginal Tax Rate, Total Tax." —
       // all three always shown. "If show_details, show TI, all income components, standard
       // deduction, foreign tax credit."
-      const lines=['', mrow('Effective tax rate', effRate.toFixed(1)+'%')];
-      lines.push(mrow('Marginal tax rate (ordinary income)', ((r.marginalRate||0)*100).toFixed(1)+'%'));
+      const lines = ['', mrow('Effective tax rate', effRate.toFixed(1) + '%')];
+      lines.push(mrow('Marginal tax rate (ordinary income)', ((r.marginalRate || 0) * 100).toFixed(1) + '%'));
       // When extra ordinary income also pushes qualified income (QDIV/LTCG) into a higher 0/15/20% tier, show that part separately so the total can exceed the ordinary bracket rate.
-      if((r.marginalQual||0)>0.0005) lines.push(mrow('  from ordinary brackets', ((r.marginalOrd||0)*100).toFixed(1)+'%'), mrow('  from pushing qualified income into a higher tier', ((r.marginalQual||0)*100).toFixed(1)+'%'));
-      lines.push(mrow('Total tax (TT)', fmt(r.totalTax)+'/yr'));
-      if(r.stateTax>0) lines.push(mrow('Total tax + state tax', fmt(r.totalTax+r.stateTax)+'/yr'));   // the state tax itself is already listed above as a series
-      if(viewIrmaaAsTax && r.expIrmaa>0) lines.push(mrow('Total tax + IRMAA', fmt(r.totalTax+r.expIrmaa)+'/yr'));
-      if(showDetails){
-        lines.push(mrow('Filing status', r.filing==='married'?'Married filing jointly':'Single'));
+      if ((r.marginalQual || 0) > 0.0005)
+        lines.push(
+          mrow('  from ordinary brackets', ((r.marginalOrd || 0) * 100).toFixed(1) + '%'),
+          mrow('  from pushing qualified income into a higher tier', ((r.marginalQual || 0) * 100).toFixed(1) + '%')
+        );
+      lines.push(mrow('Total tax (TT)', fmt(r.totalTax) + '/yr'));
+      if (r.stateTax > 0) lines.push(mrow('Total tax + state tax', fmt(r.totalTax + r.stateTax) + '/yr')); // the state tax itself is already listed above as a series
+      if (viewIrmaaAsTax && r.expIrmaa > 0) lines.push(mrow('Total tax + IRMAA', fmt(r.totalTax + r.expIrmaa) + '/yr'));
+      if (showDetails) {
+        lines.push(mrow('Filing status', r.filing === 'married' ? 'Married filing jointly' : 'Single'));
         // Taxable income = taxable ordinary income + qualified income (QDIV + net LTCG), the same total the Taxable Income chart shows.
-        lines.push(mrow('Taxable income (TI)', fmt((r.ordTI||0)+(r.qualTaxable!=null?r.qualTaxable:(r.qualIncome||0)))+'/yr'));
-        if((r.qualIncome||0)>0) lines.push(mrow('  of which taxable ordinary income', fmt(r.ordTI||0)+'/yr'));
-        lines.push(mrow(r.usedItemized?'Itemized deduction (LTC)':'Standard deduction', '('+fmt(r.std)+')'));
-        if(r.seniorDeduction>0) lines.push(mrow('Enhanced senior deduction (Schedule 1-A)', '('+fmt(r.seniorDeduction)+')'));
+        lines.push(mrow('Taxable income (TI)', fmt((r.ordTI || 0) + (r.qualTaxable != null ? r.qualTaxable : r.qualIncome || 0)) + '/yr'));
+        if ((r.qualIncome || 0) > 0) lines.push(mrow('  of which taxable ordinary income', fmt(r.ordTI || 0) + '/yr'));
+        lines.push(mrow(r.usedItemized ? 'Itemized deduction (LTC)' : 'Standard deduction', '(' + fmt(r.std) + ')'));
+        if (r.seniorDeduction > 0) lines.push(mrow('Enhanced senior deduction (Schedule 1-A)', '(' + fmt(r.seniorDeduction) + ')'));
         // All income components rolling up to AGI (§9.4: "AGI = all non-SS income + TSS").
-        lines.push(mrow('  Wages', fmt(r.wageTotal)+'/yr'));
-        lines.push(mrow('  Pension', fmt(r.pension)+'/yr'));
-        lines.push(mrow('  Rental', fmt(r.rental)+'/yr'));
-        if(r.annuity>0) lines.push(mrow('  Annuity payouts (taxable part)', fmt(r.annuity)+'/yr'));
-        lines.push(mrow('  IRA RMD', fmt(r.iraTotal)+'/yr'));
-        if(r.rothConvTotal>0) lines.push(mrow('  Pre-tax IRA withdraw'+(r.rothInTotal>0.005?(r.rothInTotal>=r.rothConvTotal-0.005?' (Roth conversion)':' (part Roth conversion)'):''), fmt(r.rothConvTotal)+'/yr'));
-        if(r.iraExpTotal>0) lines.push(mrow('  Pre-tax IRA withdraw (for expenses)', fmt(r.iraExpTotal)+'/yr'));
-        lines.push(mrow('  Ordinary (non-qualified) dividends', fmt(r.odivNQ)+'/yr'));
-        lines.push(mrow('  Qualified dividends (QDIV)', fmt(r.qdiv)+'/yr'));
-        lines.push(mrow('  Long-term capital gains (LTCG, net of SCGL)', fmt(r.ltcg)+'/yr'));
-        lines.push(mrow('  Taxable Social Security (TSS)', fmt(r.taxableSS)+'/yr'));
-        lines.push(mrow('  AGI', fmt(r.agi)+'/yr'));
-        lines.push(mrow('Provisional income', fmt(r.provisional)+'/yr'));
-        if(r.foreignTaxCredit>0) lines.push(mrow('Foreign tax credit', '('+fmt(r.foreignTaxCredit)+')/yr'));
-        if(r.niit>0){
-          lines.push(mrow('Net investment income (NII)', fmt(r.niiIncome)+'/yr'));
-          lines.push(mrow('NIIT (3.8% on net investment income)', fmt(r.niit)+'/yr'));
+        lines.push(mrow('  Wages', fmt(r.wageTotal) + '/yr'));
+        lines.push(mrow('  Pension', fmt(r.pension) + '/yr'));
+        lines.push(mrow('  Rental', fmt(r.rental) + '/yr'));
+        if (r.annuity > 0) lines.push(mrow('  Annuity payouts (taxable part)', fmt(r.annuity) + '/yr'));
+        lines.push(mrow('  IRA RMD', fmt(r.iraTotal) + '/yr'));
+        if (r.rothConvTotal > 0)
+          lines.push(
+            mrow(
+              '  Pre-tax IRA withdraw' +
+                (r.rothInTotal > 0.005
+                  ? r.rothInTotal >= r.rothConvTotal - 0.005
+                    ? ' (Roth conversion)'
+                    : ' (part Roth conversion)'
+                  : ''),
+              fmt(r.rothConvTotal) + '/yr'
+            )
+          );
+        if (r.iraExpTotal > 0) lines.push(mrow('  Pre-tax IRA withdraw (for expenses)', fmt(r.iraExpTotal) + '/yr'));
+        lines.push(mrow('  Ordinary (non-qualified) dividends', fmt(r.odivNQ) + '/yr'));
+        lines.push(mrow('  Qualified dividends (QDIV)', fmt(r.qdiv) + '/yr'));
+        lines.push(mrow('  Long-term capital gains (LTCG, net of SCGL)', fmt(r.ltcg) + '/yr'));
+        lines.push(mrow('  Taxable Social Security (TSS)', fmt(r.taxableSS) + '/yr'));
+        lines.push(mrow('  AGI', fmt(r.agi) + '/yr'));
+        lines.push(mrow('Provisional income', fmt(r.provisional) + '/yr'));
+        if (r.foreignTaxCredit > 0) lines.push(mrow('Foreign tax credit', '(' + fmt(r.foreignTaxCredit) + ')/yr'));
+        if (r.niit > 0) {
+          lines.push(mrow('Net investment income (NII)', fmt(r.niiIncome) + '/yr'));
+          lines.push(mrow('NIIT (3.8% on net investment income)', fmt(r.niit) + '/yr'));
         }
       }
       return lines;
     }
   };
 
-  upsertLineChart('tax',{canvasId:'taxChart', labels, datasets, yMax:Y_MAX, tooltip:tooltipCallbacks,
-    createOptions:()=>({
+  upsertLineChart('tax', {
+    canvasId: 'taxChart',
+    info: infoTax,
+    labels,
+    datasets,
+    yMax: Y_MAX,
+    tooltip: tooltipCallbacks,
+    createOptions: () => ({
       ...CHART_BASE,
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{display:false},
-        tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(tooltipCallbacks)}
+      interaction: {mode: 'index', intersect: false},
+      plugins: {
+        legend: {display: false},
+        tooltip: {...TIP_STYLE, enabled: false, external: externalTooltip, callbacks: justifyTip(tooltipCallbacks)}
       },
-      scales:{
-        x:ageXAxis(ageAxisLabel(proj)),
-        y:{stacked:true,min:0,max:Y_MAX,title:axisTitle("Total tax (today's $)"),ticks:yAxisTicks,grid:AXIS_GRID},
+      scales: {
+        x: ageXAxis(ageAxisLabel(proj)),
+        y: {stacked: true, min: 0, max: Y_MAX, title: axisTitle("Total tax (today's $)"), ticks: yAxisTicks, grid: AXIS_GRID},
         // §9.4: the effective tax-rate line shares their own right-hand % scale, independent of the $ stack.
         // The effective tax-rate line has its own hidden 0–100 % scale: no tick labels, only a slim rotated title strip (its width equals the right padding of every
         // other chart, see upsertLineChart, so this chart's X axis is the same width as theirs).
-        y1:{position:'right',min:0,max:100,title:{...axisTitle('effective tax rate (%)'),padding:{top:0,bottom:0}},ticks:{display:false},border:{display:false},grid:{display:false}}
+        y1: {
+          position: 'right',
+          min: 0,
+          max: 100,
+          title: {...axisTitle('effective tax rate (%)'), padding: {top: 0, bottom: 0}},
+          ticks: {display: false},
+          border: {display: false},
+          grid: {display: false}
+        }
       }
-    })});
+    })
+  });
   // ── Two half-size companion charts (right side): ordinary vs. qualified/NIIT tax ──
   // Same labels, same locked Y scale (Y_MAX) and same 1:1 aspect ratio as the primary chart; the
   // datasets are copies of the primary's stack segments, in the same order and colors.
-  const copyDs=d=>({...d, data:d.data.slice()});
+  const copyDs = d => ({...d, data: d.data.slice()});
   // Companion-chart popups show the scenario owner(s) and age, then only that chart's own values: no totals, nothing extra with Show Details.
-  const smTip={
-    title:tooltipCallbacks.title,
-    label:ctx=>(ctx.raw==null||ctx.raw===0)?null:mrow('  '+ctx.dataset.label, fmt(ctx.raw)+'/yr'),
-    footer:()=>[]
+  const smTip = {
+    title: tooltipCallbacks.title,
+    label: ctx => (ctx.raw == null || ctx.raw === 0 ? null : mrow('  ' + ctx.dataset.label, fmt(ctx.raw) + '/yr')),
+    footer: () => []
   };
-  const smOptions=(yTitle,yMax)=>({
+  const smOptions = (yTitle, yMax) => ({
     ...CHART_BASE,
-    interaction:{mode:'index',intersect:false},
-    plugins:{ legend:{display:false}, tooltip:{...TIP_STYLE,enabled:false,external:externalTooltip,callbacks:justifyTip(smTip)} },
-    scales:{
-      x:ageXAxis(ageAxisLabel(proj)),
-      y:{stacked:true,min:0,max:yMax,title:axisTitle(yTitle),ticks:yAxisTicks,grid:AXIS_GRID}
+    interaction: {mode: 'index', intersect: false},
+    plugins: {legend: {display: false}, tooltip: {...TIP_STYLE, enabled: false, external: externalTooltip, callbacks: justifyTip(smTip)}},
+    scales: {
+      x: ageXAxis(ageAxisLabel(proj)),
+      y: {stacked: true, min: 0, max: yMax, title: axisTitle(yTitle), ticks: yAxisTicks, grid: AXIS_GRID}
     }
   });
   // Each companion has its own scale (locked until Rescale); chartHelpers.js shares it with the Total tax chart while the tax Scale button is on.
-  const YO=lockedYMax('taxOrd', ()=>niceMax(Math.max(0,...alignedOrd.map(v=>v||0)),2000));
-  const qDs=datasets.slice(1,8);
-  const YQ=lockedYMax('taxQual', ()=>{ let m=0; for(let i=0;i<labels.length;i++){ let t=0; qDs.forEach(d=>{ t+=d.data[i]||0; }); m=Math.max(m,t); } return niceMax(m,2000); });
-  upsertLineChart('taxOrd',{canvasId:'taxOrdChart', labels, datasets:[copyDs(datasets[0])], yMax:YO, tooltip:smTip,
-    createOptions:()=>smOptions('Ordinary income tax',YO)});
-  upsertLineChart('taxQual',{canvasId:'taxQualChart', labels, datasets:qDs.map(copyDs), yMax:YQ, tooltip:smTip,
-    createOptions:()=>smOptions('QDIV / LTCG / NIIT tax',YQ)});
+  const YO = lockedYMax('taxOrd', () => niceMax(Math.max(0, ...alignedOrd.map(v => v || 0)), 2000));
+  const qDs = datasets.slice(1, 8);
+  const YQ = lockedYMax('taxQual', () => {
+    let m = 0;
+    for (let i = 0; i < labels.length; i++) {
+      let t = 0;
+      qDs.forEach(d => {
+        t += d.data[i] || 0;
+      });
+      m = Math.max(m, t);
+    }
+    return niceMax(m, 2000);
+  });
+  upsertLineChart('taxOrd', {
+    canvasId: 'taxOrdChart',
+    info: infoTax,
+    labels,
+    datasets: [copyDs(datasets[0])],
+    yMax: YO,
+    tooltip: smTip,
+    createOptions: () => smOptions('Ordinary income tax', YO)
+  });
+  upsertLineChart('taxQual', {
+    canvasId: 'taxQualChart',
+    info: infoTax,
+    labels,
+    datasets: qDs.map(copyDs),
+    yMax: YQ,
+    tooltip: smTip,
+    createOptions: () => smOptions('QDIV / LTCG / NIIT tax', YQ)
+  });
 }

@@ -5,8 +5,7 @@
 const fs=require('fs'), vm=require('vm'), path=require('path');
 const out=process.argv[2]||path.join(__dirname,'current.json');
 const root=process.argv[3]||path.resolve(__dirname,'..');
-const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-const scripts=[...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m=>m[1]).filter(s=>!/^https?:/.test(s));
+const scripts=require('../server/scripts.js').browserScripts(root);   // index.html order (server/scripts.js)
 const els={};
 function mkEl(id){
   const el={id, style:{}, dataset:{}, children:[], value:'', textContent:'', innerHTML:'', className:'', checked:false,

@@ -181,41 +181,46 @@
      with no bundler and no ES-module CORS restrictions.
      ═══════════════════════════════════════════════════════════════ -->
 
+<!-- This list is the single source of truth for script order (the Node engine, MCP server, MCPB bundle and tests read it through server/scripts.js).
+     data-engine="base" = the calculation engine, data-engine="scenario" = the scenario / run-registry layer on top of it; untagged = browser only. -->
 <!-- core -->
-<script src="js/core/constants.js"></script>
-<script src="js/core/helpers.js"></script>
+<script src="js/core/constants.js" data-engine="base"></script>
+<script src="js/core/helpers.js" data-engine="base"></script>
 <script src="js/core/markdown.js"></script>
 
 <!-- compute -->
-<script src="js/compute/socialSecurityCalc.js"></script>
-<script src="js/compute/rmd.js"></script>
-<script src="js/compute/tax.js"></script>
+<script src="js/compute/socialSecurityCalc.js" data-engine="base"></script>
+<script src="js/compute/rmd.js" data-engine="base"></script>
+<script src="js/compute/tax.js" data-engine="base"></script>
 
 <!-- core/state (needs constants + helpers + compute above for its defaults) -->
-<script src="js/core/state.js"></script>
+<script src="js/core/planSlots.js" data-engine="base"></script>
+<script src="js/core/defaults.js" data-engine="base"></script>
+<script src="js/core/state.js" data-engine="base"></script>
+<script src="js/core/persistence.js" data-engine="base"></script>
 
 <!-- more compute (needs state.js for the `state` global) -->
-<script src="js/compute/dates.js"></script>
-<script src="js/compute/ageRange.js"></script>
-<script src="js/compute/projection.js"></script>
-<script src="js/compute/whatIf.js"></script>
-<script src="js/compute/donorTraj.js"></script>
-<script src="js/compute/monteCarlo.js"></script>
-<script src="js/compute/stressTest.js"></script>
-<script src="js/compute/marketScenario.js"></script>
-<script src="js/compute/scenarioSpec.js"></script>
-<script src="js/compute/scenarioApi.js"></script>
-<script src="js/compute/runRegistry.js"></script>
-<script src="js/compute/runJobs.js"></script>
-<script src="js/scenarios/scenarioRecord.js"></script>
-<script src="js/scenarios/scenarioStore.js"></script>
-<script src="js/scenarios/scenarioSetProducer.js"></script>
-<script src="js/scenarios/stressProducer.js"></script>
-<script src="js/scenarios/monteCarloProducer.js"></script>
-<script src="js/scenarios/marketProducer.js"></script>
-<script src="js/scenarios/leverProducer.js"></script>
-<script src="js/scenarios/jobsProducer.js"></script>
-<script src="js/scenarios/scenarioTools.js"></script>
+<script src="js/compute/dates.js" data-engine="base"></script>
+<script src="js/compute/ageRange.js" data-engine="base"></script>
+<script src="js/compute/projection.js" data-engine="base"></script>
+<script src="js/compute/whatIf.js" data-engine="base"></script>
+<script src="js/compute/donorTraj.js" data-engine="base"></script>
+<script src="js/compute/monteCarlo.js" data-engine="base"></script>
+<script src="js/compute/stressTest.js" data-engine="base"></script>
+<script src="js/compute/marketScenario.js" data-engine="base"></script>
+<script src="js/compute/scenarioSpec.js" data-engine="scenario"></script>
+<script src="js/compute/scenarioApi.js" data-engine="scenario"></script>
+<script src="js/compute/runRegistry.js" data-engine="scenario"></script>
+<script src="js/compute/runJobs.js" data-engine="scenario"></script>
+<script src="js/scenarios/scenarioRecord.js" data-engine="scenario"></script>
+<script src="js/scenarios/scenarioStore.js" data-engine="scenario"></script>
+<script src="js/scenarios/scenarioSetProducer.js" data-engine="scenario"></script>
+<script src="js/scenarios/stressProducer.js" data-engine="scenario"></script>
+<script src="js/scenarios/monteCarloProducer.js" data-engine="scenario"></script>
+<script src="js/scenarios/marketProducer.js" data-engine="scenario"></script>
+<script src="js/scenarios/leverProducer.js" data-engine="scenario"></script>
+<script src="js/scenarios/jobsProducer.js" data-engine="scenario"></script>
+<script src="js/scenarios/scenarioTools.js" data-engine="scenario"></script>
 
 <!-- input -->
 <script src="js/input/controls.js"></script>
@@ -230,7 +235,7 @@
 <script src="js/input/annuity.js"></script>
 <script src="js/input/ira.js"></script>
 <script src="js/input/roth.js"></script>
-<script src="js/input/inheritance.js"></script>
+<script src="js/input/inheritance.js" data-engine="base"></script>
 <script src="js/input/liveLink.js"></script>
 <script src="js/input/incomeForms.js"></script>
 <script src="js/input/loadMenu.js"></script>
@@ -238,6 +243,7 @@
 <script src="js/input/inputInfo.js"></script>
 
 <!-- display -->
+<script src="js/display/trialView.js"></script>
 <script src="js/display/chartHelpers.js"></script>
 <script src="js/display/chartPanels.js"></script>
 <script src="js/display/chartInfo.js"></script>
@@ -254,13 +260,22 @@
 <script src="js/display/inhIncomeChart.js"></script>
 <script src="js/display/footer.js"></script>
 <script src="js/display/formulasPage.js"></script>
+<script src="js/display/formulasCss.js"></script>
+<script src="js/display/formulasSections.js"></script>
 <script src="js/display/mdPage.js"></script>
+<script src="js/display/excelWorkbook.js"></script>
+<script src="js/display/excelTaxSheet.js"></script>
+<script src="js/display/excelInputsSheet.js"></script>
+<script src="js/display/excelAccountSheets.js"></script>
+<script src="js/display/excelMainSheet.js"></script>
 <script src="js/display/excelExport.js"></script>
 <script src="js/display/scenarios.js"></script>
 <script src="js/display/userNotes.js"></script>
 <script src="js/display/print.js"></script>
 <script src="js/display/chatTools.js"></script>
 <script src="js/display/chatCharts.js"></script>
+<script src="js/display/chatSnapshot.js"></script>
+<script src="js/display/chatProviders.js"></script>
 <script src="js/display/chat.js"></script>
 <script src="js/display/llmPanel.js"></script>
 <script src="js/display/llmBridge.js"></script>
