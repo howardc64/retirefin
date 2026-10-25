@@ -60,6 +60,7 @@ function buildInflationChart() {
   const datasets = [
     {
       label: 'Scenario inflation rate',
+      infoBrief: 'Yearly inflation the scenario assumes.',
       info: 'The inflation rate the scenario assumes every year (the Inflation slider). Prices, tax thresholds that are indexed, and "today\'s $" amounts all follow it.',
       data: scenarioLine,
       borderColor: '#6b7280',
@@ -78,6 +79,7 @@ function buildInflationChart() {
   if (trialLine)
     datasets.push({
       label: trialName,
+      infoBrief: '',
       info: trialInfo,
       data: trialLine,
       borderColor: '#b45309',
@@ -94,6 +96,7 @@ function buildInflationChart() {
   if (trialAvg)
     datasets.push({
       label: trialName + ' \u2014 5-year average',
+      infoBrief: 'Centered 5-year average.',
       info: trialInfo,
       data: trialAvg,
       borderColor: '#b45309',

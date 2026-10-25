@@ -4,7 +4,7 @@
 // When checked, hovering a chart shows a popup that DESCRIBES the chart element under the cursor (a stacked band, a dashed
 // line, a Social Security claiming-age line…) instead of the usual per-year values. The usual popup (chartHelpers.js
 // externalTooltip) does nothing while this is on; this file draws into the same floating #extTooltip <div>, so it follows
-// the Popup background slider.
+// the fixed popup colours (tipTheme(), chartHelpers.js). The "Popup Verbose" checkbox (right of Chart Element) decides whether the explanatory text is shown in full.
 // Read-only: only reads chart/dataset objects and `lastProjection`; never writes into `state`.
 // ═══════════════════════════════════════════════════════════════
 let chartInfo = true; // default on; the header checkbox (index.html) starts checked to match
@@ -155,6 +155,7 @@ function ciOverlayAt(key, chart, e, datasetHit) {
     if (t)
       return {
         name: 'Inheritance arrives',
+        brief: t.a.files.length ? 'From ' + t.a.files.join(', ') + '.' : '',
         color: INH_ARROW_COLOR,
         value: mrow('Arrives at age ' + t.a.age + ':', fmt(t.a.value)),
         text:
@@ -175,6 +176,7 @@ function ciOverlayAt(key, chart, e, datasetHit) {
       return {
         name: 'Long Term Care period',
         color: c[idx] >= 2 ? LTC_C_BOTH : young ? LTC_C_YOUNG : LTC_C_OLD,
+        owner: ciLtcStartText(who, chart.data.labels[idx]),
         text:
           (c[idx] >= 2
             ? 'Dark blue: both people are on Long Term Care this year. '
@@ -187,6 +189,8 @@ function ciOverlayAt(key, chart, e, datasetHit) {
     return null;
   }
   if (py < area.top || py > area.bottom) return null;
+  const pl = ciPassingAt(chart, px);
+  if (pl) return pl;
   // IRMAA tier lines on the MAGI chart (drawn by the 'magiOverlay' plugin).
   if (key === 'incomeMagi') {
     const o = chart.options.plugins && chart.options.plugins.magiOverlay;
@@ -209,6 +213,7 @@ function ciOverlayAt(key, chart, e, datasetHit) {
         return {
           name: 'IRMAA tier line: MAGI ' + money(best.magi) + (best.pct != null ? ' (+' + best.pct + '% Part B)' : ''),
           color: BRACKET_COLOR,
+          brief: (mfj ? 'Married filing jointly' : 'Single') + ': surcharge ' + money(best.surch) + ' per person per year at or above this line.',
           text:
             'Medicare IRMAA threshold for ' +
             (mfj ? 'married filing jointly' : 'single') +
@@ -229,6 +234,112 @@ function ciStretchInfo() {
     color: '#c0392b',
     text: 'The red bar marks the years after the household\'s last passing. Only IRAs with the "IRA stretch" box checked (and holdings that are not IDGT) carry on, compounding at their own growth rate for up to 10 more years while heirs hold them. No RMDs, withdrawals or heir taxes are modeled.'
   };
+}
+
+
+// ── Who / when helpers for the overlay elements ───────────────────────────────────────────────────────────────────────
+function ciPersonName(proj, i) {
+  return displayPersonName(proj.people[i], i);
+}
+// LTC bar: for each person on LTC this year, the age (their own) and calendar year care starts.
+function ciLtcStartText(who, label) {
+  const proj = typeof lastProjection !== 'undefined' ? lastProjection : null,
+    l = typeof viewContext === 'function' ? viewContext().ltc : null;
+  if (!proj || !proj.rows || !l || !l.people || !who || !who.length) return '';
+  const parts = who.map(i => {
+    const L = l.people[i],
+      k = proj.rows.findIndex(r => r.alive && r.alive[i] && r.ages[i] >= (Number(L && L.startAge) || 0));
+    const cur = proj.rows.find(r => Math.round(r.age0) === Math.round(Number(label))),
+      now = cur && cur.ages ? ' is ' + Math.floor(cur.ages[i]) + ' this year' : '';
+    if (k < 0) return ciPersonName(proj, i) + now;
+    return ciPersonName(proj, i) + now + '; LTC starts at age ' + Math.floor(proj.rows[k].ages[i]) + ' (' + (THIS_YEAR + k) + ')';
+  });
+  return parts.join('; ');
+}
+// Passing line: who passes and when (their own age and the calendar year), when the pointer is within a few pixels of the line.
+function ciPassingAt(chart, px) {
+  const proj = typeof lastProjection !== 'undefined' ? lastProjection : null,
+    I = proj && ageAxisInfo(proj),
+    xs = chart.scales && chart.scales.x,
+    labels = chart.data.labels;
+  if (!I || !xs || !labels || !labels.length) return null;
+  const area = chart.chartArea;
+  let best = null,
+    bd = 4.5;
+  for (let i = 0; i < I.n; i++) {
+    if (!(I.pass[i] > 0)) continue;
+    const label = I.base + I.pass[i];
+    let j = labels.indexOf(label);
+    if (j < 0 && label > labels[labels.length - 1]) j = labels.length - 1;
+    if (j < 0) continue;
+    const lx = Math.min(area.right - 0.5, Math.max(area.left + 0.5, Math.round(xs.getPixelForValue(j)) + 0.5)),
+      d = Math.abs(px - lx);
+    if (d <= bd) {
+      bd = d;
+      best = i;
+    }
+  }
+  if (best == null) return null;
+  const k = I.pass[best],
+    last = proj.rows[k - 1],
+    age = last && last.ages ? Math.floor(last.ages[best]) + 1 : null; // the first year they are no longer alive
+  const yr = THIS_YEAR + k;
+  const name = ciPersonName(proj, best);
+  return {
+    name: 'Passing: ' + name,
+    brief: '',
+    color: best === I.io ? AGE_C_OLD : AGE_C_YOUNG,
+    value: mrow(name + ' passes' + (age != null ? ' at age ' + age : '') + ':', String(yr)),
+    text:
+      'The vertical line marks the year ' +
+      name +
+      ' is no longer alive in the plan' +
+      (proj.married ? ' (' + (best === I.io ? "the older person's line is black, the younger's dark blue" : "the younger person's line is dark blue") + ')' : '') +
+      '. From this year the plan reflects the passing: their income stops or becomes survivor benefits, expenses and filing status adjust, and basis steps up at death.'
+  };
+}
+// Faded red band: a year whose expenses no source could pay. Reports the year the money first ran out and who is living then.
+function ciUnfundedAt(chart, px) {
+  const proj = typeof lastProjection !== 'undefined' ? lastProjection : null,
+    xs = chart.scales && chart.scales.x,
+    labels = chart.data.labels;
+  if (!proj || !proj.rows || !xs || !labels || !labels.length) return null;
+  const idx = Math.max(0, Math.min(labels.length - 1, Math.round(xs.getValueForPixel(px))));
+  const r = proj.rows.find(r => Math.round(r.age0) === Math.round(Number(labels[idx])));
+  if (!r || !(r.expUnfunded > 1)) return null;
+  const bad = proj.rows.filter(x => x.expUnfunded > 1),
+    first = bad[0];
+  const who = row =>
+    proj.married ? (row.alive || []).map((al, i) => (al ? ciPersonName(proj, i) : null)).filter(Boolean).join(' & ') : '';
+  const fw = who(first),
+    cw = who(r);
+  const firstK = proj.rows.indexOf(first);
+  return {
+    name: 'Money runs out',
+    brief:
+      (r === first ? 'First unfunded year' : 'Money first ran out ' + ciAgeText(Math.round(first.age0)) + ' (' + (THIS_YEAR + firstK) + ')') +
+      '; ' +
+      bad.length +
+      ' unfunded year' +
+      (bad.length > 1 ? 's' : '') +
+      '.',
+    color: '#d00000',
+    value: mrow('Unfunded ' + ciAgeText(labels[idx]) + ':', fmt(r.expUnfunded) + '/yr'),
+    owner: cw ? 'Living this year: ' + cw : "",
+    text:
+      'Expenses no source can pay this year (income, dividends, asset sales and withdrawals all fall short). Money first runs out ' +
+      (r === first ? 'this year' : ciAgeText(Math.round(first.age0)) + ' (' + (THIS_YEAR + firstK) + (fw ? '; living then: ' + fw : '') + ')') +
+      '; ' +
+      bad.length +
+      ' unfunded year' +
+      (bad.length > 1 ? 's' : '') +
+      ' in total.'
+  };
+}
+
+function ciFirstSentence(t) {
+  const m = String(t).split(/(?<=[.!?])\s+(?=[A-Z"'(])/);
+  return m[0];
 }
 
 // ── Popup ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -377,6 +488,7 @@ function ciShow(e) {
           info = {
             name,
             text,
+            brief: typeof f.ds.infoBrief === 'string' ? f.ds.infoBrief : undefined, // optional short text for Popup Verbose off
             color,
             value: ciValueLine(hit.key, f, hit.chart),
             owner: ciOwnerText(f.ds.ciOwnerInfo, hit.chart.data.labels && hit.chart.data.labels[f.idx])
@@ -385,6 +497,13 @@ function ciShow(e) {
       }
     }
   }
+  if (!info) {
+    const rect = hit.chart.canvas.getBoundingClientRect(),
+      area = hit.chart.chartArea;
+    const px = (e.clientX - rect.left) * (hit.chart.width / rect.width),
+      py = (e.clientY - rect.top) * (hit.chart.height / rect.height);
+    if (area && py >= area.top && py <= area.bottom && px >= area.left && px <= area.right) info = ciUnfundedAt(hit.chart, px);
+  }
   if (!info) return ciHide();
   ciRender(e, info);
 }
@@ -392,7 +511,9 @@ function ciRender(e, info) {
   const el = ciEl(),
     th = tipTheme();
   const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const {name, text, color, value, owner} = info;
+  const {name, color, value, owner} = info;
+  // Popup Verbose off: the explanatory paragraph shrinks to `brief` when the element supplies one (its key data is already in name / owner / value), else to its first sentence.
+  const text = popupVerbose || !info.text ? info.text : info.brief != null ? info.brief : ciFirstSentence(info.text);
   el.style.background = th.bg;
   el.style.color = th.fg;
   el.style.borderColor = th.border;
@@ -405,7 +526,7 @@ function ciRender(e, info) {
           .map(t => `<span>${esc(t)}</span>`)
           .join('')}</div>`
       : ''
-  }<div>${esc(text)}</div>`;
+  }${text ? `<div>${esc(text)}</div>` : ''}`;
   el.style.opacity = 1;
   const w = el.offsetWidth,
     h = el.offsetHeight;

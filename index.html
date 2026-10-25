@@ -37,11 +37,11 @@
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;" title="When checked, hovering a chart shows a description of the chart element under the cursor instead of the usual values">
       <input type="checkbox" id="chartInfoToggle" checked onchange="setChartInfo(this.checked)">Chart Element
     </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;" title="When checked, Chart Element popups show their full explanation; when unchecked, a shorter text that still has the key data">
+      <input type="checkbox" id="popupVerboseToggle" onchange="popupVerbose=this.checked">Popup Verbose
+    </label>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:6px;">
       <input type="checkbox" id="showDetailsToggle" onchange="showDetails=this.checked">Popup Details
-    </label>
-    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-muted);" title="Popup background: light (see-through white) to dark (see-through black)">
-      Popup background <span>light</span><input type="range" id="tipBgSlider" min="0" max="100" step="1" value="85" style="width:90px" oninput="setTipBg(this.value)"><span>dark</span>
     </label>
     <span class="savemsg" id="saveMsg"></span>
   </div>

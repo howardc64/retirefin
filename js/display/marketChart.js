@@ -114,10 +114,11 @@ function buildMarketChart() {
         spanGaps: false,
         yAxisID: 'y'
       };
-    if (single) datasets.push({...base, label: name, info: MARKET_INFO, data: alignToAges(ages, S.at[key], labels), borderWidth: THIN_W});
+    if (single) datasets.push({...base, label: name, infoBrief: 'Nominal yearly return.', info: MARKET_INFO, data: alignToAges(ages, S.at[key], labels), borderWidth: THIN_W});
     datasets.push({
       ...base,
       label: name + ' \u2014 5-year average',
+      infoBrief: 'Centered 5-year average.',
       info: MARKET_INFO,
       data: alignToAges(ages, centeredAvg(S.at[key]), labels),
       borderWidth: AVG_W

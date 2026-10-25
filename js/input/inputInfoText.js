@@ -418,7 +418,6 @@ const II_OPTIONS = [
 
 // ── Descriptions of inputs that have no usable label (looked up by element id first).
 const II_IDS = {
-  tipBgSlider: 'Sets how light or dark every chart popup is, from a see-through white (left) to a see-through black (right).',
   // ── Stress tests card (display/stressPanel.js)
   stStartMode:
     'When the forced bad stretch begins: on day 1 of retirement (the first year without wages), today, or a number of years from now.',

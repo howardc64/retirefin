@@ -4,7 +4,7 @@
 // When checked (default), hovering an input on the input side (Household Setup, Income & Assets) or the chart side (chart Hide boxes,
 // Rescale buttons, the Same scale buttons, …) or a header toggle shows a popup describing it. Drop-down menus are opened as a custom
 // list so hovering each choice shows a description of that choice too — a native <select> popup cannot show tooltips.
-// Texts live in inputInfoText.js. The popup (#inputTip) follows the Popup background slider (tipTheme(), chartHelpers.js); styles in styles.css.
+// Texts live in inputInfoText.js. The popup (#inputTip) uses the fixed popup colours (tipTheme(), chartHelpers.js); styles in styles.css.
 // Read-only: only reads the DOM; never writes into `state` (a menu pick just sets the <select> and fires its own `change` event).
 // ═══════════════════════════════════════════════════════════════
 let inputInfo = true; // default on; the header checkbox (index.html) starts checked to match

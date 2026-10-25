@@ -43,6 +43,8 @@ const DEDUCTION_COLOR = '#D62828'; // red dashed deduction line on the taxable o
 // show_details-only in the chart specs (§8.3, §9.3.1, §9.4, §10). Tooltip callbacks read
 // this live (not captured), so toggling it needs no chart rebuild — just re-hover.
 let showDetails = false;
+// "Popup Verbose" checkbox (header, right of Chart Element): off = the Chart Element popup keeps its name, who / when and key numbers but trims the explanatory paragraph to its first sentence.
+let popupVerbose = false;
 const IRMAA_LINE_OFF = 'rgba(0,0,0,0)'; // colour the "view IRMAA as tax" line fades to when off
 let viewIrmaaAsTax = false; // Total Income Tax chart: draw the IRMAA surcharge as a dashed line above the tax stack
 // ── Tooltip layout (spec §5: label left-justified, data right-justified) ──
@@ -51,38 +53,11 @@ let viewIrmaaAsTax = false; // Total Income Tax chart: draw the IRMAA surcharge 
 // up on the same right edge no matter which section or callback produced the line.
 // This needs one monospace font at one size across title/body/footer (TIP_STYLE), and
 // right-aligned title/footer so they line up with body text that Chart.js indents past the color box.
-// ── Popup background: one slider (header, right of "Popup Details") from light (0) to dark (100) drives every popup, built-in and external.
-// The background is see-through (TIP_ALPHA) so the chart underneath stays visible; the text and border flip to dark on a light background.
-// Remembered in localStorage ('tipBg'). Chart.js reads the scriptable colors below on every hover, so no chart rebuild is needed.
-const TIP_ALPHA = 0.6;
-let tipBg = 85;
-try {
-  const v = parseFloat(localStorage.getItem('tipBg'));
-  if (Number.isFinite(v)) tipBg = Math.max(0, Math.min(100, v));
-} catch (e) {}
+// ── Popup colours: one fixed see-through dark theme for every popup, built-in and external (the chart underneath stays visible).
+const TIP_THEME = {bg: 'rgba(38,38,38,0.6)', fg: '#fff', border: 'rgba(255,255,255,.35)'};
 function tipTheme() {
-  const c = Math.round(255 * (1 - tipBg / 100)),
-    dark = tipBg >= 50;
-  return {bg: `rgba(${c},${c},${c},${TIP_ALPHA})`, fg: dark ? '#fff' : '#111', border: dark ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.35)'};
+  return TIP_THEME;
 }
-function setTipBg(v) {
-  tipBg = Math.max(0, Math.min(100, Number(v) || 0));
-  try {
-    localStorage.setItem('tipBg', String(tipBg));
-  } catch (e) {}
-  const el = document.getElementById('extTooltip'),
-    t = tipTheme();
-  if (el) {
-    el.style.background = t.bg;
-    el.style.color = t.fg;
-    el.style.borderColor = t.border;
-    el.querySelectorAll('[data-sw]').forEach(s => (s.style.borderColor = t.fg));
-  }
-}
-(function () {
-  const s = document.getElementById('tipBgSlider');
-  if (s) s.value = tipBg;
-})();
 const TIP_SEP = '\u0001',
   TIP_GAP = 2;
 const TIP_STYLE = {
