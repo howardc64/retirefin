@@ -115,13 +115,7 @@ const II_FIELDS = [
     'c',
     'Counts the Medicare IRMAA surcharge as part of tax on the Total Income Tax chart, so the bars show tax plus IRMAA.'
   ],
-  [
-    /^Chart Element$/,
-    'c',
-    'When checked, hovering a chart describes the chart element under the cursor instead of showing the usual values.'
-  ],
-  [/^Input Element$/, 'c', 'When checked, hovering an input describes it, and each choice in a drop-down menu shows its own description.'],
-  [/^Popup Details$/, 'c', 'Adds the line-by-line breakdown to the chart hover popups.'],
+  [/^Input Tooltip$/, 'c', 'When checked, hovering an input describes it, and each choice in a drop-down menu shows its own description.'],
   [
     /^Success$/,
     '',
@@ -333,6 +327,9 @@ const II_FIELDS = [
 
 // ── Descriptions of the choices in a drop-down: [select label regex, option text regex, text]. First match wins.
 const II_OPTIONS = [
+  [/^Chart Tooltip$/, /^None/, 'Hovering a chart shows no popup.'],
+  [/^Chart Tooltip$/, /^Components/, 'Hovering a chart describes the chart element under the cursor (a band, a line, a bar), with its value.'],
+  [/^Chart Tooltip$/, /^Complete/, "Hovering a chart shows that year's values, with the line-by-line breakdown behind them."],
   [
     /^(Annual change|Credited growth)/,
     /^Fixed \$/,
@@ -418,6 +415,8 @@ const II_OPTIONS = [
 
 // ── Descriptions of inputs that have no usable label (looked up by element id first).
 const II_IDS = {
+  chartTipSelect:
+    'What hovering a chart shows: None (nothing), Components (a description of the chart element under the cursor) or Complete (the usual values for the year, with the line-by-line breakdown).',
   // ── Stress tests card (display/stressPanel.js)
   stStartMode:
     'When the forced bad stretch begins: on day 1 of retirement (the first year without wages), today, or a number of years from now.',

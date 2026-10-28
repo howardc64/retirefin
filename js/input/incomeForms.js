@@ -13,7 +13,7 @@ function renderIncomeForms() {
   // CSS subgrid to keep every income type's top edge aligned across people.
   const rowCount =
     1 /*name header*/ +
-    2 /*wage+ss*/ +
+    3 /*wage+stock+ss*/ +
     1 /*pension*/ +
     1 /*rental*/ +
     1 /*annuity*/ +
@@ -42,6 +42,7 @@ function renderIncomeForms() {
       `</div>`;
     const builders = {
       wage: () => buildWageCard(pid, p),
+      stock: () => buildStockCard(pid, i, p, married),
       ss: () => buildSSCard(pid, p, i, married),
       pension: () => buildPensionCard(pid, p),
       rental: () => buildRentalCard(pid, p),
@@ -84,7 +85,7 @@ function normalizeIncomeOrderInState() {
 function dndCard(key, html) {
   html = html.replace('<div class="item"', `<div class="item" data-card="${key}"`);
   return html.replace(
-    /(<div class="item-head"[^>]*>)/,
+    /(<div class="item-head(?: [^"]*)?"[^>]*>)/,
     '$1<span class="drag-handle" draggable="true" title="Drag to reorder (moves both spouses\' cards together)" onclick="event.stopPropagation()">⋮⋮</span>'
   );
 }
@@ -248,6 +249,20 @@ function onBasisInput(pid, bi, val) {
   recomputeDebounced();
   saveDebounced();
 }
+// Wage card contributions (today's $/yr): `kind` 'pretax' | 'roth'. Entering an amount turns the matching card on (the contribution goes into that account and is ignored while it is off).
+function onWageContrib(pid, kind, val) {
+  const v = val === '' ? 0 : Math.max(0, +val || 0),
+    p = state.people[+pid.split('.')[1]];
+  setPath(pid + '.wage.' + kind, v);
+  const acct = kind === 'pretax' ? p.ira : p.roth;
+  if (v > 0 && acct && !acct.enabled) {
+    acct.enabled = true;
+    acct.hidden = false;
+    renderIncomeForms();
+    recompute();
+  } else recomputeDebounced();
+  saveDebounced();
+}
 function onBeneToggle(path, checked) {
   setPath(path, checked);
   recompute();
@@ -258,7 +273,7 @@ function applyPortfolioType(b, type) {
   b.idgt = b.type === 'idgt';
   b.payExp = !b.idgt;
   b.reinvest = !b.idgt;
-  if (b.idgt) b.aum = false; // the AUM fee is charged only on Living expense & income portfolios
+  if (b.idgt) b.aum = false; // switching to IDGT clears the AUM box (default off); it can be checked again on the IDGT card
 }
 function onPortfolioType(i, bi, type) {
   applyPortfolioType(state.people[i].brokerage[bi], type);

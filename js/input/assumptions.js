@@ -47,7 +47,7 @@ function renderAumFee() {
         <input type="number" class="money" id="aumFeeValue" min="0" step="0.05" value="0" oninput="onNumberInput('aumFee.value', this.value)">
       </div>
     </div>
-    <div class="item-note">Advisory / management fee. <strong>AUM balance</strong> = the sum of the balances of every <em>Living expense &amp; income</em> brokerage portfolio, pre-tax IRA, Roth IRA and inherited IRA that has its <em>AUM</em> box checked (never an IDGT; the account must also be enabled and held by the household that year, and a portfolio inside its age range and funded). An IRA is counted at its start-of-year balance, before that year's RMD or forced withdrawal. The fee is that balance × the percentage, or a fixed dollar amount per year (entered in today's $, held flat in nominal terms so it shrinks in today's $ with inflation). It is an expense paid like living expenses — household income, then dividends, then asset sales — and is charged on the AUM portfolios pro rata to balance, but as an expense it is paid only by the portfolios with <em>Pay expenses</em> checked, not by the account it is charged on. The Medicare IRMAA surcharge is also always paid as a household expense, so it needs no setting here.</div>`;
+    <div class="item-note">Advisory / management fee. <strong>AUM balance</strong> = the sum of the balances of every <em>Living expense &amp; income</em> brokerage portfolio (IDGT or not), pre-tax IRA, Roth IRA and inherited IRA that has its <em>AUM</em> box checked (the account must also be enabled and held by the household that year, and a portfolio inside its age range and funded). An IRA is counted at its start-of-year balance, before that year's RMD or forced withdrawal. The fee is that balance × the percentage, or a fixed dollar amount per year (entered in today's $, held flat in nominal terms so it shrinks in today's $ with inflation). It is an expense paid like living expenses — household income, then dividends, then asset sales — and is charged on the AUM portfolios pro rata to balance, but as an expense it is paid only by the portfolios with <em>Pay expenses</em> checked, not by the account it is charged on. The Medicare IRMAA surcharge is also always paid as a household expense, so it needs no setting here.</div>`;
   document.getElementById('aumPanel').innerHTML = featureBlock('aum', 'AUM fee', 'aumFee.enabled', f.enabled !== false, body);
   const sel = document.getElementById('aumFeeMode'),
     inp = document.getElementById('aumFeeValue');
@@ -259,23 +259,34 @@ function renderSwapPanel() {
   const yrs = Math.max(1, Math.round(Number(state.basisSwapYears) || BASIS_SWAP_YEARS_DEFAULT));
   const body = `<div class="field full inline"><label>Swap this many years before the last passing</label>
       <input type="number" id="swapYears" min="1" max="60" step="1" value="${yrs}" oninput="onNumberInput('basisSwapYears', this.value)"></div>
-    <div class="item-note">Swaps <em>Living expense &amp; income</em> portfolio assets, value for value, with <em>IDGT</em> assets, and the basis moves in proportion to the assets traded: the IDGT ends up with the high-basis assets and the living portfolio with the low-basis ones, which step up at the last passing. It is done once, that many years before the last person passes (single or married). If married, it is also done the year after the first person passes, when that person's portfolio steps up (no value needed). A swap only happens where the IDGT's assets have a lower basis % than the living portfolio's; the amount is the smaller of the two values. A swap is between portfolios held by the same person: a portfolio marked <em>Joint owned with spouse</em> is held by the spouse once its owner has passed (one without it is gone, so it cannot be swapped).</div>`;
+    <div class="item-note">Swaps <em>Living expense &amp; income</em> portfolio assets, value for value, with <em>IDGT</em> assets, and the basis moves in proportion to the assets traded: the IDGT ends up with the high-basis assets and the living portfolio with the low-basis ones, which step up at the last passing. It is done once, that many years before the last person passes (single or married). If married, it is also done the year after the first person passes, when that person's portfolio steps up (no value needed). A swap only happens where the IDGT's assets have a lower basis % than the living portfolio's; the amount is the smaller of the two values, and when there are several IDGTs it is prorated across all of them (by the value each has left). A swap is between portfolios held by the same person: a portfolio marked <em>Joint owned with spouse</em> is held by the spouse once its owner has passed (one without it is gone, so it cannot be swapped).</div>`;
   document.getElementById('swapPanel').innerHTML = featureBlock('swap', 'Asset / basis swap', 'basisSwap', !!state.basisSwap, body);
   syncAssumpEnable();
 }
-// State income tax (Tax & Optimizations card; off by default). One choice: California or Washington. The tax is paid as a household
+// State income tax (Tax & Optimizations card; off by default). One choice: California, Washington, New York State or New York State + New York City. The tax is paid as a household
 // expense (like federal tax) and is drawn on the Total Income Tax chart as a green dashed line stacked above the tax bands.
 function renderStateTaxPanel() {
   const st = state.stateTax || {enabled: false, state: 'CA'};
   const opts = STATE_TAX_OPTIONS.map(([c, n]) => `<option value="${c}" ${st.state === c ? 'selected' : ''}>${n}</option>`).join('');
   const body = `<div class="field full"><label>State</label>
       <select id="stateTaxSel" onchange="onStateTaxSelect(this.value)">${opts}</select></div>
-    <div class="item-note"><strong>California</strong>: the 2026 state brackets (1%–12.3%, plus 1% over $1M) on federal AGI less taxable Social Security (California does not tax it) and the larger of the state standard deduction and the Long Term Care medical itemized deduction (cost above 7.5% of that income), less the personal and age-65 exemption credits; capital gains are taxed as ordinary income. <strong>Washington</strong>: no income tax, but a capital-gains excise tax of 7% on realized long-term gains from portfolio sales above $278,000 a year (one deduction per couple) and 9.9% on the part of the taxable gain above $1M; real estate and retirement accounts are exempt. State figures are held flat in today's $ (the states index them). The tax is paid as a household expense, like federal tax, and is not part of Total Tax (TT) or the effective rate.</div>`;
+    ${
+      st.state === 'WA'
+        ? `<div class="field full"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:normal;font-size:12px"><input type="checkbox" id="waLtcExempt" ${st.waLtcExempt ? 'checked' : ''} onchange="onWaLtcExempt(this.checked)"> Exempt from the WA Cares long-term-care premium (0.58% of wages; needs an approved private LTC policy)</label></div>`
+        : ''
+    }
+    <div class="item-note"><strong>California</strong>: the 2026 state brackets (1%–12.3%, plus 1% over $1M) on federal AGI less taxable Social Security (California does not tax it) and the larger of the state standard deduction and the Long Term Care medical itemized deduction (cost above 7.5% of that income), less the personal and age-65 exemption credits; capital gains are taxed as ordinary income. <strong>New York State</strong> (and, with the second choice, <strong>New York City resident</strong> tax on top): 2026 state brackets (3.9%–10.9%) on federal AGI less taxable Social Security and the $20,000 pension / annuity exclusion for each person 59½ or older (taken from their pension, annuity and pre-tax IRA income), less the larger of the standard deduction and the Long Term Care medical deduction, plus the high-income tax-benefit recapture (above $107,650 of NY AGI the lower brackets are phased out, so high earners pay a flat rate); the city adds 3.078%–3.876% on the same taxable income. New York does not index its brackets or deductions, so they shrink in today's $. <strong>Washington</strong>: no income tax, but a capital-gains excise tax of 7% on realized long-term gains from portfolio sales above $278,000 a year (one deduction per couple) and 9.9% on the part of the taxable gain above $1M; real estate and retirement accounts are exempt. State figures are held flat in today's $ (the states index them). The tax is paid as a household expense, like federal tax, and is not part of Total Tax (TT) or the effective rate.</div>`;
   document.getElementById('stateTaxPanel').innerHTML = featureBlock('stateTax', 'State income tax', 'stateTax.enabled', !!st.enabled, body);
   syncAssumpEnable();
 }
+function onWaLtcExempt(on) {
+  setPath('stateTax.waLtcExempt', !!on);
+  recompute();
+  saveDebounced();
+}
 function onStateTaxSelect(code) {
   setPath('stateTax.state', code);
+  renderStateTaxPanel();
   chartYMax.tax = null;
   recompute();
   saveDebounced();

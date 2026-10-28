@@ -376,8 +376,15 @@ function buildChartPanels() {
       e.dataTransfer.setData('text/plain', _dragKey);
       e.dataTransfer.setDragImage(panel, 16, 16);
     } catch (_) {}
-    panel.classList.add('dragging');
-    document.body.classList.add('chart-dragging');
+    // The layout-changing class (it reveals the spare bottom row and the empty-cell outlines) is added AFTER the browser has started the drag: changing the layout inside dragstart
+    // can make it cancel the drag at once, and that happened when the charts were short (e.g. all collapsed): the spare row made the column scroll, the new scrollbar narrowed the grid
+    // and the card moved from under the pointer. (.chart-col also reserves its scrollbar gutter now, so nothing reflows sideways.)
+    setTimeout(() => {
+      if (_dragKey === panel.dataset.key) {
+        panel.classList.add('dragging');
+        document.body.classList.add('chart-dragging');
+      }
+    }, 0);
     _dragY = e.clientY;
     if (!_dragRaf) _dragRaf = requestAnimationFrame(dragAutoScrollStep);
     if (typeof ciHide === 'function') ciHide();

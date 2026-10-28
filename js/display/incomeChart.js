@@ -17,7 +17,7 @@ const CI_INCOME = [
     /^Annuity payout \(tax-exempt/,
     "Tax-exempt part of an annuity payout (return of principal). It is cash income but is not taxed and, being a return of the owner's own premium, does not count toward provisional income or IRMAA MAGI."
   ],
-  [/^Wage/, 'Wages or self-employment income. Taxed as ordinary income.'],
+  [/^Wage/, 'Wages (and stock-option gains that count as wages) after the pre-tax IRA/401(k) contribution (before payroll tax, which is a household expense). Taxed as ordinary income; payroll tax is not deductible.'],
   [
     /^Pre-tax IRA withdraw \(for expenses\)/,
     'Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.'
@@ -405,6 +405,7 @@ function buildIncomeChart() {
           lines.push(mrow('  incl. income tax', fmt(r.expTax) + '/yr'));
           if (r.expIrmaa > 0) lines.push(mrow('  incl. IRMAA surcharge', fmt(r.expIrmaa) + '/yr'));
           if (r.expAum > 0) lines.push(mrow('  incl. AUM fee', fmt(r.expAum) + '/yr'));
+          if (r.expPayroll > 0) lines.push(mrow('  incl. payroll tax', fmt(r.expPayroll) + '/yr'));
           lines.push(mrow('  paid by household income', fmt(r.expFromIncome) + '/yr'));
           if (r.brokerageWd > 0.5) lines.push(mrow('    incl. portfolio withdraw', fmt(r.brokerageWd) + '/yr'));
           lines.push(mrow('  paid by dividends', fmt(r.expFromDiv) + '/yr'));

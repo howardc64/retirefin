@@ -101,7 +101,7 @@ function buildAssetChartFor(cfg) {
   if (!cfg.idgt) {
     proj.people.forEach((p, i) => {
       if (p.ira && p.ira.enabled) series.push({type: 'ira', personIdx: i, name: 'Pre-tax IRA/401(k)'});
-      if (p.roth && p.roth.enabled) series.push({type: 'roth', personIdx: i, name: 'Roth IRA'});
+      if (p.roth && p.roth.enabled) series.push({type: 'roth', personIdx: i, name: 'Roth IRA/401(k)'});
       (p.inhIras || []).forEach((x, ii) => {
         if (x && x.enabled !== false && Number(x.balance) > 0)
           series.push({
@@ -146,7 +146,7 @@ function buildAssetChartFor(cfg) {
   // run past the shared axis end; brokerage bands have no value there, so they simply stop.
   const stretch = (!cfg.idgt && proj.stretch) || [];
   const allRows = rows.concat(stretch);
-  const endAge = Math.max(chartMaxAge(proj), stretch.length ? Math.round(stretch[stretch.length - 1].age0) : 0);
+  const endAge = chartMaxAge(proj); // the Age range box: by default the last passing plus the IRA stretch
   const labels = ageLabelRange(rows[0].age0, endAge);
   // Visible window = the shared axis (what the IDGT chart shows); the stretch years beyond it are reached by scrolling (main chart only).
   const winN = ageLabelRange(rows[0].age0, chartMaxAge(proj)).length;
@@ -513,7 +513,7 @@ function buildAssetChartFor(cfg) {
           if (e.tracked && e.balance > 0)
             lines.push(mrow('      Cost basis (% of value)', (((e.basis || 0) / e.balance) * 100).toFixed(0) + '%', W));
           if (showDetails) {
-            if (e.aum && !e.idgt) lines.push(mrow('      AUM fee charged on this balance', fmt(e.feeDrag || 0), W));
+            if (e.aum) lines.push(mrow('      AUM fee charged on this balance', fmt(e.feeDrag || 0), W));
             lines.push(mrow('      LTCG realized', fmt(e.ltcg || 0), W));
           }
           // Cost basis / unrealized gain (spec §4.6) — Show details only. A step-up (owner passed, portfolio
@@ -595,7 +595,7 @@ function buildAssetAlert(proj) {
         any = true;
       }
       if (p.roth && p.roth.enabled && !p.roth.stretch && held('rothBalByPerson')) {
-        items.push('Roth IRA' + who);
+        items.push('Roth IRA/401(k)' + who);
         any = true;
       }
       if (any && proj.married) holders.push(nm);

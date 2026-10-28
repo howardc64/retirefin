@@ -1,25 +1,28 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// DISPLAY / CHART ELEMENT INFO — the "Chart Element" checkbox (header, left of "Popup Details").
-// When checked, hovering a chart shows a popup that DESCRIBES the chart element under the cursor (a stacked band, a dashed
+// DISPLAY / CHART ELEMENT INFO — the "Chart Tooltip" menu's Components mode (header).
+// In Components mode, hovering a chart shows a popup that DESCRIBES the chart element under the cursor (a stacked band, a dashed
 // line, a Social Security claiming-age line…) instead of the usual per-year values. The usual popup (chartHelpers.js
 // externalTooltip) does nothing while this is on; this file draws into the same floating #extTooltip <div>, so it follows
-// the fixed popup colours (tipTheme(), chartHelpers.js). The "Popup Verbose" checkbox (right of Chart Element) decides whether the explanatory text is shown in full.
+// the fixed popup colours (tipTheme(), chartHelpers.js). The explanatory text is trimmed to its brief form (key numbers + first sentence).
 // Read-only: only reads chart/dataset objects and `lastProjection`; never writes into `state`.
 // ═══════════════════════════════════════════════════════════════
-let chartInfo = true; // default on; the header checkbox (index.html) starts checked to match
+let chartInfo = true; // Chart Tooltip = Components (default); the header menu (index.html) starts on it. None: chartInfo and showDetails off, chartTipOff on. Complete: the usual value popups with the line-by-line details.
 
 // An alert strip above a chart (expense / asset): one red line; its details live in the Chart Element popup (or the browser tooltip when that box is off).
 function setAlertDetail(el, name, value, text) {
   el.dataset.name = name;
   el.dataset.value = value || '';
   el.dataset.detail = text;
-  el.title = chartInfo ? '' : text;
+  el.title = chartInfo || chartTipOff ? '' : text;
 }
-function setChartInfo(on) {
-  chartInfo = !!on;
+// The header's Chart Tooltip menu: 'none' | 'components' (describes the element under the cursor) | 'complete' (the usual per-year values, with the line-by-line details).
+function setChartTip(mode) {
+  chartInfo = mode === 'components';
+  chartTipOff = mode === 'none';
+  showDetails = mode === 'complete';
   document.querySelectorAll('.unfunded-alert[data-detail]').forEach(a => {
-    a.title = chartInfo ? '' : a.dataset.detail;
+    a.title = chartInfo || chartTipOff ? '' : a.dataset.detail;
   });
   const el = document.getElementById('extTooltip');
   if (el) {
@@ -114,7 +117,19 @@ function ciElementAt(chart, e, key) {
   if (line && lineD <= 9) return {...line, idx};
   if (CI_TOTAL_NAME[key] && bands.length) {
     const top = bands.reduce((m, b) => (b.y < m.y ? b : m), bands[0]); // the band whose top edge is highest on screen = the top of the stack
-    if (py < top.y - 0.5 && py >= top.y - CI_TOP_PX) {
+    // A dataset marked `stackAdd` (the Total Income Tax chart's state-tax line, drawn above the federal stack) belongs to the total: the zone above the stack reaches up to that line, and its amount (ds.stackAdd[idx]) is added.
+    let addDs = null,
+      addY = null;
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di);
+      if (!Array.isArray(ds.stackAdd) || !meta || meta.hidden || (chart.isDatasetVisible && !chart.isDatasetVisible(di))) return;
+      const pt = meta.data[idx];
+      if (ok(pt, ds, idx) && ds.stackAdd[idx] > 0) {
+        addDs = ds;
+        addY = pt.y;
+      }
+    });
+    if (py < top.y - 0.5 && py >= (addY != null ? Math.min(addY, top.y) : top.y) - CI_TOP_PX) {
       let total = 0,
         any = false; // the stack's height at this year = the sum of the filled bands in the top band's stack group (lines such as the cost basis or the foreign tax credit are not part of it)
       chart.data.datasets.forEach((ds, di) => {
@@ -127,7 +142,11 @@ function ciElementAt(chart, e, key) {
           any = true;
         }
       });
-      if (any && total >= 0.5) return {stackTotal: total, ds: top.ds, di: top.di, idx};
+      if (addDs) {
+        total += addDs.stackAdd[idx];
+        any = true;
+      }
+      if (any && total >= 0.5) return {stackTotal: total, withState: !!addDs, ds: top.ds, di: top.di, idx};
     }
   }
   bands.sort((a, b) => b.y - a.y || a.di - b.di); // lowest band on screen first
@@ -470,11 +489,13 @@ function ciShow(e) {
       if (f && f.stackTotal != null) {
         const age = ' ' + ciAgeText(hit.chart.data.labels && hit.chart.data.labels[f.idx]);
         info = {
-          name: CI_TOTAL_NAME[hit.key],
+          name: CI_TOTAL_NAME[hit.key] + (f.withState ? ' (federal + state)' : ''),
           color: null,
           owner: '',
           value: mrow('Value' + age + ':', fmt(f.stackTotal) + (CI_STOCK_KEYS.includes(hit.key) ? '' : '/yr')),
-          text: 'The top edge of the stack: the sum of every band below it at this age.'
+          text: f.withState
+            ? 'The top edge of the stack: the sum of every band below it at this age, plus the state income tax (the dashed line above the stack).'
+            : 'The top edge of the stack: the sum of every band below it at this age.'
         };
       } else {
         const text = f && ciDescribe(hit.key, f.ds, f.di);
@@ -512,8 +533,8 @@ function ciRender(e, info) {
     th = tipTheme();
   const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const {name, color, value, owner} = info;
-  // Popup Verbose off: the explanatory paragraph shrinks to `brief` when the element supplies one (its key data is already in name / owner / value), else to its first sentence.
-  const text = popupVerbose || !info.text ? info.text : info.brief != null ? info.brief : ciFirstSentence(info.text);
+  // The explanatory paragraph shrinks to `brief` when the element supplies one (its key data is already in name / owner / value), else to its first sentence.
+  const text = !info.text ? info.text : info.brief != null ? info.brief : ciFirstSentence(info.text);
   el.style.background = th.bg;
   el.style.color = th.fg;
   el.style.borderColor = th.border;
@@ -561,7 +582,7 @@ if (typeof Chart !== 'undefined' && !Chart.registry.plugins.get('chartInfoGate')
   Chart.register({
     id: 'chartInfoGate',
     beforeTooltipDraw() {
-      if (chartInfo) return false;
+      if (chartInfo || chartTipOff) return false;
     }
   });
 }

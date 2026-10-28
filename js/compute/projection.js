@@ -237,10 +237,11 @@ function projIraSims({inflation, married, people, curAges, passAges}) {
       sim.fixed = Math.min(convAmt, sim.room); // 'fixed' mode amount (0 for 'bracket' mode)
     };
     // `draw` = pre-tax IRA withdrawn this year to pay household expenses once the portfolios are exhausted (expense funding waterfall below).
-    sim.post = function (k, conv, draw) {
+    // `contrib` = this year's pre-tax IRA/401(k) contribution from the wage (Wage card): it is added with the year's growth, after the withdraw and conversion are taken out.
+    sim.post = function (k, conv, draw, contrib) {
       if (!sim.open) return;
       iraConv[i][k] = conv;
-      sim.bal = Math.max(0, sim.bal - conv - (draw || 0)) * (1 + gk(g, 'ira:' + p.id, k, p.ira.growth));
+      sim.bal = Math.max(0, sim.bal - conv - (draw || 0) + (contrib || 0)) * (1 + gk(g, 'ira:' + p.id, k, p.ira.growth));
       iraBal[i][k] = sim.bal;
     };
     return sim;
@@ -288,7 +289,7 @@ function projRothSims({inflation, married, people, curAges, passAges}) {
       sim.open = true;
     };
     sim.post = function (k, conv, draw) {
-      if (!sim.open) return;
+      if (!sim.open) return; // `conv` = everything that enters the account this year: Roth conversions and the Roth IRA/401(k) contribution from the wage
       sim.bal = Math.max(0, sim.bal + conv - (draw || 0)) * (1 + gk(g, 'roth:' + p.id, k, p.roth.growth));
       rothBal[i][k] = sim.bal;
     };
@@ -768,14 +769,48 @@ function projYearAccounts(c, k, m, head) {
 function projYearIncome(c, k, head) {
   const {annuityRun, inflation, married, people, personAgedItemActive, ssMonthly, sumArr} = c;
   const {ages, alive} = head;
-  // wages
-  const wageByPerson = people.map((p, i) => {
+  // wages. The entered wage is GROSS. From it come (1) the pre-tax IRA/401(k) contribution (today's $, flat in today's $, at most the wage; it goes into the person's Pre-tax IRA/401(k) account, so it needs
+  // that card turned on); stock-option gains that count as wages are added; then (2) payroll tax (FICA, Additional Medicare Tax, FUTA) is taken off that payroll wage. What is left is the ordinary-income
+  // wage component (`wageByPerson`) that is taxed and spent. The Roth IRA/401(k) contribution (needs the Roth card on) is not taken from the wage: it is a household expense paid from after-tax money.
+  const filingNow = married && alive[0] && alive[1] ? 'married' : 'single';
+  const fNow = 1 / cpiAt(k, inflation);
+  const grossWageByPerson = people.map((p, i) => {
     if (!p.wage.enabled || !alive[i]) return 0;
     const [sA, eA] = resolveAgeRange(p.wage.ar, p);
     if (ages[i] < sA || ages[i] >= eA) return 0;
     const g = realGrowth(p.wage.change, inflation);
     return p.wage.amount * growIdx(p.wage.change, g, k, inflation);
   });
+  const pretaxByPerson = people.map((p, i) =>
+    grossWageByPerson[i] > 0 && p.ira && p.ira.enabled ? Math.min(Math.max(0, Number(p.wage.pretax) || 0), grossWageByPerson[i]) : 0
+  );
+  const rothContribByPerson = people.map((p, i) =>
+    grossWageByPerson[i] > 0 && p.roth && p.roth.enabled
+      ? Math.min(Math.max(0, Number(p.wage.roth) || 0), grossWageByPerson[i] - pretaxByPerson[i])
+      : 0
+  );
+  // Stock options: this year's releases (those dated before today are already left out, see stockReleasesByRow). A gain flagged as wage is payroll wage; the others are long-term capital gains.
+  const stockWageByPerson = people.map(() => 0),
+    stockLtcgByPerson = people.map(() => 0),
+    stockSharesByPerson = people.map(() => 0);
+  people.forEach((p, i) => {
+    if (!alive[i]) return;
+    const rels = (c.stockRel && c.stockRel[i] && c.stockRel[i][k]) || [];
+    rels.forEach(rel => {
+      const gain = stockGain(rel, cpiAt(k, inflation));
+      if (rel.isWage) stockWageByPerson[i] += gain;
+      else stockLtcgByPerson[i] += gain;
+      stockSharesByPerson[i] += rel.shares;
+    });
+  });
+  const payrollBaseByPerson = people.map((p, i) => Math.max(0, grossWageByPerson[i] - pretaxByPerson[i]) + stockWageByPerson[i]);
+  const payroll = computePayrollTax(payrollBaseByPerson, filingNow, fNow, state.stateTax && state.stateTax.enabled ? state.stateTax : null);
+  // Payroll tax is NOT deductible from income: the ordinary-income wage is the whole payroll base (gross wage − pre-tax contribution + stock wage). `wageByPerson` is the cash
+  // wage left after payroll tax (what the household can spend, shown on the income chart); `wageTaxableByPerson` is what income tax is computed on.
+  // The payroll tax itself is a household expense (`expPayroll`, funded by the waterfall like any expense), so the wage in income is the whole taxable wage.
+  const wageTaxableByPerson = payrollBaseByPerson.slice();
+  const wageByPerson = payrollBaseByPerson.slice();
+  const stockLtcg = sumArr(stockLtcgByPerson);
 
   // social security (with survivor switch-over)
   const ssByPerson = people.map((p, i) => {
@@ -856,6 +891,16 @@ function projYearIncome(c, k, head) {
   const annuityBalance = sumArr(annuitiesByPerson.map(l => sumArr(l.map(e => e.balance))));
   return {
     wageByPerson,
+    wageTaxableByPerson,
+    grossWageByPerson,
+    pretaxByPerson,
+    rothContribByPerson,
+    stockWageByPerson,
+    stockLtcgByPerson,
+    stockSharesByPerson,
+    stockLtcg,
+    payrollBaseByPerson,
+    payroll,
     ssByPerson,
     totalSS,
     pensionByPerson,
@@ -1000,7 +1045,7 @@ function projYearPortfolios(c, k, head) {
   // IDGT both exist (not dead), are funded and track cost basis, and the IDGT's basis ratio is lower than the living portfolio's. A swap is between
   // assets held by the same person: a portfolio is held by its owner while alive and, after the owner passes, by the spouse if its "Joint owned
   // with spouse" box is checked (otherwise it is gone, `dead`, and cannot be swapped).
-  // IDGTs with the lowest basis % are used first, the living portfolios with the highest basis % first; S = min(value left, IDGT value left).
+  // The living portfolios with the highest basis % go first; each one's swap amount S = min(its value, the IDGTs' value left) is prorated across all eligible IDGTs by the value each has left.
   if (state.basisSwap) {
     // Current holder of a portfolio: its owner while alive; once the owner has passed, the spouse if "Joint owned with spouse" is checked.
     const holder = (i, b) => (alive[i] ? i : b && b.bene && married && people.length === 2 && alive[1 - i] ? 1 - i : -1);
@@ -1017,20 +1062,20 @@ function projYearPortfolios(c, k, head) {
       living.sort((x, y) => y.t.basis / y.t.bal - x.t.basis / x.t.bal);
       living.forEach(Lx => {
         const L = Lx.t;
-        let left = L.bal;
-        idgts.sort((x, y) => x.s.basis / x.s.bal - y.s.basis / y.s.bal);
-        idgts.forEach(g => {
-          if (!(left > 0.005) || !(g.cap > 0.005) || g.own !== Lx.own) return; // a swap is between assets held by the same person
-          const rL = L.basis / L.bal,
-            rI = g.s.basis / g.s.bal;
-          if (!(rI < rL - 1e-9)) return; // nothing to gain: the IDGT's assets do not have a lower basis %
-          const amt = Math.min(left, g.cap),
-            shift = amt * (rL - rI);
+        const rL = L.basis / L.bal;
+        // Every IDGT held by the same person whose basis % is lower than this portfolio's takes part; the amount (the smaller of this portfolio's value and the IDGTs' total value left)
+        // is prorated across them by the value each has left.
+        const el = idgts.filter(g => g.own === Lx.own && g.cap > 0.005 && g.s.basis / g.s.bal < rL - 1e-9);
+        const capSum = el.reduce((a, g) => a + g.cap, 0);
+        if (!(L.bal > 0.005) || !(capSum > 0.005)) return;
+        const tot = Math.min(L.bal, capSum);
+        el.forEach(g => {
+          const amt = (tot * g.cap) / capSum,
+            shift = amt * (rL - g.s.basis / g.s.bal);
           L.basis -= shift;
           g.s.basis += shift;
           L.swapAmt += amt;
           g.s.swapAmt += amt;
-          left -= amt;
           g.cap -= amt;
         });
       });
@@ -1081,7 +1126,7 @@ function projYearIrmaaAum(c, k, head, acct, pfv) {
   const irmaaSurcharge = irmaaTier ? irmaaTier.surch * irmaaEnrolled : 0;
   // The IRMAA surcharge is always a household expense (no per-portfolio opt-in); it is paid by the pool below.
   // AUM fee (spec §4.6): a household assumption (`state.aumFee`) charged on the AUM balance = the start-of-year
-  // balances of every non-IDGT portfolio whose AUM box is checked (and that is enabled, inside its age range and funded), plus every pre-tax IRA, Roth IRA and inherited IRA whose AUM box is checked (its balance BEFORE the year's RMD / forced withdrawal; held by the household that year). IDGTs are never charged.
+  // balances of every portfolio (IDGT or not) whose AUM box is checked (and that is enabled, inside its age range and funded), plus every pre-tax IRA, Roth IRA and inherited IRA whose AUM box is checked (its balance BEFORE the year's RMD / forced withdrawal; held by the household that year).
   // '% AUM balance' × that sum, or a fixed $/yr (entered in today's $ for year 0, flat nominal, so it shrinks with inflation).
   // The charge is split across the checked accounts pro rata to balance (for display); the whole fee is a household expense
   // paid by the pool below — i.e. only by portfolios with "Pay expenses" checked.
@@ -1089,7 +1134,7 @@ function projYearIrmaaAum(c, k, head, acct, pfv) {
   const aumVal = state.aumFee && state.aumFee.enabled === false ? 0 : Math.max(0, Number(state.aumFee && state.aumFee.value) || 0); // unchecked Enable → no fee
   const aumBase = people.map((p, i) =>
     (p.brokerage || []).map((b, bi) =>
-      b && b.aum && !b.idgt && pfVals[i][bi].active && !pfState[i][bi].dead && pfBalNow[i][bi] > 0 ? pfBalNow[i][bi] : 0
+      b && b.aum && pfVals[i][bi].active && !pfState[i][bi].dead && pfBalNow[i][bi] > 0 ? pfBalNow[i][bi] : 0
     )
   );
   const aumBalPf = aumBase.reduce((a, row) => a + row.reduce((x, y) => x + y, 0), 0);
@@ -1132,6 +1177,7 @@ function projYearPools(c, k, m, acct, income, pfv, aumG) {
   const teIncome = teByPerson.reduce((a, b) => a + b, 0);
   const cashBase =
     sumArr(wageByPerson) +
+    income.stockLtcg + // stock-option gains taxed as capital gains (cashless exercise: the gain is the cash)
     totalSS +
     pension +
     rental +
@@ -1211,9 +1257,9 @@ function projYearPools(c, k, m, acct, income, pfv, aumG) {
 
 // The year's tax inputs and expenses: dividends, foreign tax credit, IRA totals, filing status and deductions, Long Term Care and medical-shock costs, bracket tables, living expenses (guardrail-adjusted), IRMAA and AUM expense.
 function projYearTaxInputs(c, k, m, carry, head, income, pfv, aumG) {
-  const {G, inflation, iraW, married, passAges, people} = c;
+  const {G, inflation, iraW, married, passAges, people, sumArr} = c;
   const {ages, alive} = head;
-  const {wageByPerson, pension, rental, annuity} = income;
+  const {wageByPerson, wageTaxableByPerson, pension, rental, annuity} = income;
   const {pfVals} = pfv;
   const {irmaaSurcharge, aumFee} = aumG;
   // Dividends / foreign tax credit per person — independent of the waterfall and of LTCG.
@@ -1245,13 +1291,14 @@ function projYearTaxInputs(c, k, m, carry, head, income, pfv, aumG) {
   const iraByPerson = people.map((p, i) => iraW[i][k] || 0);
 
   const wageTotal = wageByPerson.reduce((a, b) => a + b, 0);
+  const wageTaxableTotal = wageTaxableByPerson.reduce((a, b) => a + b, 0);
   const iraTotal = iraByPerson.reduce((a, b) => a + b, 0);
 
   // Ordinary side of the return that does not depend on LTCG, computed once outside the iteration. (Taxable Social Security does
   // depend on LTCG — provisional income includes QDIV and LTCG — so it is computed inside taxOn() below.)
   const filing = married && alive[0] && alive[1] ? 'married' : 'single';
   const ssThresholdFactor = 1 / cpiAt(k, inflation); // un-indexed SS-tax thresholds, in today's $
-  const nonSSBase = wageTotal + pension + rental + annuity + iraTotal + odivNQ; // + the Roth conversion (decided below) = nonSSOrdinary
+  const nonSSBase = wageTaxableTotal + pension + rental + annuity + iraTotal + odivNQ; // + the Roth conversion (decided below) = nonSSOrdinary
   // Standard deduction = the basic amount + the additional amount for age 65 or older, per living person who is 65 by the end of the tax year (birth year
   // + 65 ≤ year, the same rule as the senior deduction below; the additional amount for blindness is not modeled). The additional amount is $1,650 per person
   // on a joint return and $2,050 for a single filer, so it follows the filing status in force (the survivor gets the single amount). Indexed, like the basic amount.
@@ -1323,6 +1370,9 @@ function projYearTaxInputs(c, k, m, carry, head, income, pfv, aumG) {
   const expIrmaa = irmaaSurcharge;
   // The whole AUM fee is a household expense (paid by the pay-expenses portfolios via the waterfall).
   const expAum = aumFee;
+  // Roth IRA/401(k) contributions from the Wage card are an expense (after-tax money): funded by the waterfall like the others, and added to the Roth account at the end of the year.
+  const expRoth = sumArr(income.rothContribByPerson);
+  const expPayroll = income.payroll.total; // payroll tax (FICA, Additional Medicare, FUTA, CA SDI / WA PFML + WA Cares): an expense
   return {
     odivByPerson,
     qdivByPerson,
@@ -1334,6 +1384,7 @@ function projYearTaxInputs(c, k, m, carry, head, income, pfv, aumG) {
     foreignTaxCredit,
     iraByPerson,
     wageTotal,
+    wageTaxableTotal,
     iraTotal,
     filing,
     ssThresholdFactor,
@@ -1353,7 +1404,9 @@ function projYearTaxInputs(c, k, m, carry, head, income, pfv, aumG) {
     gDisc,
     expLiving,
     expIrmaa,
-    expAum
+    expAum,
+    expRoth,
+    expPayroll
   };
 }
 
@@ -1421,7 +1474,7 @@ function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp
   const {curAges, inflation, inhSim, iraSim, married, passAges, people, reState, rothSim, rows, woSteps} = c;
   const {alive} = head;
   const {iraStart, rothStart} = acct;
-  const {totalSS, rentalNII, annuityNII} = income;
+  const {totalSS, rentalNII, annuityNII, stockLtcg} = income;
   const {pickSaleTarget, saleLabel} = pfv;
   const {teIncome, cashBase, pfx, poolPf, wdList, wdRoom, setWd} = pools;
   const {
@@ -1440,7 +1493,9 @@ function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp
     qBrk,
     expLiving,
     expIrmaa,
-    expAum
+    expAum,
+    expRoth,
+    expPayroll
   } = taxInp;
   const {aliveNext, reSales, reGainTotal, reGainNiitExcl} = resales;
   // Real estate sold to cover an expense shortfall (a 'sell' step in the withdrawal order). The whole property is sold at the START of this year at its
@@ -1478,7 +1533,7 @@ function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp
   // One pass of the funding waterfall for a given income-tax expense `taxExp`. Resets and refills every pool
   // portfolio's divUsed / sold / ltcg and returns the funding split.
   function runWaterfall(taxExp) {
-    const expTotal = expLiving + m.expLtc + expIrmaa + expAum + taxExp;
+    const expTotal = expLiving + m.expLtc + expIrmaa + expAum + expRoth + expPayroll + taxExp;
     poolPf.forEach(x => {
       x.divUsed = 0;
       x.sold = 0;
@@ -1590,7 +1645,7 @@ function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp
     ); // a withdraw is a sale like any other; + the distributed LTCG (taxed whether or not anything is sold)
     const reShortGain = reShort.reduce((a, x) => a + x.gain, 0),
       reShortNiitExcl = reShort.reduce((a, x) => a + (x.niitExcl ? x.gain : 0), 0);
-    let ltcgGross = reGainTotal + reShortGain;
+    let ltcgGross = reGainTotal + reShortGain + stockLtcg; // + the stock-option gains taxed as capital gains (Stock options card)
     pfx.forEach(list =>
       list.forEach(x => {
         if (x) ltcgGross += x.ltcg;
@@ -1613,6 +1668,21 @@ function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp
       reShortGain,
       reShortNiitExcl
     };
+  }
+  // New York's pension / annuity exclusion (today's $): up to $20,000 (not indexed, so deflated by f) for each living person aged 59½ or more, out of that person's own pension, taxable annuity payouts
+  // and pre-tax IRA income (RMDs, plus this year's IRA withdraw / Roth conversion `conv` and the IRA draw for expenses `iraExp`, shared between the people in proportion to their pre-tax IRA balances).
+  function nyPensionExclusion(conv, iraExp) {
+    const extra = Math.max(0, (conv || 0) + (iraExp || 0)),
+      bal = iraStart.reduce((a, b) => a + b, 0),
+      nAl = alive.filter(Boolean).length;
+    let tot = 0;
+    people.forEach((p, i) => {
+      if (!alive[i] || !(head.ages[i] >= 59.5)) return;
+      const share = bal > 0 ? iraStart[i] / bal : nAl > 0 ? 1 / nAl : 0;
+      const ret = (income.pensionByPerson[i] || 0) + (income.annuityByPerson[i] || 0) + (taxInp.iraByPerson[i] || 0) + extra * share;
+      tot += Math.min(ret, NY_PENSION_EXCL * ssThresholdFactor);
+    });
+    return tot;
   }
   // The year's tax given gross realized LTCG. Spec §8.3: available SCGL (suspended capital-gain loss
   // carryforward) eliminates realized LTCG dollar-for-dollar, before tax, so only the net-of-SCGL amount is taxed.
@@ -1652,6 +1722,7 @@ function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp
       ? computeStateTax(stCode, {
           agi,
           taxableSS,
+          nyPensionExcl: stCode === 'NY' || stCode === 'NYC' ? nyPensionExclusion(conv, iraExp || 0) : 0,
           expLtc: m.expLtc,
           ltcgPortfolio: Math.max(0, ltcgGross - (reGainAll == null ? reGainTotal : reGainAll) - scglUsed),
           filing,
@@ -1965,8 +2036,8 @@ function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp
   // Advance the IRA / Roth balances one year now that this year's expense draws are known (conversion and draw both leave the pre-tax IRA;
   // the conversion enters the Roth IRA, and the Roth draw leaves it).
   people.forEach((p, i) => {
-    iraSim[i].post(k, iraConvByPerson[i], wf.iraExpByPerson[i]);
-    rothSim[i].post(k, rothInByPerson[i], wf.rothExpByPerson[i]);
+    iraSim[i].post(k, iraConvByPerson[i], wf.iraExpByPerson[i], income.pretaxByPerson[i]);
+    rothSim[i].post(k, rothInByPerson[i] + income.rothContribByPerson[i], wf.rothExpByPerson[i]);
   });
   // Inherited IRAs: take this year's conversion out of what is left after the withdrawal, then grow it.
   convUnits.forEach((u, ui) => {
@@ -1988,6 +2059,10 @@ function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp
   const nonSSOrdinary = nonSSBase + rothConvTotal + iraExpTotal;
   // wf was funded with `taxIn`; tx is the tax that wf produces (they differ by < TAX_TOL once converged).
   const expTax = taxIn;
+  // Split of the income-tax expense into its state and federal parts (a property sale's tax, already netted out of expTax, is shared pro rata).
+  const taxBoth = (tx.totalTax || 0) + (tx.stateTax || 0);
+  const expTaxState = taxBoth > 0 ? Math.min(expTax, (expTax * (tx.stateTax || 0)) / taxBoth) : 0;
+  const expTaxFed = expTax - expTaxState;
   const {expTotal, expFromIncome, expFromDiv, expFromSales, expFromIra, expFromRoth, expFromRe, expUnfunded} = wf;
   return {
     taxOn,
@@ -2008,6 +2083,8 @@ function projYearSolveTax(c, k, m, carry, head, acct, income, pfv, pools, taxInp
     rothExpTotal,
     nonSSOrdinary,
     expTax,
+    expTaxFed,
+    expTaxState,
     expTotal,
     expFromIncome,
     expFromDiv,
@@ -2030,7 +2107,7 @@ function projYearTaxResult(c, k, m, carry, income, taxInp, solved) {
   // independent of which account paid, so it is not distorted by planned withdraws or Roth conversions.
   let guard = null;
   if (G) {
-    const nonPf = wageTotal + totalSS + pension + rental + rentalDep + annuity + annuityTE;
+    const nonPf = wageTotal + income.stockLtcg + totalSS + pension + rental + rentalDep + annuity + annuityTE;
     const draw = Math.max(0, expTotal - (G.excludeLtc ? m.expLtc : 0) - nonPf);
     const wr = m.gBal0 > 0 ? draw / m.gBal0 : draw > 0 ? Infinity : 0,
       band = Math.max(0, Number(G.band) || 0) / 100;
@@ -2156,6 +2233,7 @@ function projYearExcessAndMarginal(c, m, income, pools, taxInp, resales, solved,
     wf.reShort.forEach(x => {
       if (x.i === i) t += x.gain;
     });
+    t += income.stockLtcgByPerson[i] || 0; // stock-option gains taxed as capital gains
     return t;
   });
   const shieldFrac = ltcgGross > 0 ? scglUsed / ltcgGross : 0;
@@ -2214,7 +2292,7 @@ function projYearPortfolioEnd(c, pfv, resales, solved) {
         name: (b.name && b.name.trim()) || 'Portfolio ' + (bi + 1),
         balance: bal,
         idgt: !!b.idgt,
-        aum: !!b.aum && !b.idgt,
+        aum: !!b.aum,
         payExp: !!b.payExp,
         feeDrag: 0,
         ltcg: 0,
@@ -2410,6 +2488,30 @@ function projYearRow(c, k, m, carry, head, acct, income, aumG, pools, taxInp, re
     filing: taxInp.filing,
     wageByPerson: income.wageByPerson,
     wageTotal: taxInp.wageTotal,
+    wageTaxableTotal: taxInp.wageTaxableTotal,
+    grossWageByPerson: income.grossWageByPerson,
+    grossWageTotal: income.grossWageByPerson.reduce((a, b) => a + b, 0),
+    pretaxContribByPerson: income.pretaxByPerson,
+    pretaxContribTotal: income.pretaxByPerson.reduce((a, b) => a + b, 0),
+    rothContribByPerson: income.rothContribByPerson,
+    rothContribTotal: income.rothContribByPerson.reduce((a, b) => a + b, 0),
+    stockWageByPerson: income.stockWageByPerson,
+    stockWageTotal: income.stockWageByPerson.reduce((a, b) => a + b, 0),
+    stockLtcgByPerson: income.stockLtcgByPerson,
+    stockLtcgTotal: income.stockLtcg,
+    stockSharesByPerson: income.stockSharesByPerson,
+    payrollBaseByPerson: income.payrollBaseByPerson,
+    payrollTax: income.payroll.total,
+    payrollTaxByPerson: income.payroll.byPerson,
+    payrollSS: income.payroll.ss,
+    payrollMedicare: income.payroll.med,
+    payrollFica: income.payroll.fica,
+    payrollAddlMedicare: income.payroll.addlMedicare,
+    payrollFuta: income.payroll.futa,
+    payrollState: income.payroll.stateTotal,
+    payrollCaSdi: income.payroll.caSdi,
+    payrollWaPfml: income.payroll.waPfml,
+    payrollWaCares: income.payroll.waCares,
     ssByPerson: income.ssByPerson,
     totalSS: income.totalSS,
     pension: income.pension,
@@ -2512,6 +2614,8 @@ function projYearRow(c, k, m, carry, head, acct, income, aumG, pools, taxInp, re
     expLtc: m.expLtc,
     expIrmaa: taxInp.expIrmaa,
     expAum: taxInp.expAum,
+    expRoth: taxInp.expRoth,
+    expPayroll: taxInp.expPayroll,
     aumBalance: aumG.aumBalance,
     aumBalPf: aumG.aumBalPf,
     aumBalIra: aumG.aumBalIra,
@@ -2519,6 +2623,8 @@ function projYearRow(c, k, m, carry, head, acct, income, aumG, pools, taxInp, re
     aumBalInh: aumG.aumBalInh,
     aumFee: aumG.aumFee,
     expTax: solved.expTax,
+    expTaxFed: solved.expTaxFed,
+    expTaxState: solved.expTaxState,
     expTotal: solved.expTotal,
     expFromIncome: solved.expFromIncome,
     expFromDiv: solved.expFromDiv,
@@ -2692,6 +2798,9 @@ function computeProjection() {
   const {woSteps} = projWithdrawOrder({people});
 
   const sumArr = a => a.reduce((x, y) => x + y, 0);
+  // Stock option releases still to come (those dated before today are dropped), per person and year row: see compute/stockOptions.js.
+  const stockToday0 = stockToday();
+  const stockRel = people.map(p => stockReleasesByRow(p, stockToday0));
   const rows = [];
   // Spending guardrails (state.guardrail; null = off, and then nothing below changes). gMult = the multiplier on the discretionary part of living expenses
   // (1 = the plan's amount), decided at the END of each year for the next one. iwr = the initial withdrawal rate the later rates are compared with.
@@ -2721,6 +2830,7 @@ function computeProjection() {
     rothSim,
     rows,
     ssMonthly,
+    stockRel,
     sumArr,
     swapRow,
     woSteps

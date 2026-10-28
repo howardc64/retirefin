@@ -1,5 +1,24 @@
 ## Change Log
 
+## Wage contributions, payroll tax, NY / NYC tax, Stock options
+- **Wage card**: the amount is now the *gross* wage; new fields *Pre-tax IRA/401(k) contribution* (comes out of the wage, added to the Pre-tax IRA/401(k) card's account) and *Roth IRA/401(k) contribution* (today's $; an expense paid from after-tax money, added to the Roth account, shown as its own band on the Household Expenses chart). Entering one turns the matching card on; it is ignored while that card is off. The Roth IRA card is now **Roth IRA / 401(k)**.
+- **Payroll tax** (compute/tax.js `computePayrollTax`): on the wage after the pre-tax contribution (plus stock-option gains counted as wage): Social Security 6.2% to the $184,500 base, Medicare 1.45%, Additional Medicare 0.9% over $250k / $200k (deflated, un-indexed), FUTA 0.6% of the first $7,000 (deflated). The wage is reduced by it and the remainder is the ordinary-income wage; FICA, Additional Medicare and FUTA are stacked bands on the Total Income Tax chart (row fields `payrollTax`, `payrollFica`, `payrollAddlMedicare`, `payrollFuta`, `grossWageTotal`, `pretaxContribTotal`, `rothContribTotal`, `expRoth`).
+- **State income tax**: New York State and New York State + NYC resident (2026 brackets, standard deduction, $20,000 pension/annuity exclusion, no tax on Social Security, high-income recapture `nyTax`, NYC 3.078%–3.876%; un-indexed amounts deflated). Excel carries the NY tax as a value.
+- **Stock options card** (js/input/stock.js, compute/stockOptions.js): any number of grants per person, button to open the editor in its own window; releases dated before today are skipped; gains count as wage (default) or LTCG.
+- New test `tests/unit/payroll_ny_stock_test.js`; `tests/baseline.json` and `tests/projection_golden.json` regenerated (wage plans now pay payroll tax; every row has new fields).
+
+## Payroll tax is an expense; hidden chart cards drag again; mc tests checked
+- **Payroll tax is now a household expense** (row field `expPayroll`, part of `expTotal`, funded by the waterfall: income, then dividends, asset sales). The wage in income is the whole taxable wage (`wageTotal` = `wageTaxableTotal`). The Household Expenses chart has a new **Payroll tax** band, the income chart's tooltip lists it under expenses, and the Excel export has an `expPayroll` column in Total household expenses.
+- **Chart cards: grab handle on a collapsed card** sometimes did nothing until some card was unhidden. Cause (not reproducible without a browser here; found by reading): `dragstart` added `body.chart-dragging`, which reveals the spare bottom row; with short content that made `.chart-col` scroll, the new scrollbar narrowed the grid and the card moved from under the pointer, so the browser cancelled the drag. The class is now added after the drag has started, and `.chart-col` has `scrollbar-gutter: stable`.
+- Tests: `mc_test.js` / `mc_inherit_test.js` need plan files (`PLAN=Samples/Couple_Heir.json`; `HEIR=Samples/Couple_Heir.json DONOR=Samples/Widow.json`); both pass with them. `mc_test.js` on `Widow.json` (one person) throws because the test assumes two people: a test limitation.
+
+## Payroll tax not deductible, CA / WA payroll tax, Stock options card
+- **Payroll tax no longer reduces the income-tax wage.** Income tax (AGI, brackets, NIIT, state tax) is computed on the gross wage less the pre-tax contribution (plus stock-option wage gains). The payroll tax is still paid out of the wage, so the cash wage on the Income chart is unchanged (`wageTotal`); the taxed amount is the new row field `wageTaxableTotal` (Excel row "Wage taxed as ordinary income" feeds the ordinary-income formula).
+- **California and Washington payroll tax** (when State income tax is on for that state): CA SDI 1.3% of all wages; WA Paid Family & Medical Leave 1.13% × 71.43% employee share up to the Social Security wage base, plus WA Cares 0.58% of all wages. The State income tax panel shows an **exempt from WA Cares** checkbox for Washington (`stateTax.waLtcExempt`). Both are part of `payrollTax` and stacked into the row fields `payrollState`, `payrollCaSdi`, `payrollWaPfml`, `payrollWaCares`.
+- **Stock options card**: the *Open in new window* button and its editor window are removed. A new checkbox beside the market price chooses *today's $* (default, price held flat in real terms) or *future $* (a fixed nominal price, `marketFuture`).
+- **`tests/mc/mc_ui_test.js`** failed on the original zip too and was a **test** problem, not an app bug: chart updates now glide over several animation frames (`chartTweenStart`), and the test's `requestAnimationFrame` was a no-op, so it read the chart mid-transition (the old trial line). The test now queues frames and flushes them before the two inflation-chart assertions.
+- Tests: `payroll_ny_stock_test.js` (+11); `tests/baseline.json` and `tests/projection_golden.json` regenerated.
+
 Entries 1–323 are in [`docs/ChangeLog_archive.md`](docs/ChangeLog_archive.md). Newest last.
 
 ## 324 — Plans tab
@@ -102,3 +121,17 @@ The glide added in 327 timed itself with the timestamp `requestAnimationFrame` h
 - **Popup Verbose** checkbox (header, right of Chart Element, default off). Off: the explanatory paragraph shrinks to an element-supplied `brief` or its first sentence; name, who / when and numbers stay. Inflation and Market return lines (and their 5-year averages) use a one-line `ds.infoBrief`.
 - **Popup background slider removed**: one fixed see-through dark theme (`TIP_THEME`); `tipBg`, `setTipBg` and the `tipBgSlider` description are gone.
 - No calculation changed. `tests/check.js` baseline needs `--update` (new `infoBrief` dataset field). Docs: Usage (Chart Element, Popup Verbose), ARCHITECTURE (§ popup helpers, Chart Element). Formulas page and Excel export unchanged: they describe calculations, which did not change.
+
+## 347 — Tax chart total with state, split income-tax expense, IDGT AUM box, prorated swap, draggable Inheritance card
+- **Total Income Tax chart** (Chart Element popup): the zone just above the stack now reports *Total income tax (federal + state)*, reaching up to the state-tax line, instead of the federal stack only.
+- **Household Expenses chart**: the income-tax band is split into **Federal income tax** and **State income tax** bands (row fields `expTaxFed`, `expTaxState`; `expTax` is their sum, a property sale's tax is shared pro rata).
+- **IDGT portfolios** now have the **AUM** checkbox (default off; switching a portfolio to IDGT clears it). A checked IDGT counts toward the AUM balance.
+- **Asset / basis swap**: each living portfolio's swap is prorated across all eligible IDGTs (by the value each has left) instead of filling the lowest-basis IDGT first.
+- **Inheritance card** has the ⋮⋮ drag handle like the other income cards (its header class `item-head wrap` was not matched).
+- `tests/baseline.json` regenerated.
+
+## 348 — Chart Tooltip menu, Input Tooltip, Age range box, payroll colour
+- **Header**: *Input Element* is now **Input Tooltip**. *Chart Element* is now the **Chart Tooltip** menu: **None** (no chart popup), **Components** (default; describes the element under the cursor, in its short form) or **Complete** (the usual value popups with the line-by-line details). The *Popup Verbose* and *Popup Details* checkboxes are removed (`setChartTip`, `chartTipOff`; `popupVerbose` is gone, `showDetails` is true in Complete).
+- **Age range box** left of the Grid button: the last age shown on every chart (`state.ui.maxAge`, saved with the plan, display only; Excel is unaffected). Default and maximum: the age of the last passing plus the IRA stretch years (`chartDefaultMaxAge`, `chartMaxAge`); blank or larger values fall back to that. The asset chart's stretch scrolling is no longer needed (the axis ends where the box says).
+- **Annual expenses**: the Payroll tax band is bright gold instead of olive, so it no longer blends with the other bands.
+- `tests/baseline.json` regenerated; Usage and Architecture docs updated.

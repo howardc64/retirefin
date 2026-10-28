@@ -43,7 +43,7 @@ function defaultState() {
       sunsetYears: 15,
       excludeLtc: false
     }, // Spending guardrails (Expenses panel): off by default. discPct = % of living expenses that can be cut (discretionary); the rest is essential and never cut. Each year the withdrawal rate (portfolio-funded spending / invested balance at the start of the year) is compared with the initial rate (iwrMode 'initial' = the first year without wages, 'target' = targetWR %). Above IWR×(1+band%) the discretionary spending of the NEXT year is cut by cutPct%; with prosperity on, below IWR×(1−band%) it is raised by raisePct% (never above the plan's amount). No change in the last sunsetYears years. excludeLtc: leave the Long Term Care cost out of the rate (see projection.js)
-    stateTax: {enabled: false, state: 'CA'}, // State income tax (Tax & Optimizations panel): 'CA' or 'WA'; off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
+    stateTax: {enabled: false, state: 'CA', waLtcExempt: false}, // State income tax (Tax & Optimizations panel): 'CA', 'WA', 'NY' (New York State) or 'NYC' (New York State + New York City resident); off by default. Paid as a household expense, shown stacked on the Total Income Tax chart
     futureTax: {enabled: false, niitStartYear: THIS_YEAR + 10, niitSingle: NIIT_THRESH_SGL, niitMarried: NIIT_THRESH_MFJ},
     ui: {
       globalNotes: '',
@@ -57,6 +57,7 @@ function defaultState() {
       mcCfg: null,
       marketPaths: [],
       cardOrder: null,
+      maxAge: null, // Age range box above the charts: last age shown (display only; null = last passing + IRA stretch; never beyond that)
       assumpHide: {...ASSUMP_HIDE_DEFAULT},
       hidePerson: null
     } // display-only, but saved/restored/reset with the plan (see above)
@@ -198,6 +199,8 @@ function hydrateState(loaded) {
       if (typeof p.inheritance.hidden !== 'boolean') p.inheritance.hidden = true; // the Inheritance card starts collapsed (also for older saves)
       if (!Array.isArray(p.annuities)) p.annuities = [];
       p.annuities = p.annuities.map(a => merge(a, defaultAnnuity(0)));
+      if (!p.stock || !Array.isArray(p.stock.grants)) p.stock = {enabled: false, hidden: true, grants: []};
+      p.stock.grants = p.stock.grants.map(g => merge(g, defaultStockGrant(0))); // fill fields an older save lacks (a grant has no default entry in the base shape)
       if (!Array.isArray(p.realEstate)) p.realEstate = [];
       p.realEstate = p.realEstate.map(r => {
         // Older real estate saves held the basis as a % of value (`basisPct`): convert to dollars.
@@ -237,7 +240,6 @@ function hydrateState(loaded) {
             const fv = Number(b.fee && b.fee.value) || 0;
             b = Object.assign({}, b, {aum: (b.expense !== undefined ? !!b.expense : fv > 0) && fv > 0});
           }
-          if (b && b.idgt) b = Object.assign({}, b, {aum: false}); // the AUM fee is charged only on Living expense & income portfolios
           return merge(b, defaultBrokeragePortfolio(0));
         })
         .filter(b => !((Number(b.balance) || 0) === 0 && (!b.name || !b.name.trim() || /^Brokerage Portfolio \d+$/.test(b.name.trim()))));
@@ -276,6 +278,7 @@ function hydrateState(loaded) {
   });
   out.ui.incomeOrder = normalizeIncomeOrder(out.ui.incomeOrder);
   out.ui.hidePerson = out.ui.hidePerson === 0 || out.ui.hidePerson === 1 ? out.ui.hidePerson : null; // married: which person's Income & Assets column is collapsed (null = both shown)
+  out.ui.maxAge = Number(out.ui.maxAge) > 0 ? Math.round(Number(out.ui.maxAge)) : null;
   out.ui.gridCols = out.ui.gridCols === 3 ? 3 : 2;
   out.ui.chartPos = normalizeChartPos(out.ui.chartPos, out.ui.gridCols); // a layout from a file is kept as saved, repaired only if it is invalid
   out.ui.chartPosAlt = normalizeChartPos(out.ui.chartPosAlt, otherGridCols(out.ui.gridCols));

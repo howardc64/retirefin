@@ -1,6 +1,6 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// INPUT / INPUT ELEMENT INFO — the "Input Element" checkbox (header, left of "Chart Element").
+// INPUT / INPUT ELEMENT INFO — the "Input Tooltip" checkbox (header, left of the Chart Tooltip menu).
 // When checked (default), hovering an input on the input side (Household Setup, Income & Assets) or the chart side (chart Hide boxes,
 // Rescale buttons, the Same scale buttons, …) or a header toggle shows a popup describing it. Drop-down menus are opened as a custom
 // list so hovering each choice shows a description of that choice too — a native <select> popup cannot show tooltips.

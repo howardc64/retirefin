@@ -57,6 +57,11 @@ function xlsxMainColumns(proj, acctSheets, T) {
     r => r.wageTotal,
     X => sumF(X, 'wage')
   );
+  V('wageGross', 'Gross wage (before the pre-tax contribution and payroll tax; app value)', r => v(r.grossWageTotal));
+  V('wagePretax', 'Pre-tax IRA/401(k) contribution (app value)', r => v(r.pretaxContribTotal));
+  V('wageStock', 'Stock-option gains counted as wage (app value)', r => v(r.stockWageTotal));
+  V('wageTaxable', 'Wage taxed as ordinary income (gross − pre-tax contribution + stock wage; payroll tax is not deducted; app value)', r => v(r.wageTaxableTotal));
+  V('payrollTax', 'Payroll tax: FICA + Additional Medicare + FUTA + CA SDI / WA PFML + WA Cares (paid as an expense, app value)', r => v(r.payrollTax));
   per('ssByPerson', 'Social Security (SS)', 'ss');
   F(
     'ssT',
@@ -211,7 +216,7 @@ function xlsxMainColumns(proj, acctSheets, T) {
     'nonSS',
     'Ordinary income excluding Social Security (wage + pension + rental + annuity + RMD + inherited IRA withdraw + ODIV + conversion + IRA expense draw)',
     r => r.nonSSOrdinary,
-    X => `${X('wageT')}+${X('penT')}+${X('rentT')}+${X('annT')}+${X('rmdT')}+${X('inhIra')}+${X('odivNQ')}+${X('convT')}+${X('iraExT')}`
+    X => `${X('wageTaxable')}+${X('penT')}+${X('rentT')}+${X('annT')}+${X('rmdT')}+${X('inhIra')}+${X('odivNQ')}+${X('convT')}+${X('iraExT')}`
   );
   F(
     'prov',
@@ -579,6 +584,9 @@ function xlsxMainColumns(proj, acctSheets, T) {
         return `IF(State_On="Yes",${wa},0)`;
       }
     );
+  } else if (selState === 'NY' || selState === 'NYC') {
+    // New York (State, or State + City): computed by the app (brackets, recapture and the pension exclusion are not rebuilt as formulas), carried as values.
+    V('stateTax', 'New York ' + (selState === 'NYC' ? 'State + City resident' : 'State') + ' income tax (app value; not part of TT; paid as a household expense)', r => v(r.stateTax));
   } else {
     F(
       'stateTax',
@@ -593,11 +601,13 @@ function xlsxMainColumns(proj, acctSheets, T) {
     r => v(r.expTax),
     X => `${X('tt')}+${X('stateTax')}-${X('reTax')}`
   );
+  V('expRoth', 'Roth IRA/401(k) contribution from the wage (an expense, app value)', r => v(r.expRoth));
+  V('expPayroll', 'Payroll tax paid as an expense (app value)', r => v(r.expPayroll));
   F(
     'expTot',
-    'Total household expenses = living + LTC + IRMAA + AUM fee + income tax',
+    'Total household expenses = living + LTC + IRMAA + AUM fee + Roth IRA/401(k) contribution + payroll tax + income tax',
     r => v(r.expTotal),
-    X => `${X('expLiving')}+${X('expLtc')}+${X('irmaa')}+${X('expAum')}+${X('expTax')}`
+    X => `${X('expLiving')}+${X('expLtc')}+${X('irmaa')}+${X('expAum')}+${X('expRoth')}+${X('expPayroll')}+${X('expTax')}`
   );
   // Spending guardrails (rows carry `guard` only when state.guardrail is on). Living expenses above already include the cuts (an app value); these columns show the rule
   // that produced them: the app's spending / balance, and the rate, cut line, tripwire and "above the line?" test as live formulas (the band is the Inputs name Gr_Band).

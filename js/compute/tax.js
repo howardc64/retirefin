@@ -157,14 +157,108 @@ function computeNIIT(nii, magi, filing, f = 1, futureTax, year) {
   return NIIT_RATE * Math.min(Math.max(0, nii), excess);
 }
 
-// State income tax for the year (today's $). `code` is 'CA' or 'WA' (anything else = 0).
+// ── Payroll tax (employee side) on one year's wages, today's $ ──
+// `base` = each living person's payroll wages: wages after their pre-tax IRA/401(k) contribution, plus stock-option gains that count as wages. `filing` = 'married' | 'single';
+// `f` = 1/(1+inflation)^k, which deflates the statutory amounts that are NOT indexed (the Additional Medicare thresholds and the FUTA wage base); the Social Security wage base is
+// indexed, so it stays flat in today's $.
+//   Social Security (FICA)    6.2% of each person's wages up to the wage base
+//   Medicare (FICA)           1.45% of all wages
+//   Additional Medicare Tax   0.9% of the household's wages above $250,000 (married filing jointly) / $200,000 (single), shared between the people pro rata to their wages
+//   FUTA                      0.6% of each person's first $7,000 of wages
+//   State payroll tax (`st` = state.stateTax, when enabled)   CA: SDI 1.3% of all wages. WA: PFML 1.13% × the 71.43% employee share up to the Social Security base, plus WA Cares 0.58% of all wages (skipped when `st.waLtcExempt`).
+// Returns the household totals and, per person, the total (`byPerson`) so the wage of each person can be reduced by their own payroll tax.
+function computePayrollTax(base, filing, f = 1, st = null) {
+  const n = base.length,
+    ss = new Array(n).fill(0),
+    med = new Array(n).fill(0),
+    futa = new Array(n).fill(0),
+    addl = new Array(n).fill(0),
+    stp = new Array(n).fill(0);
+  let caSdi = 0,
+    waPfml = 0,
+    waCares = 0;
+  const wages = base.map(v => Math.max(0, Number(v) || 0));
+  const total = wages.reduce((a, b) => a + b, 0);
+  wages.forEach((w, i) => {
+    ss[i] = PAYROLL_SS_RATE * Math.min(w, PAYROLL_SS_BASE);
+    med[i] = PAYROLL_MED_RATE * w;
+    futa[i] = FUTA_RATE * Math.min(w, FUTA_BASE * f);
+  });
+  const thresh = (filing === 'married' ? PAYROLL_ADDL_MED_THRESH_MFJ : PAYROLL_ADDL_MED_THRESH_SGL) * f;
+  const addlTotal = PAYROLL_ADDL_MED_RATE * Math.max(0, total - thresh);
+  if (total > 0) wages.forEach((w, i) => (addl[i] = (addlTotal * w) / total));
+  // State payroll taxes (employee side), only when the State income tax feature is on for that state: California SDI (1.3%, all wages); Washington Paid Family & Medical Leave
+  // (employee share of the premium, up to the Social Security wage base) and WA Cares (0.58%, all wages) unless the person is exempt (`st.waLtcExempt`, an approved private LTC policy).
+  const code = st && st.enabled ? st.state : null;
+  wages.forEach((w, i) => {
+    if (code === 'CA') {
+      const v = CA_SDI_RATE * w;
+      caSdi += v;
+      stp[i] += v;
+    } else if (code === 'WA') {
+      const pf = WA_PFML_RATE * WA_PFML_EMPLOYEE_SHARE * Math.min(w, PAYROLL_SS_BASE),
+        cr = st.waLtcExempt ? 0 : WA_CARES_RATE * w;
+      waPfml += pf;
+      waCares += cr;
+      stp[i] += pf + cr;
+    }
+  });
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  const byPerson = wages.map((w, i) => ss[i] + med[i] + addl[i] + futa[i] + stp[i]);
+  return {
+    ss: sum(ss),
+    med: sum(med),
+    fica: sum(ss) + sum(med),
+    addlMedicare: addlTotal,
+    futa: sum(futa),
+    caSdi,
+    waPfml,
+    waCares,
+    stateTotal: sum(stp),
+    total: sum(byPerson),
+    byPerson
+  };
+}
+
+// ── New York State income tax on NY taxable income `ti` with NY adjusted gross income `nyagi` (both in the statute's own dollars) ──
+// Tax from the rate schedule, plus the tax-benefit recapture of the IT-201-I tax computation worksheets. A tier of the schedule is the bracket the taxable income reaches. For each
+// tier t up to the one `ti` is in, the benefit of the lower brackets is recaptured over $50,000 of NY AGI starting at A_t = the larger of $107,650 and the tier's own starting
+// income: with P_t = (NYAGI − A_t) / $50,000 (0…1, four decimals), the tax adds P_t × (C_t − C_{t−1}), where C_t is what flat tier-t rate on the income of that tier (up to its top, or up to `ti`
+// for the tier `ti` is in) would cost above the schedule. At the end of every phase-in the tax is the tier's rate on all of `ti` (the "flat-rate" effect for high earners). This
+// reproduces the worksheets' fixed amounts (e.g. $332.50 for joint filers, $165 for single) and the $150,000 joint example.
+function nyTax(ti, nyagi, married) {
+  const brk = married ? NY_ORD_MFJ : NY_ORD_SGL;
+  const sched = calcOrdTax(ti, brk);
+  if (!(ti > 0) || !(nyagi > NY_RECAPTURE_START)) return sched;
+  let tau = brk.findIndex(b => ti <= b.lim);
+  if (tau < 0) tau = brk.length - 1;
+  let recap = 0,
+    cPrev = 0,
+    start = 0;
+  for (let t = 0; t <= tau; t++) {
+    const top = t < tau ? brk[t].lim : ti;
+    const c = brk[t].r * top - calcOrdTax(top, brk);
+    const a = Math.max(NY_RECAPTURE_START, start);
+    const pFrac = Math.round(Math.min(1, Math.max(0, (nyagi - a) / NY_RECAPTURE_BAND)) * 10000) / 10000;
+    recap += pFrac * (c - cPrev);
+    cPrev = c;
+    start = brk[t].lim;
+  }
+  return sched + recap;
+}
+
+// State income tax for the year (today's $). `code` is 'CA', 'WA', 'NY' (New York State) or 'NYC' (New York State + New York City resident); anything else = 0.
 //   p.agi, p.taxableSS  — federal AGI and the taxable Social Security inside it (California excludes Social Security)
 //   p.ltcgPortfolio     — realized long-term gain from portfolio sales, net of SCGL, excluding real estate (the Washington base)
 //   p.filing, p.nAlive, p.nSenior — filing status, living people, living people aged 65+
 //   p.f                 — 1/(1+inflation)^k: the un-indexed statutory $1,000,000 thresholds are deflated by it
+//   p.nyPensionExcl     — New York only: the pension / annuity income exclusion in today's $ (up to $20,000 [deflated by f] for each living person aged 59½+, taken from their own pension, annuity and pre-tax IRA income; see nyPensionExclusion in projection.js)
 // California: tax on (AGI − taxable SS − deduction) from the California brackets, where the deduction is the larger of the state standard deduction and the
 // medical itemized deduction (p.expLtc, the Long Term Care cost, above 7.5% of California AGI = AGI − taxable SS; California follows the federal medical-expense rule), + 1% over $1M, − personal and senior credits (each reduced when federal AGI is above the threshold, see caCreditReduction).
 // Washington: 7% / 9.9% capital-gains excise tax on portfolio LTCG above the deduction.
+// New York: NY AGI = federal AGI − taxable Social Security − the pension / annuity exclusion; deduction = the larger of the NY standard deduction and the medical itemized deduction (LTC cost
+// above 7.5% of federal AGI); tax from the NY schedule plus the high-income recapture (nyTax). 'NYC' adds the New York City resident tax on the same taxable income. New York does not index
+// its brackets, deductions or the $20,000 exclusion (nor does the city), so they are applied in nominal dollars: today's-$ incomes are scaled up by the price level (1/f), taxed, and the tax scaled back.
 // California exemption-credit phase-out: the amount taken off EACH personal and senior credit, in today's $ (see CA_CREDIT_PHASEOUT_* in constants.js).
 //   fedAgi = federal AGI (Form 540 line 13, not California AGI); f = the deflator that shrinks the un-indexed $2,500 step and $6 reduction.
 function caCreditReduction(fedAgi, married, f) {
@@ -184,6 +278,17 @@ function computeStateTax(code, p) {
     const red = caCreditReduction(p.agi, married, p.f); // phase-out of the exemption credits, per credit
     tax -= Math.max(0, CA_PERSONAL_CREDIT - red) * p.nAlive + Math.max(0, CA_SENIOR_CREDIT - red) * p.nSenior;
     return Math.max(0, tax);
+  }
+  if (code === 'NY' || code === 'NYC') {
+    const married = p.filing === 'married',
+      n = p.f > 0 ? 1 / p.f : 1; // today's $ → the statute's nominal dollars
+    const agiN = Math.max(0, p.agi) * n;
+    const nyAgi = Math.max(0, agiN - p.taxableSS * n - Math.max(0, p.nyPensionExcl || 0) * n);
+    const medItemized = Math.max(0, (p.expLtc || 0) * n - 0.075 * agiN);
+    const ti = Math.max(0, nyAgi - Math.max(married ? NY_STD_MFJ : NY_STD_SGL, medItemized));
+    let tax = nyTax(ti, nyAgi, married);
+    if (code === 'NYC') tax += calcOrdTax(ti, married ? NYC_ORD_MFJ : NYC_ORD_SGL);
+    return Math.max(0, tax) / n;
   }
   if (code === 'WA') {
     const taxable = Math.max(0, p.ltcgPortfolio - WA_CG_DEDUCTION);

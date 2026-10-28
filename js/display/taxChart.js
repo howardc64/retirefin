@@ -12,6 +12,9 @@ const CI_TAX = [
     /^NIIT/,
     'Net Investment Income Tax: 3.8% of the lesser of net investment income or MAGI above the threshold ($250,000 married / $200,000 single unless a future-law change is set).'
   ],
+  [/^FICA/, 'Employee payroll tax: Social Security 6.2% (up to the wage base) and Medicare 1.45% on wages after the pre-tax IRA/401(k) contribution, including stock-option gains that count as wages. It is taken off the wage, not paid from other money.'],
+  [/^Additional Medicare/, 'Additional Medicare Tax: 0.9% of household wages above $250,000 (married) / $200,000 (single).'],
+  [/^FUTA/, 'Federal unemployment tax: 0.6% of the first $7,000 of each person\'s wages.'],
   [/^Foreign tax credit/, 'Foreign tax credit, subtracted from income tax. It does not reduce the NIIT.'],
   [/^Effective tax rate/, 'Effective tax rate: total tax divided by AGI. Read it on the right-hand axis.'],
   [
@@ -48,6 +51,9 @@ const VZ_TAX = {
   niit: '#D81B8A',
   effRate: '#1B1B1B',
   ftc: '#1F5FE0',
+  fica: '#8C6D1F',
+  addl: '#B8923A',
+  futa: '#D9C48A',
   state: '#00A8CC'
 };
 function buildTaxChart() {
@@ -64,7 +70,10 @@ function buildTaxChart() {
     ordArr = [],
     qTiers = [[], [], []],
     lTiers = [[], [], []],
-    niitArr = [];
+    niitArr = [],
+    ficaArr = [],
+    addlArr = [],
+    futaArr = [];
   rows.forEach(r => {
     const qBrk = r.filing === 'married' ? MFJ_QDIV : SGL_QDIV;
     const qdT = r.qdivT != null ? r.qdivT : r.qdiv,
@@ -85,6 +94,9 @@ function buildTaxChart() {
     qt.map(apply).forEach((v, i) => qTiers[i].push(v));
     lt.map(apply).forEach((v, i) => lTiers[i].push(v));
     niitArr.push(r.niit || 0);
+    ficaArr.push(r.payrollFica || 0);
+    addlArr.push(r.payrollAddlMedicare || 0);
+    futaArr.push(r.payrollFuta || 0);
     // Credit actually absorbed by income tax (what the stack was reduced by); drawn back on top as the dashed blue line.
     const usedCredit = credit0 - credit;
     ftcArr.push(usedCredit > 0 ? usedCredit : null);
@@ -94,6 +106,9 @@ function buildTaxChart() {
   const alignedL = lTiers.map(arr => alignToAges(ages, arr, labels));
   const alignedNiit = alignToAges(ages, niitArr, labels);
   const alignedFtc = alignToAges(ages, ftcArr, labels);
+  const alignedFica = alignToAges(ages, ficaArr, labels),
+    alignedAddl = alignToAges(ages, addlArr, labels),
+    alignedFuta = alignToAges(ages, futaArr, labels);
   // §9.4: thick dashed line for the effective tax rate (TT / AGI) on the right-hand % axis, overlaid on top of the $ stack (but below the
   // tooltip). The marginal rate is shown in the popup only, not as a line.
   const effRateArr = rows.map(r => (r.agi > 0 ? (r.totalTax / r.agi) * 100 : 0));
@@ -110,7 +125,7 @@ function buildTaxChart() {
     let t = alignedOrd[i] || 0;
     alignedQ.forEach(a => (t += a[i] || 0));
     alignedL.forEach(a => (t += a[i] || 0));
-    return t + (alignedNiit[i] || 0);
+    return t + (alignedNiit[i] || 0) + (alignedFica[i] || 0) + (alignedAddl[i] || 0) + (alignedFuta[i] || 0);
   });
   // State tax (Tax & Optimizations panel → State income tax): its own dashed green line at tax stack + state tax — absolute height in its own stack group, so it never sits on the foreign tax credit line.
   const stateName = (STATE_TAX_OPTIONS.find(o => o[0] === (state.stateTax && state.stateTax.state)) || [0, 'State'])[1];
@@ -129,6 +144,7 @@ function buildTaxChart() {
       alignedQ.forEach(a => (t += a[i] || 0));
       alignedL.forEach(a => (t += a[i] || 0));
       t += alignedNiit[i] || 0;
+      t += (alignedFica[i] || 0) + (alignedAddl[i] || 0) + (alignedFuta[i] || 0);
       t += alignedFtc[i] || 0;
       maxV = Math.max(maxV, t);
       if (alignedStateTop[i] != null) maxV = Math.max(maxV, alignedStateTop[i]);
@@ -253,6 +269,45 @@ function buildTaxChart() {
       order: 2
     },
     {
+      label: 'FICA payroll tax (Social Security + Medicare)',
+      data: alignedFica,
+      borderColor: VZ_TAX.fica,
+      backgroundColor: VZ_TAX.fica + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'Additional Medicare Tax',
+      data: alignedAddl,
+      borderColor: VZ_TAX.addl,
+      backgroundColor: VZ_TAX.addl + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
+      label: 'FUTA',
+      data: alignedFuta,
+      borderColor: VZ_TAX.futa,
+      backgroundColor: VZ_TAX.futa + 'cc',
+      borderWidth: THIN_W,
+      pointRadius: 0,
+      tension: 0.25,
+      fill: true,
+      spanGaps: false,
+      stack: 'tax',
+      order: 2
+    },
+    {
       label: 'Foreign tax credit',
       data: alignedFtc,
       borderColor: VZ_TAX.ftc,
@@ -293,6 +348,7 @@ function buildTaxChart() {
       data: alignedStateTop,
       irmaaAmt: alignedState,
       ciValues: alignedState,
+      stackAdd: alignedState, // counted in the stack-total popup (chartInfo.js ciElementAt)
       borderColor: VZ_TAX.state,
       backgroundColor: 'transparent',
       borderWidth: THIN_W,
@@ -362,6 +418,7 @@ function buildTaxChart() {
           mrow('  from pushing qualified income into a higher tier', ((r.marginalQual || 0) * 100).toFixed(1) + '%')
         );
       lines.push(mrow('Total tax (TT)', fmt(r.totalTax) + '/yr'));
+      if (r.payrollTax > 0) lines.push(mrow('Payroll tax (an expense, not deducted from income)', fmt(r.payrollTax) + '/yr'), mrow('Total tax + payroll tax', fmt(r.totalTax + r.payrollTax) + '/yr'));
       if (r.stateTax > 0) lines.push(mrow('Total tax + state tax', fmt(r.totalTax + r.stateTax) + '/yr')); // the state tax itself is already listed above as a series
       if (viewIrmaaAsTax && r.expIrmaa > 0) lines.push(mrow('Total tax + IRMAA', fmt(r.totalTax + r.expIrmaa) + '/yr'));
       if (showDetails) {
@@ -372,7 +429,13 @@ function buildTaxChart() {
         lines.push(mrow(r.usedItemized ? 'Itemized deduction (LTC)' : 'Standard deduction', '(' + fmt(r.std) + ')'));
         if (r.seniorDeduction > 0) lines.push(mrow('Enhanced senior deduction (Schedule 1-A)', '(' + fmt(r.seniorDeduction) + ')'));
         // All income components rolling up to AGI (§9.4: "AGI = all non-SS income + TSS").
-        lines.push(mrow('  Wages', fmt(r.wageTotal) + '/yr'));
+        if (r.grossWageTotal > 0 || r.stockWageTotal > 0) {
+          lines.push(mrow('  Gross wage', fmt(r.grossWageTotal) + '/yr'));
+          if (r.pretaxContribTotal > 0) lines.push(mrow('  less pre-tax IRA/401(k) contribution', '(' + fmt(r.pretaxContribTotal) + ')/yr'));
+          if (r.stockWageTotal > 0) lines.push(mrow('  plus stock-option gains (wage)', fmt(r.stockWageTotal) + '/yr'));
+        }
+        lines.push(mrow('  Wages (ordinary-income component, before payroll tax)', fmt(r.wageTaxableTotal) + '/yr'));
+        if (r.stockLtcgTotal > 0) lines.push(mrow('  Stock-option gains taxed as LTCG (inside LTCG)', fmt(r.stockLtcgTotal) + '/yr'));
         lines.push(mrow('  Pension', fmt(r.pension) + '/yr'));
         lines.push(mrow('  Rental', fmt(r.rental) + '/yr'));
         if (r.annuity > 0) lines.push(mrow('  Annuity payouts (taxable part)', fmt(r.annuity) + '/yr'));

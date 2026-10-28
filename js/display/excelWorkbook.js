@@ -187,5 +187,5 @@ function xlsxTable(sh, top, cols, rows, opts) {
 function xlsxSelectedState() {
   const t = state.stateTax;
   if (!t || !t.enabled) return null;
-  return t.state === 'WA' ? 'WA' : 'CA';
+  return t.state === 'WA' ? 'WA' : t.state === 'NY' || t.state === 'NYC' ? t.state : 'CA';
 }

@@ -61,6 +61,7 @@ function renderCharts() {
   }
   buildAllCharts();
   captureChartYMax();
+  if (typeof syncAgeRangeInput === 'function') syncAgeRangeInput();
 }
 
 function renderAll() {

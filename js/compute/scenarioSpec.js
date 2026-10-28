@@ -392,10 +392,10 @@ const SPEC_LEVERS = {
     }
   },
   stateTax: {
-    desc: 'Turn state income tax on/off (CA or WA).',
-    params: {enabled: SPEC_ENABLED, state: {type: 'string', desc: 'CA or WA'}},
+    desc: 'Turn state income tax on/off (CA, WA, NY = New York State, or NYC = New York State + New York City resident).',
+    params: {enabled: SPEC_ENABLED, state: {type: 'string', desc: 'CA, WA, NY or NYC'}},
     req: [],
-    check: a => (a.state == null || ['CA', 'WA'].includes(a.state) ? null : 'state must be CA or WA'),
+    check: a => (a.state == null || ['CA', 'WA', 'NY', 'NYC'].includes(a.state) ? null : 'state must be CA, WA, NY or NYC'),
     label: a => (a.enabled === false ? 'State tax off' : 'State tax ' + (a.state || 'on')),
     apply(s, a) {
       s.stateTax.enabled = a.enabled !== false;

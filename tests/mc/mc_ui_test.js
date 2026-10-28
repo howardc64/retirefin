@@ -24,15 +24,19 @@ const document={
 };
 const charts=[];
 class Chart{
-  constructor(canvas,config){ this.canvas=canvas; this.config=config; this.data=config.data; this.options=config.options; this.updates=0; this.destroyed=false; charts.push(this); }
+  constructor(canvas,config){ this.canvas=canvas; this.config=config; this.data=config.data; this.options=config.options; this.updates=0; this.destroyed=false; this.ctx={}; charts.push(this); }
   update(){ this.updates++; } destroy(){ this.destroyed=true; } resize(){ this.resized=(this.resized||0)+1; }
 }
 Chart.registry={plugins:{get(){return null}}}; Chart.register=()=>{}; Chart.defaults={};
 const store={};
+// Chart transitions (chartTweenStart in display/chartHelpers.js) glide the data from the old values to the new ones over several animation frames, so right after a view switch a chart still
+// holds the OLD values; flushRaf() runs the queued frames with a fake clock until every transition has ended, and the assertions below read the final state.
+const rafQ=[]; let fakeNow=0, rafId=0;
+const flushRaf=()=>{ for(let n=0;rafQ.length&&n<200;n++){ fakeNow+=100; const q=rafQ.splice(0); q.forEach(e=>e.f(fakeNow)); } };
 const seeded=Object.create(Math); let _n=0; seeded.random=()=>{_n=(_n*9301+49297)%233280; return (_n+1)/233281;};
 const ctx={console, document, Chart, Math:seeded, JSON, Date, Number, Object, Array, String, Set, Map, Promise, parseFloat, parseInt, isFinite, isNaN,
   localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v},removeItem:k=>{delete store[k]}},
-  setTimeout:(f)=>0, clearTimeout(){}, requestAnimationFrame(){}, Blob:function(){}, URL:{createObjectURL(){return ''}, revokeObjectURL(){}},
+  setTimeout:(f)=>0, clearTimeout(){}, requestAnimationFrame(f){ rafQ.push({id:++rafId,f}); return rafId; }, cancelAnimationFrame(id){ const i=rafQ.findIndex(e=>e.id===id); if(i>=0) rafQ.splice(i,1); }, performance:{now:()=>fakeNow}, Blob:function(){}, URL:{createObjectURL(){return ''}, revokeObjectURL(){}},
   alert(){}, confirm(){return true}, prompt(){return null}, fetch:()=>Promise.reject(new Error('no fetch')), navigator:{}, location:{protocol:'file:',href:''}};
 ctx.window=ctx; ctx.globalThis=ctx; ctx.self=ctx; ctx.addEventListener=()=>{};
 vm.createContext(ctx);
@@ -154,9 +158,10 @@ ok(run(`mcTrialView.view`)==='A' && !run(`mcShowingTrial()`) && run(`lastProject
 ok(run(`JSON.stringify(chartYMax)`)===ymaxB,'Y scales are identical on A and B (the flip changes only the data)');
 ok(banner.innerHTML.includes('mc-ab-btn on')&&/A &middot; Scenario/.test(banner.innerHTML),'banner A/B control highlights A');
 ok(run(`inhArrivals()`).some(a=>a.files.includes('donor')) && run(`(()=>{const l=ltcCounts([60,61]); return true})()`),'A uses the real plan for overlays');
+flushRaf();
 let infA=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, vals:c.data.datasets[1]&&c.data.datasets[1].data.filter(x=>x!=null).length}})()`);
 ok(infA.n===3&&infA.vals===0,'inflation chart on A: trial line empty, same three datasets');
-run(`mcAbToggle()`); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.data.datasets[1].data.filter(x=>x!=null).length`)>=run(`mcTrialView.proj.rows.length`)-1,'toggle (key B) flips back to B and the trial inflation line returns');
+run(`mcAbToggle()`); flushRaf(); ok(run(`mcTrialView.view`)==='B' && run(`charts.inflation.data.datasets[1].data.filter(x=>x!=null).length`)>=run(`mcTrialView.proj.rows.length`)-1,'toggle (key B) flips back to B and the trial inflation line returns');
 // C: cycles through successful runs; B stays the trial that was loaded
 { const c=run(`(()=>{ const b0=mcTrialView.b.trial, out={};
     mcCPress(); out.v1=mcTrialView.view; out.t1=mcTrialView.trial; out.ok1=mcResults.results[mcTrialView.trial].failK<0; out.shown1=mcTrialShown()===mcTrialView.c.proj; out.cur1=mcTrialView.cur;

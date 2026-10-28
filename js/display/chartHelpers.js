@@ -42,9 +42,10 @@ const DEDUCTION_COLOR = '#D62828'; // red dashed deduction line on the taxable o
 // components (provisional income, AGI, standard deduction, etc.) called out as
 // show_details-only in the chart specs (§8.3, §9.3.1, §9.4, §10). Tooltip callbacks read
 // this live (not captured), so toggling it needs no chart rebuild — just re-hover.
+// Set by the header's Chart Tooltip menu (chartInfo.js setChartTip): true only in "Complete" mode.
 let showDetails = false;
-// "Popup Verbose" checkbox (header, right of Chart Element): off = the Chart Element popup keeps its name, who / when and key numbers but trims the explanatory paragraph to its first sentence.
-let popupVerbose = false;
+// Chart Tooltip = None: no chart popup at all.
+let chartTipOff = false;
 const IRMAA_LINE_OFF = 'rgba(0,0,0,0)'; // colour the "view IRMAA as tax" line fades to when off
 let viewIrmaaAsTax = false; // Total Income Tax chart: draw the IRMAA surcharge as a dashed line above the tax stack
 // ── Tooltip layout (spec §5: label left-justified, data right-justified) ──
@@ -78,7 +79,7 @@ const TIP_STYLE = {
 // This renders the same lines (already padded by justifyTip, in one monospace font) into a floating <div> that can
 // extend past the canvas edge, and flips to the left of the cursor when it would run off the window.
 function externalTooltip(context) {
-  if (typeof chartInfo !== 'undefined' && chartInfo) return; // Chart Element mode: chartInfo.js owns the popup
+  if (typeof chartInfo !== 'undefined' && chartInfo) return; // Components mode: chartInfo.js owns the popup
   const {chart, tooltip} = context;
   let el = document.getElementById('extTooltip');
   if (!el) {
@@ -96,7 +97,7 @@ function externalTooltip(context) {
   el.style.whiteSpace = 'pre';
   el.style.maxWidth = 'none'; // (Chart Element mode wraps its text)
   const GLIDE = 'opacity .12s, left .3s cubic-bezier(.25,1,.5,1), top .3s cubic-bezier(.25,1,.5,1)';
-  if (!tooltip || tooltip.opacity === 0) {
+  if (chartTipOff || !tooltip || tooltip.opacity === 0) {
     el.style.transition = 'opacity .12s';
     el.style.opacity = 0;
     el._shown = false;
@@ -310,10 +311,36 @@ function alignToAges(ages, values, labels) {
 }
 // Shared X-axis end for every age-axis chart (spec §6.2): P0's age on the day the younger
 // person turns 100. Depends only on current ages, so the scale stays locked as sliders move.
+// Default end of the shared age axis (the Age range box above the charts): the age of the last passing plus the IRA stretch years (when any IRA / Roth stretch carries on past it).
+// The stretch rows run from the last passing, so their last age is the end; without a stretch the axis ends at the passing (one year after the last projected row).
+function chartDefaultMaxAge(proj) {
+  const rows = proj && proj.rows;
+  if (!rows || !rows.length) return 100;
+  const st = proj.stretch && proj.stretch.length ? proj.stretch[proj.stretch.length - 1] : null;
+  const end = st && Number.isFinite(st.age0) ? st.age0 : rows[rows.length - 1].age0 + 1;
+  return Math.max(Math.round(rows[0].age0) + 1, Math.round(end));
+}
+// End of the shared age axis: the Age range entry (state.ui.maxAge, display only) capped at the default above; blank = the default.
 function chartMaxAge(proj) {
+  const d = chartDefaultMaxAge(proj);
+  const u = Math.round(Number(state && state.ui && state.ui.maxAge));
   const r0 = proj && proj.rows && proj.rows[0];
-  const ages = r0 && r0.ages ? r0.ages.filter(Number.isFinite) : [];
-  return ages.length && Number.isFinite(r0.age0) ? Math.ceil(r0.age0 + 100 - Math.min(...ages)) : 100;
+  return u > 0 ? Math.min(d, Math.max(u, r0 ? Math.round(r0.age0) + 1 : u)) : d;
+}
+function syncAgeRangeInput(force) {
+  const el = document.getElementById('ageRangeInput');
+  if (!el || !lastProjection || (!force && document.activeElement === el)) return;
+  el.max = chartDefaultMaxAge(lastProjection);
+  el.value = chartMaxAge(lastProjection);
+}
+function onAgeRangeInput(val, commit) {
+  if (!state.ui) state.ui = {};
+  const n = Math.round(Number(val));
+  state.ui.maxAge = n > 0 ? n : null;
+  if (commit) syncAgeRangeInput(true);
+  if (typeof renderCharts === 'function') renderCharts();
+  if (commit) syncAgeRangeInput(true);
+  if (typeof saveDebounced === 'function') saveDebounced();
 }
 function ageLabelRange(fromAge, toAge) {
   const labels = [];

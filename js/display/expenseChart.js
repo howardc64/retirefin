@@ -3,7 +3,7 @@
 // DISPLAY / HOUSEHOLD EXPENSES CHART — stacked expense components
 // (living, income tax, IRMAA surcharge, AUM fee), same style as the
 // Total Income Tax chart. Reads projection rows only (§4.6 row schema:
-// expLiving, expTax, expIrmaa, expAum, expTotal + the funding split).
+// expLiving, expTaxFed, expTaxState, expIrmaa, expAum, expTotal + the funding split).
 // ═══════════════════════════════════════════════════════════════
 const CI_EXP = [
   [
@@ -15,8 +15,20 @@ const CI_EXP = [
     'Long Term Care cost for each person while care is needed, as set in the LTC panel. It is the only expense that can be itemized (the part above 7.5% of AGI).'
   ],
   [
-    /^Income tax/,
-    'Income tax paid as an expense ("tax drag"): federal tax + NIIT + state tax, less any tax already paid out of a property sale. It is paid from income first, then dividends, asset sales or IRA withdrawals.'
+    /^Federal income tax/,
+    'Federal income tax paid as an expense ("tax drag"): federal tax + NIIT, less the federal share of any tax already paid out of a property sale. It is paid from income first, then dividends, asset sales or IRA withdrawals.'
+  ],
+  [
+    /^State income tax/,
+    'State income tax paid as an expense, from the State income tax panel (less the state share of any tax already paid out of a property sale). It is paid from income first, then dividends, asset sales or IRA withdrawals.'
+  ],
+  [
+    /^Payroll tax/,
+    'Payroll tax on wages and stock-option wage gains: Social Security and Medicare, Additional Medicare Tax, FUTA, and California SDI or Washington PFML / WA Cares when State income tax is on for that state. Paid like any expense (income first, then dividends, asset sales). Not deductible from income.'
+  ],
+  [
+    /^Roth IRA\/401/,
+    "Roth IRA/401(k) contribution from the Wage card: after-tax money paid like any expense (income first, then dividends, asset sales) and added to the Roth account."
   ],
   [/^IRMAA/, 'Medicare Part B + D income-related surcharge, per person on Medicare, based on MAGI from two years earlier.'],
   [
@@ -29,17 +41,20 @@ const infoExpense = ds => {
   const pick = t => infoFromTable(t, ds);
   return pick(CI_EXP);
 };
-const VZ_EXP = {living: '#3F7CAC', tax: '#C8600A', irmaa: '#17A398', aum: '#7B3FBE', ltc: '#B5384B'};
+const VZ_EXP = {living: '#3F7CAC', tax: '#C8600A', stateTax: '#00A8CC', irmaa: '#17A398', aum: '#7B3FBE', ltc: '#B5384B', roth: '#5C8A2E', payroll: '#E3B505'};
 // Bottom → top stack order.
-const EXP_KEYS = ['expLiving', 'expLtc', 'expTax', 'expIrmaa', 'expAum'];
+const EXP_KEYS = ['expLiving', 'expLtc', 'expRoth', 'expPayroll', 'expTaxFed', 'expTaxState', 'expIrmaa', 'expAum'];
 const EXP_LABELS = {
   expLiving: 'Living expenses',
   expLtc: 'Long Term Care',
-  expTax: 'Income tax (tax drag)',
+  expRoth: 'Roth IRA/401(k) contribution',
+  expPayroll: 'Payroll tax',
+  expTaxFed: 'Federal income tax (tax drag)',
+  expTaxState: 'State income tax (tax drag)',
   expIrmaa: 'IRMAA surcharge',
   expAum: 'AUM fee'
 };
-const EXP_COLORS = {expLiving: VZ_EXP.living, expLtc: VZ_EXP.ltc, expTax: VZ_EXP.tax, expIrmaa: VZ_EXP.irmaa, expAum: VZ_EXP.aum};
+const EXP_COLORS = {expLiving: VZ_EXP.living, expLtc: VZ_EXP.ltc, expRoth: VZ_EXP.roth, expPayroll: VZ_EXP.payroll, expTaxFed: VZ_EXP.tax, expTaxState: VZ_EXP.stateTax, expIrmaa: VZ_EXP.irmaa, expAum: VZ_EXP.aum};
 // Red UNFUNDED tag inside the Annual expenses panel (right of its Rescale button) when any year's expenses could not be funded: the first age it happens (and the last, if it runs on),
 // by the same age the chart's x axis uses (the older person's), plus the total shortfall in today's $.
 function buildExpenseAlert(proj) {

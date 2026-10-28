@@ -32,7 +32,7 @@ function defaultAgeRangedItem(amount, changeMode, changeVal, startMode, startVal
 // for non-IDGT portfolios, as they behaved before.
 // `reinvest` flag (default OFF): household income left over after ALL expenses are paid is reinvested, pro rata to start-of-year
 // balance, into the portfolios with it checked (added to balance and to cost basis at year-end). Older saves load with it off.
-// `aum` (default off; always off for IDGT): the portfolio's balance counts toward the AUM balance the household AUM fee is charged on
+// `aum` (default off, IDGT or not): the portfolio's balance counts toward the AUM balance the household AUM fee is charged on
 // (`state.aumFee`, Expenses panel). The fee, the household IRMAA surcharge, living expenses and income tax are all
 // funded by household income first, then portfolio dividends, then asset sales (which realize LTCG).
 // Cost-basis / unrealized-gain tracking (spec §4.6, cost basis). Every portfolio is tracked: household expenses
@@ -188,6 +188,29 @@ function defaultInheritedIra() {
     inh: null
   };
 }
+// One stock option / RSU grant (Stock options card, per person, any number). Dates are (quarter 1–4, year); a quarter's vest and release happen on its last day.
+//   shares, grantPrice (strike, $/share, nominal — it erodes with inflation in today's $; 0 for an RSU), marketPrice ($/share, today's $, held flat in today's $)
+//   vestQ / vestY: first quarter shares vest; vestN: number of quarters (equal installments, one per quarter, the first at the end of the vest-start quarter)
+//   relQ / relY: the first release date; a first release delivers everything vested by then ("1st year"), then one release per quarter delivers what vested that quarter
+//   wage: the gain (market − grant price) × shares is wage income (ordinary income + payroll tax); unchecked, it is taxed as a long-term capital gain
+//   showAll: list every release (including those before today, which the projection skips)
+function defaultStockGrant(n) {
+  return {
+    id: uid(),
+    name: '',
+    shares: 0,
+    grantPrice: 0,
+    marketPrice: 0,
+    marketFuture: false, // market price is in today's $ (default) or in future $ (flat nominal price)
+    vestQ: Math.ceil(THIS_MONTH / 3),
+    vestY: THIS_YEAR,
+    vestN: 16,
+    relQ: Math.ceil(THIS_MONTH / 3),
+    relY: THIS_YEAR,
+    wage: true,
+    showAll: false
+  };
+}
 function defaultPerson(idx) {
   const by = THIS_YEAR - (idx === 0 ? 63 : 61);
   return {
@@ -195,7 +218,10 @@ function defaultPerson(idx) {
     name: 'Person ' + (idx + 1),
     birthYear: by,
     birthMonth: 1,
-    wage: {enabled: false, hidden: true, amount: 0, ar: defaultAgeRange('now', 0, 'custom', 65), change: defaultChange('inflation')},
+    // wage: `amount` = gross annual wage (today's $); `pretax` = the pre-tax IRA/401(k) contribution out of it (today's $, flat in today's $; it reduces the wage and goes into the Pre-tax IRA/401(k) card's
+    // account); `roth` = the Roth IRA/401(k) contribution (today's $; paid from after-tax cash as a household expense and added to the Roth IRA/401(k) account). Both need the matching card turned on.
+    wage: {enabled: false, hidden: true, amount: 0, pretax: 0, roth: 0, ar: defaultAgeRange('now', 0, 'custom', 65), change: defaultChange('inflation')},
+    stock: {enabled: false, hidden: true, grants: []}, // Stock options card (input/stock.js): any number of grants, see defaultStockGrant
     ss: {enabled: true, hidden: false, pia: 0, fra: fraForBirthYear(by), started: false, claimAge: fraForBirthYear(by)},
     pension: defaultAgeRangedItem(0, 'inflation', 0, 'now', 0, 'passing', 0),
     annuities: [], // any number of annuities (see defaultAnnuity); Add/Remove on the Annuity card
@@ -429,7 +455,7 @@ const ASSUMP_HIDE_DEFAULT = {
   futureTax: true
 };
 // Display order of the income-source cards (`state.ui.incomeOrder`), shared by every person column so married spouses reorder together.
-const INCOME_CARD_KEYS = ['wage', 'ss', 'pension', 'rental', 'brokerage', 'realestate', 'annuity', 'ira', 'roth', 'inhira', 'inheritance'];
+const INCOME_CARD_KEYS = ['wage', 'stock', 'ss', 'pension', 'rental', 'brokerage', 'realestate', 'annuity', 'ira', 'roth', 'inhira', 'inheritance'];
 // A saved order is kept as far as it is valid: unknown / duplicate keys are dropped and any card missing from it (e.g. one added
 // after the save was written) is appended in its default position order.
 function normalizeIncomeOrder(o) {
@@ -437,8 +463,18 @@ function normalizeIncomeOrder(o) {
   (Array.isArray(o) ? o : []).forEach(k => {
     if (INCOME_CARD_KEYS.includes(k) && !out.includes(k)) out.push(k);
   });
-  INCOME_CARD_KEYS.forEach(k => {
-    if (!out.includes(k)) out.push(k);
+  INCOME_CARD_KEYS.forEach((k, ki) => {
+    if (out.includes(k)) return;
+    // a card the saved order does not know yet (e.g. Stock options in an older save) goes right after the card that precedes it by default
+    let at = out.length;
+    for (let j = ki - 1; j >= 0; j--) {
+      const pos = out.indexOf(INCOME_CARD_KEYS[j]);
+      if (pos >= 0) {
+        at = pos + 1;
+        break;
+      }
+    }
+    out.splice(at, 0, k);
   });
   return out;
 }

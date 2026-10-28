@@ -1,10 +1,10 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// INPUT / ROTH IRA — "Roth IRA" card (spec §4.4).
+// INPUT / ROTH IRA/401(k) — "Roth IRA / 401(k)" card (spec §4.4).
 // ═══════════════════════════════════════════════════════════════
 function buildRothCard(pid, p, married) {
   return `<div class="item">
-      ${cardHeader('Roth IRA', pid + '.roth.enabled', p.roth.enabled, pid + '.roth.hidden', !!p.roth.hidden)}
+      ${cardHeader('Roth IRA / 401(k)', pid + '.roth.enabled', p.roth.enabled, pid + '.roth.hidden', !!p.roth.hidden)}
       <div class="item-body ${p.roth.hidden ? '' : 'open'}">
         <div class="field full"><label>Current balance (today's $)</label>
           <input type="number" class="money" min="0" step="5000" value="${p.roth.balance || 0}" oninput="onNumberInput('${pid}.roth.balance', this.value)"></div>

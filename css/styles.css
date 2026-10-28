@@ -150,6 +150,8 @@ footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text-faint
 .scale-bar{display:flex;flex-wrap:wrap;gap:6px;background:var(--bg);padding:2px 0 10px;}
 .scale-btn{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);border-radius:20px;font-size:11px;font-weight:400;padding:4px 11px;color:var(--text-muted);font-family:inherit;line-height:1.2;}
 .scale-btn:hover{background:var(--border);}
+.age-range{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);margin-left:6px;}
+.age-range input{width:52px;font-size:11px;padding:3px 5px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface2);color:inherit;font-family:inherit;}
 .scale-btn.grid-toggle{margin-left:6px;border-color:var(--teal);color:var(--teal-text);font-weight:500;}
 .chart-grid{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:var(--card-gap);align-items:start;}
 .chart-panel{grid-row:var(--gr);grid-column:var(--gc);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 8px 8px;min-width:0;}
@@ -209,7 +211,7 @@ body.grid-3 .big-btn{display:inline-block;}
 .input-col::-webkit-scrollbar,.chart-col::-webkit-scrollbar{width:8px;}
 .input-col::-webkit-scrollbar-track,.chart-col::-webkit-scrollbar-track{background:transparent;}
 .input-col::-webkit-scrollbar-thumb,.chart-col::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px;}
-.chart-col{padding-top:0;}   /* the sticky .scale-bar supplies the top gap itself, so scrolled charts can't show through above it */
+.chart-col{padding-top:0;scrollbar-gutter:stable;}   /* the sticky .scale-bar supplies the top gap itself, so scrolled charts can't show through above it */
 .input-col .sec-head:first-child{margin-top:0;}
 @media (max-width:960px){
   .layout{grid-template-columns:1fr;gap:0;}

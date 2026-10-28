@@ -45,7 +45,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 - **Charts** for Social Security claiming age, annual income, taxes, expenses, asset value, IRA, LTCG and inheritance income.
 - **Monte Carlo simulation**: re-runs the scenario with random returns, lifespans, care, inflation and inheritance, then lets you load any single trial into the charts.
 - **Inheritance** from another plan file, and **two plans linked live** (parent in one tab, heir in another).
-- **Drag to reorder** the income cards (spouses move together); the order is saved with the plan.
+- **Drag to reorder** the income cards (spouses move together, the Inheritance card included); the order is saved with the plan.
 - **Save / load** plans, **Export Excel**, a **Formulas** reference and an optional **chat** to ask about your scenario and run what-ifs that are charted for you.
 
 ## Household and planning panels
@@ -64,7 +64,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 | Household living expenses | Yearly spending in today's $. |
 | Long Term Care | Single household: starts at $7,500. Married: the 1st LTC expenses follow your living expenses until you change them; the 2nd defaults to $15,000. |
 | Expense shortfall withdrawal order | Lets you choose where money comes from when income and dividends do not cover the year's expenses (below). |
-| Advisory (AUM) fee | Fee on every account whose *AUM* box is checked: *Living expense & income* portfolios, pre-tax IRAs, Roth IRAs and inherited IRAs (IRAs count at their start-of-year balance before the RMD); IDGTs are never charged. |
+| Advisory (AUM) fee | Fee on every account whose *AUM* box is checked: *Living expense & income* portfolios, pre-tax IRAs, Roth IRAs and inherited IRAs (IRAs count at their start-of-year balance before the RMD); *IDGT* portfolios too, when their AUM box is checked (off by default). |
 | Spending guardrails | Off by default. Cuts next year's discretionary spending when the withdrawal rate drifts too high (below). |
 | Late-life medical shock | Off by default. An extra, itemized medical cost for a few years late in life (below). |
 
@@ -100,7 +100,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 **Asset / basis swap:**
 - When checked, living-portfolio assets are swapped, value for value, with IDGT assets. The basis moves in proportion to the assets traded, so the IDGT ends up with the high-basis assets and the living portfolio with the low-basis ones, which step up at the last passing.
 - Enter how many **years before the last passing** to swap. If married, the swap is also done the year after the first person passes, when that person's portfolio steps up (no value needed).
-- A swap only happens where the IDGT's assets have a lower basis % than the living portfolio's, and both portfolios must track cost basis. The amount is the smaller of the two values.
+- A swap only happens where the IDGT's assets have a lower basis % than the living portfolio's, and both portfolios must track cost basis. The amount is the smaller of the two values; with several IDGTs it is prorated across all of them by the value each has left.
 - A swap is only between portfolios held by the same person. A portfolio marked **Joint owned with spouse** is held by the spouse once its owner has passed; one without it is gone, so it cannot be swapped.
 - Because the living portfolio then holds low-basis assets, it realizes more gain if it sells to pay expenses.
 
@@ -132,7 +132,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 | Type | Behavior |
 |---|---|
 | *Living expense & income* (default) | Its dividends and sales pay household expenses; excess income is reinvested into it (if Reinvest excess income is checked). |
-| *IDGT* | Outside the taxable estate; charted separately; does not pay expenses or receive excess income; never charged the AUM fee. |
+| *IDGT* | Outside the taxable estate; charted separately; does not pay expenses or receive excess income. Its *AUM* box (off by default) counts its balance toward the AUM fee. |
 
 ### Distributed LTCG
 
@@ -150,7 +150,7 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 
 ### Reordering cards
 
-- Drag the ⋮⋮ handle at the left of any income card (Social Security, wages, pension, rentals, brokerage, real estate, annuities, IRA, Roth) and drop it above or below another card.
+- Drag the ⋮⋮ handle at the left of any income card (Social Security, wages, pension, rentals, brokerage, real estate, annuities, IRA, Roth, Inheritance) and drop it above or below another card.
 - In a married scenario both spouses' cards of that type move together.
 - The order is saved with the plan and restored when you load it.
 - Drag and drop works with a mouse or pen; it is not available on touch screens.
@@ -200,10 +200,8 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 
 | Control | What it does |
 |---|---|
-| **Input Element** (checked by default) | Hovering an input (a box, slider, checkbox, radio button, button or its label) shows a short description. Drop-down menus show each choice's description as you move the cursor over it. |
-| **Chart Element** (checked by default) | Hovering a chart shows a description of the element under the cursor (a band, bracket, IRMAA, deduction or cost-basis line, a Social Security claiming-age line, the LTC bar, the 10 year IRA stretch bar, a passing line, the faded red unfunded band) instead of that year's numbers. The **LTC bar** popup names who is on care that year with their age and when each person's care starts; a **passing line** (within a few pixels) names who passes, their age and the year; the **faded red band** (over an empty part of the plot) shows the year's shortfall, when the money first ran out and who is living. On a stacked chart, pointing slightly above the top of the stack (within about 12 pixels) shows the **total of the whole stack** at that age, for example *Total income* or *Total asset value*; pointing at or below the top edge picks the top band, so a thin band at the top stays reachable. Uncheck it for the usual value popups. |
-| **Popup Details** | Adds the line-by-line breakdown to the value popups on the main charts. |
-| **Popup Verbose** (unchecked by default) | Right of Chart Element. Unchecked, Chart Element popups keep the name, who / when and key numbers but trim the explanation to one short sentence (the Inflation and Market return charts show just "Yearly inflation the scenario assumes", "Nominal yearly return" or "Centered 5-year average"). Checked, the full explanation is shown. Popups use one fixed see-through dark background (there is no light / dark slider). |
+| **Input Tooltip** (checked by default) | Hovering an input (a box, slider, checkbox, radio button, button or its label) shows a short description. Drop-down menus show each choice's description as you move the cursor over it. |
+| **Chart Tooltip** (menu: None / **Components** (default) / Complete) | **None**: charts show no popup. **Components**: hovering a chart shows a description of the element under the cursor (a band, bracket, IRMAA, deduction or cost-basis line, a Social Security claiming-age line, the LTC bar, the 10 year IRA stretch bar, a passing line, the faded red unfunded band) instead of that year's numbers. The **LTC bar** popup names who is on care that year with their age and when each person's care starts; a **passing line** (within a few pixels) names who passes, their age and the year; the **faded red band** (over an empty part of the plot) shows the year's shortfall, when the money first ran out and who is living. On a stacked chart, pointing slightly above the top of the stack (within about 12 pixels) shows the **total of the whole stack** at that age, for example *Total income* or *Total asset value*; pointing at or below the top edge picks the top band, so a thin band at the top stays reachable. Uncheck it for the usual value popups. The explanation is kept to its key numbers and one short sentence. **Complete**: the usual per-year value popups with the line-by-line breakdown. |
 
 The small charts beside Annual Household Income, Total Income Tax and Asset Value show the scenario owner(s) and age, then only their own values.
 
@@ -221,7 +219,7 @@ The small charts beside Annual Household Income, Total Income Tax and Asset Valu
 | **Social Security — Start Age Analysis** | Cumulative household Social Security for different claiming ages. | Social Security is on |
 | **Annual Household Income** (with MAGI, Taxable ordinary and Taxable qualified charts) | Income by source (details below). | Always |
 | **Social Security Tax** and **Total Income Tax** | Tax by source and by income type. Total Income Tax has two small charts on the right: Ordinary income tax, and qualified dividend / long-term gain / NIIT tax. Check **view IRMAA as tax** to add the IRMAA surcharge above the tax stack as a dashed line. | Always |
-| **Household Expenses** | Living, long-term care, IRMAA, AUM fee and income tax. | Always |
+| **Household Expenses** | Living, long-term care, IRMAA, AUM fee, payroll tax, and income tax (federal and state as separate bands). | Always |
 | **Asset Value** | Balances by holder (details below). | Always |
 | **IDGT value** | The second chart for IDGT portfolios. | A portfolio's type is IDGT |
 | **IRA** | Everything that leaves the pre-tax IRAs each year (details below). | A pre-tax IRA is on, or an inherited IRA pays out |
@@ -257,7 +255,7 @@ The four charts are the same size, in a 2 × 2 grid.
   - The deduction is taken off the bottom of the stack, so each ordinary band is that source's taxable part.
   - Black dashed lines mark the ordinary tax brackets, each labeled with its rate. The Roth conversion "below ordinary bracket" limit stops at one of these lines.
   - A red dashed line sits above the stack by the amount of the deduction (so it marks your ordinary income before the deduction). It is in the main income chart's legend and left out in years with no deduction absorbed.
-  - Its popup shows the owner(s) and age, the ordinary income before the deduction, the deduction and the taxable ordinary income. Qualified income and total taxable income are in the main popup when Popup Details is on.
+  - Its popup shows the owner(s) and age, the ordinary income before the deduction, the deduction and the taxable ordinary income. Qualified income and total taxable income are in the main popup when the Chart Tooltip menu is on Complete.
 - **Taxable qualified income chart** (bottom right):
   - Taxable qualified dividends and long-term gains, stacked in the same colors (ordinary income is not drawn). A deduction larger than your ordinary income shelters qualified income (the Qualified Dividends and Capital Gain Tax Worksheet), and the popup shows the sheltered amount. A red dashed line sits above the stack by that excess deduction (so it marks your qualified income before the deduction), as on the ordinary chart; it is left out in years where nothing is sheltered.
   - Two lines show where the **15%** and the **20%** rates start. They are not flat: qualified income sits on top of your taxable ordinary income, so each line is the bracket limit for your filing status minus that year's taxable ordinary income (never below 0), the room left before the rate steps up. They move as your ordinary income changes (IRA withdrawals, Roth conversions, Social Security). A line that is far above the data is left off the scale.
@@ -289,6 +287,7 @@ The four charts are the same size, in a 2 × 2 grid.
 
 | Control | What it does |
 |---|---|
+| **Age range** box (left of the Grid button) | The last age shown on every chart. Default and maximum: the age of the last passing plus the IRA stretch years; a blank or larger entry uses that. Display only: the Excel export and the projection are unchanged. Saved with the plan. |
 | **Grid** button (right of the Same scale buttons) | Switches between a **2×N** and a **3×N** grid; each size remembers its own arrangement. |
 | **Hide** box on a panel | Hides the chart; a hidden panel keeps its place as a title bar. On a fresh start (first visit, *Start fresh*, *Reset to defaults*) every chart starts hidden and rows that hold nothing are closed; a loaded file or autosave keeps its own Hide boxes. |
 | **↕ Rescale** | Refits only that chart's vertical scale. |
@@ -342,7 +341,7 @@ Each year's expenses are paid in this order:
 - The IRA and Roth balances in the charts drop by these amounts.
 - The pre-tax IRA withdraw appears as its own band in the Annual Household Income, MAGI and Taxable income charts (*Pre-tax IRA withdraw (for expenses)*).
 - The Roth IRA withdraw appears in the Annual Household Income chart as a tax-exempt band (*Roth IRA withdraw (tax-exempt, untaxed)*). It is not in MAGI or Taxable income because it is untaxed.
-- When some year's expenses cannot be paid at all, a red **UNFUNDED** tag appears in the Household Expenses panel, right of its Rescale button. Hover the chart with Chart Element on for the first and last age and who is living. A faint red band behind the data also marks every such year on every chart that runs by age.
+- When some year's expenses cannot be paid at all, a red **UNFUNDED** tag appears in the Household Expenses panel, right of its Rescale button. Hover the chart with Chart Tooltip on Components for the first and last age and who is living. A faint red band behind the data also marks every such year on every chart that runs by age.
 - No early-withdrawal penalty or age limit is modeled.
 
 ### Portfolio withdraw

@@ -119,7 +119,71 @@ const NIIT_RATE = 0.038,
 // today's $ like the federal tables (they are inflation-indexed by the states). Options offered in the panel: California, Washington.
 const STATE_TAX_OPTIONS = [
   ['CA', 'California'],
-  ['WA', 'Washington']
+  ['WA', 'Washington'],
+  ['NY', 'New York State'],
+  ['NYC', 'New York State + New York City (resident)']
+];
+// ── Payroll taxes (employee side) on wages and on stock-option gains that count as wages (compute/tax.js computePayrollTax). Tax year 2026.
+// Social Security (OASDI) 6.2% on wages up to the wage base; Medicare 1.45% on all wages; Additional Medicare Tax 0.9% on wages above $250,000 (married filing jointly,
+// both spouses' wages together) / $200,000 (single) — the statutory thresholds are NOT indexed, so like the NIIT thresholds they are deflated by `f` in today's $; FUTA (the
+// federal unemployment tax, net 0.6% after the state credit) on the first $7,000 of each person's wages (also not indexed). The wage base is indexed, so it is flat in today's $.
+const PAYROLL_SS_RATE = 0.062,
+  PAYROLL_SS_BASE = 184500,
+  PAYROLL_MED_RATE = 0.0145,
+  PAYROLL_ADDL_MED_RATE = 0.009,
+  PAYROLL_ADDL_MED_THRESH_MFJ = 250000,
+  PAYROLL_ADDL_MED_THRESH_SGL = 200000,
+  FUTA_RATE = 0.006,
+  FUTA_BASE = 7000,
+  // State payroll taxes, 2026: California SDI (employee-paid, no wage cap since 2024); Washington Paid Family & Medical Leave (total premium 1.13% up to the Social Security wage base, the
+  // employee pays 71.43%) and WA Cares long-term-care premium (employee-paid, no wage cap; a person with an approved private LTC policy can be exempt).
+  CA_SDI_RATE = 0.013,
+  WA_PFML_RATE = 0.0113,
+  WA_PFML_EMPLOYEE_SHARE = 0.7143,
+  WA_CARES_RATE = 0.0058;
+// ── New York State (resident) income tax, tax year 2026: rate schedule after the 2025 budget's 0.1-point cut of the first five rates (the 5.4% bracket is the one the
+// recapture below is measured from), the standard deduction, and the $20,000 pension / annuity exclusion for age 59½+ (Social Security is not taxed).
+const NY_ORD_SGL = [
+  {lim: 8500, r: 0.039},
+  {lim: 11700, r: 0.044},
+  {lim: 13900, r: 0.0515},
+  {lim: 80650, r: 0.054},
+  {lim: 215400, r: 0.059},
+  {lim: 1077550, r: 0.0685},
+  {lim: 5000000, r: 0.0965},
+  {lim: 25000000, r: 0.103},
+  {lim: Infinity, r: 0.109}
+];
+const NY_ORD_MFJ = [
+  {lim: 17150, r: 0.039},
+  {lim: 23600, r: 0.044},
+  {lim: 27900, r: 0.0515},
+  {lim: 161550, r: 0.054},
+  {lim: 323200, r: 0.059},
+  {lim: 2155350, r: 0.0685},
+  {lim: 5000000, r: 0.0965},
+  {lim: 25000000, r: 0.103},
+  {lim: Infinity, r: 0.109}
+];
+const NY_STD_SGL = 8000,
+  NY_STD_MFJ = 16050,
+  NY_PENSION_EXCL = 20000;
+// Tax-benefit recapture ("supplemental tax", IT-201-I tax computation worksheets): once NY AGI is over $107,650 the benefit of the lower brackets is taken back, a
+// tier at a time, over $50,000 of NY AGI each (see nyTax in compute/tax.js).
+const NY_RECAPTURE_START = 107650,
+  NY_RECAPTURE_BAND = 50000;
+// New York City resident tax on the same New York taxable income (no recapture, no deduction of its own). Rates do not change with the 2025 state cut.
+const NYC_ORD_SGL = [
+  {lim: 12000, r: 0.03078},
+  {lim: 25000, r: 0.03762},
+  {lim: 50000, r: 0.03819},
+  {lim: Infinity, r: 0.03876}
+];
+const NYC_ORD_MFJ = [
+  {lim: 21600, r: 0.03078},
+  {lim: 45000, r: 0.03762},
+  {lim: 90000, r: 0.03819},
+  {lim: Infinity, r: 0.03876}
 ];
 // California: Schedule X / Y brackets (MFJ limits are exactly double the single ones), standard deduction and exemption credits (FTB Tax News, October 2026, "2026 Indexing").
 // California does not tax Social Security and taxes capital gains as ordinary income. A 1% Mental Health Services surcharge applies to
