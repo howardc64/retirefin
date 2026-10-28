@@ -135,3 +135,7 @@ The glide added in 327 timed itself with the timestamp `requestAnimationFrame` h
 - **Age range box** left of the Grid button: the last age shown on every chart (`state.ui.maxAge`, saved with the plan, display only; Excel is unaffected). Default and maximum: the age of the last passing plus the IRA stretch years (`chartDefaultMaxAge`, `chartMaxAge`); blank or larger values fall back to that. The asset chart's stretch scrolling is no longer needed (the axis ends where the box says).
 - **Annual expenses**: the Payroll tax band is bright gold instead of olive, so it no longer blends with the other bands.
 - `tests/baseline.json` regenerated; Usage and Architecture docs updated.
+
+## 349 — Stretch IRA bar with a short Age range; Same scale ignores hidden charts and a stale scale
+- The red **stretch IRA** bar no longer appears (as a stub at the left edge) when the Age range box ends before the stretch years; if the stretch runs past the last age shown, the bar is cut there.
+- **Same scale** buttons leave out charts the user has hidden (their larger maxima only added empty space). Changing the **Age range** box refits every chart's Y scale (income, expense and tax on one common scale, hidden charts ignored) instead of keeping the scales fitted to the old range.

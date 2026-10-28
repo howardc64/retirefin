@@ -540,13 +540,17 @@ function buildAssetChartFor(cfg) {
 
   // Red bar + label above the stretch window (main chart only): starts at the first stretch year's age on the axis.
   // toIdx = the last stretch year (STRETCH_YEARS = 10 after the last passing): in a Monte Carlo trial / stress view the axis runs far past it, and the bar must not.
-  const stretchOpts = stretch.length
-    ? {
-        fromIdx: Math.max(0, labels.indexOf(Math.round(stretch[0].age0))),
-        toIdx: Math.max(0, labels.indexOf(Math.round(stretch[stretch.length - 1].age0))),
-        label: 'stretch IRA'
-      }
-    : null;
+  // Age range box: a stretch that starts beyond the last age shown draws no bar (indexOf would be -1); one that runs past it is cut at the axis end.
+  const stretchFrom = stretch.length ? labels.indexOf(Math.round(stretch[0].age0)) : -1;
+  const stretchTo = stretch.length ? labels.indexOf(Math.round(stretch[stretch.length - 1].age0)) : -1;
+  const stretchOpts =
+    stretchFrom >= 0
+      ? {
+          fromIdx: stretchFrom,
+          toIdx: stretchTo >= 0 ? stretchTo : labels.length - 1,
+          label: 'stretch IRA'
+        }
+      : null;
   upsertLineChart(cfg.key, {
     canvasId: cfg.canvasId,
     info: infoAsset,

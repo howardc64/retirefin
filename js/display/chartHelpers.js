@@ -337,8 +337,14 @@ function onAgeRangeInput(val, commit) {
   if (!state.ui) state.ui = {};
   const n = Math.round(Number(val));
   state.ui.maxAge = n > 0 ? n : null;
-  if (commit) syncAgeRangeInput(true);
-  if (typeof renderCharts === 'function') renderCharts();
+  // The locked Y scales were fitted to the old age range: refit every chart (like a new plan: the income, expense and tax charts start on one common scale).
+  Object.keys(chartYMax).forEach(k => (chartYMax[k] = null));
+  window.refitVisibleOnly = true; // the refit's common scale ignores hidden charts, like a Same-scale click
+  try {
+    if (typeof renderCharts === 'function') renderCharts();
+  } finally {
+    window.refitVisibleOnly = false;
+  }
   if (commit) syncAgeRangeInput(true);
   if (typeof saveDebounced === 'function') saveDebounced();
 }
@@ -427,8 +433,11 @@ const SCALE_LINK_GROUPS = {
   asset: ['asset', 'idgt']
 };
 // Set every drawn chart of a group to the group's largest current maximum. Returns true when anything changed.
-function applySameScale(name) {
-  const g = (Array.isArray(name) ? name : SCALE_LINK_GROUPS[name] || []).filter(k => chartAvail[k] !== false);
+function applySameScale(name, skipHiddenToo) {
+  // A Same-scale button click leaves out a chart the user has hidden: it is not on screen, and its (often much larger) maximum would only add empty space to the charts that are.
+  // (A new plan's starting common scale, passed as an array, covers every chart: they may be shown later.)
+  const hid = ((skipHiddenToo || !Array.isArray(name)) && state && state.ui && state.ui.chartHidden) || {};
+  const g = (Array.isArray(name) ? name : SCALE_LINK_GROUPS[name] || []).filter(k => chartAvail[k] !== false && !hid[k]);
   const vals = g.map(k => chartYMax[k]).filter(v => v != null);
   if (!vals.length) return false;
   const m = Math.max(...vals);

@@ -57,7 +57,7 @@ function renderCharts() {
     } finally {
       window.dryPass = false;
     }
-    applySameScale(DEFAULT_SAME_SCALE);
+    applySameScale(DEFAULT_SAME_SCALE, !!window.refitVisibleOnly);
   }
   buildAllCharts();
   captureChartYMax();
