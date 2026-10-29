@@ -396,7 +396,7 @@ function buildAssetChartFor(cfg) {
     // multiKeyBackground below); every cost-basis row gets a black dashed box with nothing inside it.
     labelColor: ctx => {
       if (ctx.datasetIndex >= series.length)
-        return {borderColor: '#000', backgroundColor: 'transparent', borderWidth: 2, borderDash: [3, 2], borderRadius: 0};
+        return {borderColor: CHART_THEME.ink, backgroundColor: 'transparent', borderWidth: 2, borderDash: [3, 2], borderRadius: 0};
       const c = colorOf[ctx.datasetIndex];
       return {borderColor: c, backgroundColor: hexOverWhite(c, 0xbb / 255), borderWidth: 3, borderRadius: 0};
     },

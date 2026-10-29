@@ -63,11 +63,11 @@ against the pre-refactor code showed identical output, so it also represents the
 `tests/mc/xlsx_trial_test.js` checks the Excel export of a Monte Carlo trial (the MC trial sheet, the deflator and account-sheet growth formulas, the trial's own Inputs) and that a plan still exports with constant-rate formulas. It needs only Node.
 For an end-to-end check, write the workbook with the real SheetJS (`npm i xlsx`), open it once in LibreOffice (or Excel) so it recalculates, and compare each formula cell with the value the app cached: there should be no differences.
 
-`tests/charts/stack_zero_test.js` checks the Chart Element stack total (a pointer slightly above the top of a stack gives the total of the filled bands; at or below the top edge gives the band) and the `zeroLine` plugin (`PLANNER_ROOT=. node tests/charts/stack_zero_test.js`, no browser).
+`tests/charts/theme_test.js` checks the light / dark chart theme (palettes, the system switch both ways, charts rebuilt, printing always light; `node tests/charts/theme_test.js`, no browser). `tests/charts/stack_zero_test.js` checks the Chart Element stack total (a pointer slightly above the top of a stack gives the total of the filled bands; at or below the top edge gives the band) and the `zeroLine` plugin (`PLANNER_ROOT=. node tests/charts/stack_zero_test.js`, no browser).
 
 `tests/chart_big_test.js` checks the Enlarge-a-chart layout model in 3×N (`node tests/chart_big_test.js`, no browser): 2×2 footprint, displaced charts, refusing overlapping blocks, drag clamping, row compaction, 2×N round trip, and that save → load keeps the flag. CSS sizing is not covered (check it in a browser).
 
-`tests/projection_golden_test.js` hashes the output of 77 projections (sample plans and variants) against `tests/projection_golden.json` and fails on any difference; run it (`PLANNER_ROOT=. node tests/projection_golden_test.js`) after any change to `projection.js`. Regenerate the file only for an intended change in results.
+`tests/projection_golden_test.js` hashes the output of 77 projections (sample plans and variants) against `tests/projection_golden.json` and fails on any difference; run it (`PLANNER_ROOT=. node tests/projection_golden_test.js`) after any change to `projection.js`. Regenerate the file only for an intended change in results. The test freezes "today" (15 June 2026): the engine ages people in whole months, so without that every projection changed from month to month and the golden file could only match in the month it was made.
 
 `tests/unit/rmd_niit_test.js` (RMD start age, NIIT on rentals and property sales) and `tests/unit/ca_credit_phaseout_test.js` (California exemption-credit phase-out) need only Node: `node tests/unit/<file>`.
 

@@ -283,12 +283,12 @@ ${fpWhere("N<sub>65+</sub> is the number of living people age 65 or older, and t
 
 <p><strong>IRMAA on the charts.</strong> The MAGI chart beside Annual Household Income stacks this year's MAGI by source:</p>
 ${fpEq(
-  `MAGI = wages + pension + rental + annuity + IRA withdrawals + Roth conversions + pre-tax IRA withdraw (for expenses) + ODIV + taxable SS + QDIV + LTCG + tax-exempt interest`
+  `MAGI = wages (incl. stock-option wage) + pension + rental + annuity + IRA withdrawals + Roth conversions + pre-tax IRA withdraw (for expenses) + ODIV + taxable SS + QDIV + LTCG + tax-exempt interest`
 )}
 ${fpWhere("Rental counts after depreciation is excluded (it is untaxed) and Social Security counts only its taxable part, split between the two people by benefit share. The dashed lines sit at the IRMAA bracket MAGI amounts for that year's filing status. Each is labeled with the Part B premium increase over standard: the standard premium is 25% of the Part B cost and tiers 1–5 are 35%, 50%, 65%, 80% and 85%, so the premium is +40%, +100%, +160%, +220% and +240% higher.")}
 <p>The taxable ordinary income chart beside it stacks the income the ordinary tax brackets are applied to. Qualified income (QDIV and LTCG) is not on it, because it is taxed at its own rates, but it is part of total taxable income:</p>
 ${fpEq(
-  `Taxable ordinary income = max( 0, ( wages + pension + rental + annuity + IRA withdrawals + Roth conversions + pre-tax IRA withdraw (for expenses) + ODIV + taxable SS ) − deduction )`,
+  `Taxable ordinary income = max( 0, ( wages (incl. stock-option wage) + pension + rental + annuity + IRA withdrawals + Roth conversions + pre-tax IRA withdraw (for expenses) + ODIV + taxable SS ) − deduction )`,
   `Total taxable income = taxable ordinary income + QDIV + LTCG<sub>net of SCGL</sub>`
 )}
 ${fpWhere('The deduction is the standard or itemized deduction plus the senior deduction. On the chart it is taken off the bottom of the stack, so each ordinary band is that source\'s taxable part and those bands add up to the taxable ordinary income; The dashed lines are the ordinary tax brackets: each marks where a bracket starts and is labeled with the rate that applies above it, so the stack can be read against them directly. A red dashed line above the stack marks taxable ordinary income + the deduction absorbed, i.e. ordinary income before the deduction, so the gap between the stack and the red line is the deduction. The Roth conversion "below ordinary bracket" limit tests this same taxable ordinary income. QDIV and LTCG are taxed at their own rates, stacked on top of it in the qualified tax calculation; total taxable income is shown in the main income popup (Show Details) and in the Excel export.')}

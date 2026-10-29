@@ -6,6 +6,9 @@
 //   PLANNER_ROOT=. node tests/projection_golden_test.js            compare
 //   PLANNER_ROOT=. node tests/projection_golden_test.js --update   accept the current output as the new golden file
 const fs=require('fs'), path=require('path'), crypto=require('crypto');
+// The engine ages people in whole months from today's date, so every projection (and its hash) changes from month to month. Freeze "today" so the golden file stays valid on any day.
+{ const RealDate=Date, FIXED=new RealDate(2026,5,15,12).getTime();
+  globalThis.Date=class extends RealDate{ constructor(...a){ if(a.length===0) super(FIXED); else super(...a); } static now(){ return FIXED; } }; }
 const {makeCtx,loadPlan,run}=require('./mc/mc_harness');
 const ROOT=process.env.PLANNER_ROOT||path.join(__dirname,'..');
 const GOLD=path.join(__dirname,'projection_golden.json');

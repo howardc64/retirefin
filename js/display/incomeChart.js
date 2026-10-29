@@ -17,7 +17,11 @@ const CI_INCOME = [
     /^Annuity payout \(tax-exempt/,
     "Tax-exempt part of an annuity payout (return of principal). It is cash income but is not taxed and, being a return of the owner's own premium, does not count toward provisional income or IRMAA MAGI."
   ],
-  [/^Wage/, 'Wages (and stock-option gains that count as wages) after the pre-tax IRA/401(k) contribution (before payroll tax, which is a household expense). Taxed as ordinary income; payroll tax is not deductible.'],
+  [
+    /^Wage from stock options/,
+    'Gains from stock-option / RSU releases that count as wages (Stock options card): shares × (market price − grant price) in the release year. Taxed as ordinary income and subject to payroll tax (a household expense), like the salary wage. Gains set to count as long-term capital gains are not here; they appear in the Long-term gains band.'
+  ],
+  [/^Wage/, 'Salary wages after the pre-tax IRA/401(k) contribution (before payroll tax, which is a household expense), not counting stock-option gains (their own band). Taxed as ordinary income; payroll tax is not deductible.'],
   [
     /^Pre-tax IRA withdraw \(for expenses\)/,
     'Money withdrawn from a pre-tax IRA/401(k) to pay household expenses when income, dividends and asset sales were not enough. Taxed as ordinary income.'
@@ -74,10 +78,7 @@ const CI_MAGI =
 const CI_ORD =
   'This band is the part of this source that is taxable ordinary income after the deduction was taken off the bottom of the stack. The thin solid dark lines are the ordinary tax-bracket limits, labeled with the rate that applies above each line.';
 // Chart Element text of the Annual Household Income chart's lines: stamped onto its datasets as ds.info by upsertLineChart (chartHelpers.js), read by chartInfo.js.
-const infoIncome = ds => {
-  const pick = t => infoFromTable(t, ds);
-  return pick(CI_INCOME);
-};
+const infoIncome = ds => infoFromTable(CI_INCOME, ds);
 // the MAGI chart: the income text plus what MAGI means
 const infoMagi = ds => {
   const t = infoFromTable(CI_INCOME, ds);
@@ -85,27 +86,20 @@ const infoMagi = ds => {
 };
 // Chart Element text of the taxable ordinary income chart's lines: stamped onto its datasets as ds.info by upsertLineChart (chartHelpers.js), read by chartInfo.js.
 const infoOrd = ds => {
-  const label = String(ds.label == null ? '' : ds.label),
-    pick = t => infoFromTable(t, ds);
   if (ds.ordLabel)
     return (
       'Federal ordinary tax bracket limit. Taxable ordinary income above this line is taxed at ' +
       ds.ordLabel +
       ' (the limit for the filing status in force that year).'
     );
-  if (label === 'Deduction')
+  if (ds.label === 'Deduction')
     return 'Top of the gross ordinary income: the gap between the stack and this red line is the deduction (standard or itemized, plus the senior deduction) absorbed that year.';
-  {
-    const t = pick(CI_INCOME);
-    return t ? t + ' ' + CI_ORD : null;
-  }
-  return null;
+  const t = infoFromTable(CI_INCOME, ds);
+  return t ? t + ' ' + CI_ORD : null;
 };
 // Chart Element text of the taxable qualified income chart's lines: stamped onto its datasets as ds.info by upsertLineChart (chartHelpers.js), read by chartInfo.js.
 const infoQual = ds => {
-  const label = String(ds.label == null ? '' : ds.label),
-    pick = t => infoFromTable(t, ds);
-  if (label === 'Deduction')
+  if (ds.label === 'Deduction')
     return 'Qualified income before the deduction: the gap between the stack and this red line is the part of the deduction left over after ordinary income (e.g. itemized LTC costs), which shelters qualified income (LTCG first).';
   if (ds.ordLabel)
     return (
@@ -115,13 +109,14 @@ const infoQual = ds => {
       ds.ordLabel +
       '.'
     );
-  return pick(CI_INCOME);
+  return infoFromTable(CI_INCOME, ds);
 };
 const VZ = {
   pen: '#D06A18',
   ann: '#B8860B',
   annTE: '#8FBC8F',
   wg: '#7B5EA7',
+  stk: '#C0392B',
   iraW: '#C79A3E',
   rothIn: '#E07B00',
   rmd: '#E85D9A',
@@ -143,6 +138,7 @@ const INC_KEYS = [
   'annuity',
   'annuityTE',
   'wageTotal',
+  'stockWage',
   'rothIn',
   'rothConv',
   'iraTotal',
@@ -164,6 +160,7 @@ const INC_LABELS = {
   annuity: 'Annuity payout (taxable)',
   annuityTE: 'Annuity payout (tax-exempt, untaxed)',
   wageTotal: 'Wage',
+  stockWage: 'Wage from stock options',
   rothIn: 'Roth conversion (taxed as ordinary income)',
   rothConv: 'Pre-tax IRA withdraw',
   iraTotal: 'IRA RMD',
@@ -185,6 +182,7 @@ const INC_COLORS = {
   annuity: VZ.ann,
   annuityTE: VZ.annTE,
   wageTotal: VZ.wg,
+  stockWage: VZ.stk,
   rothIn: VZ.rothIn,
   rothConv: VZ.iraW,
   iraTotal: VZ.rmd,
@@ -208,6 +206,7 @@ const INC_BYPERSON_FIELD = {
   annuity: 'annuityByPerson',
   annuityTE: 'annuityTEByPerson',
   wageTotal: 'wageByPerson',
+  stockWage: 'stockWageByPerson',
   rothIn: 'rothInByPerson',
   rothConv: 'rothWdOnlyByPerson',
   iraTotal: 'iraByPerson',
@@ -234,6 +233,30 @@ function updateIncomeLabels(proj) {
     ? displayPersonName(proj.people[1 - proj.idxP0], 1 - proj.idxP0) + "'s Social Security (SS) / survivor"
     : '';
 }
+// The stock-option gains that count as wages are drawn as their own band, so the Wage band is the salary only: the row's wage minus the stock-option wage.
+const incSalary = (total, stock) => Math.max(0, (total || 0) - (stock || 0));
+// What one stacked income band holds for one person (the tooltip's per-person lines): the row's per-person array, with the stock-option wage taken out of Wage.
+function incPersonAmounts(key, r) {
+  const arr = r && INC_BYPERSON_FIELD[key] ? r[INC_BYPERSON_FIELD[key]] : null;
+  if (!Array.isArray(arr)) return null;
+  return key === 'wageTotal' ? arr.map((v, i) => incSalary(v, r.stockWageByPerson && r.stockWageByPerson[i])) : arr;
+}
+// One filled band of a stacked income chart (primary, MAGI, ordinary): the source's color, the given label, data and stack key.
+const incBand = (k, label, data, stack, extra) => ({
+  label,
+  data,
+  borderColor: INC_COLORS[k],
+  backgroundColor: INC_COLORS[k] + 'bb',
+  borderWidth: THIN_W,
+  pointRadius: 0,
+  tension: 0.25,
+  fill: true,
+  spanGaps: false,
+  stack,
+  ...extra
+});
+// A source's band label on the charts that count only the taxable part of Social Security.
+const taxableLabel = k => (k === 'ssP0' || k === 'ssOther' ? INC_LABELS[k] + ' \u2014 taxable part' : INC_LABELS[k]);
 function buildIncomeChart() {
   if (typeof Chart === 'undefined' || !lastProjection) return;
   const proj = lastProjection,
@@ -254,7 +277,9 @@ function buildIncomeChart() {
     seriesByKey.pension.push(r.pension);
     seriesByKey.annuity.push(r.annuity || 0);
     seriesByKey.annuityTE.push(r.annuityTE || 0);
-    seriesByKey.wageTotal.push(r.wageTotal);
+    const stkW = Math.min(Math.max(0, r.stockWageTotal || 0), r.wageTotal || 0); // stock-option gains counted as wage: their own band, taken out of the Wage band
+    seriesByKey.wageTotal.push(incSalary(r.wageTotal, stkW));
+    seriesByKey.stockWage.push(stkW);
     const rIn = Math.min(r.rothInTotal || 0, r.rothConvTotal || 0); // the part of the annual pre-tax IRA withdraw that is a Roth conversion (ordinary income that moves into a Roth IRA)
     seriesByKey.rothIn.push(rIn);
     seriesByKey.rothConv.push(Math.max(0, (r.rothConvTotal || 0) - rIn));
@@ -320,18 +345,7 @@ function buildIncomeChart() {
     }
   }
 
-  const datasets = keys.map(k => ({
-    label: INC_LABELS[k],
-    data: aligned[k],
-    borderColor: INC_COLORS[k],
-    backgroundColor: INC_COLORS[k] + 'bb',
-    borderWidth: THIN_W,
-    pointRadius: 0,
-    tension: 0.25,
-    fill: true,
-    spanGaps: false,
-    stack: 'inc'
-  }));
+  const datasets = keys.map(k => incBand(k, INC_LABELS[k], aligned[k], 'inc'));
   if (hasScgl)
     datasets.push({
       label: 'SCGL remaining',
@@ -362,10 +376,10 @@ function buildIncomeChart() {
       if (ctx.raw == null || ctx.raw === 0 || ctx.datasetIndex >= keys.length) return null; // the SCGL line is reported by the footer
       const key = keys[ctx.datasetIndex];
       const r = rowByAge[labels[ctx.dataIndex]];
-      const field = INC_BYPERSON_FIELD[key];
-      if (r && field && Array.isArray(r[field])) {
+      const byPerson = incPersonAmounts(key, r);
+      if (byPerson) {
         const lines = [];
-        r[field].forEach((v, pIdx) => {
+        byPerson.forEach((v, pIdx) => {
           if (v > 0.5) lines.push(mrow('  ' + ctx.dataset.label + ' — ' + displayPersonName(proj.people[pIdx], pIdx), fmt(v) + '/yr'));
         });
         if (lines.length) return lines;
@@ -384,6 +398,10 @@ function buildIncomeChart() {
       if (r.scglRemaining > 0 || r.scglUsed > 0)
         lines.push(mrow("Suspended Capital-Gain Loss (SCGL) remaining (today's $)", fmt(r.scglRemaining)));
       if (showDetails) {
+        if ((r.stockWageTotal || 0) > 0.5) {
+          const sh = (r.stockSharesByPerson || []).reduce((x, y) => x + (y || 0), 0);
+          lines.push(mrow('Stock-option wage (taxed as wage)', fmt(r.stockWageTotal) + '/yr' + (sh > 0 ? ' · ' + Math.round(sh).toLocaleString() + ' shares released' : '')));
+        }
         lines.push(mrow('Filing', r.filing === 'married' ? 'Married (MFJ)' : 'Single'));
         lines.push(mrow('AGI', fmt(r.agi) + '/yr'));
         if (r.teIncome > 0) lines.push(mrow('MAGI (AGI + tax-exempt interest)', fmt(r.magi) + '/yr'));
@@ -528,18 +546,7 @@ function buildIncomeChart() {
     fromIdx: irmFrom < 0 ? labels.length : irmFrom,
     toIdx: irmTo
   };
-  const magiDs = mKeys.map(k => ({
-    label: k === 'ssP0' || k === 'ssOther' ? INC_LABELS[k] + ' — taxable part' : INC_LABELS[k],
-    data: mAligned[k],
-    borderColor: INC_COLORS[k],
-    backgroundColor: INC_COLORS[k] + 'bb',
-    borderWidth: THIN_W,
-    pointRadius: 0,
-    tension: 0.25,
-    fill: true,
-    spanGaps: false,
-    stack: 'magi'
-  }));
+  const magiDs = mKeys.map(k => incBand(k, taxableLabel(k), mAligned[k], 'magi'));
   // Popup shows the scenario owner(s) and age, then only the MAGI value and the IRMAA surcharge for the tier that MAGI reaches (nothing else, regardless
   // of Popup Details); every other value is in the primary chart's popup.
   const magiTip = {
@@ -596,6 +603,7 @@ function buildIncomeChart() {
     'pension',
     'annuity',
     'wageTotal',
+    'stockWage',
     'rothIn',
     'rothConv',
     'iraTotal',
@@ -633,19 +641,7 @@ function buildIncomeChart() {
     }); // stack, or the red deduction line above it
     return niceMax(m, 20000);
   });
-  const ordDs = ordKeys.map(k => ({
-    label: k === 'ssP0' || k === 'ssOther' ? INC_LABELS[k] + ' \u2014 taxable part' : INC_LABELS[k],
-    data: ordAligned[k],
-    borderColor: INC_COLORS[k],
-    backgroundColor: INC_COLORS[k] + 'bb',
-    borderWidth: THIN_W,
-    pointRadius: 0,
-    tension: 0.25,
-    fill: true,
-    spanGaps: false,
-    stack: 'ord',
-    order: 3
-  }));
+  const ordDs = ordKeys.map(k => incBand(k, taxableLabel(k), ordAligned[k], 'ord', {order: 3}));
   const nBrk = MFJ_ORD.length - 1;
   // Only the bracket lines nearest the taxable-ordinary-income stack are drawn (at most 3 per filing status; none far above it in empty space or buried deep inside it): see crowdedBracketKeep.
   const ordTops = fs => rows.filter(r => (r.filing === 'married') === fs).map(r => r.ordTI || 0);
@@ -784,19 +780,7 @@ function buildIncomeChart() {
     }); // a line is brought on scale only when it is close to the data (so the 20% start shows when the stack gets near it). A far-off line (the 20% start is often 3x+ the data) is left off the chart: pulling the scale up to it would also stretch every chart the Same-scale buttons share it with
     return niceMax(m, 5000);
   });
-  const qualDs = qualKeys.map(k => ({
-    label: INC_LABELS[k],
-    data: qualAligned[k],
-    borderColor: INC_COLORS[k],
-    backgroundColor: INC_COLORS[k] + 'bb',
-    borderWidth: THIN_W,
-    pointRadius: 0,
-    tension: 0.25,
-    fill: true,
-    spanGaps: false,
-    stack: 'qual',
-    order: 3
-  }));
+  const qualDs = qualKeys.map(k => incBand(k, INC_LABELS[k], qualAligned[k], 'qual', {order: 3}));
   for (let j = 0; j < nQ; j++) {
     const vals = qLineVals[j]; // limit − taxable ordinary income, per year (the filing status in force)
     const off = Math.min(...vals) >= YQ; // off the chart's scale: all-null, but still a dataset (fixed dataset count, see the ordinary chart); both lines are otherwise always drawn

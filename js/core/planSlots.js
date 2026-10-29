@@ -67,7 +67,7 @@ function planSlotAsk(slot, info) {
         .filter(Boolean)
         .join(', ');
     ov.innerHTML =
-      '<div role="dialog" aria-modal="true" style="background:#fff;color:#222;max-width:440px;width:calc(100% - 40px);border-radius:12px;padding:22px 24px;box-shadow:0 10px 40px rgba(0,0,0,.3)">' +
+      '<div role="dialog" aria-modal="true" style="background:var(--surface,#fff);color:var(--text,#222);max-width:440px;width:calc(100% - 40px);border-radius:12px;padding:22px 24px;box-shadow:0 10px 40px rgba(0,0,0,.3)">' +
       '<div style="font-size:17px;font-weight:600;margin-bottom:8px">Restore previous ' +
       lbl +
       ' session?</div>' +

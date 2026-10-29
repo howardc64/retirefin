@@ -25,6 +25,10 @@ function printExpandAll() {
   document.body.classList.add('printing-all');
   undo.push(() => document.body.classList.remove('printing-all'));
   _printUndo = undo;
+  if (typeof chartThemeDark !== 'undefined' && chartThemeDark) {
+    chartThemeChanged(false, true); // paper is white: draw the charts in the light colours, back to dark afterwards
+    undo.push(() => chartThemeChanged(true, true));
+  }
   if (typeof allCharts !== 'function') return;
   allCharts().forEach(ch => {
     try {

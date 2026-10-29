@@ -1,4 +1,4 @@
-:root{--card-gap:12px;
+:root{color-scheme:light dark;--card-gap:12px;
   --bg:#f7f5f0;--surface:#fff;--surface2:#f0ede6;
   --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.18);
   --text:#1a1814;--text-muted:#6b6760;--text-faint:#a09d98;
@@ -572,3 +572,32 @@ body.printing-all .person-col.col-hidden .pcol-tab,body.printing-all .pcol-hide{
 .mc-run .mc-f{flex-direction:row;align-items:center;gap:8px;}
 .llm-opts input[type=text],.llm-opts input[type=password]{font:inherit;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text)}
 .llm-card code{font-size:11.5px}
+
+/* ── Dark theme: follows the system day / night setting (prefers-color-scheme). Screen only: paper stays light (the charts are redrawn light for printing, see print.js). ── */
+@media screen and (prefers-color-scheme:dark){
+  :root{
+    --bg:#181715;--surface:#22201d;--surface2:#2b2926;
+    --border:rgba(255,255,255,.10);--border-strong:rgba(255,255,255,.20);
+    --text:#ece9e3;--text-muted:#a6a199;--text-faint:#7f7b74;
+    --teal:#2fae8e;--teal-light:#173a31;--teal-text:#5fd0b0;
+    --accent:#2fae8e;--red:#ff6b5b;
+  }
+  .btn-primary{background:#0f6e56;border-color:#0f6e56;color:#fff;}
+  .btn-primary:hover{background:#13866a;}
+  input[type=range]::-webkit-slider-thumb{border-color:var(--surface);}
+  input[type=range]::-moz-range-thumb{border-color:var(--surface);}
+  .tnote{background:#2e2a1c;border-color:rgba(230,168,23,.30);border-left-color:#e6a817;color:#e8d9a8;}
+  .ab-chip{background:#2b2926;border-color:var(--border-strong);color:var(--text);}
+  .ab-chip.ab-B,.btn-ab.ab-B{background:#3a1f2b;border-color:#c2185b;}
+  .btn-ab.ab-A{background:#173a31;border-color:#2fae8e;color:#5fd0b0;}
+  .btn-ab.ab-B{color:#f08ab4;}
+  .ab-table th,.ab-table td{border-bottom-color:var(--border);}
+  .cc-badge{background:#3a3014;color:#f0d58a;border-color:#6b5a22;}
+  .llm-badge.warn,.llm-err{color:#ff8a80;}
+  .llm-badge.warn{border-color:#ff8a80;}
+  .llm-ok{color:#5fd0b0;}
+  .mc-trial-banner b,.cc-scn li.st-ignored span,.cc-scn li.st-noEffect span{color:#f59e42;}
+  .livebar{background:#1b3324;border-color:#3f7a54;color:#a9dcb8;}
+  .livebar.wait{background:#3a3014;border-color:#8a7020;color:#f0d58a;}
+  .chat-fab{box-shadow:0 4px 14px rgba(0,0,0,.6);}
+}

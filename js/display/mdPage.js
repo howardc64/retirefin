@@ -70,6 +70,12 @@ function mdPageHtml(title, bodyHtml, file, label) {
   ul,ol{padding-left:22px;} li{margin-bottom:4px;} li>ul,li>ol{margin-top:4px;margin-bottom:0;}
   a{color:#8a5a1c;} hr{border:none;border-top:1px solid #ddd;margin:24px 0;}
   .fp-src{color:#888;font-size:11.5px;}
+  @media screen and (prefers-color-scheme:dark){
+    :root{color-scheme:dark;} body{background:#181715;color:#e6e3dc;} h2{border-bottom-color:#4a4741;} h3{color:#d9c58f;}
+    th,td{border-color:#4a4741;} th{background:#2b2926;} tbody tr:nth-child(even){background:#201e1b;}
+    code,pre{background:#2b2926;} blockquote{background:#25231f;color:#b8b4ac;border-left-color:#b08a3e;}
+    a{color:#e0b36a;} hr{border-top-color:#4a4741;} .fp-src{color:#9a968e;}
+  }
 </style></head>
 <body>${bodyHtml}
 <hr><p class="fp-src">Rendered from <code>${escHtml(file)}</code> at the moment this tab was opened — click ${escHtml(label)} again after editing that file to see changes.</p>

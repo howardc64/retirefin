@@ -1,6 +1,6 @@
 // Loads the planner's engine files (no DOM) into a vm context so computeProjection() can run in Node.
 const fs=require('fs'), vm=require('vm'), path=require('path');
-const ROOT=process.env.PLANNER_ROOT||path.join(__dirname,'..');
+const ROOT=process.env.PLANNER_ROOT||path.join(__dirname,'..','..');
 const FILES=require('../../server/scripts.js').engineScripts(ROOT,['base']);   // the engine without the scenario layer (index.html data-engine="base")
 function makeCtx(){
   const el=()=>new Proxy(function(){}, {get:(t,p)=>p==='style'?{}:p==='classList'?{add(){},remove(){},toggle(){}}:el(), apply:()=>el(), set:()=>true});

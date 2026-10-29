@@ -234,6 +234,10 @@ The **Rescale** button on the **Market return %** and **Inflation rate** charts 
 
 Charts that have nothing to show have no panel.
 
+### Day and night theme
+
+The page follows the system's light / dark setting by itself (macOS, Windows, iOS and Android appearance, or the browser's own); there is no switch in the app. When the system changes between day and night, the page and every chart are redrawn in the other colours at once. The income, tax and asset band colours stay the same in both themes; the axes, grid, reference lines and labels change. Print and Print to PDF always use the light colours. The Usage, Tips and Formulas pages follow the same setting.
+
 ### The age axis, passing lines and the care bar
 
 - **X axis.** Every time-based chart (including the Social Security start-age chart) runs along the **older** person's age. The numbers change with who is alive: the older person's age in **black** while they are alive; once they have passed, the **younger** person's age in **dark blue**; once both have passed, the last two digits of the calendar **year** in **red** (62 = 2062). The younger person's age is white on a dark-blue pill. The axis title names the people the same way: the older name in black, the younger name white on a dark-blue pill, then "age" (for example *Robert,* (Susan) *age* with Susan in the pill).
@@ -244,7 +248,7 @@ Charts that have nothing to show have no panel.
 
 The four charts are the same size, in a 2 × 2 grid.
 
-- **Annual Household Income:** income by source. The pre-tax IRA's annual withdraw is drawn as two bands: **Roth conversion (taxed as ordinary income)** and the plain **Pre-tax IRA withdraw**. Inherited IRA withdrawals have their own bands (the Roth one is untaxed and not in MAGI).
+- **Annual Household Income:** income by source. The pre-tax IRA's annual withdraw is drawn as two bands: **Roth conversion (taxed as ordinary income)** and the plain **Pre-tax IRA withdraw**. Inherited IRA withdrawals have their own bands (the Roth one is untaxed and not in MAGI). Stock-option gains that count as wages are their own red band, **Wage from stock options**, just above **Wage** (which is the salary only); hover for each person's share, and Popup Details adds the shares released that year. Gains set to count as capital gains are in the Long-term gains band.
 - **MAGI chart** (top right):
   - Your MAGI, stacked in the same colors (Social Security counts only its taxable part).
   - Thin solid lines at the IRMAA brackets, each labeled with the bracket's income and the extra Medicare Part B cost over the standard premium (for example `$218k +40%`).

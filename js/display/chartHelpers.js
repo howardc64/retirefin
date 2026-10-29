@@ -7,11 +7,11 @@
 // Per-chart color palettes live alongside each chart's own file.
 // ═══════════════════════════════════════════════════════════════
 // Color of every dashed reference line drawn over a chart (IRMAA tiers, ordinary-tax brackets) and of its legend swatch.
-const OVERLAY_COLOR = 'rgba(0,0,0,.9)';
+let OVERLAY_COLOR = 'rgba(0,0,0,.9)'; // theme colours: CHART_THEMES below, switched by applyChartTheme()
 // Threshold / reference lines (IRMAA brackets, ordinary and qualified tax brackets) are not data, so they are drawn in ink with a white halo and told apart
 // by dash pattern, not by hue: they read on top of any band color, for color-blind readers too. Labels sit on small white pills.
-const BRACKET_COLOR = '#1B1B1B';
-const BRACKET_HALO = 'rgba(255,255,255,.92)';
+let BRACKET_COLOR = '#1B1B1B';
+let BRACKET_HALO = 'rgba(255,255,255,.92)';
 const ORD_DASH = [],
   QUAL_DASH = []; // reference lines are solid now (see THIN_W below)
 // Every reference line (bracket, IRMAA, deduction, effective tax rate) is a thin solid line with a thin white line of the same width stacked directly on top of it (just above it),
@@ -37,7 +37,7 @@ function centeredAvg(vals, n) {
     return c ? s / c : null;
   });
 }
-const DEDUCTION_COLOR = '#D62828'; // red dashed deduction line on the taxable ordinary income chart
+let DEDUCTION_COLOR = '#D62828'; // red dashed deduction line on the taxable ordinary income chart
 // §3 "show_details checkbox": when on, chart popups reveal the underlying calculation
 // components (provisional income, AGI, standard deduction, etc.) called out as
 // show_details-only in the chart specs (§8.3, §9.3.1, §9.4, §10). Tooltip callbacks read
@@ -199,14 +199,14 @@ function justifyTip(cb) {
 }
 
 // ── Shared Chart.js configuration (used by all five charts) ──
-const AXIS_COLOR = '#a09d98',
-  AXIS_GRID = {color: 'rgba(0,0,0,0.05)'};
+let AXIS_COLOR = '#a09d98';
+const AXIS_GRID = {color: 'rgba(0,0,0,0.05)'};
 const AXIS_TICKS = {color: AXIS_COLOR, font: {size: 10}};
 const axisTitle = text => ({display: true, text, font: {size: 11}, color: AXIS_COLOR});
 // Every chart panel is a third of the chart area, so all charts share the compact axis labeling: at most 7 age labels, at most 5 $ labels in $k.
 // Age-axis tick model (every time-based chart; `plain` = the Social Security start-age chart, whose X axis is a claim age, keeps plain grey ticks).
 // Each label is the OLDER person's age (black) while they are alive; after they pass, the YOUNGER person's age (dark blue); after both have passed, the last two digits of the calendar year (red).
-const AGE_C_OLD = '#111111',
+let AGE_C_OLD = '#111111',
   AGE_C_YOUNG = '#1f3a8a',
   AGE_C_YEAR = '#d00000';
 const _ageInfoCache = new WeakMap();
@@ -285,6 +285,35 @@ const yAxisFit = scale => {
   scale.width = Y_AXIS_W;
 };
 const yAxisTicks = {...AXIS_TICKS, maxTicksLimit: 5, callback: fmtAxisK};
+// ── Light / dark theme of everything drawn on a canvas (the page's own CSS follows the system through css/styles.css) ──
+// The light values are the original colours. applyChartTheme(dark) swaps them in place; the charts must then be rebuilt (app.js chartThemeChanged), because the datasets, axes
+// and plugins read these at build time. `halo` and `pill` are the surface colour (white in light mode) behind reference lines and labels; `label` is the text on the bars.
+const CHART_THEMES = {
+  light: {overlay: 'rgba(0,0,0,.9)', bracket: '#1B1B1B', bracketHalo: 'rgba(255,255,255,.92)', deduction: '#D62828', axis: '#a09d98', grid: 'rgba(0,0,0,0.05)',
+    ageOld: '#111111', ageYoung: '#1f3a8a', ageYear: '#d00000', pill: 'rgba(255,255,255,.88)', halo: '#fff', label: '#444', ink: '#000', effRate: '#1B1B1B', text: '#666'},
+  dark: {overlay: 'rgba(255,255,255,.9)', bracket: '#ECE9E3', bracketHalo: 'rgba(24,23,21,.92)', deduction: '#FF6B6B', axis: '#8f8b84', grid: 'rgba(255,255,255,0.09)',
+    ageOld: '#ECE9E3', ageYoung: '#4a63c4', ageYear: '#ff6b6b', pill: 'rgba(24,23,21,.88)', halo: '#181715', label: '#d6d2ca', ink: '#fff', effRate: '#ECE9E3', text: '#b8b4ac'}
+};
+let CHART_THEME = CHART_THEMES.light;
+function systemPrefersDark() {
+  return typeof matchMedia === 'function' && !!matchMedia('(prefers-color-scheme: dark)').matches;
+}
+function applyChartTheme(dark) {
+  const t = (CHART_THEME = dark ? CHART_THEMES.dark : CHART_THEMES.light);
+  OVERLAY_COLOR = t.overlay;
+  BRACKET_COLOR = t.bracket;
+  BRACKET_HALO = t.bracketHalo;
+  DEDUCTION_COLOR = t.deduction;
+  AXIS_COLOR = t.axis;
+  AXIS_GRID.color = t.grid;
+  AXIS_TICKS.color = t.axis;
+  yAxisTicks.color = t.axis;
+  AGE_C_OLD = t.ageOld;
+  AGE_C_YOUNG = t.ageYoung;
+  AGE_C_YEAR = t.ageYear;
+  if (typeof VZ_TAX !== 'undefined') VZ_TAX.effRate = t.effRate;
+  if (typeof Chart !== 'undefined' && Chart.defaults) Chart.defaults.color = t.text; // legends and any text that sets no colour of its own (the chat charts)
+}
 const CHART_BASE = {
   responsive: true,
   maintainAspectRatio: true,

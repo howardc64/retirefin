@@ -33,7 +33,7 @@ function declutterLabels(ctx, items, top, bottom, minGap) {
         al = it.align || 'right',
         x0 = al === 'right' ? it.x - w : al === 'center' ? it.x - w / 2 : it.x;
       ctx.save();
-      ctx.fillStyle = 'rgba(255,255,255,.88)';
+      ctx.fillStyle = CHART_THEME.pill;
       const px = x0 - 3,
         py = it.y - 6,
         pw = w + 6,
@@ -109,7 +109,7 @@ const incomeOverlayPlugin = {
         ctx.lineTo(xb, yPx);
         ctx.stroke();
         ctx.beginPath();
-        ctx.strokeStyle = '#fff';
+        ctx.strokeStyle = CHART_THEME.halo;
         ctx.moveTo(xa, yPx - THIN_W);
         ctx.lineTo(xb, yPx - THIN_W);
         ctx.stroke();
@@ -213,7 +213,7 @@ const thinLinePlugin = {
     ctx.beginPath();
     ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
     ctx.clip();
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = CHART_THEME.halo;
     ctx.lineJoin = 'round';
     ctx.setLineDash([]);
     ctx.lineWidth = w + 2;
@@ -298,7 +298,7 @@ const stretchTintPlugin = {
       ctx.rect(left, 0, right - left, top);
       ctx.clip(); // the label stays centered over the visible part of the red bar and scrolls off the plot with it
       ctx.font = 'bold 10px DM Sans,sans-serif';
-      ctx.fillStyle = '#444';
+      ctx.fillStyle = CHART_THEME.label;
       ctx.textBaseline = 'bottom';
       ctx.textAlign = 'center';
       ctx.fillText(opts.label, (xa + xb) / 2, y0 - 2);
@@ -399,7 +399,7 @@ const ltcBarPlugin = {
       i = j + 1;
     }
     ctx.font = 'bold 10px DM Sans,sans-serif';
-    ctx.fillStyle = '#444';
+    ctx.fillStyle = CHART_THEME.label;
     ctx.textBaseline = 'bottom';
     ctx.textAlign = 'center';
     runs(1).forEach(([a, b]) => {

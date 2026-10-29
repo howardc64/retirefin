@@ -27,6 +27,32 @@ function recompute() {
 const recomputeDebounced = debounce(recompute, 80);
 const saveDebounced = debounce(autosave, 500);
 
+// Light / dark: the page follows the system setting (css/styles.css, prefers-color-scheme); the canvas colours follow it through applyChartTheme (display/chartHelpers.js),
+// and the charts are rebuilt when the system switches (instantly, so a day / night change does not replay the draw animation). Printing always uses the light colours (display/print.js).
+let chartThemeDark = false;
+function chartThemeChanged(dark, instant) {
+  chartThemeDark = !!dark;
+  applyChartTheme(chartThemeDark);
+  if (!lastProjection) return;
+  const anim = CHART_BASE.animation;
+  if (instant) CHART_BASE.animation = false;
+  try {
+    destroyAllCharts();
+    renderCharts();
+  } finally {
+    CHART_BASE.animation = anim;
+  }
+}
+function initChartTheme() {
+  chartThemeDark = systemPrefersDark();
+  applyChartTheme(chartThemeDark);
+  if (typeof matchMedia !== 'function') return;
+  const mq = matchMedia('(prefers-color-scheme: dark)'),
+    onChange = e => chartThemeChanged(e.matches, true);
+  if (mq.addEventListener) mq.addEventListener('change', onChange);
+  else if (mq.addListener) mq.addListener(onChange);
+}
+
 function destroyCharts() {
   destroyAllCharts(); // display: discard every chart instance from the old plan
   lastProjection = null;
@@ -93,6 +119,7 @@ function renderAll() {
 }
 
 window.addEventListener('DOMContentLoaded', async function () {
+  initChartTheme(); // before the first chart is drawn
   await claimPlanSlot(); // which autosave slot this tab uses (core/state.js): two open apps never share one
   const fresh = !loadAutosave();
   if (fresh) {
