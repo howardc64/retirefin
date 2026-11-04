@@ -119,7 +119,7 @@ const incomeOverlayPlugin = {
           text: ln.pct != null ? `$${(ln.magi / 1000).toFixed(0)}k +${ln.pct}%` : `IRMAA ${ln.label} >$${(ln.magi / 1000).toFixed(0)}k`,
           color: lineCol,
           pill: true,
-          font: (ln.pct != null ? '9px' : '10px') + ' DM Sans,sans-serif'
+          font: (ln.pct != null ? '9px' : '10px') + ' -apple-system,BlinkMacSystemFont,system-ui,sans-serif'
         });
       });
     }
@@ -164,7 +164,7 @@ const ordLabelPlugin = {
         text: ds.ordLabel,
         color: BRACKET_COLOR,
         pill: true,
-        font: '10px DM Sans,sans-serif'
+        font: '10px -apple-system,BlinkMacSystemFont,system-ui,sans-serif'
       });
     });
     ctx.save();
@@ -297,7 +297,7 @@ const stretchTintPlugin = {
       ctx.beginPath();
       ctx.rect(left, 0, right - left, top);
       ctx.clip(); // the label stays centered over the visible part of the red bar and scrolls off the plot with it
-      ctx.font = 'bold 10px DM Sans,sans-serif';
+      ctx.font = 'bold 10px -apple-system,BlinkMacSystemFont,system-ui,sans-serif';
       ctx.fillStyle = CHART_THEME.label;
       ctx.textBaseline = 'bottom';
       ctx.textAlign = 'center';
@@ -398,7 +398,7 @@ const ltcBarPlugin = {
       }
       i = j + 1;
     }
-    ctx.font = 'bold 10px DM Sans,sans-serif';
+    ctx.font = 'bold 10px -apple-system,BlinkMacSystemFont,system-ui,sans-serif';
     ctx.fillStyle = CHART_THEME.label;
     ctx.textBaseline = 'bottom';
     ctx.textAlign = 'center';

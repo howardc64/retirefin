@@ -10,7 +10,7 @@
 //   Copy spec → the scenario's lever list as JSON on the clipboard.
 // The app's own overlay plugins (LTC bar, IRMAA lines …) are global; they are switched off per chart, as the Monte Carlo charts do.
 // ═══════════════════════════════════════════════════════════════
-const CHAT_COLORS = ['#0f6e56', '#b45309', '#2563eb', '#9333ea', '#dc2626', '#0891b2', '#65a30d', '#db2777'];
+const CHAT_COLORS = ['#007aff', '#ff9500', '#34c759', '#af52de', '#ff3b30', '#32ade6', '#a2845e', '#ff2d55'];
 const CHAT_BASE_COLOR = '#6b7280';
 const CHAT_NO_OVERLAYS = {
   unfundedYears: false,

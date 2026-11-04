@@ -55,7 +55,7 @@ let viewIrmaaAsTax = false; // Total Income Tax chart: draw the IRMAA surcharge 
 // This needs one monospace font at one size across title/body/footer (TIP_STYLE), and
 // right-aligned title/footer so they line up with body text that Chart.js indents past the color box.
 // ── Popup colours: one fixed see-through dark theme for every popup, built-in and external (the chart underneath stays visible).
-const TIP_THEME = {bg: 'rgba(38,38,38,0.6)', fg: '#fff', border: 'rgba(255,255,255,.35)'};
+const TIP_THEME = {bg: 'rgba(30,30,32,0.68)', fg: '#fff', border: 'rgba(255,255,255,.22)'};
 function tipTheme() {
   return TIP_THEME;
 }
@@ -86,8 +86,8 @@ function externalTooltip(context) {
     el = document.createElement('div');
     el.id = 'extTooltip';
     el.style.cssText =
-      'position:fixed;z-index:10000;pointer-events:none;border:1px solid;border-radius:6px;padding:6px 8px;' +
-      'font:12px monospace;white-space:pre;line-height:1.35;opacity:0;';
+      'position:fixed;z-index:10000;pointer-events:none;border:1px solid;border-radius:8px;padding:7px 9px;' +
+      'font:12px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;line-height:1.35;opacity:0;-webkit-backdrop-filter:blur(14px) saturate(160%);backdrop-filter:blur(14px) saturate(160%);box-shadow:0 8px 24px rgba(0,0,0,.28);';
     document.body.appendChild(el);
   }
   const th = tipTheme();
@@ -289,10 +289,10 @@ const yAxisTicks = {...AXIS_TICKS, maxTicksLimit: 5, callback: fmtAxisK};
 // The light values are the original colours. applyChartTheme(dark) swaps them in place; the charts must then be rebuilt (app.js chartThemeChanged), because the datasets, axes
 // and plugins read these at build time. `halo` and `pill` are the surface colour (white in light mode) behind reference lines and labels; `label` is the text on the bars.
 const CHART_THEMES = {
-  light: {overlay: 'rgba(0,0,0,.9)', bracket: '#1B1B1B', bracketHalo: 'rgba(255,255,255,.92)', deduction: '#D62828', axis: '#a09d98', grid: 'rgba(0,0,0,0.05)',
-    ageOld: '#111111', ageYoung: '#1f3a8a', ageYear: '#d00000', pill: 'rgba(255,255,255,.88)', halo: '#fff', label: '#444', ink: '#000', effRate: '#1B1B1B', text: '#666'},
-  dark: {overlay: 'rgba(255,255,255,.9)', bracket: '#ECE9E3', bracketHalo: 'rgba(24,23,21,.92)', deduction: '#FF6B6B', axis: '#8f8b84', grid: 'rgba(255,255,255,0.09)',
-    ageOld: '#ECE9E3', ageYoung: '#4a63c4', ageYear: '#ff6b6b', pill: 'rgba(24,23,21,.88)', halo: '#181715', label: '#d6d2ca', ink: '#fff', effRate: '#ECE9E3', text: '#b8b4ac'}
+  light: {overlay: 'rgba(0,0,0,.9)', bracket: '#1d1d1f', bracketHalo: 'rgba(255,255,255,.92)', deduction: '#ff3b30', axis: '#8e8e93', grid: 'rgba(60,60,67,0.08)',
+    ageOld: '#1d1d1f', ageYoung: '#0a58ca', ageYear: '#d70015', pill: 'rgba(255,255,255,.88)', halo: '#fff', label: '#3a3a3c', ink: '#000', effRate: '#1d1d1f', text: '#6e6e73'},
+  dark: {overlay: 'rgba(255,255,255,.9)', bracket: '#f5f5f7', bracketHalo: 'rgba(44,44,46,.92)', deduction: '#ff453a', axis: '#98989d', grid: 'rgba(255,255,255,0.08)',
+    ageOld: '#f5f5f7', ageYoung: '#64a8ff', ageYear: '#ff453a', pill: 'rgba(44,44,46,.88)', halo: '#2c2c2e', label: '#d1d1d6', ink: '#fff', effRate: '#f5f5f7', text: '#aeaeb2'}
 };
 let CHART_THEME = CHART_THEMES.light;
 function systemPrefersDark() {
@@ -312,6 +312,7 @@ function applyChartTheme(dark) {
   AGE_C_YOUNG = t.ageYoung;
   AGE_C_YEAR = t.ageYear;
   if (typeof VZ_TAX !== 'undefined') VZ_TAX.effRate = t.effRate;
+  if (typeof Chart !== 'undefined' && Chart.defaults && Chart.defaults.font) Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif";
   if (typeof Chart !== 'undefined' && Chart.defaults) Chart.defaults.color = t.text; // legends and any text that sets no colour of its own (the chat charts)
 }
 const CHART_BASE = {

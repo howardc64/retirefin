@@ -5,7 +5,7 @@
 // on each card ("inflation + 4%" shows as 7% at 3% inflation). In the scenario the lines are flat; in a Monte Carlo trial they move with the market shock (and real estate with its own),
 // and with the trial's inflation. Read-only (proj.rates / proj.inflRate, recorded by computeProjection); own Y scale, in no Same-scale group.
 // ═══════════════════════════════════════════════════════════════
-const MARKET_COLORS = ['#3B6FA0', '#0f6e56', '#c8860a', '#7a4fb5', '#b4506e', '#4a9b8e', '#8A6D2B', '#C26A0E', '#5b7f2b', '#a0522d'];
+const MARKET_COLORS = ['#007aff', '#34c759', '#c8860a', '#7a4fb5', '#b4506e', '#4a9b8e', '#8A6D2B', '#C26A0E', '#5b7f2b', '#a0522d'];
 // Display name of an asset key used by gk() in projection.js: 'pf:<id>' | 'ira:<person id>' | 'roth:<person id>' | 're:<id>' | 'inh:<holder>:<name>'.
 function marketAssetLabel(proj, key) {
   const multi = proj.married && proj.people.length > 1,

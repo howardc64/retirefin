@@ -516,8 +516,8 @@ function mcRender() {
   const ds = S.fan.map((d, i) => ({
     label: lbl[i],
     data: cut(d),
-    borderColor: i === 2 ? '#0f6e56' : 'rgba(15,110,86,0.30)',
-    backgroundColor: bg[i] || '#0f6e56',
+    borderColor: i === 2 ? '#007aff' : 'rgba(0,122,255,0.30)',
+    backgroundColor: bg[i] || '#007aff',
     borderWidth: i === 2 ? 2.5 : 1,
     pointRadius: 0,
     fill: fill[i]
@@ -559,7 +559,7 @@ function mcRender() {
         {
           label: 'Fully funded through this age',
           data: cut(S.fundedThrough).map(v => v * 100),
-          borderColor: '#0f6e56',
+          borderColor: '#007aff',
           backgroundColor: 'rgba(15,110,86,0.12)',
           fill: true,
           pointRadius: 0,

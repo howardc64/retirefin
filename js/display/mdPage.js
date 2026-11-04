@@ -57,24 +57,24 @@ function mdPageHtml(title, bodyHtml, file, label) {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${escHtml(title)} — Retirement Income Planner</title>
 <style>
-  body{font-family:Georgia,'Times New Roman',serif;max-width:780px;margin:32px auto;padding:0 20px;line-height:1.6;color:#1c1c1c;background:#fdfdfb;}
-  h1{font-size:26px;} h2{font-size:20px;margin-top:34px;padding-bottom:4px;border-bottom:2px solid #e6dfcf;} h3{font-size:16px;margin-top:24px;color:#5b4a1f;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',system-ui,sans-serif;max-width:780px;margin:32px auto;padding:0 20px;line-height:1.6;color:#1d1d1f;background:#f5f5f7;-webkit-font-smoothing:antialiased;}
+  h1{font-size:28px;letter-spacing:-.02em;} h2{font-size:21px;letter-spacing:-.015em;margin-top:34px;padding-bottom:4px;border-bottom:1px solid #d2d2d7;} h3{font-size:16px;margin-top:24px;color:#1d1d1f;}
   table{border-collapse:collapse;width:100%;margin:12px 0 16px;font-size:14px;line-height:1.45;}
-  th,td{border:1px solid #ddd6c4;padding:6px 10px;text-align:left;vertical-align:top;} th{background:#f2eedf;font-weight:600;}
-  tbody tr:nth-child(even){background:#faf8f1;}
+  th,td{border:1px solid #d9d9de;padding:6px 10px;text-align:left;vertical-align:top;} th{background:#ececf0;font-weight:600;}
+  tbody tr:nth-child(even){background:#fafafc;}
   p{margin:8px 0;}
-  code{background:#f2f0ea;padding:1px 5px;border-radius:3px;font-family:'SF Mono',Consolas,monospace;font-size:12.5px;}
-  pre{background:#f2f0ea;padding:10px 12px;border-radius:5px;overflow-x:auto;}
+  code{background:#ececf0;padding:1px 5px;border-radius:4px;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12.5px;}
+  pre{background:#ececf0;padding:10px 12px;border-radius:8px;overflow-x:auto;}
   pre code{background:none;padding:0;}
-  blockquote{border-left:3px solid #b08a3e;margin:0;padding:2px 14px;color:#555;background:#f6f4ee;}
+  blockquote{border-left:3px solid #007aff;margin:0;padding:2px 14px;color:#515154;background:#ececf0;border-radius:0 8px 8px 0;}
   ul,ol{padding-left:22px;} li{margin-bottom:4px;} li>ul,li>ol{margin-top:4px;margin-bottom:0;}
-  a{color:#8a5a1c;} hr{border:none;border-top:1px solid #ddd;margin:24px 0;}
+  a{color:#0066d6;} hr{border:none;border-top:1px solid #d2d2d7;margin:24px 0;}
   .fp-src{color:#888;font-size:11.5px;}
   @media screen and (prefers-color-scheme:dark){
-    :root{color-scheme:dark;} body{background:#181715;color:#e6e3dc;} h2{border-bottom-color:#4a4741;} h3{color:#d9c58f;}
-    th,td{border-color:#4a4741;} th{background:#2b2926;} tbody tr:nth-child(even){background:#201e1b;}
-    code,pre{background:#2b2926;} blockquote{background:#25231f;color:#b8b4ac;border-left-color:#b08a3e;}
-    a{color:#e0b36a;} hr{border-top-color:#4a4741;} .fp-src{color:#9a968e;}
+    :root{color-scheme:dark;} body{background:#1c1c1e;color:#f5f5f7;} h2{border-bottom-color:#48484a;} h3{color:#f5f5f7;}
+    th,td{border-color:#48484a;} th{background:#2c2c2e;} tbody tr:nth-child(even){background:#232325;}
+    code,pre{background:#2c2c2e;} blockquote{background:#2c2c2e;color:#aeaeb2;border-left-color:#0a84ff;}
+    a{color:#64a8ff;} hr{border-top-color:#48484a;} .fp-src{color:#98989d;}
   }
 </style></head>
 <body>${bodyHtml}
