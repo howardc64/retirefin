@@ -106,9 +106,16 @@ function scnRestore() {
   }
 }
 
+// The chart scales are per scenario (state.chartYMax, restored by renderAll → restoreChartYMax), so a switch shows the incoming scenario's own scales;
+// a scenario with none saved (null) is fitted on its first draw. `prev` is kept for the callers' sake.
+function scnRenderAll(prev) {
+  window.refitVisibleOnly = false;
+  renderAll();
+}
 // Show scenario `id`: the one on screen is put aside, the chosen one is loaded into every input and chart.
 function scnSwitch(id) {
   if (id === scnActive || !scnSnaps[id]) return;
+  if (typeof captureChartYMax === 'function') captureChartYMax(); // the scales of the scenario being left
   const leaving = state,
     incoming = scnSnaps[id];
   incoming.ui = leaving.ui; // layout stays as the viewer left it
@@ -116,7 +123,7 @@ function scnSwitch(id) {
   delete scnSnaps[id];
   scnActive = id;
   state = incoming;
-  renderAll(); // rebuilds every input form; the charts are NOT destroyed, so renderCharts updates them in place and Chart.js animates the lines between the two plans' values
+  scnRenderAll(leaving); // rebuilds every input form; the charts are NOT destroyed, so renderCharts updates them in place and Chart.js animates the lines between the two plans' values
   autosave();
 }
 // New scenario: a copy of the scenario on screen, which is then shown so the next edits go to the new one.
@@ -134,7 +141,7 @@ function scnCreate() {
   copy.ui = state.ui;
   scnActive = id;
   state = copy;
-  renderAll();
+  scnRenderAll(); // a copy has the same range
   autosave();
 }
 // Add a scenario that was built elsewhere (the chat's chart cards, display/chatCharts.js). `plan` is a scenario object (a changed copy of the live scenario);
@@ -168,8 +175,9 @@ function scnDelete() {
   delete scnSnaps[next];
   incoming.ui = state.ui;
   scnActive = next;
+  const gonePrev = state;
   state = incoming;
-  renderAll();
+  scnRenderAll(gonePrev);
   autosave();
 }
 // Delete a scenario that is NOT on screen, by id (master scenario list: scDelete → scenarios/scenarioSetProducer.js). The one on screen and the last one are refused with a reason.
@@ -236,7 +244,7 @@ function scnFlatten(o, path, out) {
     return out;
   }
   Object.keys(o).forEach(k => {
-    if ((path === '' && (k === 'ui' || k === 'notes')) || k === 'id' || k === 'hidden') return;
+    if ((path === '' && (k === 'ui' || k === 'notes' || k === 'ageRange' || k === 'chartYMax')) || k === 'id' || k === 'hidden') return;
     scnFlatten(o[k], path ? path + (Array.isArray(o) ? '[' + k + ']' : '.' + k) : k, out);
   });
   return out;

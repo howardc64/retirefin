@@ -213,7 +213,7 @@ function scRowOut(p, liveFp, withKpis) {
 }
 // the state as an LLM may read it: no UI part, names only where the host allows them
 function scStateOut(st) {
-  const o = JSON.parse(JSON.stringify(st, (k, v) => (k === 'ui' ? undefined : v)));
+  const o = JSON.parse(JSON.stringify(st, (k, v) => (k === 'ui' || k === 'ageRange' || k === 'chartYMax' ? undefined : v)));
   if (!RR.toolNames && Array.isArray(o.people))
     o.people.forEach((pp, i) => {
       if (pp && typeof pp.name === 'string') pp.name = 'Person ' + (i + 1);
@@ -224,7 +224,7 @@ function scStateOut(st) {
 function scFlatten(o, pre, out) {
   if (o && typeof o === 'object') {
     Object.keys(o).forEach(k => {
-      if (k === 'ui' || k === 'id' || k === 'hidden') return;
+      if (k === 'ui' || k === 'ageRange' || k === 'chartYMax' || k === 'id' || k === 'hidden') return;
       scFlatten(o[k], pre + (pre ? '.' : '') + k, out);
     });
   } else out[pre] = o;

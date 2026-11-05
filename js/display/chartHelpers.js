@@ -370,18 +370,18 @@ function chartDefaultMaxAge(proj) {
   const end = st && Number.isFinite(st.age0) ? st.age0 : rows[rows.length - 1].age0 + 1;
   return Math.max(Math.round(rows[0].age0) + 1, Math.round(end));
 }
-// End of the shared age axis: the Age range entry (state.ui.maxAge, display only) capped at the default above; blank = the default.
+// End of the shared age axis: the Age range entry (state.ageRange.max, per scenario, display only) capped at the default above; blank = the default.
 function chartMaxAge(proj) {
   const d = chartDefaultMaxAge(proj);
-  const u = Math.round(Number(state && state.ui && state.ui.maxAge));
+  const u = Math.round(Number(state && state.ageRange && state.ageRange.max));
   const r0 = proj && proj.rows && proj.rows[0];
   return u > 0 ? Math.min(d, Math.max(u, r0 ? Math.round(r0.age0) + 1 : u)) : d;
 }
-// Start of the shared age axis: the Age range start entry (state.ui.minAge, display only) between the current age (the default and the lowest allowed) and one year before the end; blank = the default.
+// Start of the shared age axis: the Age range start entry (state.ageRange.min, per scenario, display only) between the current age (the default and the lowest allowed) and one year before the end; blank = the default.
 function chartMinAge(proj) {
   const r0 = proj && proj.rows && proj.rows[0];
   const d = r0 ? Math.round(r0.age0) : 0;
-  const u = Math.round(Number(state && state.ui && state.ui.minAge));
+  const u = Math.round(Number(state && state.ageRange && state.ageRange.min));
   return u > d ? Math.min(u, Math.max(d, chartMaxAge(proj) - 1)) : d;
 }
 // True when a projection row's year is inside the shown age range (the Age range boxes): the locked Y scales (and so the Same-scale buttons) are fitted to these years only.
@@ -400,12 +400,12 @@ function syncAgeRangeInput(force) {
   el.max = chartDefaultMaxAge(lastProjection);
   el.value = chartMaxAge(lastProjection);
 }
-// which: 'start' (state.ui.minAge) or, by default, 'end' (state.ui.maxAge). A value outside the allowed range snaps back when committed (syncAgeRangeInput).
+// which: 'start' (state.ageRange.min) or, by default, 'end' (state.ageRange.max). A value outside the allowed range snaps back when committed (syncAgeRangeInput).
 function onAgeRangeInput(val, commit, which) {
-  if (!state.ui) state.ui = {};
+  if (!state.ageRange) state.ageRange = {min: null, max: null};
   const n = Math.round(Number(val));
-  if (which === 'start') state.ui.minAge = n > 0 ? n : null;
-  else state.ui.maxAge = n > 0 ? n : null;
+  if (which === 'start') state.ageRange.min = n > 0 ? n : null;
+  else state.ageRange.max = n > 0 ? n : null;
   // The locked Y scales were fitted to the old age range: refit every chart (like a new plan: the income, expense and tax charts start on one common scale).
   Object.keys(chartYMax).forEach(k => (chartYMax[k] = null));
   window.refitVisibleOnly = true; // the refit's common scale ignores hidden charts, like a Same-scale click
@@ -452,7 +452,7 @@ function allCharts() {
 
 // Y-axis maximum per chart. It is computed once and then held ("locked") so the scale doesn't
 // jump while sliders move; Rescale (one chart) clears its lock so the next render re-fits it. The locked maxima are saved with the plan
-// (state.ui.chartYMax, see captureChartYMax / restoreChartYMax) and come back when a file is loaded.
+// (state.chartYMax, per scenario; see captureChartYMax / restoreChartYMax) and come back when a file is loaded.
 //
 // The "Same scale" buttons above the charts are one-shot actions, not sticky links: a click sets every chart in the button's group to the group's
 // largest current maximum (applySameScale). Afterwards each chart is independent again — Rescale on one chart changes only that chart.
@@ -461,11 +461,11 @@ function lockedYMax(key, compute) {
   if (chartYMax[key] == null) chartYMax[key] = compute();
   return chartYMax[key];
 }
-// Copy the locked maxima into / out of state.ui.chartYMax so they travel with the saved plan.
+// Copy the locked maxima into / out of state.chartYMax so they travel with the saved plan. They are per scenario: each scenario keeps its own set,
+// and showing a scenario (scnSwitch) restores that scenario's scales.
 function captureChartYMax() {
   if (viewContext().loaded) return; // a loaded Monte Carlo trial has its own scales: never saved into the plan
-  if (!state.ui) state.ui = {};
-  const cur = state.ui.chartYMax || {};
+  const cur = state.chartYMax || {};
   let changed = false;
   const next = {};
   Object.keys(chartYMax).forEach(k => {
@@ -474,12 +474,12 @@ function captureChartYMax() {
     if (cur[k] !== v) changed = true;
   });
   if (changed) {
-    state.ui.chartYMax = next;
+    state.chartYMax = next;
     if (typeof saveDebounced === 'function') saveDebounced();
   }
 }
 function restoreChartYMax() {
-  const saved = (state && state.ui && state.ui.chartYMax) || {};
+  const saved = (state && state.chartYMax) || {};
   Object.keys(chartYMax).forEach(k => {
     const v = Number(saved[k]);
     chartYMax[k] = saved[k] != null && Number.isFinite(v) && v > 0 ? v : null;

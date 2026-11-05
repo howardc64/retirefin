@@ -1020,7 +1020,7 @@ The presentation layer shall provide views for:
 
 Charts shall consume projection results rather than recreate financial calculations.
 
-**Display age range.** The user may narrow the age axis shared by the charts: a first age (default and minimum: the current age) and a last age (default and maximum: the age of the last passing plus the post-death IRA stretch period). The range is a display preference, not an input: it changes neither the projection nor exports. Each chart's value scale, and any control that gives several charts a common scale, shall be fitted to the years shown only, so years outside the range never add empty space.
+**Display age range.** The user may narrow the age axis shared by the charts: a first age (default and minimum: the current age) and a last age (default and maximum: the age of the last passing plus the post-death IRA stretch period). The range is kept **per scenario** (switching scenarios shows that scenario's range) and is a display preference, not an input: it changes neither the projection nor exports. Each chart's value scale, and any control that gives several charts a common scale, shall be fitted to the years shown only, so years outside the range never add empty space.
 
 **Effective tax rate and state tax.** The tax chart's effective-rate line is federal total tax divided by AGI. When state income tax is modeled, a second line adds the state tax to the numerator, and the detailed popup reports the federal, state and combined effective rates separately.
 

@@ -79,7 +79,7 @@ ok(banner.hidden===false && banner.innerHTML.includes('failure <b>#'+(tr+1)+'</b
 inf=run(`(()=>{const c=charts.inflation; return {n:c.data.datasets.length, t:c.data.datasets[1]&&c.data.datasets[1].data.filter(x=>x!=null).length, spread:c.data.datasets[1]&&(Math.max(...c.data.datasets[1].data.filter(x=>x!=null))-Math.min(...c.data.datasets[1].data.filter(x=>x!=null)))}})()`);
 const trialRows=run(`lastProjection.rows.length`);   // the line has one point per year of the trial, and a trial can end early (random lifespans), so compare with its own length
 ok(inf.n===3&&inf.t>=trialRows-1&&inf.t>=10&&inf.spread>0,'trial mode: inflation chart gets the trial\'s own varying rate line plus its thick 5-year average ('+inf.t+' points, spread '+inf.spread.toFixed(2)+' pts)');
-ok(run(`state.ui.chartYMax && Object.values(state.ui.chartYMax).every(v=>v===null || typeof v==='number')`),'trial scales are not written into the plan (captureChartYMax is skipped)');
+ok(run(`state.chartYMax && !state.ui.chartYMax && Object.values(state.chartYMax).every(v=>v===null || typeof v==='number')`),'trial scales are not written into the plan (captureChartYMax is skipped)');
 // Regression: the stress-test view (D) of the inflation chart once had no Chart Element text (its line names were not in chartInfo.js's table). Every line of every view must describe itself.
 { const shown=run(`(()=>{ const out=[]; const chk=v=>{ const c=charts.inflation; out.push({view:v, n:c.data.datasets.length, ok:c.data.datasets.every((d,i)=>!!ciDescribe('inflation',d,i)), names:c.data.datasets.map(d=>d.label)}); };
     chk(mcTrialView&&mcTrialView.view); const a=mcShowD('stag',1,'Stagflation'); chk(a?mcTrialView.view:'D failed'); return out; })()`);

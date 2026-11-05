@@ -9,6 +9,8 @@ function defaultState() {
   return {
     filingStatus: 'married',
     notes: '', // free-text notes for THIS scenario (Scenario Notes button, js/display/userNotes.js); saved with the plan file. The global Notes button's text is `ui.globalNotes` (it must exist in the default `ui` below, or hydrateState drops it on load/reload)
+    ageRange: {min: null, max: null}, // Age range boxes above the charts, PER SCENARIO (display only): first age shown (null = the current age; never before it) / last age shown (null = last passing + IRA stretch; never beyond that). Not an input: ignored by the fingerprint and by the differences list
+    chartYMax: Object.fromEntries(CHART_KEYS.map(k => [k, null])), // each chart's locked Y-axis maximum, PER SCENARIO (display only; null = fit on the next draw). Set by Rescale / the Same-scale buttons (chartHelpers.js). Not an input: ignored by the fingerprint and by the differences list
     liveId: '', // identity of this plan on the live link (input/liveLink.js): made on first use, saved with the plan file
     inflation: 0.03,
     people: [defaultPerson(0), defaultPerson(1)],
@@ -52,13 +54,10 @@ function defaultState() {
       gridCols: GRID_COLS_DEFAULT,
       chartPos: defaultChartPos(GRID_COLS_DEFAULT),
       chartPosAlt: defaultChartPos(otherGridCols(GRID_COLS_DEFAULT)),
-      chartYMax: Object.fromEntries(CHART_KEYS.map(k => [k, null])),
       stressCfg: null,
       mcCfg: null,
       marketPaths: [],
       cardOrder: null,
-      minAge: null, // Age range box: first age shown (display only; null = the current age; never before it)
-      maxAge: null, // Age range box above the charts: last age shown (display only; null = last passing + IRA stretch; never beyond that)
       assumpHide: {...ASSUMP_HIDE_DEFAULT},
       hidePerson: null
     } // display-only, but saved/restored/reset with the plan (see above)
@@ -279,8 +278,16 @@ function hydrateState(loaded) {
   });
   out.ui.incomeOrder = normalizeIncomeOrder(out.ui.incomeOrder);
   out.ui.hidePerson = out.ui.hidePerson === 0 || out.ui.hidePerson === 1 ? out.ui.hidePerson : null; // married: which person's Income & Assets column is collapsed (null = both shown)
-  out.ui.minAge = Number(out.ui.minAge) > 0 ? Math.round(Number(out.ui.minAge)) : null;
-  out.ui.maxAge = Number(out.ui.maxAge) > 0 ? Math.round(Number(out.ui.maxAge)) : null;
+  // Age range is per scenario (state.ageRange). Older files kept it in `ui` (one range for every scenario): the scenario that carried that `ui` takes it.
+  const arIn = loaded && loaded.ageRange ? loaded.ageRange : {min: loaded && loaded.ui && loaded.ui.minAge, max: loaded && loaded.ui && loaded.ui.maxAge};
+  out.ageRange = {
+    min: Number(arIn.min) > 0 ? Math.round(Number(arIn.min)) : null,
+    max: Number(arIn.max) > 0 ? Math.round(Number(arIn.max)) : null
+  };
+  // Chart scales are per scenario (state.chartYMax). Older files kept them in `ui` (one set for every scenario): the scenario that carried that `ui` takes them.
+  const cyIn = loaded && loaded.chartYMax ? loaded.chartYMax : (loaded && loaded.ui && loaded.ui.chartYMax) || {};
+  out.chartYMax = Object.fromEntries(CHART_KEYS.map(k => [k, Number(cyIn[k]) > 0 && Number.isFinite(Number(cyIn[k])) ? Number(cyIn[k]) : null]));
+  delete out.ui.chartYMax;
   out.ui.gridCols = out.ui.gridCols === 3 ? 3 : 2;
   out.ui.chartPos = normalizeChartPos(out.ui.chartPos, out.ui.gridCols); // a layout from a file is kept as saved, repaired only if it is invalid
   out.ui.chartPosAlt = normalizeChartPos(out.ui.chartPosAlt, otherGridCols(out.ui.gridCols));

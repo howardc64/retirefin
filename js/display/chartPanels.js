@@ -11,7 +11,7 @@
 //   • ⤢ Enlarge (3×N only): a chart can take a 2×2 block of cells (state.ui.chartPos[key].s = 2, anchored at its top-left cell, column 0 or 1) so an important chart is shown 4× as big with its
 //     companion charts in the remaining column beside it. Charts that were in the block's other cells move to the nearest free cell. ⤡ Shrink puts it back. The flag is kept per layout
 //     (dormant in 2×N: the chart is one cell there) and is saved with the plan.
-//   • A row of Same-scale buttons above the grid: each click sets a group of charts to one Y scale once (chartHelpers.js SCALE_LINK_GROUPS). Scales are saved in state.ui.chartYMax.
+//   • A row of Same-scale buttons above the grid: each click sets a group of charts to one Y scale once (chartHelpers.js SCALE_LINK_GROUPS). Scales are saved per scenario in state.chartYMax.
 // The panels are built once (the Chart.js instances hold their <canvas>); moving a panel only changes its grid row/column.
 // ═══════════════════════════════════════════════════════════════
 // key → panel title and the canvas id (`<key>Chart`). `tools` is extra control HTML for the panel's tool row.

@@ -263,7 +263,7 @@ function defaultPerson(idx) {
 //   ui.stressCfg / ui.mcCfg — the Stress test card's and the Monte Carlo card's settings (every choice and number in the card, and its Hide box); null = the card's defaults. Saved, restored on load and reset like the rest of `state.ui` (display/stressPanel.js, display/mcPanel.js).
 //   ui.marketPaths      — the plan's saved market scenarios: full-horizon yearly stock returns and inflation (MarketPath, compute/marketScenario.js). Plan-independent, so they are carried across plan scenarios A/B/C like the rest of `ui`; written only by a user click (a chat card's "Add to Stress test card", compute/scenarioApi.js), sanitized on load.
 //   ui.cardOrder        — the order of those two cards under the chart grid, ['stressPanel','mcPanel'] or the reverse (null = the default order; display/cardStack.js).
-//   ui.chartYMax[key]   — each chart's Y-axis maximum (null = fit automatically on the next draw). Saved and restored with the plan; the Same-scale buttons and each chart's
+//   chartYMax[key] (per scenario, state.chartYMax) — each chart's Y-axis maximum (null = fit automatically on the next draw). Saved and restored with the plan; the Same-scale buttons and each chart's
 //                         Rescale button change it (see chartHelpers.js).
 // Keys are the keys of the `charts` registry (display/chartHelpers.js).
 const CHART_KEYS = [

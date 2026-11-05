@@ -299,7 +299,7 @@ The four charts are the same size, in a 2 × 2 grid.
 
 | Control | What it does |
 |---|---|
-| **Age range** boxes (left of the Grid button): *start* to *end* | The first and last age shown on every chart. Start: default and minimum is the current age; it can be at most one year before the end. End: default and maximum is the age of the last passing plus the IRA stretch years; a blank or larger entry uses that. The chart scales (and the Same-scale buttons) are fitted to the years shown only. Display only: the Excel export and the projection are unchanged. Saved with the plan. |
+| **Age range** boxes (left of the Grid button): *start* to *end* | The first and last age shown on every chart. Start: default and minimum is the current age; it can be at most one year before the end. End: default and maximum is the age of the last passing plus the IRA stretch years; a blank or larger entry uses that. The chart scales (and the Same-scale buttons) are fitted to the years shown only. Display only: the Excel export and the projection are unchanged. Each scenario keeps its own range (switching scenarios shows that scenario's), saved with the plan. |
 | **Grid** button (right of the Same scale buttons) | Switches between a **2×N** and a **3×N** grid; each size remembers its own arrangement. |
 | **Hide** box on a panel | Hides the chart; a hidden panel keeps its place as a title bar. On a fresh start (first visit, *Start fresh*, *Reset to defaults*) every chart starts hidden and rows that hold nothing are closed; a loaded file or autosave keeps its own Hide boxes. |
 | **↕ Rescale** | Refits only that chart's vertical scale. |

@@ -26,7 +26,7 @@ function scHash(s) {
   }
   return h.toString(16).padStart(8, '0');
 }
-const scStateKey = st => JSON.stringify(Object.assign({}, st, {ui: null}));
+const scStateKey = st => JSON.stringify(Object.assign({}, st, {ui: null, ageRange: null, chartYMax: null}));
 const scFingerprint = st => scHash(scStateKey(st));
 const scClone = o => JSON.parse(JSON.stringify(o));
 
