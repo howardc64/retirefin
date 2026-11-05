@@ -15,7 +15,7 @@ function buildInflationChart() {
     showTrial = !!infl && tv.view !== 'A'; // the axis always covers both A and B
   const scenario = (trial && trial.meanInfl != null ? trial.meanInfl : state.inflation) * 100;
 
-  const labels = ageLabelRange(rows[0].age0, chartMaxAge(proj));
+  const labels = ageLabelRange(chartMinAge(proj), chartMaxAge(proj));
   const ages = rows.map(r => r.age0);
   const scenarioLine = alignToAges(
     ages,

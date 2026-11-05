@@ -132,6 +132,7 @@ function buildInhIncomeChart() {
   const Y_MAX = lockedYMax('inhIncome', () => {
     let m = 0;
     rows.forEach((r, ri) => {
+      if (!rowInAgeRange(proj, r)) return; // only the years shown (Age range)
       m = Math.max(
         m,
         kindsShown.reduce((t, K) => t + sumKind(ri, K.kind), 0)

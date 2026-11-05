@@ -64,6 +64,7 @@ function defaultBrokeragePortfolio(balance, n) {
     cgdPct: 0,
     cgdAmt: 0,
     teYield: 0,
+    sells: [], // Sale events: [{id, pct, years}] — sell `pct` % of the start-of-year balance, `years` from now (not for IDGT)
     aum: false,
     type: 'living',
     payExp: true,

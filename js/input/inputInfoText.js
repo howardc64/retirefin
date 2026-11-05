@@ -231,6 +231,11 @@ const II_FIELDS = [
     'Part of the dividends that are qualified, taxed at the lower long-term capital-gain rates. The rest are taxed as ordinary income.'
   ],
   [
+    /^Sales \(sell/,
+    's',
+    "One-time sales of part of this portfolio. Each event sells a percent of the portfolio's start-of-year balance, a number of years from now (0 = this year), whether or not expenses need the cash. The proceeds are household income (they pay expenses first; the excess is reinvested), and each sale realizes capital gain on the gain share of the balance. Only runs while the portfolio is inside its age range."
+  ],
+  [
     /^Tax-exempt yield/,
     'n',
     'Yearly tax-exempt income (e.g. municipal-bond interest) as a percent of the balance. Not taxed, but counted for Social Security taxation and Medicare IRMAA.'

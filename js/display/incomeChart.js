@@ -268,8 +268,7 @@ function buildIncomeChart() {
   updateIncomeLabels(proj); // refresh before any dataset reads INC_LABELS[k] below
   const idxP0 = proj.idxP0,
     otherIdx = proj.married ? 1 - idxP0 : null;
-  const p0Age0 = rows[0].age0;
-  const labels = ageLabelRange(p0Age0, chartMaxAge(proj)); // spec §5: shared X axis
+  const labels = ageLabelRange(chartMinAge(proj), chartMaxAge(proj)); // spec §5: shared X axis
   const keys = proj.married ? INC_KEYS : INC_KEYS.filter(k => k !== 'ssOther');
   const seriesByKey = {};
   keys.forEach(k => (seriesByKey[k] = []));
@@ -634,6 +633,7 @@ function buildIncomeChart() {
   const YO = lockedYMax('incomeOrd', () => {
     let m = 0;
     rows.forEach((r, ri) => {
+      if (!rowInAgeRange(proj, r)) return; // only the years shown (Age range)
       let t = 0;
       ordKeys.forEach(k => {
         t += taxPortion[k][ri] || 0;
@@ -772,6 +772,7 @@ function buildIncomeChart() {
   const YQ = lockedYMax('incomeQual', () => {
     let m = 0;
     rows.forEach((r, ri) => {
+      if (!rowInAgeRange(proj, r)) return;
       m = Math.max(m, qualSeries.qdiv[ri] + qualSeries.ltcg[ri], qualDedLine[ri] || 0);
     }); // stack, or the red deduction line above it
     const data = m;

@@ -73,6 +73,7 @@ for(const planFile of ['Couple_Heir.json','Widow.json']){
     'single filer':`state.filingStatus='single';`,
     'IRA stretch heirs + passing ages':`state.passing[state.people[0].id]=80; state.passing[state.people[1].id]=92;`,
     'withdraw order':`state.withdrawOrder={enabled:true,steps:[]};`,
+    'portfolio sell':`p1.sells=[{id:'s1',pct:8,years:2},{id:'s2',pct:20,years:6}]; p3.sells=[{id:'s3',pct:15,years:0}]; p2.sells=[{id:'s4',pct:10,years:1}];`,
     'high inflation':`state.inflation=0.06;`,
     'one person without SS':`a.ss.enabled=false;`,
     'annuity exempt payout':`const an=defaultAnnuity(); an.value=250000; an.premium=150000; an.tax='exempt'; an.exemptPct=60; an.payout=15000; an.pb='initial'; a.annuities=[an]; const an3=defaultAnnuity(); an3.value=80000; an3.tax='taxable'; an3.pb='fixed'; an3.pbFixed=50000; an3.payout=8000; b.annuities=[an3];`,

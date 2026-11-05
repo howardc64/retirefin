@@ -248,6 +248,9 @@ function xlsxInputsSheet(proj, trial) {
       put('  dividend yield %', Number(b.yield) || 0);
       put('  qualified share of dividends %', Number(b.qdivPct) || 0);
       put('  tax-exempt yield %', Number(b.teYield) || 0);
+      (Array.isArray(b.sells) ? b.sells : []).forEach((e, si) =>
+        put(`  sale ${si + 1}: % of balance, years from now`, `${Number(e.pct) || 0}% in ${Math.round(Number(e.years) || 0)} yr`)
+      );
       put(
         '  distributed LTCG ' + (b.cgdMode === 'amt' ? "($/yr, today's $)" : '(% of balance)'),
         Number(b.cgdMode === 'amt' ? b.cgdAmt : b.cgdPct) || 0

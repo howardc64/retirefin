@@ -377,16 +377,35 @@ function chartMaxAge(proj) {
   const r0 = proj && proj.rows && proj.rows[0];
   return u > 0 ? Math.min(d, Math.max(u, r0 ? Math.round(r0.age0) + 1 : u)) : d;
 }
+// Start of the shared age axis: the Age range start entry (state.ui.minAge, display only) between the current age (the default and the lowest allowed) and one year before the end; blank = the default.
+function chartMinAge(proj) {
+  const r0 = proj && proj.rows && proj.rows[0];
+  const d = r0 ? Math.round(r0.age0) : 0;
+  const u = Math.round(Number(state && state.ui && state.ui.minAge));
+  return u > d ? Math.min(u, Math.max(d, chartMaxAge(proj) - 1)) : d;
+}
+// True when a projection row's year is inside the shown age range (the Age range boxes): the locked Y scales (and so the Same-scale buttons) are fitted to these years only.
+function rowInAgeRange(proj, r) {
+  const a = Math.round(r.age0);
+  return a >= chartMinAge(proj) && a <= chartMaxAge(proj);
+}
 function syncAgeRangeInput(force) {
+  const el0 = document.getElementById('ageStartInput');
+  if (el0 && lastProjection && (force || document.activeElement !== el0)) {
+    el0.min = Math.round(lastProjection.rows[0].age0);
+    el0.value = chartMinAge(lastProjection);
+  }
   const el = document.getElementById('ageRangeInput');
   if (!el || !lastProjection || (!force && document.activeElement === el)) return;
   el.max = chartDefaultMaxAge(lastProjection);
   el.value = chartMaxAge(lastProjection);
 }
-function onAgeRangeInput(val, commit) {
+// which: 'start' (state.ui.minAge) or, by default, 'end' (state.ui.maxAge). A value outside the allowed range snaps back when committed (syncAgeRangeInput).
+function onAgeRangeInput(val, commit, which) {
   if (!state.ui) state.ui = {};
   const n = Math.round(Number(val));
-  state.ui.maxAge = n > 0 ? n : null;
+  if (which === 'start') state.ui.minAge = n > 0 ? n : null;
+  else state.ui.maxAge = n > 0 ? n : null;
   // The locked Y scales were fitted to the old age range: refit every chart (like a new plan: the income, expense and tax charts start on one common scale).
   Object.keys(chartYMax).forEach(k => (chartYMax[k] = null));
   window.refitVisibleOnly = true; // the refit's common scale ignores hidden charts, like a Same-scale click

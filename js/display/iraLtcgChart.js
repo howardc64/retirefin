@@ -92,7 +92,7 @@ function iraPersonColor(base, personIdx) {
 function chartRowsAndLabels(proj) {
   const rows = proj.rows;
   if (!rows.length) return null;
-  const labels = ageLabelRange(rows[0].age0, chartMaxAge(proj));
+  const labels = ageLabelRange(chartMinAge(proj), chartMaxAge(proj));
   const ages = rows.map(r => r.age0);
   const rowByAge = {};
   rows.forEach(r => {
@@ -169,6 +169,7 @@ function buildIraChart() {
   const Y_MAX = lockedYMax('ira', () => {
     let m = 0;
     rows.forEach(r => {
+      if (!rowInAgeRange(proj, r)) return; // only the years shown (Age range)
       m = Math.max(
         m,
         bands.reduce((t, b) => t + b.get(r, b.personIdx), 0)
@@ -265,6 +266,7 @@ function buildLtcgChart() {
   const Y_MAX = lockedYMax('ltcg', () => {
     let m = 0;
     rows.forEach(r => {
+      if (!rowInAgeRange(proj, r)) return;
       m = Math.max(
         m,
         series.reduce((t, s) => t + valueOf(s, r), 0)

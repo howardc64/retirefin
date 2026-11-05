@@ -147,9 +147,9 @@ function buildAssetChartFor(cfg) {
   const stretch = (!cfg.idgt && proj.stretch) || [];
   const allRows = rows.concat(stretch);
   const endAge = chartMaxAge(proj); // the Age range box: by default the last passing plus the IRA stretch
-  const labels = ageLabelRange(rows[0].age0, endAge);
+  const labels = ageLabelRange(chartMinAge(proj), endAge);
   // Visible window = the shared axis (what the IDGT chart shows); the stretch years beyond it are reached by scrolling (main chart only).
-  const winN = ageLabelRange(rows[0].age0, chartMaxAge(proj)).length;
+  const winN = ageLabelRange(chartMinAge(proj), chartMaxAge(proj)).length;
   let xMin, xMax;
   if (!cfg.idgt) {
     assetScrollN = winN;

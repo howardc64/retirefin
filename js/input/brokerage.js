@@ -47,6 +47,7 @@ function buildBrokerageCard(pid, i, p, married) {
                   ? `<div class="field align-end"><label>Distributed LTCG amount (today's $)</label><input type="number" class="money" min="0" step="500" value="${b.cgdAmt || 0}" oninput="onNumberInput('${pid}.brokerage.${bi}.cgdAmt', this.value)"></div>`
                   : `<div class="field align-end"><label>Distributed LTCG % of total</label><input type="number" min="0" max="100" step="0.1" value="${b.cgdPct != null ? b.cgdPct : 0}" oninput="onNumberInput('${pid}.brokerage.${bi}.cgdPct', this.value)"></div>`
               }
+              ${b.type === 'idgt' ? '' : buildSaleEvents(pid, i, bi, b)}
               <div class="field full"><label>Tax-exempt yield % (e.g. muni interest; untaxed income paid to the household)</label><input type="number" min="0" max="100" step="0.1" value="${b.teYield != null ? b.teYield : 0}" oninput="onNumberInput('${pid}.brokerage.${bi}.teYield', this.value)"></div>
               <div class="field"><label>Foreign asset % of portfolio</label><input type="number" min="0" max="100" step="1" value="${b.foreignPct != null ? b.foreignPct : 0}" oninput="onNumberInput('${pid}.brokerage.${bi}.foreignPct', this.value)"></div>
               <div class="field"><label>Foreign tax credit %</label><input type="number" min="0" max="100" step="0.05" value="${b.ftcPct != null ? b.ftcPct : 0.25}" oninput="onNumberInput('${pid}.brokerage.${bi}.ftcPct', this.value)"></div>
@@ -70,4 +71,19 @@ function ltcgStopText(v) {
   if (v >= 20) return 'Up to the 20% bracket \u00b7 no limit (sells the whole balance in range)';
   const j = v >= 15 ? 1 : 0;
   return `Fills the ${j === 0 ? '0%' : '15%'} bracket \u00b7 taxable income (ordinary + qualified) \u2264 $${Math.round(q[j].lim).toLocaleString()} (${st})`;
+}
+
+// Sale events of one portfolio: a list of one-time sales, each a % of the start-of-year balance, a number of years from now. Add / remove like the other lists.
+function buildSaleEvents(pid, i, bi, b) {
+  const ev = Array.isArray(b.sells) ? b.sells : [];
+  return `<div class="field full sale-events"><label style="display:flex;align-items:center;justify-content:space-between">Sales (sell % of balance, years from now)<button type="button" class="btn" style="padding:2px 8px;font-size:10px" onclick="addSale(${i},${bi})">＋ Add sale</button></label>${
+    ev.length
+      ? ev
+          .map(
+            (e, si) =>
+              `<div class="arow" style="margin-top:4px;align-items:center"><input type="number" min="0" max="100" step="1" title="Sell % of balance" style="width:80px" value="${e.pct != null ? e.pct : 0}" oninput="onNumberInput('${pid}.brokerage.${bi}.sells.${si}.pct', this.value)"> <span>% in</span> <input type="number" min="0" max="80" step="1" title="Years from now" style="width:80px" value="${e.years != null ? e.years : 0}" oninput="onNumberInput('${pid}.brokerage.${bi}.sells.${si}.years', this.value)"> <span>yr</span> <button type="button" class="btn btn-danger" style="padding:2px 8px;font-size:10px" onclick="removeSale(${i},${bi},${si})">Remove</button></div>`
+          )
+          .join('')
+      : '<div class="item-note" style="margin-top:4px">No sales scheduled.</div>'
+  }</div>`;
 }

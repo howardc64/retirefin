@@ -316,6 +316,20 @@ function addBrokerage(i) {
   recompute();
   saveDebounced();
 }
+function addSale(i, bi) {
+  const b = state.people[i].brokerage[bi];
+  if (!Array.isArray(b.sells)) b.sells = [];
+  b.sells.push({id: uid(), pct: 10, years: b.sells.length + 1});
+  renderIncomeForms();
+  recompute();
+  saveDebounced();
+}
+function removeSale(i, bi, si) {
+  state.people[i].brokerage[bi].sells.splice(si, 1);
+  renderIncomeForms();
+  recompute();
+  saveDebounced();
+}
 function addAnnuity(i) {
   if (!Array.isArray(state.people[i].annuities)) state.people[i].annuities = [];
   state.people[i].annuities.push(defaultAnnuity(state.people[i].annuities.length + 1));

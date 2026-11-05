@@ -94,7 +94,7 @@ function buildMarketChart() {
   syncMarketNav(S.keys);
   const shown = S.keys.map((k, i) => i).filter(i => marketSel < 0 || i === marketSel);
 
-  const labels = ageLabelRange(rows[0].age0, chartMaxAge(proj)),
+  const labels = ageLabelRange(chartMinAge(proj), chartMaxAge(proj)),
     ages = rows.map(r => r.age0);
   // All lines: only each asset's 5-year centred average (thick), so the many yearly lines do not clutter. One asset: its yearly return (thin) and its 5-year average (thick), same colour.
   const single = marketSel >= 0,

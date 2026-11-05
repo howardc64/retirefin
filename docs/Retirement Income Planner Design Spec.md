@@ -270,13 +270,15 @@ The annual projection shall conceptually follow this dependency chain:
 8. Determine potential Roth conversions.
 9. Determine household expenses.
 10. Determine Medicare-related costs.
-11. Determine portfolio withdrawals required to fund expenses.
+11. Determine portfolio withdrawals required to fund expenses, plus any **scheduled portfolio sale events** (below).
 12. Determine realized capital gains caused by those withdrawals.
 13. Calculate taxable income and federal tax.
 14. Reconcile tax with the withdrawals required to pay that tax.
 15. Update cost basis and asset balances.
 16. Apply death/survivor/estate transitions.
 17. Produce the completed projection-year record.
+
+**Scheduled portfolio sales.** A taxable (non-IDGT) portfolio may carry a list of sale events, each a percentage of the portfolio's start-of-year balance to sell a stated number of years from today (0 = this year), regardless of whether expenses require the cash. A scheduled sale is an ordinary asset sale: the proceeds are household cash (they pay expenses first; any excess is reinvested), the sale realizes gain on the gain share of the portfolio and reduces its cost basis, and it takes part in the tax / capital-gain reconciliation of steps 12–14. A portfolio sells only while it is inside its own age range.
 
 The key architectural requirement is that these relationships are **interdependent** rather than independent calculations.
 
@@ -1017,6 +1019,12 @@ The presentation layer shall provide views for:
 10. Survivor/legacy periods
 
 Charts shall consume projection results rather than recreate financial calculations.
+
+**Display age range.** The user may narrow the age axis shared by the charts: a first age (default and minimum: the current age) and a last age (default and maximum: the age of the last passing plus the post-death IRA stretch period). The range is a display preference, not an input: it changes neither the projection nor exports. Each chart's value scale, and any control that gives several charts a common scale, shall be fitted to the years shown only, so years outside the range never add empty space.
+
+**Effective tax rate and state tax.** The tax chart's effective-rate line is federal total tax divided by AGI. When state income tax is modeled, a second line adds the state tax to the numerator, and the detailed popup reports the federal, state and combined effective rates separately.
+
+**Popup identification of people.** A popup that identifies the household's people lists each person's name followed by their whole-number age (or "Passed" once they have died), left aligned. Income lines do not repeat ages. In the element-description popup the value sits beside the element's name, with one row per person only where an income is split between two people.
 
 ## 30.1 Layout and interaction requirements
 

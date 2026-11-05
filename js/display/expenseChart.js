@@ -102,7 +102,7 @@ function buildExpenseChart() {
   if (!rows.length) {
     return;
   }
-  const labels = ageLabelRange(rows[0].age0, chartMaxAge(proj));
+  const labels = ageLabelRange(chartMinAge(proj), chartMaxAge(proj));
   const ages = rows.map(r => r.age0);
   const aligned = {};
   EXP_KEYS.forEach(k => {

@@ -107,7 +107,7 @@ Everything is entered in **today's dollars**, and the charts are drawn in today'
 **State income tax:**
 - **California** taxes income with its own brackets (Social Security is exempt).
 - **Washington** taxes only long-term gains from portfolio sales above about $278,000 a year (7%, 9.9% above $1M).
-- The tax is paid as a household expense and shows on the Total Income Tax chart as a cyan dotted line stacked above the tax bands. It is not counted in Total Tax or the effective rate.
+- The tax is paid as a household expense and shows on the Total Income Tax chart as a cyan dotted line stacked above the tax bands. It is not counted in Total Tax or the solid (federal) effective rate; a second dashed line, *Effective tax rate incl. state*, adds it, and the Complete tooltip lists the federal, state and combined rates.
 
 ### How the cards behave
 
@@ -140,6 +140,14 @@ Each brokerage portfolio has a **Distributed LTCG** setting for capital gains th
 
 - It is long-term capital gain income and is taxed every year, whether or not any shares are sold. It counts with LTCG everywhere (qualified income, taxable Social Security, NIIT, state tax, the LTCG chart).
 - Like a dividend it is cash the portfolio pays out: it can pay household expenses, and whatever is not spent is reinvested and adds to the cost basis.
+
+### Sales
+
+Each *Living expense & income* portfolio has a **Sales** list (not shown for IDGT portfolios). Use **＋ Add sale** for each one-time sale: **% of balance** (of the start-of-year balance) and **years from now** (0 = this year); **Remove** deletes one. The sale happens whether or not expenses need the cash.
+
+- The proceeds are household cash income: they pay expenses first, and what is left over is reinvested like other excess income.
+- The sale realizes long-term capital gain on the gain share of the balance (from the cost basis) and removes basis, so it is taxed like any asset sale.
+- It only happens while the portfolio is inside its age range. It combines with *Portfolio withdraw* (Tax & Optimizations): that one sells what room is left.
 
 ### Hiding one person's column
 
@@ -291,7 +299,7 @@ The four charts are the same size, in a 2 × 2 grid.
 
 | Control | What it does |
 |---|---|
-| **Age range** box (left of the Grid button) | The last age shown on every chart. Default and maximum: the age of the last passing plus the IRA stretch years; a blank or larger entry uses that. Display only: the Excel export and the projection are unchanged. Saved with the plan. |
+| **Age range** boxes (left of the Grid button): *start* to *end* | The first and last age shown on every chart. Start: default and minimum is the current age; it can be at most one year before the end. End: default and maximum is the age of the last passing plus the IRA stretch years; a blank or larger entry uses that. The chart scales (and the Same-scale buttons) are fitted to the years shown only. Display only: the Excel export and the projection are unchanged. Saved with the plan. |
 | **Grid** button (right of the Same scale buttons) | Switches between a **2×N** and a **3×N** grid; each size remembers its own arrangement. |
 | **Hide** box on a panel | Hides the chart; a hidden panel keeps its place as a title bar. On a fresh start (first visit, *Start fresh*, *Reset to defaults*) every chart starts hidden and rows that hold nothing are closed; a loaded file or autosave keeps its own Hide boxes. |
 | **↕ Rescale** | Refits only that chart's vertical scale. |

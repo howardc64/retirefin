@@ -55,7 +55,7 @@ function buildSSSection() {
   });
 
   const xMax = chartMaxAge(lastProjection),
-    labels = ageLabelRange(p0Age, xMax);
+    labels = ageLabelRange(chartMinAge(lastProjection), xMax);
   const datasets = chartScenarios.map(sc => {
     const isStartAge = sc.age === selectedAge;
     return {

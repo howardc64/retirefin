@@ -1,18 +1,5 @@
 ## Change Log
 
-## Chart tooltip age display, round 3
-- The word "Age" is gone: person lines read `Peter   67` / `Yen     Passed`, names padded so the ages start in one left-aligned column (both modes; Components mode keeps spaces with `white-space:pre`).
-- Components mode: income held by one person shows just the amount beside the source name (no second line with the holder's name).
-
-## Chart tooltip age display, round 2
-- **Complete mode**: the people's age lines are left aligned (popup title alignment is now left) and the per-source lines no longer repeat an age (per-person income lines keep the name).
-- **Components mode**: the people's ages (same lines as Complete) are shown on top of the popup; the amount sits to the right of the element's name instead of `Value (Name, age N):`; income split between two people shows one `Name  amount` row each.
-
-## Chart tooltip age display
-- **Complete mode**: each person's line is now `Name  Age 67` (age rounded, right of the name instead of right-justified); no "Living" text while alive; `Passed` replaces the age after passing. Per-band lines (`Wage — Name · age 67`) round the age too.
-- **Components mode**: per-person Value lines use the same layout (`Value (Name  Age 67):` / `Value (Name  Passed):`).
-- `tests/baseline.json` not regenerated (it already differs from current output on unrelated age fields).
-
 ## Wage contributions, payroll tax, NY / NYC tax, Stock options
 - **Wage card**: the amount is now the *gross* wage; new fields *Pre-tax IRA/401(k) contribution* (comes out of the wage, added to the Pre-tax IRA/401(k) card's account) and *Roth IRA/401(k) contribution* (today's $; an expense paid from after-tax money, added to the Roth account, shown as its own band on the Household Expenses chart). Entering one turns the matching card on; it is ignored while that card is off. The Roth IRA card is now **Roth IRA / 401(k)**.
 - **Payroll tax** (compute/tax.js `computePayrollTax`): on the wage after the pre-tax contribution (plus stock-option gains counted as wage): Social Security 6.2% to the $184,500 base, Medicare 1.45%, Additional Medicare 0.9% over $250k / $200k (deflated, un-indexed), FUTA 0.6% of the first $7,000 (deflated). The wage is reduced by it and the remainder is the ordinary-income wage; FICA, Additional Medicare and FUTA are stacked bands on the Total Income Tax chart (row fields `payrollTax`, `payrollFica`, `payrollAddlMedicare`, `payrollFuta`, `grossWageTotal`, `pretaxContribTotal`, `rothContribTotal`, `expRoth`).
@@ -179,3 +166,25 @@ The glide added in 327 timed itself with the timestamp `requestAnimationFrame` h
 
 ## 354 — Two-row age axis for couples
 With two or more people every time-based chart's X axis has two rows (`ageAxisTick2`, chartHelpers.js; painted by the `ageAxisTitle` plugin, overlayPlugin.js): row 1 is the older person's age, row 2 the younger person's age (white on a pill). Each row switches to the last two digits of the calendar year, in red, once that person has passed. One person: unchanged (single row; the Social Security start-age chart is unchanged too). The axis title is unchanged ("Older, Younger age"). Checked in headless Chrome with `Couple_Heir.json` and `Widow.json`, light and dark.
+
+## 355 — Chart tooltip age display
+- **Complete mode**: the people's lines at the top of the popup read `Name  67` (name padded to a common width so the ages form one left-aligned column; whole-number age; `Passed` once the person has died; no "Living" / "Age" words). The popup title alignment is now left (`TIP_STYLE.titleAlign`). Per-source income lines no longer repeat an age (per-person income lines keep the name).
+- **Components mode**: the same name-and-age lines open the popup (`ciAgeLines`, `popupPersonAgeLines`); the amount sits to the right of the element's name instead of `Value (Name, age N):`; income split between two people shows one `Name  amount` row each, and income held by one person just the amount beside the name.
+- `tests/baseline.json` not regenerated (it already differs from current output on unrelated age fields).
+
+## 356 — Portfolio sale events
+- **Brokerage portfolio card**: a *Sales* list (＋ Add sale / Remove). Each event is *sell % of balance* and *years from now* (`sells: [{id, pct, years}]`; not shown for IDGT portfolios). In that year the portfolio sells that % of its start-of-year balance whether or not expenses need it. The proceeds are household cash income (expenses first, the excess reinvested); the sale realizes LTCG on the gain share and removes basis. Engine: one `'amount'` entry per event in `wdList` (`projYearPools`), so it reuses the withdraw path and the tax ↔ LTCG iteration; only while the portfolio is in its age range; combines with the Tax & Optimizations withdraw (that one gets what room is left). Replaces the single *Sell % / start* pair of the previous round.
+- Info text, Excel inputs sheet, ARCHITECTURE.md and Usage.md updated; golden test has a *portfolio sell* variant and `tests/projection_golden.json` was regenerated (saved portfolios carry the new `sells` field; engine numbers for existing plans are unchanged).
+
+## 357 — Total Income Tax chart: effective rate with state tax
+- With *State income tax* on, the chart has a second dashed rate line, **Effective tax rate incl. state** = (federal total tax + state tax) / AGI, on the same right-hand % axis. The solid line stays the federal rate (total tax / AGI).
+- Complete tooltip: *Federal effective tax rate*, *State effective tax rate* and *Effective tax rate incl. state* (with state tax off it still reads *Effective tax rate*). Chart Element popup text added for the new line.
+
+## 358 — Age range: start age
+- The *Age range* box above the charts is now *start* to *end*. **Start** (new, `state.ui.minAge`, saved with the plan) defaults to the current age, which is also the lowest allowed; it can be at most one year before the end. **End** is unchanged: default and maximum = last passing + the IRA stretch years. Every chart's age axis uses `chartMinAge()` / `chartMaxAge()`; display only (Excel and the projection are unchanged).
+
+## 359 — Same-scale buttons follow the Age range
+- A chart's locked Y maximum (and so every Same-scale button, which takes the largest maximum in its group) is now fitted to the years inside the Age range only. The Ordinary / Qualified income, Inheritance asset income, IRA and LTCG charts used to scan every projection year; they now skip years outside the range (`rowInAgeRange`, chartHelpers.js), like the charts that already worked from their shown labels. Changing the Age range still refits every chart.
+
+## 360 — Docs: design spec and architecture catch-up
+- `docs/Retirement Income Planner Design Spec.md`: scheduled portfolio sales, display age range (scales follow it), effective rate with state tax, popup people / age lines. `docs/ARCHITECTURE.md`: `chartMinAge` / `rowInAgeRange`, `ui.minAge` / `maxAge`, tooltip age lines, Components-mode value layout, tax-chart tooltip rates, the Sales list on the brokerage card.

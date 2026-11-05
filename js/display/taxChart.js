@@ -16,7 +16,8 @@ const CI_TAX = [
   [/^Additional Medicare/, 'Additional Medicare Tax: 0.9% of household wages above $250,000 (married) / $200,000 (single).'],
   [/^FUTA/, 'Federal unemployment tax: 0.6% of the first $7,000 of each person\'s wages.'],
   [/^Foreign tax credit/, 'Foreign tax credit, subtracted from income tax. It does not reduce the NIIT.'],
-  [/^Effective tax rate/, 'Effective tax rate: total tax divided by AGI. Read it on the right-hand axis.'],
+  [/^Effective tax rate incl\. state/, 'Effective tax rate including state income tax (dashed): federal total tax plus state income tax, divided by AGI. Read it on the right-hand axis.'],
+  [/^Effective tax rate/, 'Effective tax rate: federal total tax divided by AGI (state income tax is not in it; the dashed line adds it). Read it on the right-hand axis.'],
   [
     /^State income tax/,
     'State income tax (dashed line, drawn on top of the federal stack). It is not part of Total Tax, but is paid as a household expense.'
@@ -63,7 +64,7 @@ function buildTaxChart() {
   if (!rows.length) {
     return;
   }
-  const labels = ageLabelRange(rows[0].age0, chartMaxAge(proj));
+  const labels = ageLabelRange(chartMinAge(proj), chartMaxAge(proj));
   const ages = rows.map(r => r.age0);
 
   const ftcArr = [],
@@ -113,6 +114,12 @@ function buildTaxChart() {
   // tooltip). The marginal rate is shown in the popup only, not as a line.
   const effRateArr = rows.map(r => (r.agi > 0 ? (r.totalTax / r.agi) * 100 : 0));
   const alignedEff = alignToAges(ages, effRateArr, labels);
+  // With State income tax on: a second, dashed rate line = (federal tax + state tax) / AGI (the state tax is not part of Total Tax).
+  const alignedEffState = alignToAges(
+    ages,
+    rows.map(r => (r.agi > 0 ? ((r.totalTax + (r.stateTax || 0)) / r.agi) * 100 : 0)),
+    labels
+  );
 
   // "view IRMAA as tax": the IRMAA surcharge paid that year (null when none) stacks on top of the tax stack as a dashed line.
   const alignedIrmaa = alignToAges(
@@ -344,6 +351,25 @@ function buildTaxChart() {
 
   if (alignedState.some(v => v > 0)) {
     datasets.push({
+      label: 'Effective tax rate incl. state',
+      data: alignedEffState,
+      thin: true,
+      borderColor: VZ_TAX.effRate,
+      backgroundColor: 'transparent',
+      borderWidth: THIN_W,
+      borderDash: [7, 4],
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      pointHitRadius: 12,
+      tension: 0.25,
+      fill: false,
+      spanGaps: false,
+      yAxisID: 'y1',
+      order: 1
+    });
+  }
+  if (alignedState.some(v => v > 0)) {
+    datasets.push({
       label: 'State income tax (' + stateName + ')',
       data: alignedStateTop,
       irmaaAmt: alignedState,
@@ -409,7 +435,12 @@ function buildTaxChart() {
       // §9.4: "Popup window should include: Effective Tax Rate, Marginal Tax Rate, Total Tax." —
       // all three always shown. "If show_details, show TI, all income components, standard
       // deduction, foreign tax credit."
-      const lines = ['', mrow('Effective tax rate', effRate.toFixed(1) + '%')];
+      const lines = ['', mrow(r.stateTax > 0 ? 'Federal effective tax rate' : 'Effective tax rate', effRate.toFixed(1) + '%')];
+      if (r.stateTax > 0 && r.agi > 0)
+        lines.push(
+          mrow('State effective tax rate', ((r.stateTax / r.agi) * 100).toFixed(1) + '%'),
+          mrow('Effective tax rate incl. state', (((r.totalTax + r.stateTax) / r.agi) * 100).toFixed(1) + '%')
+        );
       lines.push(mrow('Marginal tax rate (ordinary income)', ((r.marginalRate || 0) * 100).toFixed(1) + '%'));
       // When extra ordinary income also pushes qualified income (QDIV/LTCG) into a higher 0/15/20% tier, show that part separately so the total can exceed the ordinary bracket rate.
       if ((r.marginalQual || 0) > 0.0005)

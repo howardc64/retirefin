@@ -1243,6 +1243,18 @@ function projYearPools(c, k, m, acct, income, pfv, aumG) {
       })
     );
   }
+  // Sale events (Brokerage card, `sells`): each sells `pct` % of the portfolio's start-of-year balance `years` years from now, whether or not expenses need the cash. Like a
+  // bracket withdraw it is a sale: household cash income (pays expenses first, the excess is reinvested), realizing LTCG on the gain share and removing basis.
+  people.forEach((p, i) =>
+    (p.brokerage || []).forEach((b, bi) => {
+      const x = pfx[i][bi];
+      if (!x || !x.active || x.idgt || !Array.isArray(b.sells)) return;
+      b.sells.forEach(ev => {
+        const pct = clamp(Number(ev && ev.pct) || 0, 0, 100);
+        if (pct > 0 && Math.round(Number(ev.years) || 0) === k) wdList.push({x, i, bi, wi: 1, mode: 'amount', amt: 0, want: (x.bal * pct) / 100, pct: 0});
+      });
+    })
+  );
   // Share of a portfolio's tax-exempt-reserved balance still free for withdraws: what it holds after growth, less its tax-exempt payout and other withdraws.
   const wdRoom = e => Math.max(0, e.x.avail - e.x.te - wdList.reduce((a, o) => a + (o !== e && o.x === e.x ? o.amt : 0), 0));
   function setWd(e, v) {

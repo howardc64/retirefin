@@ -57,6 +57,7 @@ function defaultState() {
       mcCfg: null,
       marketPaths: [],
       cardOrder: null,
+      minAge: null, // Age range box: first age shown (display only; null = the current age; never before it)
       maxAge: null, // Age range box above the charts: last age shown (display only; null = last passing + IRA stretch; never beyond that)
       assumpHide: {...ASSUMP_HIDE_DEFAULT},
       hidePerson: null
@@ -278,6 +279,7 @@ function hydrateState(loaded) {
   });
   out.ui.incomeOrder = normalizeIncomeOrder(out.ui.incomeOrder);
   out.ui.hidePerson = out.ui.hidePerson === 0 || out.ui.hidePerson === 1 ? out.ui.hidePerson : null; // married: which person's Income & Assets column is collapsed (null = both shown)
+  out.ui.minAge = Number(out.ui.minAge) > 0 ? Math.round(Number(out.ui.minAge)) : null;
   out.ui.maxAge = Number(out.ui.maxAge) > 0 ? Math.round(Number(out.ui.maxAge)) : null;
   out.ui.gridCols = out.ui.gridCols === 3 ? 3 : 2;
   out.ui.chartPos = normalizeChartPos(out.ui.chartPos, out.ui.gridCols); // a layout from a file is kept as saved, repaired only if it is invalid
