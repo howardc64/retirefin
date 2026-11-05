@@ -283,6 +283,43 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && scnCardOpen && !document.getElementById('userNotesModal')) closeScenarioCard();
 });
 
+// The card can be moved by its title bar. The position is kept (this page session) while the card is closed and reopened; it is clamped so the title bar stays on screen.
+let scnCardPos = null; // {left, top} in px, or null = the default place (top right)
+function scnCardPlace(card) {
+  if (!card || !scnCardPos) return;
+  const w = card.offsetWidth || 480,
+    left = Math.min(Math.max(scnCardPos.left, 40 - w), window.innerWidth - 40),
+    top = Math.min(Math.max(scnCardPos.top, 0), window.innerHeight - 36);
+  scnCardPos = {left, top};
+  card.style.left = left + 'px';
+  card.style.top = top + 'px';
+  card.style.right = 'auto';
+}
+function scnCardDragStart(e) {
+  const head = e.target.closest && e.target.closest('.scn-head'),
+    card = document.getElementById('scnCard');
+  if (!head || !card || e.target.closest('button') || (e.button != null && e.button !== 0)) return;
+  const r = card.getBoundingClientRect(),
+    dx = e.clientX - r.left,
+    dy = e.clientY - r.top;
+  e.preventDefault();
+  const move = ev => {
+    scnCardPos = {left: ev.clientX - dx, top: ev.clientY - dy};
+    scnCardPlace(card);
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    document.removeEventListener('pointercancel', up);
+    card.classList.remove('dragging');
+  };
+  card.classList.add('dragging');
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+  document.addEventListener('pointercancel', up);
+}
+window.addEventListener('resize', () => scnCardPlace(document.getElementById('scnCard')));
+
 function renderScenarioCard() {
   const btn = document.getElementById('scenarioBtn');
   if (btn) {
@@ -298,7 +335,9 @@ function renderScenarioCard() {
     card = document.createElement('div');
     card.id = 'scnCard';
     card.className = 'scn-card';
+    card.addEventListener('pointerdown', scnCardDragStart);
     document.body.appendChild(card);
+    scnCardPlace(card);
   }
   const keepOpen = !!(card.querySelector('details') && card.querySelector('details').open); // keep the list open while editing
   const focusName = document.activeElement && document.activeElement.id === 'scnName';
@@ -311,7 +350,7 @@ function renderScenarioCard() {
       .join('') + (diffs.length > 80 ? `<tr><td colspan="${scnOrder.length + 1}">…and ${diffs.length - 80} more</td></tr>` : '');
   const chip = id =>
     `<button class="ab-chip ab-${id === 'A' ? 'A' : 'B'}${scnActive === id ? ' on' : ''}" ${scnActive === id ? '' : `onclick="scnSwitch('${id}')"`} title="${scnActive === id ? 'On screen now' : 'Show scenario ' + id}"><b>${id}</b>${scnNames[id] ? ' ' + scnEsc(scnNames[id]) : ''}${scnActive === id ? ' (on screen)' : ''}</button>`;
-  card.innerHTML = `<div class="scn-head"><b>Scenarios</b><button class="chat-icon" onclick="closeScenarioCard()" title="Close" aria-label="Close">✕</button></div>
+  card.innerHTML = `<div class="scn-head" title="Drag to move this window"><b>Scenarios</b><button class="chat-icon" onclick="closeScenarioCard()" title="Close" aria-label="Close">✕</button></div>
     <div class="ab-head">${scnOrder.map(chip).join('')}</div>
     <div class="ab-head">
       <button class="btn" onclick="scnCreate()" title="Add a scenario that starts as a copy of the one on screen, and show it">➕ New scenario</button>

@@ -332,10 +332,11 @@ body.printing-all canvas.print-swapped{display:none !important;}
 
 /* Scenario card (scenarios.js) and Notes popup (userNotes.js) */
 .scn-card{position:fixed;top:64px;right:14px;z-index:10000;width:min(480px,calc(100vw - 28px));max-height:80vh;overflow:auto;background:var(--menu-bg);-webkit-backdrop-filter:saturate(180%) blur(30px);backdrop-filter:saturate(180%) blur(30px);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop);padding:14px 16px;font-size:13px}   /* popup card floating over the page */
-.scn-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}
+.scn-head{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}
 .scn-name{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .scn-name input{flex:1;min-width:0;font:inherit;padding:4px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--field);color:var(--text)}
 .scn-name input:focus,.llm-card textarea:focus,.un-card textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3.5px var(--focus)}
+.scn-card.dragging .scn-head{cursor:grabbing}
 .scn-scroll{overflow-x:auto}
 #scenarioBtn.on{box-shadow:0 0 0 2px var(--accent) inset}
 .scn-card .btn[disabled]{opacity:.45;cursor:not-allowed}
