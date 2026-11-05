@@ -139,7 +139,20 @@ function buildInhIncomeChart() {
     });
     return niceMax(m, 5000);
   });
-  const datasets = kindsShown.map((K, ki) => stackedBandDataset(K.title, K.color(), data[ki], 'inhIncome'));
+  const datasets = kindsShown.map((K, ki) => {
+    const ds = stackedBandDataset(K.title, K.color(), data[ki], 'inhIncome');
+    // Tooltip (chartInfo.js): this band's amount per holder at the hovered age, so the Value line names each holder with that person's age.
+    ds.ciPersonAmts = label => {
+      const ri = rows.findIndex(r => Math.round(r.age0) === Math.round(Number(label)));
+      if (ri < 0) return null;
+      const out = proj.people.map(() => 0);
+      assets.forEach((a, ai) => {
+        out[a.personIdx] += perRow[ri][ai][K.kind] || 0;
+      });
+      return out;
+    };
+    return ds;
+  });
   const rowIdx = {};
   rows.forEach((r, ri) => {
     rowIdx[Math.round(r.age0)] = ri;
@@ -158,7 +171,14 @@ function buildInhIncomeChart() {
       out.push(mrow('Total inheritance asset income', fmt(kindsShown.reduce((t, K, ki) => t + (data[ki][idx] || 0), 0)) + '/yr'));
       if (ri != null) {
         const per = assets.map((a, ai) => ({a, t: Object.values(perRow[ri][ai]).reduce((x, y) => x + y, 0)})).filter(z => z.t > 0.5);
-        if (per.length > 1) per.forEach(z => out.push(mrow('  ' + z.a.name, fmt(z.t) + '/yr')));
+        if (per.length > 1) {
+          const rr = rowByAge[labels[idx]];
+          per.forEach(z => {
+            const i = z.a.personIdx;
+            const age = rr && rr.alive && rr.alive[i] && rr.ages && Number.isFinite(rr.ages[i]) ? ' \u00b7 age ' + rr.ages[i].toFixed(1) : '';
+            out.push(mrow('  ' + z.a.name + age, fmt(z.t) + '/yr'));
+          });
+        }
       }
       return out;
     }

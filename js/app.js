@@ -17,12 +17,20 @@ function recompute() {
   const inTrial = viewContext().loaded;
   lastProjection = inTrial ? mcTrialShown() : computeProjection(); // a loaded Monte Carlo trial stays on screen (Rescale, Same-scale etc. still work on it)
   renderCharts();
+  updateHeaderNames();
   refreshWithdrawOrderPanel(); // asset names in the withdrawal-order card (assumptions.js)
   renderScenarioCard(); // Scenario card (scenarios.js): refreshed after every edit while it is open
   if (typeof stMarkStale === 'function') stMarkStale(); // Stress test card (display/stressPanel.js): same
   if (typeof mcMarkStale === 'function') mcMarkStale(); // Monte Carlo card (display/mcPanel.js): flag results that no longer match the plan
   if (typeof chatMarkStale === 'function') chatMarkStale(); // chat chart cards (display/chatCharts.js): badge cards whose plan has since been edited
   if (!inTrial && typeof liveAfterRecompute === 'function') liveAfterRecompute(); // live link (input/liveLink.js): publish this plan's inheritance snapshot when it changed
+}
+// Upper left, left of the title: the name(s) of the person(s) in the plan, older first (the same order as the chart age axis).
+function updateHeaderNames() {
+  const el = document.getElementById('headerNames');
+  if (!el) return;
+  const names = lastProjection ? ageAxisNames(lastProjection) : [];
+  el.textContent = names.join(' & ');
 }
 const recomputeDebounced = debounce(recompute, 80);
 const saveDebounced = debounce(autosave, 500);

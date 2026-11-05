@@ -253,6 +253,7 @@ const incBand = (k, label, data, stack, extra) => ({
   fill: true,
   spanGaps: false,
   stack,
+  ciKey: k, // tooltip (chartInfo.js): lets the Value line name the person the income belongs to, with that person's age
   ...extra
 });
 // A source's band label on the charts that count only the taxable part of Social Security.
@@ -385,7 +386,7 @@ function buildIncomeChart() {
         if (lines.length) return lines;
       }
       // ssP0/ssOther already carry the person's name in the dataset label itself.
-      return mrow('  ' + ctx.dataset.label, fmt(ctx.raw) + '/yr');
+      return mrow('  ' + ctx.dataset.label + '', fmt(ctx.raw) + '/yr');
     },
     footer: items => {
       const idx = items[0] ? items[0].dataIndex : 0;

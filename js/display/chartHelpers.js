@@ -71,7 +71,7 @@ const TIP_STYLE = {
   titleFont: {family: 'monospace', size: 12},
   bodyFont: {family: 'monospace', size: 12},
   footerFont: {family: 'monospace', size: 12},
-  titleAlign: 'right',
+  titleAlign: 'left', // the people's age lines are left aligned
   footerAlign: 'right'
 };
 // External (HTML) tooltip for the small companion charts. Chart.js draws its built-in tooltip INSIDE the canvas, so on a
@@ -236,6 +236,19 @@ function ageAxisTick(proj, label) {
   if (I.iy >= 0 && k < I.pass[I.iy]) return {text: String(Math.round(I.age0y + k)), color: AGE_C_YOUNG};
   return {text: String(THIS_YEAR + k).slice(-2), color: AGE_C_YEAR};
 }
+// Two or more people: the axis has TWO rows (ageAxisTick2). Row 1 is the OLDER person's age, row 2 the YOUNGER person's age; each row switches to the last two digits of the
+// calendar year (red) once that person has passed. Returns [row1, row2], each {text, color, pill}; pill = the younger person's row (white on a dark-blue pill while alive).
+function ageAxisTick2(proj, label) {
+  const I = ageAxisInfo(proj),
+    a = Math.round(Number(label));
+  if (!I || I.n < 2 || !Number.isFinite(a)) return null;
+  const k = a - I.base,
+    yr = () => String(THIS_YEAR + k).slice(-2);
+  return [
+    k < I.pass[I.io] ? {text: String(a), color: AGE_C_OLD, pill: false} : {text: yr(), color: AGE_C_YEAR, pill: false},
+    k < I.pass[I.iy] ? {text: String(Math.round(I.age0y + k)), color: AGE_C_YOUNG, pill: true} : {text: yr(), color: AGE_C_YEAR, pill: false}
+  ];
+}
 // Calendar-offset (row index) of each person's passing, for the passing lines: [{k, color}] (the older person black, the younger dark blue).
 function passingYears(proj) {
   const I = ageAxisInfo(proj);
@@ -257,12 +270,17 @@ const ageXAxis = (text, plain) =>
           maxTicksLimit: 7,
           padding: 11,
           callback(value) {
-            return ageAxisTick(typeof lastProjection !== 'undefined' ? lastProjection : null, this.getLabelForValue(value)).text;
+            const P = typeof lastProjection !== 'undefined' ? lastProjection : null,
+              lab = this.getLabelForValue(value),
+              two = ageAxisTick2(P, lab);
+            return two ? [two[0].text, two[1].text] : ageAxisTick(P, lab).text; // two people: two rows (painted by the ageAxisTitle plugin)
           },
           color: c => {
             const L = c.chart.data.labels,
               v = c.tick ? c.tick.value : c.index,
-              k = ageAxisTick(typeof lastProjection !== 'undefined' ? lastProjection : null, L ? L[v] : v);
+              P = typeof lastProjection !== 'undefined' ? lastProjection : null,
+              k = ageAxisTick(P, L ? L[v] : v);
+            if (ageAxisTick2(P, L ? L[v] : v)) return 'rgba(0,0,0,0)'; // two rows: every line is painted by the plugin
             return k.color === AGE_C_YOUNG ? 'rgba(0,0,0,0)' : k.color;
           }
         }, // the younger person's ticks are painted white on a dark-blue pill by the ageAxisTitle plugin
@@ -324,10 +342,12 @@ const CHART_BASE = {
 };
 function popupPersonAgeLines(proj, r) {
   const n = proj.married ? 2 : 1;
+  const names = Array.from({length: n}, (_, i) => displayPersonName(proj.people[i], i));
+  const w = Math.max(...names.map(s => s.length));
   return Array.from({length: n}, (_, i) => {
-    const name = displayPersonName(proj.people[i], i);
-    const age = r.alive && r.alive[i] && r.ages && Number.isFinite(r.ages[i]) ? r.ages[i].toFixed(1) : null;
-    return mrow(name, age !== null ? 'Age ' + age + ' · Living' : 'Passed');
+    const name = names[i].padEnd(w); // ages line up in one column, left aligned
+    const age = r.alive && r.alive[i] && r.ages && Number.isFinite(r.ages[i]) ? String(Math.round(r.ages[i])) : null;
+    return name + '  ' + (age !== null ? age : 'Passed'); // plain line (not mrow): the age sits right of the name, not right-justified
   });
 }
 // Align a series of {age,value} points onto an integer-age label axis (nulls where no data)

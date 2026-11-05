@@ -459,6 +459,32 @@ function ciAgeText(label) {
 // Rates are percents already; flows (income, tax, expense charts) are per year; balances (asset charts) and cumulative Social Security are not.
 const CI_STOCK_KEYS = ['asset', 'idgt', 'ss'];
 const CI_PCT_KEYS = ['inflation', 'market']; // charts whose values are rates (%), not dollars
+// Income bands that belong to a person: one value line per person ("Value (Peter, age 82): $x/yr") so the age is the age of the person the income belongs to.
+// The dataset names its source: ds.ciKey (an income-chart band key; the per-person split comes from the projection row) or ds.ciPersonAmts(label) (the inherited-income chart).
+// The split is scaled to the plotted value, so charts that plot only part of a band (taxable Social Security, taxable ordinary income) show that part. Null when it does not apply (single person, no split).
+function ciPersonValueLines(ds, v, label) {
+  if (!ds || (!ds.ciKey && !ds.ciPersonAmts)) return null;
+  const at = ciRowAt(label);
+  if (!at || !at.proj.married || !(at.proj.people.length > 1)) return null;
+  const r = at.all[at.k];
+  let arr = null;
+  if (ds.ciPersonAmts) arr = ds.ciPersonAmts(label);
+  else if (ds.ciKey === 'ssP0' || ds.ciKey === 'ssOther') {
+    const i = ds.ciKey === 'ssP0' ? at.proj.idxP0 : 1 - at.proj.idxP0;
+    arr = [0, 0];
+    arr[i] = 1;
+  } else arr = typeof incPersonAmounts === 'function' ? incPersonAmounts(ds.ciKey, r) : null;
+  if (!Array.isArray(arr)) return null;
+  const tot = arr.reduce((t, x) => t + (x > 0 ? x : 0), 0);
+  if (!(tot > 0)) return null;
+  const parts = [];
+  arr.forEach((x, i) => {
+    const amt = x > 0 ? (v * x) / tot : 0;
+    if (amt >= 0.5) parts.push([displayPersonName(at.proj.people[i], i), amt]);
+  });
+  if (parts.length === 1) return mrow('', fmt(parts[0][1]) + '/yr'); // one holder: the source's name already says who, so the amount sits beside it
+  return parts.length ? parts.map(([n, amt]) => mrow(n, fmt(amt) + '/yr')).join('\n') : null;
+}
 function ciValueLine(key, f, chart) {
   const src = f && f.ds && (f.ds.ciValues || f.ds.data); // ciValues: true values of a dataset whose plotted height is not its value (cost-basis lines)
   const raw = src ? src[f.idx] : null;
@@ -469,10 +495,12 @@ function ciValueLine(key, f, chart) {
     (Math.abs(v) < 0.5 && !/^Effective tax rate/.test(String(f.ds.label)) && !CI_PCT_KEYS.includes(key))
   )
     return null;
-  const age = ' ' + ciAgeText(chart.data.labels && chart.data.labels[f.idx]);
-  if (CI_PCT_KEYS.includes(key)) return mrow('Value' + age + ':', v.toFixed(key === 'inflation' ? 2 : 1) + '%');
-  if (/^Effective tax rate/.test(String(f.ds.label))) return v > 0 ? mrow('Value' + age + ':', v.toFixed(1) + '%') : null;
-  return mrow('Value' + age + ':', fmt(v) + (CI_STOCK_KEYS.includes(key) || f.ds.ciStock ? '' : '/yr'));
+  const byPerson = ciPersonValueLines(f.ds, v, chart.data.labels && chart.data.labels[f.idx]);
+  if (byPerson) return byPerson;
+  // Empty label: ciRender puts the amount to the right of the element's name (the ages of the people are shown on top of the popup).
+  if (CI_PCT_KEYS.includes(key)) return mrow('', v.toFixed(key === 'inflation' ? 2 : 1) + '%');
+  if (/^Effective tax rate/.test(String(f.ds.label))) return v > 0 ? mrow('', v.toFixed(1) + '%') : null;
+  return mrow('', fmt(v) + (CI_STOCK_KEYS.includes(key) || f.ds.ciStock ? '' : '/yr'));
 }
 function ciShow(e) {
   const hit = ciChartOf(e.target);
@@ -487,12 +515,11 @@ function ciShow(e) {
     if (area && py >= area.top && py <= area.bottom) {
       const f = ciElementAt(hit.chart, e, hit.key);
       if (f && f.stackTotal != null) {
-        const age = ' ' + ciAgeText(hit.chart.data.labels && hit.chart.data.labels[f.idx]);
         info = {
           name: CI_TOTAL_NAME[hit.key] + (f.withState ? ' (federal + state)' : ''),
           color: null,
           owner: '',
-          value: mrow('Value' + age + ':', fmt(f.stackTotal) + (CI_STOCK_KEYS.includes(hit.key) ? '' : '/yr')),
+          value: mrow('', fmt(f.stackTotal) + (CI_STOCK_KEYS.includes(hit.key) ? '' : '/yr')),
           text: f.withState
             ? 'The top edge of the stack: the sum of every band below it at this age, plus the state income tax (the dashed line above the stack).'
             : 'The top edge of the stack: the sum of every band below it at this age.'
@@ -526,7 +553,20 @@ function ciShow(e) {
     if (area && py >= area.top && py <= area.bottom && px >= area.left && px <= area.right) info = ciUnfundedAt(hit.chart, px);
   }
   if (!info) return ciHide();
+  info.ages = ciAgeLines(hit.chart, e);
   ciRender(e, info);
+}
+// The people's ages (same lines as the Complete popup's title) for the year under the pointer; '' when there is no projection row.
+function ciAgeLines(chart, e) {
+  const proj = typeof lastProjection !== 'undefined' ? lastProjection : null,
+    xs = chart.scales && chart.scales.x,
+    labels = chart.data.labels;
+  if (!proj || !proj.rows || !xs || !labels || !labels.length) return '';
+  const rect = chart.canvas.getBoundingClientRect();
+  const px = (e.clientX - rect.left) * (chart.width / rect.width);
+  const idx = Math.max(0, Math.min(labels.length - 1, Math.round(xs.getValueForPixel(px))));
+  const at = ciRowAt(labels[idx]);
+  return at ? popupPersonAgeLines(proj, at.all[at.k]).join('\n') : '';
 }
 function ciRender(e, info) {
   const el = ciEl(),
@@ -540,12 +580,21 @@ function ciRender(e, info) {
   el.style.borderColor = th.border;
   el.style.whiteSpace = 'normal';
   el.style.maxWidth = '340px';
-  el.innerHTML = `<div style="position:relative;padding-left:14px;font-weight:bold;margin-bottom:3px;">${color ? `<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${esc(color)};border:1px solid ${th.fg};box-sizing:border-box;" data-sw></span>` : ''}${esc(name)}</div>${owner ? `<div style="margin-bottom:3px;">${esc(owner)}</div>` : ''}${
-    value
-      ? `<div style="font-weight:bold;margin-bottom:3px;display:flex;justify-content:space-between;gap:12px;">${String(value)
-          .split(TIP_SEP)
-          .map(t => `<span>${esc(t)}</span>`)
-          .join('')}</div>`
+  // A single value line with no label goes to the right of the element's name; labelled lines (per person, passing years…) are rows below it.
+  const vLines = value ? String(value).split('\n') : [];
+  const inline = vLines.length === 1 && vLines[0].startsWith(TIP_SEP) ? vLines[0].slice(1) : null;
+  const rows = inline != null ? [] : vLines;
+  el.innerHTML = `${info.ages ? `<div style="margin-bottom:3px;white-space:pre;">${esc(info.ages)}</div>` : ''}<div style="position:relative;padding-left:14px;font-weight:bold;margin-bottom:3px;display:flex;justify-content:space-between;gap:12px;"><span>${color ? `<span style="position:absolute;left:0;top:.3em;width:9px;height:9px;background:${esc(color)};border:1px solid ${th.fg};box-sizing:border-box;" data-sw></span>` : ''}${esc(name)}</span>${inline != null ? `<span>${esc(inline)}</span>` : ''}</div>${owner ? `<div style="margin-bottom:3px;">${esc(owner)}</div>` : ''}${
+    rows.length
+      ? rows
+          .map(
+            ln =>
+              `<div style="font-weight:bold;margin-bottom:3px;display:flex;justify-content:space-between;gap:12px;">${ln
+                .split(TIP_SEP)
+                .map(t => `<span>${esc(t)}</span>`)
+                .join('')}</div>`
+          )
+          .join('')
       : ''
   }${text ? `<div>${esc(text)}</div>` : ''}`;
   el.style.opacity = 1;

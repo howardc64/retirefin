@@ -1,5 +1,18 @@
 ## Change Log
 
+## Chart tooltip age display, round 3
+- The word "Age" is gone: person lines read `Peter   67` / `Yen     Passed`, names padded so the ages start in one left-aligned column (both modes; Components mode keeps spaces with `white-space:pre`).
+- Components mode: income held by one person shows just the amount beside the source name (no second line with the holder's name).
+
+## Chart tooltip age display, round 2
+- **Complete mode**: the people's age lines are left aligned (popup title alignment is now left) and the per-source lines no longer repeat an age (per-person income lines keep the name).
+- **Components mode**: the people's ages (same lines as Complete) are shown on top of the popup; the amount sits to the right of the element's name instead of `Value (Name, age N):`; income split between two people shows one `Name  amount` row each.
+
+## Chart tooltip age display
+- **Complete mode**: each person's line is now `Name  Age 67` (age rounded, right of the name instead of right-justified); no "Living" text while alive; `Passed` replaces the age after passing. Per-band lines (`Wage — Name · age 67`) round the age too.
+- **Components mode**: per-person Value lines use the same layout (`Value (Name  Age 67):` / `Value (Name  Passed):`).
+- `tests/baseline.json` not regenerated (it already differs from current output on unrelated age fields).
+
 ## Wage contributions, payroll tax, NY / NYC tax, Stock options
 - **Wage card**: the amount is now the *gross* wage; new fields *Pre-tax IRA/401(k) contribution* (comes out of the wage, added to the Pre-tax IRA/401(k) card's account) and *Roth IRA/401(k) contribution* (today's $; an expense paid from after-tax money, added to the Roth account, shown as its own band on the Household Expenses chart). Entering one turns the matching card on; it is ignored while that card is off. The Roth IRA card is now **Roth IRA / 401(k)**.
 - **Payroll tax** (compute/tax.js `computePayrollTax`): on the wage after the pre-tax contribution (plus stock-option gains counted as wage): Social Security 6.2% to the $184,500 base, Medicare 1.45%, Additional Medicare 0.9% over $250k / $200k (deflated, un-indexed), FUTA 0.6% of the first $7,000 (deflated). The wage is reduced by it and the remainder is the ordinary-income wage; FICA, Additional Medicare and FUTA are stacked bands on the Total Income Tax chart (row fields `payrollTax`, `payrollFica`, `payrollAddlMedicare`, `payrollFuta`, `grossWageTotal`, `pretaxContribTotal`, `rothContribTotal`, `expRoth`).
@@ -163,3 +176,6 @@ The glide added in 327 timed itself with the timestamp `requestAnimationFrame` h
 - **Controls**: rectangular push buttons (blue primary), native-style checkbox, radio and pop-up button, white slider knob, blue focus ring, translucent menus with a blue hover row (Load file, input drop-down, Scenario / Notes / LLM cards, chat panel, tooltips), blue chat bubbles for the user. The header is a translucent bar and sits above the panels (`z-index:50`) so its menus are not covered by the sticky columns.
 - **Colours elsewhere**: A/B chips, Monte Carlo trial banner and outlines, live bar, badges and toasts use the macOS system colours; chart canvas themes (`CHART_THEMES`), tooltip popup, Chart.js font, Monte Carlo / market / chat chart colours updated; the Usage, Tips and Formulas pages share the new fonts and palette in both themes. The per-category income / expense band colours are unchanged.
 - No logic changed. `tests/charts/theme_test.js` passes (16/16). Checked in headless Chrome in both colour schemes; not checked on Safari / Firefox (`backdrop-filter` and `appearance:none` are prefixed for Safari).
+
+## 354 — Two-row age axis for couples
+With two or more people every time-based chart's X axis has two rows (`ageAxisTick2`, chartHelpers.js; painted by the `ageAxisTitle` plugin, overlayPlugin.js): row 1 is the older person's age, row 2 the younger person's age (white on a pill). Each row switches to the last two digits of the calendar year, in red, once that person has passed. One person: unchanged (single row; the Social Security start-age chart is unchanged too). The axis title is unchanged ("Older, Younger age"). Checked in headless Chrome with `Couple_Heir.json` and `Widow.json`, light and dark.

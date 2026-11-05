@@ -608,7 +608,29 @@ const ageAxisTitlePlugin = {
       ctx.font = tfont + 'px ' + fam;
       ctx.textAlign = 'center';
       items.forEach((it, i) => {
-        const lab = chart.data.labels[ticks[i].value];
+        const lab = chart.data.labels[ticks[i].value],
+          two = ageAxisTick2(lastProjection, lab);
+        if (two) {
+          // Two people: row 1 (older) and row 2 (younger) are painted here, one line each, where Chart.js laid out its (transparent) two-line label.
+          const tr = it.options.translation || it.translation,
+            lh = (it.font && it.font.lineHeight) || tfont * 1.2,
+            base = it.options.textBaseline || 'middle',
+            y0 = tr[1] + (it.textOffset || 0);
+          ctx.textBaseline = base;
+          two.forEach((ln, j) => {
+            const ty = y0 + j * lh,
+              tw = ctx.measureText(ln.text).width + 8,
+              cy = base === 'top' ? ty + tfont / 2 : base === 'bottom' ? ty - tfont / 2 : ty;
+            if (ln.pill) {
+              pillPath(ctx, tr[0] - tw / 2, cy - tfont / 2 - 2, tw, tfont + 4);
+              ctx.fillStyle = AGE_C_YOUNG;
+              ctx.fill();
+              ctx.fillStyle = '#fff';
+            } else ctx.fillStyle = ln.color;
+            ctx.fillText(ln.text, tr[0], ty);
+          });
+          return;
+        }
         if (ageAxisTick(lastProjection, lab).color !== AGE_C_YOUNG) return;
         const tr = it.options.translation || it.translation,
           tx = tr[0],
