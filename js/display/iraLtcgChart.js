@@ -11,7 +11,7 @@
 //   LTCG chart  (`charts.ltcg`, #ltcgChart) Long-term capital gain realized this year, one band per brokerage portfolio (row.portfoliosByPerson[i][j].ltcg, the exact
 //                 pre-SCGL gain) plus one band for property sold (row.reSaleGain). A dashed line shows the net gain taxed when the SCGL carryforward is used.
 //
-// Both are read-only views of projection rows (nothing is recomputed here), have their own Y scale (in no Same-scale group), and show no panel
+// Both are read-only views of projection rows (nothing is recomputed here), have their own Y scale (in no scale-box group), and show no panel
 // when there is nothing to draw (setChartAvailable) — no pre-tax IRA, or no portfolio / property that could be sold.
 // ═══════════════════════════════════════════════════════════════
 // Chart Element text of the IRA withdrawals chart's lines: stamped onto its datasets as ds.info by upsertLineChart (chartHelpers.js), read by chartInfo.js.

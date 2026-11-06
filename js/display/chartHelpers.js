@@ -415,6 +415,7 @@ function onAgeRangeInput(val, commit, which) {
     window.refitVisibleOnly = false;
   }
   if (commit) syncAgeRangeInput(true);
+  syncScaleInputs(true);
   if (typeof saveDebounced === 'function') saveDebounced();
 }
 function ageLabelRange(fromAge, toAge) {
@@ -454,8 +455,8 @@ function allCharts() {
 // jump while sliders move; Rescale (one chart) clears its lock so the next render re-fits it. The locked maxima are saved with the plan
 // (state.chartYMax, per scenario; see captureChartYMax / restoreChartYMax) and come back when a file is loaded.
 //
-// The "Same scale" buttons above the charts are one-shot actions, not sticky links: a click sets every chart in the button's group to the group's
-// largest current maximum (applySameScale). Afterwards each chart is independent again — Rescale on one chart changes only that chart.
+// The scale boxes above the charts (onScaleInput) are one-shot actions, not sticky links: typing a value sets every chart in the box's group to it.
+// Afterwards each chart is independent again — Rescale on one chart changes only that chart.
 const chartYMax = Object.fromEntries(Object.keys(charts).map(k => [k, null]));
 function lockedYMax(key, compute) {
   if (chartYMax[key] == null) chartYMax[key] = compute();
@@ -492,7 +493,7 @@ function niceMax(maxV, floor) {
   for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * mag >= v - 1e-9) return m * mag;
   return 10 * mag;
 }
-// Which charts each Same-scale button covers. IRA, LTCG and Inheritance asset income count as income (the income buttons). The tax button covers exactly three charts (Total tax, Ordinary income tax, QDIV / LTCG / NIIT tax); the Annual expenses chart, although it has an income-tax component, counts as income & expense only. Cumulative household SS and Social Security tax are in no group and always keep their own scale.
+// Which charts each scale box covers. IRA, LTCG and Inheritance asset income count as income (the income buttons). The tax button covers exactly three charts (Total tax, Ordinary income tax, QDIV / LTCG / NIIT tax); the Annual expenses chart, although it has an income-tax component, counts as income & expense only. Cumulative household SS and Social Security tax are in no group and always keep their own scale.
 // They are not part of a new plan's starting common scale (DEFAULT_SAME_SCALE).
 const DEFAULT_SAME_SCALE = ['expense', 'income', 'incomeMagi', 'incomeOrd', 'incomeQual', 'tax', 'taxOrd', 'taxQual'];
 const SCALE_LINK_GROUPS = {
@@ -544,11 +545,35 @@ function toggleIrmaaAsTax(on) {
   viewIrmaaAsTax = !!on;
   recompute();
 }
-// A Same-scale button: one action, nothing stays switched on.
-function toggleScaleLink(name) {
-  applySameScale(name);
+// The three scale boxes above the charts (Income & expense scale $k, Tax scale $k, Asset scale $M): typing a value sets the Y maximum of every chart in the
+// box's group to it at once (each chart stays independent afterwards: its own Rescale button refits just that chart). An empty / zero box refits the group to the data.
+// `unit` is dollars per box unit; `main` is the chart whose maximum the box shows.
+const SCALE_INPUTS = {
+  incomeExpense: {id: 'scaleIncExpIn', unit: 1000, main: 'income'},
+  tax: {id: 'scaleTaxIn', unit: 1000, main: 'tax'},
+  asset: {id: 'scaleAssetIn', unit: 1e6, main: 'asset'}
+};
+function onScaleInput(name, val) {
+  const cfg = SCALE_INPUTS[name],
+    n = Number(val);
+  if (!cfg) return;
+  const m = String(val).trim() !== '' && Number.isFinite(n) && n > 0 ? n * cfg.unit : null;
+  (SCALE_LINK_GROUPS[name] || []).forEach(k => {
+    if (k in chartYMax) chartYMax[k] = m;
+  });
   recompute();
+  syncScaleInputs(true);
   saveDebounced();
+}
+// Show each box's current value (the maximum of its main chart), unless the person is typing in it.
+function syncScaleInputs(force) {
+  Object.keys(SCALE_INPUTS).forEach(name => {
+    const cfg = SCALE_INPUTS[name],
+      el = document.getElementById(cfg.id);
+    if (!el || (!force && document.activeElement === el)) return;
+    const v = chartYMax[cfg.main];
+    el.value = v != null && v > 0 ? String(Math.round((v / cfg.unit) * 1000) / 1000) : '';
+  });
 }
 
 // Which tax-bracket / IRMAA reference lines to draw on a small chart. A chart with a dozen dashed lines is unreadable: lines far above the data are wasted on empty space

@@ -3,7 +3,7 @@
 // DISPLAY / MONTE CARLO PANEL — one card under the chart grid: settings, Run / Cancel, a result summary,
 // a fan chart of household assets by age (10/25/50/75/90th percentile, deterministic scenario overlaid) and the
 // "still funded through age X" curve. Reads `state` only through compute/monteCarlo.js; draws its own two
-// Chart.js canvases (it is not part of the chart-panel registry, so it has no Hide / drag / Same-scale).
+// Chart.js canvases (it is not part of the chart-panel registry, so it has no Hide / drag / scale box).
 // The card's settings (every group, Trials, Seed and its Hide box) are part of the plan: they live in `state.ui.mcCfg` (default null = the card's defaults), so they are saved to file / autosave,
 // restored on load and put back to the defaults by Reset.
 // Runs on the main thread in small chunks so the page stays responsive and file:// still works.

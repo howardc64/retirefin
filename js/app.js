@@ -15,7 +15,7 @@ let lastProjection = null;
 function recompute() {
   if (viewContext().loaded && !mcTrialStillValid()) mcTrialClear(); // the plan was edited: leave the Monte Carlo trial view (display/mcPanel.js)
   const inTrial = viewContext().loaded;
-  lastProjection = inTrial ? mcTrialShown() : computeProjection(); // a loaded Monte Carlo trial stays on screen (Rescale, Same-scale etc. still work on it)
+  lastProjection = inTrial ? mcTrialShown() : computeProjection(); // a loaded Monte Carlo trial stays on screen (Rescale, the scale boxes etc. still work on it)
   renderCharts();
   updateHeaderNames();
   refreshWithdrawOrderPanel(); // asset names in the withdrawal-order card (assumptions.js)
@@ -83,7 +83,7 @@ function buildAllCharts() {
 function renderCharts() {
   // A plan with no saved scales (first draw, Reset, an older file) starts with the income, expense and tax charts on one common scale: a dry pre-pass
   // computes every chart's own maximum without drawing, applySameScale() raises that group to its largest, and the real pass then draws each chart once.
-  // After that every chart's scale is its own (Rescale / the Same-scale buttons change it) and is saved with the plan.
+  // After that every chart's scale is its own (Rescale / the scale boxes change it) and is saved with the plan.
   if (DEFAULT_SAME_SCALE.every(k => chartYMax[k] == null)) {
     window.dryPass = true;
     try {
@@ -96,6 +96,7 @@ function renderCharts() {
   buildAllCharts();
   captureChartYMax();
   if (typeof syncAgeRangeInput === 'function') syncAgeRangeInput();
+  if (typeof syncScaleInputs === 'function') syncScaleInputs();
 }
 
 function renderAll() {

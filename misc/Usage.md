@@ -189,11 +189,12 @@ Each *Living expense & income* portfolio has a **Sales** list (not shown for IDG
 ### Scenarios
 
 - The first scenario is **A**. **New scenario** copies the one on screen and shows the copy, so your next edits go to the copy.
-- Click any scenario's chip to switch to it: every input changes and the charts animate to its values, on the same chart scale.
+- Click any scenario's chip to switch to it: every input changes and the charts animate to its values. Each scenario keeps its own chart scales (see *Scale boxes* below), so a switch shows that scenario's scales; a new scenario starts with a copy of the scales of the one it was made from.
 - **Delete scenario** removes the one on screen, one at a time; the last one can't be deleted.
 - The card also names each scenario and lists the inputs that differ between them.
 - **Save** writes every scenario into the file and **Load file** brings them all back.
 - Close the card by clicking the button again, pressing Esc, or clicking ✕.
+- **Move the card** by dragging its title bar (the grab cursor). It stays where you put it while you close and reopen it, and cannot be dragged off the screen. After a reload it returns to the top right.
 
 ### Export Excel
 
@@ -299,10 +300,10 @@ The four charts are the same size, in a 2 × 2 grid.
 
 | Control | What it does |
 |---|---|
-| **Age range** boxes (left of the Grid button): *start* to *end* | The first and last age shown on every chart. Start: default and minimum is the current age; it can be at most one year before the end. End: default and maximum is the age of the last passing plus the IRA stretch years; a blank or larger entry uses that. The chart scales (and the Same-scale buttons) are fitted to the years shown only. Display only: the Excel export and the projection are unchanged. Each scenario keeps its own range (switching scenarios shows that scenario's), saved with the plan. |
-| **Grid** button (right of the Same scale buttons) | Switches between a **2×N** and a **3×N** grid; each size remembers its own arrangement. |
+| **Age range** boxes (left of the Grid button): *start* to *end* | The first and last age shown on every chart. Start: default and minimum is the current age; it can be at most one year before the end. End: default and maximum is the age of the last passing plus the IRA stretch years; a blank or larger entry uses that. The chart scales (and the scale boxes) are fitted to the years shown only; changing the range refits them. Display only: the Excel export and the projection are unchanged. Each scenario keeps its own range (switching scenarios shows that scenario's), saved with the plan. |
+| **Grid** button (right of the Age range boxes) | Switches between a **2×N** and a **3×N** grid; each size remembers its own arrangement. |
 | **Hide** box on a panel | Hides the chart; a hidden panel keeps its place as a title bar. On a fresh start (first visit, *Start fresh*, *Reset to defaults*) every chart starts hidden and rows that hold nothing are closed; a loaded file or autosave keeps its own Hide boxes. |
-| **↕ Rescale** | Refits only that chart's vertical scale. |
+| **↕ Rescale** | Refits only that chart's vertical scale, at once; the other charts keep theirs. |
 | **Title bar drag** | Moves the chart (see below). |
 
 Moving a chart:
@@ -320,20 +321,22 @@ Moving a chart:
 - **Faint red band** behind the data: a year whose expenses could not be paid.
 - **IRA stretch alert**: the red note about an IRA whose stretch is not set sits in the row of scale buttons, so every chart card keeps the same height.
 
-### Same scale buttons
+### Scale boxes
 
-The row of buttons above the charts sets a group of charts to one vertical scale. It is a one-time action; nothing stays switched on.
+Three boxes above the charts set the vertical scale of a group of charts. Type the largest value you want on the Y axis and press Enter (or click out of the box); every chart in the group changes to it at once. It is a one-time action; nothing stays linked afterwards.
 
-| Button | Charts in the group |
-|---|---|
-| *income & expense* | Annual income, Annual expenses, MAGI, Taxable ordinary and qualified income, IRA, realized LTCG, Inheritance asset income |
-| *tax* | Total tax, Ordinary income tax, QDIV / LTCG / NIIT tax only |
-| *income, expense & tax* | All of the above together |
-| *asset & IDGT* | Asset value and IDGT value |
+| Box | Unit | Charts in the group |
+|---|---|---|
+| *Income & expense scale $k* | thousands of $ | Annual income, Annual expenses, MAGI, Taxable ordinary and qualified income, IRA, realized LTCG, Inheritance asset income |
+| *Tax scale $k* | thousands of $ | Total tax, Ordinary income tax, QDIV / LTCG / NIIT tax only |
+| *Asset scale $M* | millions of $ | Asset value and IDGT value |
 
-- Annual expenses is treated as income & expense even though it has an income-tax component.
-- The IRA, LTCG and Inheritance asset income charts follow every button that includes income. Cumulative household SS and Social Security tax always keep their own scales.
-- Every chart's scale is saved with the plan and restored when it is loaded. A plan with no saved scales starts with the income, expense and tax charts on one common scale.
+- For example, type 250 in the income & expense box for a $250,000 axis, or 12.5 in the asset box for $12.5 million. Amounts are in today's dollars, like the charts.
+- Each box shows the current maximum of its main chart (Annual income, Total tax, Asset value) and is empty (*auto*) when that chart is fitted to the data. Clear a box to refit its group to the data.
+- A scale smaller than the data cuts the chart off at that value.
+- **↕ Rescale** on a chart refits only that chart, immediately; the other charts in its group keep their scales.
+- Cumulative household SS and Social Security tax have no box; use their own Rescale buttons.
+- Every chart's scale is saved with its scenario and restored when the plan is loaded or you switch scenarios. A scenario with no saved scales starts with the income, expense and tax charts on one common scale.
 - Hover a chart for a popup of that year's numbers.
 
 ## Paying expenses and reinvesting income

@@ -8,7 +8,7 @@
 //       inherited portfolios: row.portfoliosByPerson[i][j] divUsed + divReinvested split by the portfolio's qdivPct, taxExempt, ltcg
 //   Real estate sale gain
 //       an inherited property pays nothing else: row.realEstateByPerson[i][j].sale.gain when it is sold
-// No bracket lines. Read-only view of projection rows; own Y scale but part of the income Same-scale groups (SCALE_LINK_GROUPS); no panel when no inherited asset pays anything
+// No bracket lines. Read-only view of projection rows; own Y scale but part of the income scale-box group (SCALE_LINK_GROUPS); no panel when no inherited asset pays anything
 // (setChartAvailable). The popup lists each component, the total, and the total per inherited asset. inhIncomeAssets() / inhIncomeComps() are shared with the Excel export.
 // ═══════════════════════════════════════════════════════════════
 // Chart Element text of the inherited-asset income chart's lines: stamped onto its datasets as ds.info by upsertLineChart (chartHelpers.js), read by chartInfo.js.

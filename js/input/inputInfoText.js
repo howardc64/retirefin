@@ -136,27 +136,7 @@ const II_FIELDS = [
   [
     /Rescale$/,
     '',
-    "Refit this chart's vertical scale to the current data. Every chart that shares its scale (see the Same scale buttons above the charts) is refitted together."
-  ],
-  [
-    /^Same scale: income & expense$/,
-    '',
-    'On: the Annual income, Annual expenses, MAGI, Taxable ordinary income, Taxable qualified income charts (and the IRA, LTCG and Inheritance asset income charts) all use the same vertical scale (the largest of them).'
-  ],
-  [
-    /^Same scale: tax$/,
-    '',
-    'On: the Total tax, Ordinary income tax and QDIV / LTCG / NIIT tax charts all use the same vertical scale (the largest of them).'
-  ],
-  [
-    /^Same scale: income, expense & tax$/,
-    '',
-    'On: every income, expense and tax chart (not Cumulative household SS or Social Security tax) uses one vertical scale, so their heights can be compared directly.'
-  ],
-  [
-    /^Same scale: asset & IDGT$/,
-    '',
-    'On: the Asset value and IDGT value charts use the same vertical scale. Cumulative household SS, Social Security tax, the IRA chart, the LTCG chart and the Inheritance asset income chart always keep their own scale unless an income Same scale button is used.'
+    "Refit this chart's vertical scale to the current data, right away. Only this chart changes; the other charts keep their scales."
   ],
   [
     /^Grid: [23]\u00d7N$/,

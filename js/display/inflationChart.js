@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════
 // DISPLAY / INFLATION CHART — the inflation rate the projection uses in each year (%): the plan's constant rate (dashed), and, while a Monte Carlo trial is
 // loaded into the charts (display/mcPanel.js, "Study one trial") with Random inflation on, that trial's own yearly rate. The popup also gives the price level
-// relative to the plan's rate (1.15 = prices 15% above what the constant rate would have given). Read-only; own Y scale, in no Same-scale group.
+// relative to the plan's rate (1.15 = prices 15% above what the constant rate would have given). Read-only; own Y scale, in no scale-box group.
 // ═══════════════════════════════════════════════════════════════
 function buildInflationChart() {
   if (typeof Chart === 'undefined' || !lastProjection) return;

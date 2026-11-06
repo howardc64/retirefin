@@ -70,8 +70,19 @@ ok(J('scnActive')==='A'&&J('chartYMax.income')===111000&&J('state.chartYMax.inco
 run(`scnSwitch('B');`);
 ok(J('chartYMax.income')===222000&&J('state.chartYMax.income')===222000,'switching to B shows B\'s own scales');
 ok(J('scnSnaps.A.chartYMax.income')===111000,'A\'s scales are kept in its snapshot');
+// scale boxes: one value sets a whole group; Rescale refits one chart only
+run(`onScaleInput('incomeExpense','250'); onScaleInput('tax','40'); onScaleInput('asset','12.5');`);
+ok(J('["expense","income","incomeMagi","incomeOrd","incomeQual","ira","ltcg","inhIncome"].every(k=>chartYMax[k]===250000)'),'Income & expense scale $k sets every income and expense chart to $250k');
+ok(J('["tax","taxOrd","taxQual"].every(k=>chartYMax[k]===40000)'),'Tax scale $k sets the three tax charts');
+ok(J('chartYMax.asset===12.5e6&&chartYMax.idgt===12.5e6'),'Asset scale $M sets Asset value and IDGT');
+ok(J('chartYMax.ss!==250000&&chartYMax.ss!==12.5e6'),'other charts are untouched');
+ok(J('state.chartYMax.income===250000&&state.chartYMax.asset===12.5e6'),'the typed scales are saved with the scenario');
+run(`rescaleChart('income');`);
+ok(J('chartYMax.income>0&&chartYMax.income!==250000&&chartYMax.expense===250000&&chartYMax.tax===40000'),'Rescale refits only that chart, at once');
+run(`onScaleInput('tax','');`);
+ok(J('chartYMax.tax>0&&chartYMax.tax!==40000'),'clearing a box refits the group to the data');
 // save and load
-ok(J('hydrateState(JSON.parse(JSON.stringify(state))).chartYMax.income')===222000,'scales survive save and load');
+ok(J('(h=>Object.keys(state.chartYMax).every(k=>h[k]===state.chartYMax[k]))(hydrateState(JSON.parse(JSON.stringify(state))).chartYMax)&&state.chartYMax.asset===12.5e6'),'scales survive save and load');
 run(`var L=JSON.parse(JSON.stringify(state)); delete L.chartYMax; L.ui.chartYMax={income:333000,asset:'junk',tax:-5}; var H=hydrateState(L);`);
 ok(J('H.chartYMax.income')===333000&&J('H.chartYMax.asset')===null&&J('H.chartYMax.tax')===null&&!('chartYMax' in J('H.ui')),'older file with ui.chartYMax loads into the scenario; bad values become null');
 // not an input
